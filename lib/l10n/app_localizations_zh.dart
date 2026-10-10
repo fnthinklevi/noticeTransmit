@@ -3435,6 +3435,17 @@ class AppLocalizationsZh extends AppLocalizations {
       '勾上＝本机这两段当场办掉：那一列勾上 ＋ 一条目标=它的通道。';
 
   @override
+  String get fnthinkPairItemsTitle => '也可以只给这一档里的这几项（一幅都不勾＝只给档位）：';
+
+  @override
+  String get fnthinkPairItemsNote =>
+      '要填参数的那几项（切哪条通道、启动哪个应用、搜什么词）不在这里勾：那得按参数授权，还没做。';
+
+  @override
+  String get fnthinkPairItemsBroken =>
+      '本机算不出可勾的项（契约声明的取值域与那两张词表不一致）⇒ 这一条只能给档位，逐条授权给不了。';
+
+  @override
   String get fnthinkPairApprovedOneWay =>
       '这边已经能往它发了。反过来那一半要两台各做一次：在它那一台挂一枚口令，回这里点「配对另一台设备」把它输进去，再由那台点一次同意 —— 关系记在被投那台的名单里，这台替它点不了。';
 

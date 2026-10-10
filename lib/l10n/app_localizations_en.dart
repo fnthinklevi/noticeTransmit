@@ -3593,6 +3593,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Checked = both local legs happen right now: the roster tick plus a channel targeting it.';
 
   @override
+  String get fnthinkPairItemsTitle =>
+      'Or grant only some items of this level (nothing checked = the level alone):';
+
+  @override
+  String get fnthinkPairItemsNote =>
+      'Items that need an argument (which channel to toggle, which app to launch, what to search) are not on this list: per-argument granting is not built yet.';
+
+  @override
+  String get fnthinkPairItemsBroken =>
+      'This device could not work out the grantable items (the contract\'s value domain disagrees with its two tables) ⇒ this request can get the level, not per-item grants.';
+
+  @override
   String get fnthinkPairApprovedOneWay =>
       'This side can now send to it. The other half needs one step on each device: arm a code over there, enter it here under \'Pair another device\', and let that device approve once — the relationship lives on the receiving device\'s list, and this one cannot click for it.';
 

@@ -860,6 +860,9 @@ class FnthinkReceiveCoordinator {
   Future<FnthinkPairAnswer> confirmPairing({
     required FnthinkPairRequest request,
     required bool approve,
+    // 逐条勾选（T134 片3）：由同意屏那张表递进来。缺省空清单是**合法答复**（只给档位），
+    // 不是"忘了传" —— 所以这里不拿 `null` 当"没勾"，也不许在下游补默认值。
+    List<String> items = const <String>[],
   }) async {
     final resolved = await _resolveSpec(requireEnabled: false);
     if (resolved.reason != null) {
@@ -896,18 +899,21 @@ class FnthinkReceiveCoordinator {
       );
     }
     final service = _serviceFactory(spec);
+    // 拒绝那一支**一律不带清单**（契约 `itemsMustBeEmptyOnDeny`，内核在构造载荷时也会抛）。
+    // 不在这里把它咽成空再由内核判："我在说不"的那一发里同时递出一份授权"这件事，
+    // 页面传错了就该炸在签名之前，而不是悄悄发出去换一句 400。
+    final grantedItems = approve ? items : const <String>[];
     final FnthinkPairConfirmResult result;
     try {
       result = await service.pairConfirm(
         requestId: request.requestId,
         decision: approve ? approved : others.single,
         level: wanted ?? ceiling,
-        // 逐条勾选（T134 片1）：这一发现在把 items 键签出去了，但值照旧是空清单 ——
-        // 同意屏上那张勾选表是片3 的活。⚠ 空清单**不等于这一档什么都能做**：服务端按
-        // `capabilities.itemRequiredFromLevel` 判，从 L2 起逐条项仍要真实出现在清单里才放行，
-        // 所以今天递 `[]` 的结果与本片之前一致（只给档位）。把它省掉才是问题：
-        // 契约 `optionalFields` 允许老设备缺席（读成 []），新设备**应当显式带上**。
-        items: const <String>[],
+        // 逐条勾选（T134 片3）：这一份来自同意屏那张表（`pairItemCandidates` 派生的候选集里
+        // 用户勾上的那些）。⚠ 空清单**不等于这一档什么都能做**：服务端按
+        // `capabilities.itemRequiredFromLevel` 判，从 L2 起逐条项要真实出现在清单里才放行。
+        // 老客户端没有这张表 ⇒ 契约 `optionalFields` 让它缺席读成 []，那是降级不是放行。
+        items: grantedItems,
         // 全协议唯一一发 target 不是自己：授权给谁，就写给谁。
         counterpart: request.requester,
       );
@@ -967,11 +973,11 @@ class FnthinkReceiveCoordinator {
           // 而"什么时候在这台设备上同意的"本来就以这一台为准。
           grantedAt: DateTime.now().toUtc().millisecondsSinceEpoch,
           requestId: request.requestId,
-          // T49：逐条清单这一版是**空的**。原因不是漏填，而是这一条答复里根本没有勾选表
-          // —— 今天的界面只有一个"同意/拒绝"，而契约 `grantDefaults.items = []` 定的是
-          // 查不到清单就按最窄档判。写 L2/L3 的行却带着空清单，读起来正是 T49 要防的那个
-          // 形状（L3 却什么都还没逐条给过）。给 T51 做完逐条勾选那一格，这里才有真值可写。
-          items: const <String>[],
+          // T134 片3：本机这一行记的必须是**服务端收下那一份清单**。
+          // ⚠ 不镜像的后果不是"名单少一格"：设备侧 apply 段那条逐条判据读的就是本机这份
+          //   （`FnthinkPeerService.grantFor(...)` → L3 执行前那一判），服务端认了、本机自己
+          //   不认，表现是"对方发过来的命令在本机被静默驳回"，而两侧日志各自都说自己没错。
+          items: grantedItems,
         ),
       );
       return FnthinkPairAnswer(result: result, wrote: wrote);

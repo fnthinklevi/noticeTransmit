@@ -27,6 +27,7 @@ import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
+import 'package:notice_transmit/services/fnthink_pair_items.dart';
 import 'package:notice_transmit/services/fnthink_pair_link.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
@@ -1804,6 +1805,152 @@ void main() {
         findsOneWidget,
       );
       expect(ctx.h.confirmAsked(), isEmpty);
+    });
+
+    // ── T134 片3：同意那一屏上的逐条勾选表 ──────────────────────────────
+    // 这一组钉的是三件事：表**从契约派生**（不是界面抄的名单）、勾上去的东西真的进了
+    // 被签的载荷（片2 之后服务端会把它写进授权表）、以及**勾了又拒绝**那一发不带清单
+    // （内核在构造载荷时就会抛，页面递错了就是当场炸而不是发出去换一句 400）。
+    testWidgets('用不上清单的那一档 ⇒ 一幅都不画（L1 只给档位，画表就是请用户勾一组判不到的东西）', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L1')]);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-items-title-pr_9')),
+        findsNothing,
+        reason: '契约 itemRequiredFromLevel 之下的那一档不查清单：这一格出现就是在撒谎',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-item-pr_9-alert:ring')),
+        findsNothing,
+      );
+      await _tapPair(tester, ctx.l10n, approve: true);
+      expect(sentPayload(ctx.h.confirmAsked().single)['items'], isEmpty);
+    });
+
+    testWidgets('L2 那一条画的是契约派生的那几项，要填参数的那一项不在表上', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      for (final item in pairItemCandidates(contract)) {
+        expect(
+          find.byKey(ValueKey('fnthink-pair-item-pr_9-$item')),
+          findsOneWidget,
+          reason: '少画一项＝替用户少给一项授权，而屏幕上看不出来',
+        );
+      }
+      // `channel:toggle` 在线上发的是 `channel:toggle/<通道>` ⇒ 名字进了表也永远对不上。
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-item-pr_9-channel:toggle')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-items-note-pr_9')),
+        findsOneWidget,
+        reason: '为什么这里少几项，必须写在同一格上，不然用户只会以为"这台不给我勾"',
+      );
+      // 画了这张表本身不许替用户答复：一条请求都没发出去，才是"等用户点"。
+      expect(ctx.h.confirmAsked(), isEmpty);
+    });
+
+    testWidgets('勾两项再同意 ⇒ 被签的载荷带的就是这两项（顺序与去重交给服务端）', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      for (final item in ['alert:ring', 'notification']) {
+        final box = find.byKey(ValueKey('fnthink-pair-item-pr_9-$item'));
+        await revealTo(tester, box);
+        await tester.ensureVisible(box);
+        await tester.tap(box);
+        await tester.pumpAndSettle();
+      }
+      await _tapPair(tester, ctx.l10n, approve: true);
+      final body = sentPayload(ctx.h.confirmAsked().single);
+      expect((body['items']! as List).cast<String>().toSet(), {
+        'alert:ring',
+        'notification',
+      });
+      expect(body['decision'], contract.pairConfirmApproveDecision);
+      // 本机名单那一行记的必须是**同一份**：设备侧执行前那一判读的是本机这份，
+      // 服务端认了而这台自己不认，表现是"对方发来的命令在本机被静默驳回"。
+      expect(
+        ctx.h.peerRows().single.items.toSet(),
+        {'alert:ring', 'notification'},
+        reason: '名单里那一项空着 ⇒ 本机自己把刚授权出去的东西又收回去了',
+      );
+    });
+
+    testWidgets('一幅都不勾 ⇒ 那一枚键仍在，值是空数组（不是把键省掉）', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      await _tapPair(tester, ctx.l10n, approve: true);
+      final body = sentPayload(ctx.h.confirmAsked().single);
+      expect(
+        body.keys,
+        contains('items'),
+        reason:
+            '契约允许**老设备**缺席读成 []；新设备应当显式带上，'
+            '否则"我没勾"和"这台还不认识这一枚键"在服务端长成同一个请求',
+      );
+      expect(body['items'], isEmpty);
+    });
+
+    testWidgets('勾了又改主意按拒绝 ⇒ 那一发不带清单', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      final box = find.byKey(
+        const ValueKey('fnthink-pair-item-pr_9-alert:ring'),
+      );
+      await revealTo(tester, box);
+      await tester.ensureVisible(box);
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      await _tapPair(tester, ctx.l10n, approve: false);
+      final body = sentPayload(ctx.h.confirmAsked().single);
+      expect(
+        body['items'],
+        isEmpty,
+        reason:
+            '内核在构造载荷时就抛（契约 itemsMustBeEmptyOnDeny）：'
+            '一边说不、一边把授权递过去，那句话本身是反的',
+      );
+    });
+
+    testWidgets('两条请求各勾各的：给这一条勾的那一项不落进那一条的答复', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: [
+          request('L2'),
+          const FnthinkPairRequest(
+            requestId: 'pr_8',
+            requester: '8KMNPQRSTVWX999777',
+            requesterPublicKey: 'AAAA',
+            level: 'L2',
+          ),
+        ],
+      );
+      final box = find.byKey(
+        const ValueKey('fnthink-pair-item-pr_9-alert:ring'),
+      );
+      await revealTo(tester, box);
+      await tester.ensureVisible(box);
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      final approve = find.byKey(const ValueKey('fnthink-pair-approve-pr_8'));
+      await revealTo(tester, approve);
+      await tester.ensureVisible(approve);
+      await tester.tap(approve);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ctx.l10n.confirm));
+      await tester.pumpAndSettle();
+      await dismissOutcome(tester);
+      final asked = ctx.h.confirmAsked();
+      expect(asked, hasLength(1));
+      expect(
+        sentPayload(asked.single)['items'],
+        isEmpty,
+        reason:
+            '勾选按 requestId 分键：共用一份 Set 会把"我给那台勾的"记到这台头上，'
+            '而答复是按条签出去的',
+      );
     });
 
     testWidgets('看不懂的请求还能划掉：拒绝那一发照发，档位是封顶那一档', (tester) async {

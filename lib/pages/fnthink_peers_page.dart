@@ -10,9 +10,11 @@ import '../models/fnthink_peer.dart';
 import '../models/fnthink_channel.dart';
 import '../services/fnthink_channel_service.dart';
 import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_pair_items.dart';
 import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_remote_action_labels.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
@@ -138,6 +140,18 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
   /// 这里只留一个布尔：那句文案是**同一句**（不分辨哪一种不对），原因留在 outcome 里不进界面。
   bool _pairLinkRejected = false;
 
+  /// 逐条勾选那张表的候选集（T134 片3，派生自契约，见 `pairItemCandidates`）。
+  List<String> _pairItems = const <String>[];
+
+  /// 契约的取值域与本机的两张词表**不一致**（派生出的项落在取值域外）。
+  /// 这时候那张表一幅都不画，但要说一句"这一屏逐条给不了"——
+  /// 静默退化成"只能给档位"，用户会以为自己已经勾过了。
+  bool _pairItemsBroken = false;
+
+  /// **这一条请求**上勾了哪些项。按 requestId 分键：一屏可以同时挂着几条，
+  /// 共用一个 Set 会把"我给 B 勾的那两项"跟着落到 C 那条的答复上 —— 而答复是按条签出去的。
+  final Map<String, Set<String>> _pairChecked = {};
+
   @override
   void initState() {
     super.initState();
@@ -158,11 +172,26 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       return;
     }
     if (!mounted) return;
+    // 候选集在契约到手这一刻算一次，界面不自己算：派生这件事有两个写法的时候，
+    // "只从契约读名单"那条守卫会跟着一个写法红，另一个写法照样上线。
+    _derivePairItems(contract);
     setState(() => _contract = contract);
     // 进这一页先看一眼本机那一份配对账（T116）。为什么不等下一轮 poll：这一页正是用户
     // "去看看有没有回音"的那一屏，慢一轮的表现是"他打开的是空的，而结论其实早就落了"。
     await _coordinator.reloadPairLedger();
     await _loadPeers();
+  }
+
+  /// 派生失败（契约取值域与两张词表不一致）时**不画那张表**并记下原因，而不是让这一页
+  /// 在 build 里抛：抛出来的表现是整页白屏，而"逐条给不了、只能给档位"是可以说清的。
+  void _derivePairItems(FnthinkContract contract) {
+    try {
+      _pairItems = pairItemCandidates(contract);
+      _pairItemsBroken = false;
+    } on StateError {
+      _pairItems = const <String>[];
+      _pairItemsBroken = true;
+    }
   }
 
   /// 勾上 / 取消勾选「这一台可以当幻念通道的目标」（T94）。
@@ -472,6 +501,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           keyName: 'fnthink-pair-unknown-level-${request.requestId}',
           text: l10n.fnthinkPairUnknownLevel(request.level),
         ),
+      ..._pairItemRows(l10n, request, grantable),
       Align(
         alignment: Alignment.centerLeft,
         child: Row(
@@ -521,6 +551,80 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       FnthinkNote(
         keyName: 'fnthink-pair-approve-outbound-desc',
         text: l10n.fnthinkPairApproveOutboundDesc,
+      ),
+    ];
+  }
+
+  /// 逐条勾选那一小段（T134 片3）。
+  ///
+  /// 候选集来自 `pairItemCandidates`（契约那两张表做减法），**这一屏不自己写名单** ——
+  /// 名单抄进界面的下场是"契约加了一项而这里没加"，而那一格的缺席长得和"用户没兴趣"一模一样。
+  ///
+  /// 三种"一幅都不画"：这一档用不上逐条清单（L1，见 `pairItemsApplyAtLevel`）、
+  /// 派生不出候选、档位词本机不认识（上面那条 `unknown-level` 已经在说了）。
+  /// 前两种**不补一句"没有可勾选项"**：那几种来路在界面上会读成同一句话，而其中有的
+  /// 是"这一档不需要"、有的是"契约读歪了"，把它们塌成一句就等于替后者撒谎。
+  List<Widget> _pairItemRows(
+    AppLocalizations l10n,
+    FnthinkPairRequest request,
+    String? grantable,
+  ) {
+    if (_pairItemsBroken) {
+      return [
+        FnthinkNote(
+          keyName: 'fnthink-pair-items-broken-${request.requestId}',
+          text: l10n.fnthinkPairItemsBroken,
+        ),
+      ];
+    }
+    final contract = _contract;
+    if (contract == null ||
+        grantable == null ||
+        !pairItemsApplyAtLevel(contract, grantable)) {
+      return const <Widget>[];
+    }
+    final checked = _pairChecked[request.requestId] ?? const <String>{};
+    return [
+      FnthinkNote(
+        keyName: 'fnthink-pair-items-title-${request.requestId}',
+        text: l10n.fnthinkPairItemsTitle,
+      ),
+      for (final item in _pairItems)
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                // 那一行**说什么**只有 `kFnthinkRemoteActionLabels` 一个作者（发送页也用它）；
+                // 这里不另拼"允许 xxx"那种前缀，前缀是这句话的第二个来源。
+                fnthinkRemoteActionLabel(l10n, item),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+            Checkbox(
+              key: ValueKey('fnthink-pair-item-${request.requestId}-$item'),
+              value: checked.contains(item),
+              // `_busy` 期间锁：答复已经在飞，这时改勾选改的是**已经签出去的那一份**之外的东西，
+              // 屏幕上会留下一张与刚发出去的答案不一致的表。
+              onChanged: _busy
+                  ? null
+                  : (v) => setState(() {
+                      final next = Set<String>.of(checked);
+                      if (v == true) {
+                        next.add(item);
+                      } else {
+                        next.remove(item);
+                      }
+                      _pairChecked[request.requestId] = next;
+                    }),
+            ),
+          ],
+        ),
+      FnthinkNote(
+        keyName: 'fnthink-pair-items-note-${request.requestId}',
+        text: l10n.fnthinkPairItemsNote,
       ),
     ];
   }
@@ -700,11 +804,18 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     final answer = await _coordinator.confirmPairing(
       request: request,
       approve: approve,
+      // 勾选表上勾了什么就交什么（顺序由界面上的那张表给，去重与排序由服务层/服务端负责）。
+      // 拒绝那一支**不**带清单 —— 协调者会把它收成空，这里传的是"用户在这一条上勾过的东西"，
+      // 不是"我打算授出去的清单"（两件事两个名字，见 confirmPairing 里那段）。
+      items: (_pairChecked[request.requestId] ?? const <String>[]).toList(),
     );
     if (!mounted) return;
     setState(() {
       _busy = false;
       _pairAnswer = (request: request, approve: approve, answer: answer);
+      // 这一条已经有结论了：那份勾选留在表里，下一次同 id 的请求（不可能有）或
+      // 页面上另一条请求都会读到它。答复落定就擦掉。
+      _pairChecked.remove(request.requestId);
     });
     // 名单是这一发的**后果**：不重读一次，用户点完同意，下面那格还是旧的（而它的存在意义
     // 正是"我同意过谁"）。重读走的是同一个读咽喉，不是页面自己数一遍。

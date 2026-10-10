@@ -6403,6 +6403,24 @@ abstract class AppLocalizations {
   /// **'勾上＝本机这两段当场办掉：那一列勾上 ＋ 一条目标=它的通道。'**
   String get fnthinkPairApproveOutboundDesc;
 
+  /// No description provided for @fnthinkPairItemsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'也可以只给这一档里的这几项（一幅都不勾＝只给档位）：'**
+  String get fnthinkPairItemsTitle;
+
+  /// No description provided for @fnthinkPairItemsNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'要填参数的那几项（切哪条通道、启动哪个应用、搜什么词）不在这里勾：那得按参数授权，还没做。'**
+  String get fnthinkPairItemsNote;
+
+  /// No description provided for @fnthinkPairItemsBroken.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机算不出可勾的项（契约声明的取值域与那两张词表不一致）⇒ 这一条只能给档位，逐条授权给不了。'**
+  String get fnthinkPairItemsBroken;
+
   /// No description provided for @fnthinkPairApprovedOneWay.
   ///
   /// In zh, this message translates to:
