@@ -87,11 +87,16 @@ class PhoneCallReceiver : BroadcastReceiver() {
                 }
             }
 
+            // T132：来电这一链以前把**全量** webhook 挨个发一遍（主＋备同发、不看可用性、
+            // 不记失败）⇒ "默认只发主通道"在这条链上不成立。三个状态分支共用**一次**决策，
+            // 免得振铃推了主、挂断又推一遍全量（那是同一条通知重复 N 次的另一种形状）。
+            val routed = WebhookRouting.routeWebhooks(context, channelConfigs)
+
             when (state) {
                 TelephonyManager.CALL_STATE_RINGING -> {
                     lastIncomingNumber = incomingNumber
                     if (incomingNumber.isNotEmpty()) {
-                        for (cfg in channelConfigs) {
+                        for (cfg in routed.configs) {
                             sendCallWebhook(
                                 context = context,
                                 phoneNumber = incomingNumber,
@@ -100,7 +105,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
                                 channelConfig = cfg,
                                 deviceName = deviceName,
                                 simInfo = simInfo,
-                                simFooter = simFooter
+                                simFooter = simFooter,
+                                viaBackup = routed.viaBackup
                             )
                         }
                     }
@@ -110,7 +116,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
                         // 从「接听」时刻起计算通话时长，振铃段不计入（避免时长统计偏大）
                         callStartTime = System.currentTimeMillis()
                         if (lastIncomingNumber.isNotEmpty()) {
-                            for (cfg in channelConfigs) {
+                            for (cfg in routed.configs) {
                                 sendCallWebhook(
                                     context = context,
                                     phoneNumber = lastIncomingNumber,
@@ -118,7 +124,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
                                     duration = 0L,
                                     channelConfig = cfg,
                                     deviceName = deviceName,
-                                    simInfo = simInfo
+                                    simInfo = simInfo,
+                                    viaBackup = routed.viaBackup
                                 )
                             }
                         }
@@ -130,7 +137,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
                             val duration = if (callStartTime > 0) {
                                 System.currentTimeMillis() - callStartTime
                             } else 0L
-                            for (cfg in channelConfigs) {
+                            for (cfg in routed.configs) {
                                 sendCallWebhook(
                                     context = context,
                                     phoneNumber = lastIncomingNumber,
@@ -138,7 +145,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
                                     duration = duration,
                                     channelConfig = cfg,
                                     deviceName = deviceName,
-                                    simInfo = simInfo
+                                    simInfo = simInfo,
+                                    viaBackup = routed.viaBackup
                                 )
                             }
                         }
@@ -162,7 +170,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
         callState: String,
         duration: Long = 0L,
         simInfo: String? = null,
-        simFooter: String? = null
+        simFooter: String? = null,
+        viaBackup: Boolean = false,
     ) {
         val now = System.currentTimeMillis()
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
@@ -240,7 +249,18 @@ class PhoneCallReceiver : BroadcastReceiver() {
             onResult = { result ->
                 // 隐私：URL 含平台 secret，只记 host
                 Log.d(TAG, "Call delivery: ${NetworkClient.sanitizeUrlHost(channelConfig.url)} → status=${result.status}")
-                DeliveryNotifier.notify(context, notificationId, channelConfig.type, result)
+                // 可用性记账（T132）：以前这条链不记失败 ⇒ 判据里"主通道全不可用"永不成立
+                ChannelAvailability.noteResult(
+                    context, "webhook", channelConfig.id,
+                    success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                )
+                DeliveryNotifier.notify(
+                    context,
+                    notificationId,
+                    channelConfig.type,
+                    result,
+                    viaBackup = viaBackup,
+                )
             }
         )
     }

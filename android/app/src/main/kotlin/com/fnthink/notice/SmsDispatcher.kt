@@ -204,7 +204,11 @@ object SmsDispatcher {
                 return false
             }
 
-            for (cfg in channelConfigs) {
+            // T132：这一链原来把**全量** webhook 挨个发一遍 —— 不看角色（主＋备同发）、
+            // 不读可用性、也不记失败，于是"主通道完全不可用才切备"这条判据对短信永远不会成立。
+            // 现在与通知转发读同一个决策（判据仍只在 ChannelRouting 那一处）。
+            val routed = WebhookRouting.routeWebhooks(context, channelConfigs)
+            for (cfg in routed.configs) {
                 sendWebhook(
                     context = context,
                     sender = sender,
@@ -216,7 +220,8 @@ object SmsDispatcher {
                     simInfo = simLabel,
                     simFooter = simFooter,
                     verificationCode = code,
-                    whitelistTag = whitelistTag
+                    whitelistTag = whitelistTag,
+                    viaBackup = routed.viaBackup,
                 )
             }
             true
@@ -240,7 +245,8 @@ object SmsDispatcher {
         simInfo: String?,
         simFooter: String? = null,
         verificationCode: String?,
-        whitelistTag: String? = null
+        whitelistTag: String? = null,
+        viaBackup: Boolean = false,
     ) {
         // 与 notifyFlutter 中的记录 id 保持一致，供送达结果回传按 id 定位记录
         val notificationId = "sms_${timestamp}_${sender.hashCode()}"
@@ -299,7 +305,19 @@ object SmsDispatcher {
             onResult = { result ->
                 // 隐私：URL 含平台 secret，只记 host
                 Log.d(TAG, "SMS delivery: ${NetworkClient.sanitizeUrlHost(channelConfig.url)} → status=${result.status}")
-                DeliveryNotifier.notify(context, notificationId, channelConfig.type, result)
+                // 可用性记账（T132）：这条链以前不记失败 ⇒ "主通道完全可用"永远为真，
+                // 判据"主全不可用才切备"对短信永远不会成立。现在与转发链写同一张表。
+                ChannelAvailability.noteResult(
+                    context, "webhook", channelConfig.id,
+                    success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                )
+                DeliveryNotifier.notify(
+                    context,
+                    notificationId,
+                    channelConfig.type,
+                    result,
+                    viaBackup = viaBackup,
+                )
             }
         )
     }

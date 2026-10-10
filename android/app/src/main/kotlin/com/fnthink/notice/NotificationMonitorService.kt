@@ -1444,7 +1444,9 @@ class NotificationMonitorService : NotificationListenerService() {
             apps.filter { ("app:" + it.id) in want },
             emails.filter { ("email:" + it.id) in want },
             fnthinks.filter { ("fnthink:" + it.id) in want },
-            viaBackup = decision.engagedBackup,
+            // T132：标记取 `viaBackup`（本轮不是"只推可用主"），不再取锁存位 `engagedBackup` ——
+            // 后者只答"要不要从此以备用为准"，兜底那一档推了全部候选却不该锁存。
+            viaBackup = decision.viaBackup,
         )
     }
 

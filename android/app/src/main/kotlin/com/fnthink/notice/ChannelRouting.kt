@@ -24,8 +24,17 @@ object ChannelRouting {
      * @param keys 本次要推送的通道 key（保持传入顺序，便于日志与测试比对）
      * @param engagedBackup 本次之后「备用模式」应当处于锁存状态。
      *   **只在真的发生降级时才置 true**：没配主通道的人不该被记成"已切到备用"。
+     * @param viaBackup 本轮**不是**"只推可用主通道"—— 这是给送达记录打的那个标记
+     *   （历史页那句「本次走了备用」）。它与 [engagedBackup] 在真降级时同真，但**不是一件事**：
+     *   T132 之前它俩是同一个字段，于是规则 4 那条兜底（"主备都判成不可用也要照推，一条不能少"）
+     *   推了却不标 —— 用户看到的历史是"走了主通道"，而那次其实谁都不可用。
+     *   默认跟随 [engagedBackup]，只有兜底那一档显式置 true（它标、但不锁存）。
      */
-    class Decision(val keys: List<String>, val engagedBackup: Boolean)
+    class Decision(
+        val keys: List<String>,
+        val engagedBackup: Boolean,
+        val viaBackup: Boolean = engagedBackup,
+    )
 
     fun route(members: List<Member>, backupEngaged: Boolean): Decision {
         val eligible = members.filter { it.role != ChannelRole.NONE }
@@ -55,8 +64,10 @@ object ChannelRouting {
         }
 
         // 规则 4 的另一半：拿不准就照推（例如新装后谁都没探测过，
-        // 判据说"全部不可用"，但一条都不推等于丢通知 —— 那是最坏的结果）
-        return Decision(keysOf(eligible), false)
+        // 判据说"全部不可用"，但一条都不推等于丢通知 —— 那是最坏的结果）。
+        // ⚠ 这一档**标 viaBackup 但不锁存**：推的不是"那几把备用"，而是全部候选，
+        //   把它记成只走主通道是替用户撒谎（T132）；而它也不构成"从此以备用为准"的降级事实。
+        return Decision(keysOf(eligible), false, viaBackup = true)
     }
 
     private inline fun <T> List<T>.ifNotEmpty(block: (List<T>) -> Unit) {
