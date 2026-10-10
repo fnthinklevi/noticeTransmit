@@ -1849,6 +1849,18 @@
   "fnthinkPeersBoundary": "这一格记的是「本机同意过谁」。点「撤销」是先让服务器收回那份授权，本机这一行随之消失；已经收到的通知不会被删掉。对面那台给你的许可，要由它自己去撤。",
   "fnthinkPeerRevoke": "撤销",
   "fnthinkPeerSend": "发一条",
+  "fnthinkPeerRename": "改名",
+  "fnthinkPeerRenameTitle": "给这台起个名字（只有这台自己看得到）",
+  "fnthinkPeerRenameSaved": "已改名为 {alias}",
+  "@fnthinkPeerRenameSaved": {
+    "placeholders": {
+      "alias": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerRenameCleared": "已抹掉这个名字",
+  "fnthinkPeerRenameGone": "这一行已经不在名单里了",
   "fnthinkPairPeer": "配对另一台设备",
   "fnthinkPairPeerTitle": "向那台设备发起配对",
   "fnthinkPairPeerTargetHint": "对端地址码（那台设备上显示的那一串）",

@@ -73,13 +73,13 @@ void main() {
     }
     final db = await databaseFactory.openDatabase(
       dbPath,
-      options: OpenDatabaseOptions(version: DatabaseHelper.dbVersion - 1),
+      options: OpenDatabaseOptions(version: 21),
     );
-    await helper.upgradeSchemaForTest(
-      db,
-      DatabaseHelper.dbVersion - 1,
-      DatabaseHelper.dbVersion,
-    );
+    // ⚠ 这里**写死 21→22**，不写 `dbVersion - 1 → dbVersion`：那一句的真实含义是
+    // "跑最新那一条分支"，而本组测的是 `fnthink_pair_requests` 这一张表 —— 两者只在
+    // "它恰好是最新一条"的日子才等价。T128 片1 加了 v23（别名列）之后，`dbVersion - 1`
+    // 指的就是别名那一刀，本组于是变成"在空库上跑别名迁移，然后断言配对请求表建出来了"。
+    await helper.upgradeSchemaForTest(db, 21, 22);
     helper.debugDatabase = db;
     addTearDown(() async {
       helper.debugDatabase = null;
@@ -118,11 +118,7 @@ void main() {
 
     test('同一段迁移连跑两次不报错也不留下第二张表（幂等）', () async {
       final db = await upgradeOnly();
-      await helper.upgradeSchemaForTest(
-        db,
-        DatabaseHelper.dbVersion - 1,
-        DatabaseHelper.dbVersion,
-      );
+      await helper.upgradeSchemaForTest(db, 21, 22);
       expect(await columnsOf(db), FnthinkPairRequestRecord.columns.toSet());
     });
 

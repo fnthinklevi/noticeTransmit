@@ -83,4 +83,13 @@ class FnthinkPeerService {
   /// 反过来，"撤失败却把行删了"才是事故：本机从此看不见这个来源，而服务端还留着授权，
   /// 对面照样能推进来，屏幕上却没有任何一行解释它从哪来。
   Future<bool> remove(String peerAddress) => _db.removeFnthinkPeer(peerAddress);
+
+  /// 给名单里那一行起（或抹）一个**本机自己看的**名字（T128 片1）。
+  ///
+  /// ⚠ 这一发**不碰服务端、也不碰授权**：档位、逐条清单、转发勾选一个都不动 ——
+  /// 改的只是"这一行在屏幕上叫什么"。所以它随时可改、不需要对面在场，
+  /// 也不该被读成"给它多放了一点权限"。
+  /// 回 `false` = 那一行不在名单上（地址码是主键，不是可以凭空起名的东西）。
+  Future<bool> rename(String peerAddress, String alias) =>
+      _db.setFnthinkPeerAlias(peerAddress, FnthinkPeer.normalizeAlias(alias));
 }

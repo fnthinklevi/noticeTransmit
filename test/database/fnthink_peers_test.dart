@@ -105,7 +105,7 @@ void main() {
       expect(RegExp(r'if \(oldVersion < 15\)').allMatches(src), hasLength(1));
     });
 
-    test('新建库的列就是模型声明那七列；granted_at 落成 INTEGER', () async {
+    test('新建库的列就是模型声明那些列；granted_at 落成 INTEGER', () async {
       final db = await freshDb();
       expect(await columnsOf(db), FnthinkPeer.columns.toSet());
       await helper.upsertFnthinkPeer(peer('8K3FJ6QPTM9WZ4VHNS'));
@@ -248,6 +248,149 @@ void main() {
       );
       expect(await helper.removeFnthinkPeer('8K3FJ6QPTM9WZ4VHNS'), isTrue);
       expect(await allRows(db), isEmpty);
+    });
+  });
+
+  group('T128 片1：本机别名（这一行在屏幕上叫什么，仅此而已）', () {
+    test('没起过名字读出来是空串；起了名字原样往返', () async {
+      await freshDb();
+      await helper.upsertFnthinkPeer(peer('8K3FJ6QPTM9WZ4VHNS'));
+      final before = await helper.loadFnthinkPeers();
+      expect(
+        before.single.alias,
+        '',
+        reason: '空串 = "这台没有别名"，界面上就只剩地址码；不许造一个"（ unnamed ）"',
+      );
+
+      expect(
+        await helper.setFnthinkPeerAlias('8K3FJ6QPTM9WZ4VHNS', '客厅那台'),
+        isTrue,
+      );
+      expect((await helper.loadFnthinkPeers()).single.alias, '客厅那台');
+    });
+
+    test('① 重新授权**不许抹掉**用户起的名字', () async {
+      // 这一条是本片唯一"两个写者抢同一格"的地方：授权那条 update 写的是调用方刚拼出来的
+      // 对象（它没读回旧行），照全量写就等于"对面又发了一次配对请求 ⇒ 我给这台起的名字没了"。
+      await freshDb();
+      await helper.upsertFnthinkPeer(peer('8K3FJ6QPTM9WZ4VHNS'));
+      await helper.setFnthinkPeerAlias('8K3FJ6QPTM9WZ4VHNS', '公司的手机');
+
+      expect(
+        await helper.upsertFnthinkPeer(
+          peer('8K3FJ6QPTM9WZ4VHNS', level: 'L3', at: 1700000600000),
+        ),
+        FnthinkPeerWrite.refreshed,
+      );
+      final after = (await helper.loadFnthinkPeers()).single;
+      expect(after.level, 'L3', reason: '档位该刷 —— 那是授权本体');
+      expect(after.grantedAt, 1700000600000);
+      expect(after.alias, '公司的手机', reason: '别名该活着 —— 它不是授权的一部分');
+    });
+
+    test('给不在名单上的地址码起名必须回 false', () async {
+      await freshDb();
+      expect(
+        await helper.setFnthinkPeerAlias('8K3FJ6QPTM9WZ4VHNS', '不存在的那台'),
+        isFalse,
+        reason: '回 true 就等于界面说"已改名"，而名单里根本没有那一行',
+      );
+    });
+
+    test('v22 老库升上来：补 alias 列，存量行一律读成"没有名字"', () async {
+      SharedPreferences.setMockInitialValues({});
+      if (await databaseFactory.databaseExists(dbPath)) {
+        await databaseFactory.deleteDatabase(dbPath);
+      }
+      final old = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(version: DatabaseHelper.dbVersion),
+      );
+      addTearDown(() async => old.close());
+      await helper.createSchemaForTest(old);
+      await old.execute('DROP TABLE ${FnthinkPeer.table}');
+      await old.execute(
+        'CREATE TABLE ${FnthinkPeer.table} ('
+        ' peer_address TEXT PRIMARY KEY, public_key TEXT NOT NULL,'
+        ' level TEXT NOT NULL, granted_at INTEGER NOT NULL,'
+        " request_id TEXT NOT NULL DEFAULT '', items TEXT NOT NULL DEFAULT '',"
+        ' revision INTEGER NOT NULL DEFAULT 0, forwards INTEGER NOT NULL DEFAULT 0)',
+      );
+      await old.insert(FnthinkPeer.table, {
+        'peer_address': '8K3FJ6QPTM9WZ4VHNS',
+        'public_key': 'AAAABBBBCCCC',
+        'level': 'L2',
+        'granted_at': 1700000000000,
+      });
+      expect(await columnsOf(old), isNot(contains('alias')), reason: '锚点：旧形状');
+
+      await helper.upgradeSchemaForTest(old, 22, DatabaseHelper.dbVersion);
+      expect(await columnsOf(old), FnthinkPeer.columns.toSet());
+      helper.debugDatabase = old;
+      final rows = await helper.loadFnthinkPeers();
+      expect(
+        rows.single.alias,
+        '',
+        reason: '存量那台过去没有名字可读，替它编一个就是屏幕上多出一台并不存在的设备',
+      );
+    });
+
+    test('normalizeAlias：首尾空白抹掉、中间连续空白压一格、超长才截并留痕', () {
+      expect(FnthinkPeer.normalizeAlias('  客厅 那台\n'), '客厅 那台');
+      expect(FnthinkPeer.normalizeAlias(''), '');
+      final long = '名' * 40;
+      final capped = FnthinkPeer.normalizeAlias(long);
+      expect(capped.length, 31, reason: '30 个字符 + 一个省略号，界面上那一行不会挤换行');
+      expect(capped.endsWith('…'), isTrue);
+    });
+
+    test('whoLabel：地址码永远在前，别名只在括号里', () {
+      const base = '8K3FJ6QPTM9WZ4VHNS';
+      expect(
+        const FnthinkPeer(
+          peerAddress: base,
+          publicKey: 'pk',
+          level: 'L1',
+          grantedAt: 1,
+        ).whoLabel,
+        base,
+      );
+      expect(
+        const FnthinkPeer(
+          peerAddress: base,
+          publicKey: 'pk',
+          level: 'L1',
+          grantedAt: 1,
+          alias: '客厅那台',
+        ).whoLabel,
+        '$base (客厅那台)',
+        reason: '能被核对的那 18 位不能被一个本机编的名字替掉 ⇒ 顺序不能反',
+      );
+    });
+    test('迁移碰到「这台还没有这张表」时跳过，不许半张半张地造表', () async {
+      // 加列的分支替不存在的表 CREATE，会造出一张"列集合按当下形状、却少了后续数据迁移"
+      // 的半张表 —— 那种表最难查。建表是它自己那条分支的事，别人不许代劳。
+      // （T128 片1 加 alias 时，三条只建自己那一张表的既有升级 fixture 就是这样红的。）
+      SharedPreferences.setMockInitialValues({});
+      final emptyPath = join(
+        await getDatabasesPath(),
+        'fnthink_peers_no_table_test.db',
+      );
+      if (await databaseFactory.databaseExists(emptyPath)) {
+        await databaseFactory.deleteDatabase(emptyPath);
+      }
+      final db = await databaseFactory.openDatabase(
+        emptyPath,
+        options: OpenDatabaseOptions(version: DatabaseHelper.dbVersion),
+      );
+      addTearDown(() async => db.close());
+      await helper.upgradeSchemaForTest(db, 22, DatabaseHelper.dbVersion);
+      expect(
+        await columnsOf(db),
+        isEmpty,
+        reason: '表本来不存在 ⇒ 这一刀什么也不做（不 CREATE、也不抛）',
+      );
+      await databaseFactory.deleteDatabase(emptyPath);
     });
   });
 

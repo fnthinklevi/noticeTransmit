@@ -8,6 +8,11 @@
 /// `server/lib/fnthink/pairstore.js` 的 `pendingFor`），本机从没拿到过它。
 /// 等有出处了再加列（先在契约里把它带上），别建一列空着让界面显示"（ unnamed ）"。
 ///
+/// 有的那一列叫 **`alias`（T128 片1）**，与上面那句不矛盾也**不是同一件事**：
+/// 它是**这台自己给对面起的名字**（"客厅那台"／"公司的手机"），只有本机看得见，
+/// 不发给服务端、不进任何载荷。所以它不会遇到"对端改了名本机读到的是旧的那个"那类问题 ——
+/// 那种问题只能靠契约带名字来解决，而契约今天没有带。
+///
 /// 列名只在本文件的 [toDbRow] / [fromDbRow] 里出现（与 `FnthinkInboxMessage` 同一条纪律）。
 class FnthinkPeer {
   const FnthinkPeer({
@@ -19,6 +24,7 @@ class FnthinkPeer {
     this.items = const <String>[],
     this.revision = 0,
     this.forwards = false,
+    this.alias = '',
   });
 
   /// 对端的 18 位地址码（Crockford Base32）。它是主键：一台设备只该有一行授权记录。
@@ -55,7 +61,24 @@ class FnthinkPeer {
   /// 两者各说一件事：一个是谁能往我这里发，一个是我能往哪里发。
   final bool forwards;
 
+  /// 本机给这一行起的名字（T128 片1）。空串 = 没起过，界面上就只显地址码。
+  ///
+  /// ⚠ 它**不是**对端报来的名字（那个从没流到本机，见文件头），也不参与任何授权判断：
+  /// 服务端认的一直是地址码。改名改的是"这一行在屏幕上叫什么"，仅此而已。
+  final String alias;
+
   static const table = 'fnthink_peers';
+
+  /// 别名能有多长（T128 片1，**唯一作者**）。
+  ///
+  /// 名单那一行是一行 `FnthinkNote`，没有省略号策略：不限长就会在 8 台设备之后
+  /// 把行挤到换行、把「撤掉这一行」那枚按钮挤出屏幕。去掉首尾空白同时把中间的
+  /// 连续空白压成一格（粘出来的名字常常带换行）。
+  static String normalizeAlias(String raw) {
+    final collapsed = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (collapsed.length <= 30) return collapsed;
+    return '${collapsed.substring(0, 30)}…';
+  }
 
   static const columns = <String>[
     'peer_address',
@@ -66,6 +89,7 @@ class FnthinkPeer {
     'items',
     'revision',
     'forwards',
+    'alias',
   ];
 
   Map<String, Object?> toDbRow() => {
@@ -79,6 +103,7 @@ class FnthinkPeer {
     'items': items.join('\n'),
     'revision': revision,
     'forwards': forwards ? 1 : 0,
+    'alias': alias,
   };
 
   static FnthinkPeer fromDbRow(Map<String, Object?> row) {
@@ -100,6 +125,7 @@ class FnthinkPeer {
       // 读不出时当**未勾选**（fail-closed）：这一列写坏时的后果必须是"不发"，
       // 而"全发"那一头是静默把本机的通知推出去。
       forwards: (row['forwards'] as num?)?.toInt() == 1,
+      alias: '${row['alias'] ?? ''}',
     );
   }
 
@@ -108,6 +134,12 @@ class FnthinkPeer {
   @override
   String toString() =>
       'FnthinkPeer($peerAddress, key=${publicKey.length > 8 ? '${publicKey.substring(0, 8)}…' : publicKey}, $level)';
+
+  /// 名单那一行「是谁」那一段（T128 片1，**唯一作者**）。
+  ///
+  /// 顺序是刻意反过来的：地址码在前、别名在括号里。别名是本机自己编的，
+  /// 它不能替换掉那一行唯一能被核对的东西 —— 用户对着对面那台的屏幕核的就是这 18 位。
+  String get whoLabel => alias.isEmpty ? peerAddress : '$peerAddress ($alias)';
 }
 
 /// 写一条授权的结果。三种必须分开：**换钥不是"更新"**。

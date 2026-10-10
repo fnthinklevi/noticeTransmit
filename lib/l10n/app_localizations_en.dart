@@ -3818,6 +3818,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPeerSend => 'Send';
 
   @override
+  String get fnthinkPeerRename => 'Rename';
+
+  @override
+  String get fnthinkPeerRenameTitle =>
+      'Name this peer (only this device sees it)';
+
+  @override
+  String fnthinkPeerRenameSaved(String alias) {
+    return 'Renamed to $alias';
+  }
+
+  @override
+  String get fnthinkPeerRenameCleared => 'Name cleared';
+
+  @override
+  String get fnthinkPeerRenameGone => 'This peer is no longer in the list';
+
+  @override
   String get fnthinkPairPeer => 'Pair with another device';
 
   @override

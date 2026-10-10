@@ -3639,6 +3639,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeerSend => '发一条';
 
   @override
+  String get fnthinkPeerRename => '改名';
+
+  @override
+  String get fnthinkPeerRenameTitle => '给这台起个名字（只有这台自己看得到）';
+
+  @override
+  String fnthinkPeerRenameSaved(String alias) {
+    return '已改名为 $alias';
+  }
+
+  @override
+  String get fnthinkPeerRenameCleared => '已抹掉这个名字';
+
+  @override
+  String get fnthinkPeerRenameGone => '这一行已经不在名单里了';
+
+  @override
   String get fnthinkPairPeer => '配对另一台设备';
 
   @override

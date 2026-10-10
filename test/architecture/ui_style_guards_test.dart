@@ -586,7 +586,8 @@ void main() {
         greaterThanOrEqualTo(1),
       );
       // T129 片2 加了第 5 枚：**问一次对面答了没**（挂在「我发起过的配对请求」那一格里）。
-      expect(n('lib/pages/fnthink_peers_page.dart', 'FnthinkInlineAction('), 5);
+      // T128 片1 加了第 6 枚：**改名**（挂在名单每一行上；别名只给这一行，所以入口必须在行里）。
+      expect(n('lib/pages/fnthink_peers_page.dart', 'FnthinkInlineAction('), 6);
     });
 
     // T108 片①：那批"蓝色文字点击件"按功能语义分色，并把"谁还在自己搭按钮"记成一本账。

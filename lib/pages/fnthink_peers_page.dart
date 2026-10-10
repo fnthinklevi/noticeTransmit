@@ -21,6 +21,7 @@ import '../widgets/primary_action_button.dart';
 import '../widgets/fnthink_pair_dialog.dart';
 import 'fnthink_consent_gate.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_input_dialog.dart';
 import 'fnthink_send_page.dart';
 
 /// 这一页要碰的三样依赖。
@@ -546,7 +547,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
             FnthinkNote(
               keyName: 'fnthink-peer-${peer.peerAddress}',
               text: l10n.fnthinkPeerLine(
-                peer.peerAddress,
+                // T128 片1：这一行"是谁"那一段的唯一作者（地址码仍在前，别名在括号里 ——
+                // 能被核对的那个东西不能被一个本机编的名字替掉）。
+                peer.whoLabel,
                 peer.level,
                 fnthinkFormatTime(peer.grantedAt),
               ),
@@ -560,6 +563,16 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
                 // 撤销那一发要能连点两下都不出事（服务端幂等），但 `_busy` 仍然拦：
                 // 拦的不是"撤两次"，是"两次删行撞在一起"——那种时候界面显示的是哪一次？
                 onPressed: _busy ? null : () => _revoke(peer),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FnthinkInlineAction(
+                key: ValueKey('fnthink-peer-rename-${peer.peerAddress}'),
+                label: l10n.fnthinkPeerRename,
+                // T128 片1：别名挂在**这一行**，且刻意不是破坏性色调 —— 它不碰授权、
+                // 不碰服务端，改的只是这一行在屏幕上叫什么。地址码不能被它替掉（见 whoLabel）。
+                onPressed: _busy ? null : () => _renamePeer(peer),
               ),
             ),
             Align(
@@ -785,6 +798,43 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     // 撤成了那一行就不该再显示；没撤成也要重读一次，因为界面那句结论说的是"此刻名单什么样"。
     // 重读走同一个读咽喉，不是页面自己数一遍（那会长出第二个排序/时间口径）。
     await _loadPeers();
+  }
+
+  /// 给这一行起（或抹）一个本机名字（T128 片1）。
+  ///
+  /// 三件事必须分开说：**改了**、**抹了**、**这一行已经不在了**。
+  /// 把第三件说成前两件，用户会带着一张其实没有那台的名单去核对对面；
+  /// 而把"抹了"说成"改成了「」"是更常见的假绿 —— 空串也是一种有效的新名字吗？不是，
+  /// 那是"这台没有别名"，行里就只剩地址码。
+  Future<void> _renamePeer(FnthinkPeer peer) async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final typed = await showIosInputDialog(
+      context,
+      title: l10n.fnthinkPeerRenameTitle,
+      initialText: peer.alias,
+      // 取消回 null（一个字都不改）；确认回字符串，可能是空串（那就是"抹掉名字"）。
+    );
+    if (typed == null || !mounted) return;
+    setState(() => _busy = true);
+    final alias = FnthinkPeer.normalizeAlias(typed);
+    final ok = await GetIt.instance<FnthinkPeerService>().rename(
+      peer.peerAddress,
+      alias,
+    );
+    if (!mounted) return;
+    await _loadPeers();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await showFnthinkOutcome(
+      context,
+      ok: ok,
+      detail: !ok
+          ? l10n.fnthinkPeerRenameGone
+          : alias.isEmpty
+          ? l10n.fnthinkPeerRenameCleared
+          : l10n.fnthinkPeerRenameSaved(alias),
+    );
   }
 
   /// 撤销那一发的结论。⚠ `revoked:false` 走的是**成功**那一路：撤销是幂等的

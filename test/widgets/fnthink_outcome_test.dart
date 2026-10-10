@@ -75,14 +75,14 @@ void main() {
     expect(find.text('这一步做完了'), findsNothing);
   });
 
-  test('设备配对页那三处结论都弹：答复、发起、以及手动问一次进度', () {
+  test('设备配对页那四处结论都弹：答复、发起、手动问一次进度、改名', () {
     final calls = RegExp('showFnthinkOutcome\\(').allMatches(page).length;
     expect(
       calls,
-      3,
+      4,
       reason:
-          '答复（_answer）、发起（_pairWithPeer）、刷新（_refreshPairing）各一处，'
-          '少一处就是"点了没反应"那个缺陷的复活',
+          '答复（_answer）、发起（_pairWithPeer）、刷新（_refreshPairing）、'
+          '改名（_renamePeer）各一处，少一处就是"点了没反应"那个缺陷的复活',
     );
     // 正文必须来自现有唯一作者，不许在页面里另拼一句。
     expect(page, contains('detail: _pairAnswerText(l10n, entry)'));

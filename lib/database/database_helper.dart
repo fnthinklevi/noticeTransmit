@@ -70,7 +70,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 22;
+  static const int dbVersion = 23;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -536,7 +536,8 @@ class DatabaseHelper
         request_id TEXT NOT NULL DEFAULT '',
         items TEXT NOT NULL DEFAULT '',
         revision INTEGER NOT NULL DEFAULT 0,
-        forwards INTEGER NOT NULL DEFAULT 0
+        forwards INTEGER NOT NULL DEFAULT 0,
+        alias TEXT NOT NULL DEFAULT ''
       )
     ''');
     await db.execute('''
@@ -608,6 +609,16 @@ class DatabaseHelper
     String column,
     String definition,
   ) async {
+    // ⚠ 这张表还不在这台库上时**直接跳过**：没有这张表就没有要补的列，
+    // 而"把它建出来"是它自己那条 `oldVersion < 建表版本` 分支的事 —— 在这里顺手 CREATE
+    // 会造出一张列集合按当下形状、却少了后续数据迁移的半张表（那种表最难查）。
+    // T128 片1 加 `alias` 时三条既有升级用例（inbox / pair_requests / engine_rules 的
+    // 局部老库 fixture）就是撞在这上面红的：它们只建自己那一张表。
+    final tables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [table],
+    );
+    if (tables.isEmpty) return;
     final columns = await db.rawQuery('PRAGMA table_info($table)');
     if (columns.any((r) => r['name'] == column)) return;
     await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
@@ -873,6 +884,18 @@ class DatabaseHelper
       // 这是新的一面，本机过去没记过任何一条配对请求的终态；给存量补一行
       // 等于替用户造一段"我发起过 / 我拒绝过"的假历史。
       await _createFnthinkPairRequests(db);
+    }
+
+    if (oldVersion < 23) {
+      // v23 / T128 片1：名单那一行的**本机别名**。只加列、DEFAULT 空串 ——
+      // 存量那几台过去没有名字可读（对端报来的名字从没流到本机，见模型注释），
+      // 替它们编一个"客厅那台"就是界面上多出一台并不存在的设备。
+      await _addColumnIfMissing(
+        db,
+        FnthinkPeer.table,
+        'alias',
+        "TEXT NOT NULL DEFAULT ''",
+      );
     }
   }
 
@@ -1485,14 +1508,35 @@ class DatabaseHelper
       if ('${existing.first['public_key'] ?? ''}' != peer.publicKey) {
         return FnthinkPeerWrite.keySwapped;
       }
+      // ⚠ 重新授权**不许把用户起的名字抹掉**：`peer.toDbRow()` 里那一格来自调用方
+      // 刚拼出来的对象（它没有读回旧行），照着写就等于"对面又发了一次配对请求 ⇒
+      // 我在屏幕上给这台起的名字没了"。别名只有一个作者（下面的改名那一发），
+      // 授权路径必须绕开它。
+      final values = peer.toDbRow()..remove('alias');
       await txn.update(
         FnthinkPeer.table,
-        peer.toDbRow(),
+        values,
         where: 'peer_address = ?',
         whereArgs: [peer.peerAddress],
       );
       return FnthinkPeerWrite.refreshed;
     });
+  }
+
+  /// 给名单里那一行起（或抹）一个本机名字（T128 片1）。
+  ///
+  /// 返回的是"有没有这一行"，不是"名字变了没有"：给不存在的对端改名必须回 false ——
+  /// 界面上那一句「已改名」如果说给了一个已经不在名单里的地址码，用户会以为
+  /// 那台还在他的可信列表里。
+  Future<bool> setFnthinkPeerAlias(String peerAddress, String alias) async {
+    final db = await database;
+    final n = await db.update(
+      FnthinkPeer.table,
+      {'alias': alias},
+      where: 'peer_address = ?',
+      whereArgs: [peerAddress],
+    );
+    return n > 0;
   }
 
   /// 名单页要显示的全部条目，最近同意的在前。

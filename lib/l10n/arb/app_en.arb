@@ -1828,6 +1828,18 @@
   "fnthinkPeersBoundary": "This cell records who this device has approved. Revoking first takes the grant back on the server, then this row disappears here; notifications already received are not deleted. The grant the other device gave you is its own to revoke.",
   "fnthinkPeerRevoke": "Revoke",
   "fnthinkPeerSend": "Send",
+  "fnthinkPeerRename": "Rename",
+  "fnthinkPeerRenameTitle": "Name this peer (only this device sees it)",
+  "fnthinkPeerRenameSaved": "Renamed to {alias}",
+  "@fnthinkPeerRenameSaved": {
+    "placeholders": {
+      "alias": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerRenameCleared": "Name cleared",
+  "fnthinkPeerRenameGone": "This peer is no longer in the list",
   "fnthinkPairPeer": "Pair with another device",
   "fnthinkPairPeerTitle": "Start pairing with that device",
   "fnthinkPairPeerTargetHint": "Counterpart address code (the one shown on that device)",

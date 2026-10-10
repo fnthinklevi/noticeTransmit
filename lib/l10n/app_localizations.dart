@@ -6763,6 +6763,36 @@ abstract class AppLocalizations {
   /// **'发一条'**
   String get fnthinkPeerSend;
 
+  /// No description provided for @fnthinkPeerRename.
+  ///
+  /// In zh, this message translates to:
+  /// **'改名'**
+  String get fnthinkPeerRename;
+
+  /// No description provided for @fnthinkPeerRenameTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'给这台起个名字（只有这台自己看得到）'**
+  String get fnthinkPeerRenameTitle;
+
+  /// No description provided for @fnthinkPeerRenameSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已改名为 {alias}'**
+  String fnthinkPeerRenameSaved(String alias);
+
+  /// No description provided for @fnthinkPeerRenameCleared.
+  ///
+  /// In zh, this message translates to:
+  /// **'已抹掉这个名字'**
+  String get fnthinkPeerRenameCleared;
+
+  /// No description provided for @fnthinkPeerRenameGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一行已经不在名单里了'**
+  String get fnthinkPeerRenameGone;
+
   /// No description provided for @fnthinkPairPeer.
   ///
   /// In zh, this message translates to:
