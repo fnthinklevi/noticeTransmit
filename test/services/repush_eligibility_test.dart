@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notice_transmit/services/notification_service.dart';
+import 'package:notice_transmit/models/delivery_status.dart';
 import 'package:notice_transmit/services/repush_eligibility.dart';
 
 /// T133 片1：把两个问题拆成两个具名作者，并把两份答案**同屏**钉住。
@@ -92,11 +92,11 @@ void main() {
   });
 
   group('两问两答：同一条记录，两份答案可以不同', () {
-    test('只有拦截通道：筛选认它未送达，重推池不收它', () {
+    test('只有拦截通道：筛选认它未送达，重推池不收它 —— 这就是那一个差集', () {
       final d = delivery({
         'chan:sms': {'status': 'intercepted', 'message': '黑名单'},
       });
-      expect(NotificationService.matchDeliveryFilter(d, 'failed'), isTrue);
+      expect(matchDeliveryFilter(d, deliveryFilterNotDelivered), isTrue);
       expect(recordNeedsRepush(d), isFalse);
     });
 
@@ -104,20 +104,28 @@ void main() {
       final d = delivery({
         'chan:email': {'status': 'failed', 'message': 'SMTP 拒绝'},
       });
-      expect(NotificationService.matchDeliveryFilter(d, 'failed'), isTrue);
+      expect(matchDeliveryFilter(d, deliveryFilterNotDelivered), isTrue);
       expect(recordNeedsRepush(d), isTrue);
     });
 
-    test('只有暂停通道：可再发，但「失败」那一档筛不到它', () {
-      // ⚠ 现存口径，不是笔误：筛选那一档的名字是「仅失败」（`deliveryFailedOnly`），
-      //   而"用户暂停期间没发"既不是失败也不算成功，于是它两头都筛不到、
-      //   却能被重推。要动的是筛选档位形状（片2），不是在这里偷偷扩集合。
+    test('只有暂停通道：两问也都答"是"（片3 把这一档补进了筛选）', () {
+      // 改之前「仅失败」那一档不认 paused ⇒ 一条暂停没发的记录**两档都找不到**，
+      // 却能被重推。片3 把这一档定成「没发出去的」（词表见 delivery_status.dart），
+      // 两问的差集只剩 intercepted 一格 —— 那一格是刻意的，上面两条用例钉着它。
       final d = delivery({
         'chan:email': {'status': 'paused', 'message': '转发已暂停'},
       });
       expect(recordNeedsRepush(d), isTrue);
-      expect(NotificationService.matchDeliveryFilter(d, 'failed'), isFalse);
-      expect(NotificationService.matchDeliveryFilter(d, 'success'), isFalse);
+      expect(matchDeliveryFilter(d, deliveryFilterNotDelivered), isTrue);
+      expect(matchDeliveryFilter(d, deliveryFilterDelivered), isFalse);
+    });
+
+    test('还在途的通道：既不算没送达，也不进重推池', () {
+      final d = delivery({
+        'chan:email': {'status': 'sending', 'message': ''},
+      });
+      expect(matchDeliveryFilter(d, deliveryFilterNotDelivered), isFalse);
+      expect(recordNeedsRepush(d), isFalse);
     });
   });
 }

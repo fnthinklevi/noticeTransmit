@@ -18,6 +18,7 @@ import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
+import '../models/delivery_status.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
@@ -116,8 +117,8 @@ class _HistoryPageState extends State<HistoryPage> {
   DateTime? _rangeEnd;
   String _filterAppName = '';
   String _filterPackageName = '';
-  // 送达状态筛选：all / success / failed
-  String _filterDelivery = 'all';
+  // 送达状态筛选：档名即口径（三个 id 在 `models/delivery_status.dart` 那一张表上）
+  String _filterDelivery = deliveryFilterAll;
   // 非 null 时为 DB 搜索模式（全量历史分页加载），null 为常规模式（内存 records）
   List<NotificationRecord>? _searchResults;
 
@@ -505,7 +506,7 @@ class _HistoryPageState extends State<HistoryPage> {
       _rangeStart != null ||
       _filterAppName.isNotEmpty ||
       _filterPackageName.isNotEmpty ||
-      _filterDelivery != 'all';
+      _filterDelivery != deliveryFilterAll;
 
   /// 查询起始毫秒（含）：起始日 0 点
   int? get _startTimeMs => _rangeStart == null
@@ -568,7 +569,9 @@ class _HistoryPageState extends State<HistoryPage> {
         endTime: _endTimeMs,
         appName: _filterAppName.isEmpty ? null : _filterAppName,
         packageName: _filterPackageName.isEmpty ? null : _filterPackageName,
-        deliveryFilter: _filterDelivery == 'all' ? null : _filterDelivery,
+        deliveryFilter: _filterDelivery == deliveryFilterAll
+            ? null
+            : _filterDelivery,
         limit: _pageSize,
         offset: offset,
       );
@@ -593,7 +596,7 @@ class _HistoryPageState extends State<HistoryPage> {
       _rangeEnd = null;
       _filterAppName = '';
       _filterPackageName = '';
-      _filterDelivery = 'all';
+      _filterDelivery = deliveryFilterAll;
       _searchResults = null;
       _hasMore = false;
     });
@@ -1110,18 +1113,22 @@ class _HistoryPageState extends State<HistoryPage> {
         children: [
           _filterChip(
             l10n.deliveryAll,
-            delivery == 'all',
-            () => setSheet(() => delivery = 'all'),
+            delivery == deliveryFilterAll,
+            () => setSheet(() => delivery = deliveryFilterAll),
+          ),
+          // ⚠ 这两枚的**档名就是说的那句话**：这一档回答"送达了吗"，
+          //   而"可以再发一次吗"是另一位作者（`repush_eligibility.dart`）。
+          //   原先这一档叫「仅失败」却认三种状态 —— 名字与口径不符，
+          //   "筛得出、选不中"那类自相矛盾就是这么长出来的。
+          _filterChip(
+            l10n.deliveryDeliveredOnly,
+            delivery == deliveryFilterDelivered,
+            () => setSheet(() => delivery = deliveryFilterDelivered),
           ),
           _filterChip(
-            l10n.deliverySuccessOnly,
-            delivery == 'success',
-            () => setSheet(() => delivery = 'success'),
-          ),
-          _filterChip(
-            l10n.deliveryFailedOnly,
-            delivery == 'failed',
-            () => setSheet(() => delivery = 'failed'),
+            l10n.deliveryNotDeliveredOnly,
+            delivery == deliveryFilterNotDelivered,
+            () => setSheet(() => delivery = deliveryFilterNotDelivered),
           ),
         ],
       );

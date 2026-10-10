@@ -1178,17 +1178,17 @@ abstract class AppLocalizations {
   /// **'全部'**
   String get deliveryAll;
 
-  /// No description provided for @deliverySuccessOnly.
+  /// No description provided for @deliveryDeliveredOnly.
   ///
   /// In zh, this message translates to:
-  /// **'仅成功'**
-  String get deliverySuccessOnly;
+  /// **'已送达'**
+  String get deliveryDeliveredOnly;
 
-  /// No description provided for @deliveryFailedOnly.
+  /// No description provided for @deliveryNotDeliveredOnly.
   ///
   /// In zh, this message translates to:
-  /// **'仅失败'**
-  String get deliveryFailedOnly;
+  /// **'没发出去的'**
+  String get deliveryNotDeliveredOnly;
 
   /// No description provided for @filterApply.
   ///

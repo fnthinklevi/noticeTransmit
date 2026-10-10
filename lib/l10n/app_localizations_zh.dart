@@ -585,10 +585,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deliveryAll => '全部';
 
   @override
-  String get deliverySuccessOnly => '仅成功';
+  String get deliveryDeliveredOnly => '已送达';
 
   @override
-  String get deliveryFailedOnly => '仅失败';
+  String get deliveryNotDeliveredOnly => '没发出去的';
 
   @override
   String get filterApply => '应用筛选';

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
+import 'package:notice_transmit/models/delivery_status.dart';
 
 /// P1 历史搜索 SQL 构建纯函数单测。
 /// 锁定 buildSearchSql 的 WHERE 拼接行为：条件组合、LIKE 转义、
@@ -44,20 +45,25 @@ void main() {
       expect(args, ['%微信%', '%com.tencent.mm%']);
     });
 
-    test('送达状态粗筛：failed 档把 intercepted 一起捞（粗筛不许窄于精筛）', () {
+    test('送达状态粗筛：LIKE 参数由词表生成，一个状态词都不许漏', () {
       final (where1, args1) = DatabaseHelper.buildSearchSql(
-        deliveryFilter: 'failed',
+        deliveryFilter: deliveryFilterNotDelivered,
       );
-      expect(where1, 'WHERE (delivery_info LIKE ? OR delivery_info LIKE ?)');
-      expect(args1, ['%failed%', '%intercepted%']);
+      expect(
+        where1,
+        'WHERE (delivery_info LIKE ? OR delivery_info LIKE ? OR delivery_info LIKE ?)',
+      );
+      expect(args1, ['%failed%', '%intercepted%', '%paused%']);
 
       final (where2, args2) = DatabaseHelper.buildSearchSql(
-        deliveryFilter: 'success',
+        deliveryFilter: deliveryFilterDelivered,
       );
       expect(where2, 'WHERE delivery_info LIKE ?');
       expect(args2, ['%success%']);
 
-      final (where3, _) = DatabaseHelper.buildSearchSql(deliveryFilter: 'all');
+      final (where3, _) = DatabaseHelper.buildSearchSql(
+        deliveryFilter: deliveryFilterAll,
+      );
       expect(where3, '');
     });
 
@@ -78,19 +84,20 @@ void main() {
         keyword: '验证码',
         startTime: 1000,
         packageName: 'com.a',
-        deliveryFilter: 'failed',
+        deliveryFilter: deliveryFilterNotDelivered,
       );
       expect(
         where,
         "WHERE (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' "
         "OR app_name LIKE ? ESCAPE '\\' OR package_name LIKE ? ESCAPE '\\') "
         "AND post_time >= ? AND package_name LIKE ? ESCAPE '\\' "
-        'AND (delivery_info LIKE ? OR delivery_info LIKE ?)',
+        'AND (delivery_info LIKE ? OR delivery_info LIKE ? OR delivery_info LIKE ?)',
       );
-      expect(args.length, 8);
+      expect(args.length, 9);
       expect(args[4], 1000);
       expect(args[6], '%failed%');
       expect(args[7], '%intercepted%');
+      expect(args[8], '%paused%');
     });
 
     test('空白关键字视为无关键字', () {

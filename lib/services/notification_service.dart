@@ -6,6 +6,7 @@ import 'archive_worker.dart';
 import 'channel_display.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
+import '../models/delivery_status.dart';
 import '../models/notification_record.dart';
 import 'platform_channel.dart';
 import 'active_channels.dart';
@@ -204,16 +205,12 @@ class NotificationService {
 
   /// 全量历史搜索（P1）：SQLite LIKE 粗筛 + Dart 端 jsonDecode 精筛。
   ///
-  /// 粗筛由 DatabaseHelper.searchNotifications 完成（keyword/时间范围/应用名/
-  /// 包名走 SQL，送达状态对 delivery_info JSON 文本 LIKE 粗筛，不引 JSON1 依赖）；
-  /// 送达状态的精确判定在 Dart 端 jsonDecode 后完成：
-  /// - failed：任一通道 status 为 failed 或 intercepted（拦截视为未送达）
-  /// - success：至少有一个通道状态，且全部通道均为 success
+  /// 粗筛由 `DatabaseHelper.searchNotifications` 完成（keyword/时间范围/应用名/包名走 SQL，
+  /// 送达状态对 `delivery_info` JSON 文本 LIKE 粗筛，不引 JSON1 依赖）；精筛走
+  /// `matchDeliveryFilter`（**口径在 `lib/models/delivery_status.dart` 那一张词表上**，
+  /// 粗筛的 LIKE 参数由同一张表生成 ⇒ 两层不会漂开）。
   /// 返回 (精筛后记录, 是否可能有下一页)——hasMore 以粗筛行数为准，
   /// 精筛只过滤当页不产生丢条（符合条件者必经粗筛命中）。
-  /// ⚠ 最后这句**要求**粗筛口径不窄于精筛：`failed` 档因此同时 LIKE 了 `intercepted`，
-  ///   否则一条只有拦截通道的记录进不了候选集，精筛里那一半 `intercepted` 永远轮不到
-  ///   （见 `DatabaseHelper.buildSearchSql`）。
   Future<(List<NotificationRecord>, bool)> searchRecords({
     String? keyword,
     int? startTime,
@@ -238,32 +235,16 @@ class NotificationService {
     var records = rows.map((e) => NotificationRecord.fromMap(e)).toList();
     // Dart flow analysis 不做 a=='x' || a=='y' 的"值集合"提升，
     // 先显式判空得到非空局部（final 提升可跨闭包保留）
+    // ⚠ 只要给了档名就交给那一句精筛判定，**包括认不出的档名**（那位返回 false ⇒ 这一档看不见任何记录）。
+    //   别改回"只在这两个档名时才精筛"：那样一个漂掉的旧 id（如 `'failed'`）会静默变成"筛了个寂寞"
+    //   —— 粗筛不加 WHERE、精筛不跑，列表原样全给，读起来像筛选坏了而不是筛到了。
     final df = deliveryFilter;
-    if (df != null && (df == 'failed' || df == 'success')) {
+    if (df != null && df != deliveryFilterAll) {
       records = records
           .where((r) => matchDeliveryFilter(r.deliveryStatus, df))
           .toList();
     }
     return (records, hasMore);
-  }
-
-  /// 送达状态精筛判定（jsonDecode 已由 NotificationRecord.fromMap 完成）。
-  ///
-  /// 这一位作者回答的是「这条**送达了吗**」，与「这条**可以再发一次吗**」是两个问题 ——
-  /// 后者在 `lib/services/repush_eligibility.dart`，两者对 `intercepted` 的答案**故意不同**
-  /// （被用户自己的规则拦下的：没送达，但不该替他推翻去重发）。
-  /// 公开是为了让这两个答案能同屏钉住（见 `test/services/repush_eligibility_test.dart`）。
-  static bool matchDeliveryFilter(Map<String, dynamic> status, String filter) {
-    if (status.isEmpty) return false;
-    final states = status.values
-        .whereType<Map>()
-        .map((m) => m['status']?.toString())
-        .toList();
-    if (filter == 'failed') {
-      return states.any((s) => s == 'failed' || s == 'intercepted');
-    }
-    // success：有状态且全部成功
-    return states.isNotEmpty && states.every((s) => s == 'success');
   }
 
   Future<void> loadServiceState() async {

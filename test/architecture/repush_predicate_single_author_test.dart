@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
+import 'package:notice_transmit/models/delivery_status.dart';
 
 import '../support/source_guards.dart';
 
@@ -72,29 +73,52 @@ void main() {
     });
   });
 
-  group('送达筛选：粗筛不许窄于精筛', () {
-    test('精筛 failed 档认的每个状态词，SQL 粗筛都要 LIKE 到', () {
-      final svc = libCode['services/notification_service.dart']!;
-      final fine = blockAfter(svc, "if (filter == 'failed')");
-      final accepted = RegExp(
-        r"s\s*==\s*'([a-z_]+)'",
-      ).allMatches(fine).map((m) => m.group(1)!).toSet();
-      expect(
-        accepted,
-        contains('failed'),
-        reason: '精筛连 "failed" 都没提到 ⇒ 提取式失效（尺窄于它量的东西），不是判据成立。',
+  group('送达筛选：粗筛与精筛同源', () {
+    // 片1 时这一条是"从精筛源码里提取状态词，再要求粗筛 LIKE 到"（提取式，尺窄就可能空转）。
+    // 片3 把两层收到同一张词表上 ⇒ 断言改成**构造**：粗筛的参数必须逐字取自那张表。
+    test('SQL 粗筛的 LIKE 参数恰好是词表那几个状态词', () {
+      final (_, args) = DatabaseHelper.buildSearchSql(
+        deliveryFilter: deliveryFilterNotDelivered,
       );
+      expect(
+        args,
+        notDeliveredStatuses.map((s) => '%$s%').toList(),
+        reason:
+            '粗筛不许再自己抄状态词。顺序也要与词表一致 —— 同一份表在两层排成两样，'
+            '读代码的人会以为有两张表（片1 那轮的缺陷正是两层各抄一遍后漂开）。',
+      );
+      // 尺自己的非空自证：表空了上面那句就变成"两个空集合相等"，那是假绿
+      expect(notDeliveredStatuses, contains('failed'));
+      expect(notDeliveredStatuses.length, greaterThanOrEqualTo(2));
+    });
 
-      final (_, args) = DatabaseHelper.buildSearchSql(deliveryFilter: 'failed');
-      for (final word in accepted) {
-        expect(
-          args,
-          contains('%$word%'),
-          reason:
-              '精筛把 "$word" 算作未送达，SQL 粗筛却没 LIKE 它 —— '
-              '只有该状态的记录进不了候选集，精筛那一半永远轮不到（丢筛选项）。',
-        );
-      }
+    test('送达词表与档名只有一个作者，其余各处只引用不另抄', () {
+      final users =
+          libCode.entries
+              .where(
+                (e) =>
+                    e.value.contains('notDeliveredStatuses') ||
+                    e.value.contains('deliveredStatus') ||
+                    e.value.contains('deliveryFilterNotDelivered') ||
+                    e.value.contains('deliveryFilterDelivered') ||
+                    e.value.contains('matchDeliveryFilter'),
+              )
+              .map((e) => e.key)
+              .toList()
+            ..sort();
+      expect(
+        users,
+        [
+          'database/database_helper.dart',
+          'models/delivery_status.dart',
+          'pages/history_page.dart',
+          'services/notification_service.dart',
+        ],
+        reason:
+            '「这条送达了吗」的消费者集合变了。今天只有 DB（粗筛取词表）、'
+            'service（精筛调那一句）、历史页（档名）三处 —— 新增读者请登记；'
+            '若是绕过词表自己抄一份状态词或档名，改回引用。',
+      );
     });
   });
 }

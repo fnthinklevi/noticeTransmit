@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/email_channel.dart';
+import '../models/delivery_status.dart';
 import '../models/fnthink_channel.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
@@ -1174,16 +1175,17 @@ class DatabaseHelper
       conds.add("package_name LIKE ? ESCAPE '\\'");
       args.add('%${escapeLike(packageName)}%');
     }
-    if (deliveryFilter == 'failed') {
-      // ⚠ 粗筛的口径必须**不窄于** Dart 端那一句精筛（`failed` 或 `intercepted`，
-      // 见 `NotificationService.matchDeliveryFilter`）。原先只 LIKE '%failed%'：
-      // 一条只有拦截通道的记录进不了候选集，精筛里那一半 `intercepted` 永远轮不到，
-      // 界面上就是「状态词写着拦截、按『失败』筛却找不到它」。
-      conds.add('(delivery_info LIKE ? OR delivery_info LIKE ?)');
-      args.addAll(['%failed%', '%intercepted%']);
-    } else if (deliveryFilter == 'success') {
+    if (deliveryFilter == deliveryFilterNotDelivered) {
+      // ⚠ LIKE 参数由 `notDeliveredStatuses` 那张**词表**生成，不在此处另抄一遍状态词：
+      // 粗筛的口径必须不窄于精筛，否则只有某状态的记录进不了候选集，精筛那一半永远轮不到。
+      // 这不是假想 —— 片1 之前只 `LIKE '%failed%'`，而一条只有拦截通道的记录就是这么被吞掉的。
+      conds.add(
+        '(${List.generate(notDeliveredStatuses.length, (i) => 'delivery_info LIKE ?').join(' OR ')})',
+      );
+      args.addAll(notDeliveredStatuses.map((s) => '%$s%'));
+    } else if (deliveryFilter == deliveryFilterDelivered) {
       conds.add('delivery_info LIKE ?');
-      args.add('%success%');
+      args.add('%$deliveredStatus%');
     }
     final where = conds.isEmpty ? '' : 'WHERE ${conds.join(' AND ')}';
     return (where, args);

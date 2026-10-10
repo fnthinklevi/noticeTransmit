@@ -4,7 +4,7 @@
 ///
 /// | 问题 | 谁回答 | 含 `intercepted` 吗 |
 /// |---|---|---|
-/// | 这条**送达了吗**（筛选、状态词、计数） | DB 侧 `buildSearchSql` 的粗筛 + `NotificationService.matchDeliveryFilter` 的精筛 | **含** —— 被拦截的确实没送达 |
+/// | 这条**送达了吗**（筛选、状态词、计数） | `lib/models/delivery_status.dart`：词表 + 精筛，SQL 粗筛的 LIKE 参数由那张表生成 | **含** —— 被拦截的确实没送达 |
 /// | 这条**可以再发一次吗**（批量池、勾选框、单条「现在推送」） | 本文件 | **不含** —— 那是用户自己定的过滤规则，替他推翻它不是"重推" |
 ///
 /// 改之前两件事共用一个 `hasFailedChannel`（只认 `failed`），于是"筛选筛得出 intercepted、

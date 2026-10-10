@@ -613,10 +613,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryAll => 'All';
 
   @override
-  String get deliverySuccessOnly => 'Success Only';
+  String get deliveryDeliveredOnly => 'Delivered';
 
   @override
-  String get deliveryFailedOnly => 'Failed Only';
+  String get deliveryNotDeliveredOnly => 'Not delivered';
 
   @override
   String get filterApply => 'Apply Filters';
