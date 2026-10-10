@@ -1175,8 +1175,12 @@ class DatabaseHelper
       args.add('%${escapeLike(packageName)}%');
     }
     if (deliveryFilter == 'failed') {
-      conds.add('delivery_info LIKE ?');
-      args.add('%failed%');
+      // ⚠ 粗筛的口径必须**不窄于** Dart 端那一句精筛（`failed` 或 `intercepted`，
+      // 见 `NotificationService.matchDeliveryFilter`）。原先只 LIKE '%failed%'：
+      // 一条只有拦截通道的记录进不了候选集，精筛里那一半 `intercepted` 永远轮不到，
+      // 界面上就是「状态词写着拦截、按『失败』筛却找不到它」。
+      conds.add('(delivery_info LIKE ? OR delivery_info LIKE ?)');
+      args.addAll(['%failed%', '%intercepted%']);
     } else if (deliveryFilter == 'success') {
       conds.add('delivery_info LIKE ?');
       args.add('%success%');

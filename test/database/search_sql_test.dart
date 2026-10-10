@@ -44,12 +44,12 @@ void main() {
       expect(args, ['%微信%', '%com.tencent.mm%']);
     });
 
-    test('送达状态粗筛：failed/success 命中 delivery_info JSON 文本', () {
+    test('送达状态粗筛：failed 档把 intercepted 一起捞（粗筛不许窄于精筛）', () {
       final (where1, args1) = DatabaseHelper.buildSearchSql(
         deliveryFilter: 'failed',
       );
-      expect(where1, 'WHERE delivery_info LIKE ?');
-      expect(args1, ['%failed%']);
+      expect(where1, 'WHERE (delivery_info LIKE ? OR delivery_info LIKE ?)');
+      expect(args1, ['%failed%', '%intercepted%']);
 
       final (where2, args2) = DatabaseHelper.buildSearchSql(
         deliveryFilter: 'success',
@@ -85,11 +85,12 @@ void main() {
         "WHERE (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' "
         "OR app_name LIKE ? ESCAPE '\\' OR package_name LIKE ? ESCAPE '\\') "
         "AND post_time >= ? AND package_name LIKE ? ESCAPE '\\' "
-        'AND delivery_info LIKE ?',
+        'AND (delivery_info LIKE ? OR delivery_info LIKE ?)',
       );
-      expect(args.length, 7);
+      expect(args.length, 8);
       expect(args[4], 1000);
       expect(args[6], '%failed%');
+      expect(args[7], '%intercepted%');
     });
 
     test('空白关键字视为无关键字', () {

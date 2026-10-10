@@ -211,6 +211,9 @@ class NotificationService {
   /// - success：至少有一个通道状态，且全部通道均为 success
   /// 返回 (精筛后记录, 是否可能有下一页)——hasMore 以粗筛行数为准，
   /// 精筛只过滤当页不产生丢条（符合条件者必经粗筛命中）。
+  /// ⚠ 最后这句**要求**粗筛口径不窄于精筛：`failed` 档因此同时 LIKE 了 `intercepted`，
+  ///   否则一条只有拦截通道的记录进不了候选集，精筛里那一半 `intercepted` 永远轮不到
+  ///   （见 `DatabaseHelper.buildSearchSql`）。
   Future<(List<NotificationRecord>, bool)> searchRecords({
     String? keyword,
     int? startTime,
@@ -238,14 +241,19 @@ class NotificationService {
     final df = deliveryFilter;
     if (df != null && (df == 'failed' || df == 'success')) {
       records = records
-          .where((r) => _matchDeliveryFilter(r.deliveryStatus, df))
+          .where((r) => matchDeliveryFilter(r.deliveryStatus, df))
           .toList();
     }
     return (records, hasMore);
   }
 
-  /// 送达状态精筛判定（jsonDecode 已由 NotificationRecord.fromMap 完成）
-  static bool _matchDeliveryFilter(Map<String, dynamic> status, String filter) {
+  /// 送达状态精筛判定（jsonDecode 已由 NotificationRecord.fromMap 完成）。
+  ///
+  /// 这一位作者回答的是「这条**送达了吗**」，与「这条**可以再发一次吗**」是两个问题 ——
+  /// 后者在 `lib/services/repush_eligibility.dart`，两者对 `intercepted` 的答案**故意不同**
+  /// （被用户自己的规则拦下的：没送达，但不该替他推翻去重发）。
+  /// 公开是为了让这两个答案能同屏钉住（见 `test/services/repush_eligibility_test.dart`）。
+  static bool matchDeliveryFilter(Map<String, dynamic> status, String filter) {
     if (status.isEmpty) return false;
     final states = status.values
         .whereType<Map>()

@@ -2458,8 +2458,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get batchPushEntry => 'Batch re-push';
 
   @override
-  String get batchPushNoFailed =>
-      'No failed records to re-push in the current list';
+  String get batchPushNothingToResend => 'No records here can be sent again';
 
   @override
   String batchSelectedCount(int n) {
@@ -2467,7 +2466,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get batchSelectAll => 'Select all failed';
+  String get batchSelectAll => 'Select all that can be sent again';
 
   @override
   String get batchSelectNone => 'Clear selection';
@@ -2482,7 +2481,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String batchPushConfirmMsg(int n) {
-    return 'Will re-push $n failed records; the actual delivery result is reflected by record status.';
+    return 'Will re-push $n records whose channels did not all go out; the actual delivery result is reflected by record status.';
   }
 
   @override

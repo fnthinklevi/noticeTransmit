@@ -2359,7 +2359,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get batchPushEntry => '批量补推';
 
   @override
-  String get batchPushNoFailed => '当前列表没有可补推的失败记录';
+  String get batchPushNothingToResend => '当前列表没有可再发的记录';
 
   @override
   String batchSelectedCount(int n) {
@@ -2367,7 +2367,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get batchSelectAll => '全选失败记录';
+  String get batchSelectAll => '全选可再发的';
 
   @override
   String get batchSelectNone => '全不选';
@@ -2382,7 +2382,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String batchPushConfirmMsg(int n) {
-    return '将对 $n 条失败记录重新发起推送，实际送达结果以记录状态为准。';
+    return '将对 $n 条有通道没发出去的记录重新发起推送，实际送达结果以记录状态为准。';
   }
 
   @override

@@ -83,25 +83,12 @@ class NotificationRecord {
     return normalizeDeliveryKeys(raw);
   }
 
-  /// F2 批量补推：是否存在失败通道（与 DB 侧 `delivery_info LIKE '%failed%'`
-  /// 筛选同口径，见 `DatabaseHelper._buildSearchWhere`）。
-  /// 仅统计 Map 形态且 `status == 'failed'` 的通道条目；空/异形值保守判为无失败。
-  bool get hasFailedChannel {
-    for (final v in deliveryStatus.values) {
-      if (v is Map && v['status'] == 'failed') return true;
-    }
-    return false;
-  }
-
-  /// F2 批量补推：失败通道名列表（供 UI 展示明细）
-  List<String> get failedChannels {
-    final result = <String>[];
-    for (final entry in deliveryStatus.entries) {
-      final v = entry.value;
-      if (v is Map && v['status'] == 'failed') result.add(entry.key);
-    }
-    return result;
-  }
+  /// 「哪些可以再发一次」不在这张表上回答 —— 见 `lib/services/repush_eligibility.dart`。
+  ///
+  /// 这里原来挂着 `hasFailedChannel` 与 `failedChannels` 两个判据，它们把两个不同的问题
+  /// 混成了一个：筛选问的是"送达了吗"（含 `intercepted`），重推问的是"可以再发一次吗"
+  /// （被用户自己的规则拦下的那几把不算）。两套判据共用一个名字，界面上就出现
+  /// "筛得出、选不中"。T133 片1 把它们拆成两个具名作者，本类只留数据。
 
   Map<String, dynamic> toMap() {
     return {

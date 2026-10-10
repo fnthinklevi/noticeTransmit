@@ -4496,11 +4496,11 @@ abstract class AppLocalizations {
   /// **'批量补推'**
   String get batchPushEntry;
 
-  /// No description provided for @batchPushNoFailed.
+  /// No description provided for @batchPushNothingToResend.
   ///
   /// In zh, this message translates to:
-  /// **'当前列表没有可补推的失败记录'**
-  String get batchPushNoFailed;
+  /// **'当前列表没有可再发的记录'**
+  String get batchPushNothingToResend;
 
   /// No description provided for @batchSelectedCount.
   ///
@@ -4511,7 +4511,7 @@ abstract class AppLocalizations {
   /// No description provided for @batchSelectAll.
   ///
   /// In zh, this message translates to:
-  /// **'全选失败记录'**
+  /// **'全选可再发的'**
   String get batchSelectAll;
 
   /// No description provided for @batchSelectNone.
@@ -4535,7 +4535,7 @@ abstract class AppLocalizations {
   /// No description provided for @batchPushConfirmMsg.
   ///
   /// In zh, this message translates to:
-  /// **'将对 {n} 条失败记录重新发起推送，实际送达结果以记录状态为准。'**
+  /// **'将对 {n} 条有通道没发出去的记录重新发起推送，实际送达结果以记录状态为准。'**
   String batchPushConfirmMsg(int n);
 
   /// No description provided for @batchPushRunning.

@@ -26,6 +26,7 @@ import '../widgets/ios_option_picker.dart';
 import '../widgets/ios_progress_dialog.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
+import '../services/repush_eligibility.dart';
 import 'fnthink_send_page.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -249,9 +250,14 @@ class _HistoryPageState extends State<HistoryPage> {
   List<NotificationRecord> get _displayedRecords =>
       _searchResults ?? _filteredRecords;
 
-  /// 可补推池：当前展示列表中的失败记录（与 DB `%failed%` 筛选同口径）
-  List<NotificationRecord> get _batchPool =>
-      _displayedRecords.where((r) => r.hasFailedChannel).toList();
+  /// 可补推池：当前展示列表里**可以再发一次**的那些（判据见 `repush_eligibility.dart`）。
+  ///
+  /// ⚠ 它与搜索精筛的「失败」**不是同一个集合**：筛的是"送达了吗"（含被拦截的），
+  /// 这里问的是"可以再发一次吗"（用户自己拦下的不算）。T133 之前两者共用一个
+  /// `hasFailedChannel`，界面上就表现为"筛得出、选不中"。
+  List<NotificationRecord> get _batchPool => _displayedRecords
+      .where((r) => recordNeedsRepush(r.deliveryStatus))
+      .toList();
 
   void _enterBatchMode() {
     final l10n = AppLocalizations.of(context);
@@ -259,12 +265,12 @@ class _HistoryPageState extends State<HistoryPage> {
     if (pool.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(l10n.batchPushNoFailed)));
+      ).showSnackBar(SnackBar(content: Text(l10n.batchPushNothingToResend)));
       return;
     }
     setState(() {
       _batchMode = true;
-      // 默认全选当前列表中的失败记录，用户可再取消
+      // 默认全选当前列表里可再发的那些，用户可再取消
       _batchSelected
         ..clear()
         ..addAll(pool.map((r) => r.id));
@@ -279,7 +285,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _toggleBatchSelect(NotificationRecord record) {
-    if (!record.hasFailedChannel) return; // 非失败记录不可选
+    if (!recordNeedsRepush(record.deliveryStatus)) return; // 没有可再发的通道：不可选
     setState(() {
       if (_batchSelected.contains(record.id)) {
         _batchSelected.remove(record.id);
@@ -289,7 +295,7 @@ class _HistoryPageState extends State<HistoryPage> {
     });
   }
 
-  void _selectAllFailed() {
+  void _selectAllRepushable() {
     setState(() {
       _batchSelected
         ..clear()
@@ -757,9 +763,13 @@ class _HistoryPageState extends State<HistoryPage> {
     return Tooltip(message: message, child: chip);
   }
 
-  /// "现在推送"小按钮：iOS 风格圆角蓝底，点击手动补推暂停期间未发送的消息
+  /// 「现在推送」小按钮：iOS 风格圆角蓝底，手动补推这一条里那些**可以再发一次**的通道。
+  ///
+  /// ⚠ 带 `ValueKey('history-push-now-<记录 id>')`：闸门与用例按 key 点，不按文案 ——
+  /// 这一枚在每一行都长一个样，`find.text(pushNow)` 在多行列表里必然抓到多枚。
   Widget _buildPushNowButton(NotificationRecord record, AppLocalizations l10n) {
     return GestureDetector(
+      key: ValueKey('history-push-now-${record.id}'),
       onTap: () => widget.onPushNow!(record),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -2311,21 +2321,19 @@ class _HistoryPageState extends State<HistoryPage> {
 
     // 推送渠道标签 + 各通道送达状态（两者用同一串送达键 chan:<slug>；
     // 重启后 channels 为空时回退用 deliveryStatus 键）
-    final displayChannels = record.channels.isNotEmpty
+    final rows = record.channels.isNotEmpty
         ? record.channels
         : record.deliveryStatus.keys.toList();
-    // 是否存在被用户暂停（未实际发送）的通道 → 显示"现在推送"按钮
-    final hasPausedChannel = displayChannels.any((c) {
-      final info = record.deliveryStatus[c];
-      return info is Map && info['status'] == 'paused';
-    });
-    if (displayChannels.isNotEmpty) {
+    // 有没有还能再发一次的通道（T133 片1：以前只认 `paused` ⇒ 一条真失败的记录
+    // 在单条这一层没有任何出口，只能去开批量模式）
+    final canRepush = recordNeedsRepush(record.deliveryStatus);
+    if (rows.isNotEmpty) {
       columnChildren.add(const SizedBox(height: 4));
       columnChildren.add(
         Wrap(
           spacing: 4,
           runSpacing: 2,
-          children: displayChannels.map((c) {
+          children: rows.map((c) {
             final chipColor = _getChannelColor(c);
             final statusInfo = record.deliveryStatus[c];
             final status = statusInfo is Map
@@ -2345,8 +2353,9 @@ class _HistoryPageState extends State<HistoryPage> {
           }).toList(),
         ),
       );
-      // 暂停状态下未发送：提供手动补推入口
-      if (hasPausedChannel && widget.onPushNow != null) {
+      // 还能再发一次的那几条：给单条出口（T133 片1 之前只在"暂停"时出现 ⇒
+      // 一条真失败的记录只能去开批量模式才能重推）
+      if (canRepush && widget.onPushNow != null) {
         columnChildren.add(const SizedBox(height: 6));
         columnChildren.add(_buildPushNowButton(record, l10n));
       }
@@ -2414,9 +2423,9 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
 
-    // F2：批量模式左侧加勾选框（非失败记录不可选，置灰）
+    // F2：批量模式左侧加勾选框（不可再发的那几条不可选 —— 判据与 `_batchPool` 同一个作者）
     if (!_batchMode) return item;
-    final selectable = record.hasFailedChannel;
+    final selectable = recordNeedsRepush(record.deliveryStatus);
     return Row(
       children: [
         Checkbox(
@@ -2568,7 +2577,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 IconButton(
                   icon: const Icon(Icons.select_all),
                   tooltip: l10n.batchSelectAll,
-                  onPressed: _selectAllFailed,
+                  onPressed: _selectAllRepushable,
                 ),
                 IconButton(
                   icon: const Icon(Icons.deselect),
