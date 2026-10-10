@@ -210,6 +210,66 @@ void main() {
     });
   });
 
+  group('T129 挂在对面的配对请求也算"有货"', () {
+    // 维护者 2026-10-10 第 4 条前半：「配对延迟太大，且没有主动刷新」。原来提频只由
+    // `pending`（消息队列）与"取满一整批"触发，配对这一路**不算** ⇒ 点完发起要等一整个
+    // 常态间隔（默认 20s）才看到结论。这一组钉的是：只要有一发我发起的请求还在 pending，
+    // 下一轮的间隔就是契约的提频档，而不是常态档。
+    Future<Duration> delayWith(List<Map<String, Object?>> outgoing) async {
+      final kernel = FnthinkReceiveKernel(
+        contract: contract,
+        addressCode: _self,
+        signer: (_) async => 'sig',
+        transport: (_) async => FnthinkReply(
+          status: 200,
+          body: {
+            'messages': const [],
+            'receipts': const [],
+            'pending': 0,
+            'serverTime': 1800000000000,
+            // 键名从契约取：写死就等于承认"键名可以有两处作者"。
+            contract.pairRequestSentPollKey: outgoing,
+          },
+        ),
+      );
+      return (await kernel.poll()).nextDelay;
+    }
+
+    test('有一发还在等对面答复 ⇒ 下一轮走提频档', () async {
+      final delay = await delayWith(const [
+        {
+          'id': 'pr_9',
+          'target': '8KMNPQRSTVWX999777',
+          'status': 'pending',
+          'level': 'L1',
+        },
+      ]);
+      expect(
+        delay,
+        Duration(seconds: contract.burstWhenPending.intervalSeconds),
+      );
+    });
+
+    test('那一发已经有结论（已同意）⇒ 回到常态档，不一直提着', () async {
+      final delay = await delayWith(const [
+        {
+          'id': 'pr_9',
+          'target': '8KMNPQRSTVWX999777',
+          'status': 'approved',
+          'level': 'L1',
+        },
+      ]);
+      expect(delay, Duration(seconds: contract.pollIntervalSeconds));
+    });
+
+    test('一面都没有 ⇒ 常态档（这一条是上面两条的对照组，防"一律提频"）', () async {
+      expect(
+        await delayWith(const []),
+        Duration(seconds: contract.pollIntervalSeconds),
+      );
+    });
+  });
+
   group('节奏（提频只在有货时）', () {
     test('pending=0 ⇒ 常态间隔，且这个数从契约来', () async {
       final harness = _Harness(contract, 1_800_000_000_000);

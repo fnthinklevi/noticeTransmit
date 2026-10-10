@@ -253,10 +253,23 @@ class FnthinkReceiveKernel {
       if (one != null) receipts.add(one);
     }
     final pending = (reply.body['pending'] as num?)?.toInt() ?? 0;
+    // T129：这一轮的"我发起过的请求"先解析出来 —— 它既要塞进结果里，也要参与**提频判据**。
+    final sentNow = FnthinkSentPairRequest.parseList(
+      contract,
+      reply.body[contract.pairRequestSentPollKey],
+    );
+    // 还有一发挂在对面等答复 ⇒ 同样提频。原来只有"消息还有货"才提频、配对不算，表现就是
+    // 用户点完发起要等一整个常态间隔（默认 20s）才看到结论，读起来是"配对延迟太大且没人刷新"。
+    // ⚠ 判据**只在这一处**：另起一个"配对专用定时器"会长出第二个"什么时候该醒"的作者。
+    final waitingForPeerAnswer = sentNow.any(
+      (e) => e.state == FnthinkPairRequestState.pending,
+    );
     // 取满一整批 = 服务端按 `maxBatchPerPoll` 截断过 ⇒ 后面还有货，这一轮不等 pending
     // （pending 是"还在队列里的条数"，它本来就会 >= 本轮取走的数）。
     final moreWaiting =
-        pending > 0 || messages.length >= contract.maxBatchPerPoll;
+        pending > 0 ||
+        messages.length >= contract.maxBatchPerPoll ||
+        waitingForPeerAnswer;
     if (moreWaiting) {
       _burstUntilMs =
           _nowMs() + contract.burstWhenPending.durationSeconds * 1000;
@@ -275,11 +288,9 @@ class FnthinkReceiveKernel {
         reply.body[contract.pairRequestPollKey],
       ),
       // 同一发 poll 的**另一面**（T110）：我发起过的那些现在算什么状态。键名也从契约读，
-      // 两面各一份，谁都不许在代码里拼那个字符串。
-      sentPairRequests: FnthinkSentPairRequest.parseList(
-        contract,
-        reply.body[contract.pairRequestSentPollKey],
-      ),
+      // 两面各一份，谁都不许在代码里拼那个字符串。⚠ 这里必须复用上面那一份 `sentNow`
+      // —— 解析两遍就会出现"提频按一份判、界面按另一份画"的两个读者（T129）。
+      sentPairRequests: sentNow,
       signedWhileUncalibrated: signedWhileUncalibrated,
     );
   }
