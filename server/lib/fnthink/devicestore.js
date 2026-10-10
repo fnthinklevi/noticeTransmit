@@ -183,8 +183,13 @@ function peerGrant(contract, record, peerCode) {
 
 /// A 确认把 B 写进自己的白名单 —— 授权写入的**唯一咽喉**，别处不许再写 `grantsBy[...]`。
 /// 只有 A 自己的签名能走到这里（routes 的 /pair-confirm 先过 authorizePairConfirm）。
-/// ⚠ 每次确认都把 `items` 重置成空清单：重新配对不继承旧的逐条勾选 —— L2/L3 那些
+/// ⚠ 每次确认都把 `items` 重置成空清单：重新配对**不继承**旧的逐条勾选 —— L2/L3 那些
 ///   "每一次都要人看一眼"的条目，不该因为重新扫一次码就自动回来（契约 itemRequiredFromLevel 的方向）。
+/// ⚠ **今天这一句还不完整，别把它读成"items 只是会被抹掉"**：全仓（含设备侧）没有任何一处往里写非空值 ——
+///   `pair-confirm` 的载荷里没有勾选表，设备侧那份答复也明写自己是空清单（T49 的注释）。
+///   所以现实是「L2 起带 `item:x` 的授权一律判不过」，而不是「勾过又被抹」。
+///   补那一位写入者是 roadmap **T134**（勾选取自哪一屏、要不要进契约，都在那一条里拍）；
+///   在它落地之前，改这里之前先去看那条 —— 往这里塞一个"继承旧 items"的写法会直接放行历史勾选。
 function approvePeer(contract, devices, addressCode, peerCode, level, now) {
   const record = devices[keyOf(contract, addressCode)];
   if (!record) throw new Error('设备未登记（授权不能挂在没有记录的设备上）');
