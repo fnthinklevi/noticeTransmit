@@ -3328,6 +3328,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPairRefresh => '问一次对面答了没';
+
+  @override
+  String get fnthinkPairRefreshQuiet => '问过服务器了，对面还没有新结论';
+
+  @override
   String get fnthinkPairRequestsSent => '我发起过的配对请求';
 
   @override

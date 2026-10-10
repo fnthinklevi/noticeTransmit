@@ -1637,6 +1637,8 @@
       }
     }
   },
+  "fnthinkPairRefresh": "问一次对面答了没",
+  "fnthinkPairRefreshQuiet": "问过服务器了，对面还没有新结论",
   "fnthinkPairRequestsSent": "我发起过的配对请求",
   "fnthinkPairSentLine": "发给 {peer} · 要的是 {level} · {status} · {at}",
   "@fnthinkPairSentLine": {

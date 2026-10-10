@@ -1616,6 +1616,8 @@
       }
     }
   },
+  "fnthinkPairRefresh": "Ask whether the peer answered",
+  "fnthinkPairRefreshQuiet": "Asked the server - no new answer from the peer yet",
   "fnthinkPairRequestsSent": "Pairing requests you sent",
   "fnthinkPairSentLine": "to {peer} · requesting {level} · {status} · {at}",
   "@fnthinkPairSentLine": {

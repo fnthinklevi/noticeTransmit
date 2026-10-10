@@ -6242,6 +6242,18 @@ abstract class AppLocalizations {
   /// **'{peer} 请求配对你，要的是 {level} · {at}'**
   String fnthinkPairRequestLine(String peer, String level, String at);
 
+  /// No description provided for @fnthinkPairRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'问一次对面答了没'**
+  String get fnthinkPairRefresh;
+
+  /// No description provided for @fnthinkPairRefreshQuiet.
+  ///
+  /// In zh, this message translates to:
+  /// **'问过服务器了，对面还没有新结论'**
+  String get fnthinkPairRefreshQuiet;
+
   /// No description provided for @fnthinkPairRequestsSent.
   ///
   /// In zh, this message translates to:

@@ -75,12 +75,14 @@ void main() {
     expect(find.text('这一步做完了'), findsNothing);
   });
 
-  test('设备配对页那两处结论都弹：答复那一发与发起那一发', () {
+  test('设备配对页那三处结论都弹：答复、发起、以及手动问一次进度', () {
     final calls = RegExp('showFnthinkOutcome\\(').allMatches(page).length;
     expect(
       calls,
-      2,
-      reason: '答复（_answer）与发起（_pairWithPeer）各一处，少一处就是"点了没反应"那个缺陷的复活',
+      3,
+      reason:
+          '答复（_answer）、发起（_pairWithPeer）、刷新（_refreshPairing）各一处，'
+          '少一处就是"点了没反应"那个缺陷的复活',
     );
     // 正文必须来自现有唯一作者，不许在页面里另拼一句。
     expect(page, contains('detail: _pairAnswerText(l10n, entry)'));
@@ -124,5 +126,30 @@ void main() {
     }
     expect(page, contains('fnthinkPairingAckText('));
     expect(page, contains('fnthinkPairingAckKey('));
+  });
+
+  // ── T129 片2：手动问一次配对进度 ────────────────────────────────────────
+  test('那一页只有一个发 poll 的口子，且它的结论走同一个弹层', () {
+    final src = _code(_read('lib/pages/fnthink_peers_page.dart'));
+    final body = src.substring(src.indexOf('Future<void> _refreshPairing()'));
+    final calls = RegExp(
+      r'_coordinator\.receiveOnce\(\)',
+    ).allMatches(src).length;
+    expect(calls, 1, reason: '页面自己再发一轮 poll = 第二个"这一轮有没有货"的读者（T33 那一族踩过的形）');
+    expect(
+      body.substring(
+        0,
+        body.indexOf('\n  Future<void>') > 0
+            ? body.indexOf('\n  Future<void>')
+            : body.length,
+      ),
+      contains('showFnthinkOutcome('),
+      reason: '刷新那一发的结论必须走同一个装配点，不许另弹一套',
+    );
+    // 三件事三句，全用现有词条（没开收取 / 被跳过 / 跑完而对面没答）。
+    expect(body, contains('fnthinkReceiveDisabled'));
+    expect(body, contains('fnthinkReceiveSkipped'));
+    expect(body, contains('fnthinkPairRefreshQuiet'));
+    expect(src, contains("ValueKey('fnthink-pair-refresh')"));
   });
 }

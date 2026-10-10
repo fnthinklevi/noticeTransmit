@@ -342,10 +342,47 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
                         '—',
                   ),
                 ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FnthinkInlineAction(
+                  key: const ValueKey('fnthink-pair-refresh'),
+                  label: l10n.fnthinkPairRefresh,
+                  // T129 片2：这一格讲的是"我在等谁答"，而它原来只能等下一轮 poll 才更新
+                  // （提频那一半在片1 已接）。挂在**这一格**而不是页面顶部：问的就是这几行。
+                  onPressed: _busy ? null : _refreshPairing,
+                ),
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  /// 手动问一次服务器"对面答了没有"（T129 片2）。
+  ///
+  /// ⚠ 走协调者那**一个** `receiveOnce()`：页面不自己发 poll、也不自己判"这一轮算不算成功"。
+  /// 三件事分开说（与收件页那三句同源）：收取没开（`null`）、这一轮被跳过、跑完了而对面
+  /// 还没答 —— 把后两件说成一件，用户就会再点一次，而对第二遍服务端只回一句同形的话。
+  Future<void> _refreshPairing() async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _busy = true);
+    final report = await _coordinator.receiveOnce();
+    if (!mounted) return;
+    // 问完重读一次本机那两份账（发起面与历史共用一份），否则弹层说"跑完了"而格子还是旧的。
+    await _loadPeers();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    final ran = report != null && !report.skipped;
+    await showFnthinkOutcome(
+      context,
+      ok: ran,
+      detail: report == null
+          ? l10n.fnthinkReceiveDisabled
+          : report.skipped
+          ? l10n.fnthinkReceiveSkipped
+          : l10n.fnthinkPairRefreshQuiet,
     );
   }
 

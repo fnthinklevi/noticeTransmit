@@ -3485,6 +3485,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPairRefresh => 'Ask whether the peer answered';
+
+  @override
+  String get fnthinkPairRefreshQuiet =>
+      'Asked the server - no new answer from the peer yet';
+
+  @override
   String get fnthinkPairRequestsSent => 'Pairing requests you sent';
 
   @override
