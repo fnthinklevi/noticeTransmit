@@ -14,10 +14,14 @@ import org.json.JSONObject
  * （[ConfigManager.getFnthinkChannelConfigs] + [ChannelRouting]），以及把这一条**留下来**。
  * 真正发出去的那一发由 [FnthinkFanoutWorker] 起后台引擎去做。
  *
- * 存储选 `FlutterSharedPreferences` 而不是文件：与 [HistoryCache] 同一套路（同步写盘、进程被杀不丢），
+ * 存储选 `FlutterSharedPreferences` 而不是文件，理由只有一条、且是这一族独有的：**后台那一侧的
+ * Dart isolate 只能靠现成的 `SharedPreferences` 读到它**（见 [PREFS_NAME]）。⚠ 别再引 [HistoryCache]
+ * 作"同一套路"的先例 —— T133 量级②之后那条离线交接队列搬到了行文件：它只经 MethodChannel 交付，
+ * 不需要 Dart 直接读盘，所以它可以摆脱"每条通知都全量重写整根 JSON 数组"那种形状。
  * 而那上面已经存着同样形状的通知正文 —— 这里不是**第一份**明文正文，只是一份**待发**的。
- * 落进这一个文件还有第二个理由：后台那一侧的 Dart isolate 只能读到它（见 [PREFS_NAME]）。
  * 上限 [MAX_PENDING] 条，满了丢最旧：宁可少转几条，也不要在用户没察觉的情况下无限堆积。
+ * ⚠ 这一条上限与 HistoryCache 那枚 4MB 的差别在代价上：这里丢的是"这一发没转出去"，
+ * 记录本身照旧在数据库里看得见；那里丢的是**还没交接出去的唯一副本**，所以它不配当存储闸。
  *
  * 一条待发项记的是**这一轮路由判下来的目标集合**，不是"再读一次配置"：
  * 重新读会把"落队之后、发送之前用户改了配置"这件事悄悄改写掉，而送达记录说的是

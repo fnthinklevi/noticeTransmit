@@ -28,16 +28,19 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
             //   第三个作者。现在「当日已推送」的唯一作者在原生扇出那一次，Flutter 无话可同步。
             "drainOfflineCache" -> {
                 // Flutter 启动时拉取离线期间缓存的通知（避免软件被杀后历史丢失）
-                // drainAll 会解析最多 500 条 JSON 并读写 prefs —— 留在平台线程会卡首帧
+                // drainAll 一次要读整份行文件、解一遍墓碑、再把没拉走的重写回去（T133 量级②之后
+                // 队列不再设条数上限，一次交付只是其中一批）—— 留在平台线程会卡首帧
                 ioScope.launch {
                     val drained = HistoryCache.drainAll(activity.applicationContext)
-                    // #94-A：记录与"因缓存满而丢弃的条数"必须一次交付（分开读会漏计），
-                    // 所以这里回的是 Map 而不是裸 List。
+                    // #94-A：记录与"因资源预算而丢弃的条数"必须一次交付（分开读会漏计），
+                    // 所以这里回的是 Map 而不是裸 List。`truncated` 同一条理由搭同一班车：
+                    // Flutter 要靠它决定还要不要再拉一批，队列没清空时那批记录一条都还在原生。
                     postSuccess(
                         result,
                         mapOf(
                             "records" to drained.records,
                             "dropped" to drained.dropped,
+                            "truncated" to drained.truncated,
                         ),
                     )
                 }

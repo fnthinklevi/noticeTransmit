@@ -15,6 +15,11 @@ import 'repush_eligibility.dart';
 class NotificationService {
   static const _channel = AppChannels.notification;
 
+  /// 一次启动最多排空多少批离线交接（批大小住在原生，这里只管"排到原生说没了为止"）。
+  /// 200 批 × 原生一批 500 条 = 十万条仍未排完，只可能是队列里在写坏行；到上限就停手，
+  /// **余下的仍留在原生队列**，下次启动接着排 —— 这个上限不删任何东西。
+  static const _maxDrainRounds = 200;
+
   final List<NotificationRecord> _records = [];
   bool _serviceRunning = false;
   bool _serviceManuallyStopped = false;
@@ -157,51 +162,72 @@ class NotificationService {
   /// 拉取原生 HistoryCache 缓存的离线通知，按 id 去重后入库。
   /// 修复"软件关闭重开后推送历史记录消失"问题。
   ///
-  /// #94-A：原生回的是 `{records: [...], dropped: N}` 而不是裸数组 —— 记录与"因缓存满而
-  /// 丢弃最旧"的条数必须**一次交付**（分两次读之间原生可能又丢了新的，计数就漏了）。
+  /// #94-A：原生回的是 `{records: [...], dropped: N, truncated: bool}` 而不是裸数组 —— 记录与
+  /// "因资源预算而丢弃最旧"的条数必须**一次交付**（分两次读之间原生可能又丢了新的，计数就漏了）。
+  ///
+  /// T133 量级②：原生那道「500 条」的存储闸拆了之后，交接改成分批 —— `truncated` 为真就是
+  /// "原生手里还有"，必须继续拉，否则一次启动只入库一批、余下的要等下次打开（那是新的静默丢失）。
+  /// [_maxDrainRounds] 只是防"原生一直报 truncated"的兜底：**它不丢记录**，没拉走的仍躺在原生
+  /// 队列文件里，下次启动接着排。
   Future<void> _drainOfflineCache() async {
     try {
-      final raw = await _channel.invokeMethod<Object?>('drainOfflineCache');
-      if (raw != null && raw is! Map) {
-        // 不静默跳过：原生侧改了形状而这里没跟上时，"离线通知再也不进来"是最难查的症状
-        debugPrint('[HistoryCache] drainOfflineCache 形状不对：${raw.runtimeType}');
-        return;
+      var rounds = 0;
+      var totalMerged = 0;
+      while (rounds < _maxDrainRounds) {
+        rounds++;
+        final raw = await _channel.invokeMethod<Object?>('drainOfflineCache');
+        if (raw != null && raw is! Map) {
+          // 不静默跳过：原生侧改了形状而这里没跟上时，"离线通知再也不进来"是最难查的症状
+          debugPrint(
+            '[HistoryCache] drainOfflineCache 形状不对：${raw.runtimeType}',
+          );
+          return;
+        }
+        final payload = raw is Map ? raw : const <Object?, Object?>{};
+        final dropped = (payload['dropped'] as num?)?.toInt() ?? 0;
+        if (dropped > 0) {
+          pendingOfflineDrops = dropped;
+          debugPrint('[HistoryCache] 离线队列撑到资源预算（$dropped 条最旧记录被丢弃）');
+        }
+        totalMerged += await _mergeOfflineBatch(
+          payload['records'] as List<dynamic>?,
+        );
+        if (payload['truncated'] != true) {
+          if (totalMerged > 0) {
+            debugPrint('[HistoryCache] 合并 $totalMerged 条离线通知（$rounds 批）');
+          }
+          return;
+        }
       }
-      final payload = raw is Map ? raw : const <Object?, Object?>{};
-      final cached = payload['records'] as List<dynamic>?;
-      final dropped = (payload['dropped'] as num?)?.toInt() ?? 0;
-      if (dropped > 0) {
-        pendingOfflineDrops = dropped;
-        debugPrint('[HistoryCache] 离线期间缓存已满（$dropped 条最旧记录被丢弃）');
-      }
-      if (cached == null || cached.isEmpty) return;
-
-      // 获取现有 id 集合，避免重复入库
-      final existingIds = _records.map((r) => r.id).toSet();
-
-      var merged = 0;
-      for (final item in cached) {
-        if (item is! Map) continue;
-        final map = Map<String, dynamic>.from(item);
-        final id = map['id']?.toString() ?? '';
-        if (id.isEmpty || existingIds.contains(id)) continue;
-
-        map['channels'] = _getActiveChannels();
-        map['deliveryStatus'] = _buildInitialDeliveries(map['channels']);
-        final record = NotificationRecord.fromMap(map);
-        _records.insert(0, record);
-        await DatabaseHelper().insertNotification(record.toMap());
-        merged++;
-      }
-
-      // 取消保存上限（P1）：离线通知全量合并，不再截断内存列表
-
-      if (merged > 0) {
-        debugPrint('[HistoryCache] 合并 $merged 条离线通知');
-      }
+      debugPrint('[HistoryCache] 交接到达 $_maxDrainRounds 批上限，余下的仍留在原生队列');
     } catch (e) {
       debugPrint('拉取离线缓存失败: $e');
     }
+  }
+
+  /// 一批交接记录入库：按 id 去重（内存列表就是 DB 全量的镜像），逐条 insert。
+  /// 返回真正入库的条数 —— 调用处按它决定"还要不要再拉"之外的日志，`truncated` 才是续拉的依据。
+  Future<int> _mergeOfflineBatch(List<dynamic>? cached) async {
+    if (cached == null || cached.isEmpty) return 0;
+    // 获取现有 id 集合，避免重复入库
+    final existingIds = _records.map((r) => r.id).toSet();
+
+    var merged = 0;
+    for (final item in cached) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final id = map['id']?.toString() ?? '';
+      if (id.isEmpty || existingIds.contains(id)) continue;
+
+      map['channels'] = _getActiveChannels();
+      map['deliveryStatus'] = _buildInitialDeliveries(map['channels']);
+      final record = NotificationRecord.fromMap(map);
+      _records.insert(0, record);
+      existingIds.add(record.id);
+      await DatabaseHelper().insertNotification(record.toMap());
+      merged++;
+    }
+    return merged;
   }
 
   /// 全量历史搜索（P1）：SQLite LIKE 粗筛 + Dart 端 jsonDecode 精筛。

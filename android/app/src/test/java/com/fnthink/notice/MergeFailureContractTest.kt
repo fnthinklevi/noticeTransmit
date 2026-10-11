@@ -164,8 +164,10 @@ class MergeFailureContractTest {
     }
 
     @Test
-    fun historyCacheIsPersistedSynchronously() {
+    fun historyCacheEnqueuesSynchronously() {
         // 广播链路内同步写盘（进程被杀也不丢），是内容保底的底层保证。
+        // T133 量级②换了载体（SharedPreferences 里那根 JSON 数组 → 追加式行文件），这一族断言
+        // 跟着换形，钉的还是那件事：入队那一行必须同步落到文件，且入队路径不许退化成"每次读整份队列"。
         val cache = src("android/app/src/main/kotlin/com/fnthink/notice/HistoryCache.kt")
         assertTrue(
             "sendBroadcast 内必须写 HistoryCache（离线兜底）",
@@ -174,40 +176,51 @@ class MergeFailureContractTest {
 
         // ⚠ 首版实现写成 `cache.contains("同步写盘") || cache.contains("commit()")`，
         //   被植入「同步写盘→异步写盘」时**未捕获**（`||` 让 commit() 单方面兜住了）。
-        //   弱断言的典型形态：只要有一个 token 还在就永远为真。
-        //   改为结构化断言：writeArray 必须用 commit()（同步落盘），绝不能用 apply()（异步）。
-        val writeArray = functionBody(cache, "private fun writeArray(")
+        //   弱断言的典型形态：只要有一个 token 还在就永远为真 —— 所以这里照旧**按函数体取**：
+        //   入队那一行必须是 appendText（同步文件写），换成协程 / 异步句柄当场红。
+        val append = functionBody(cache, "fun append(")
+        val enqueue = append.indexOf("appendText(recordLine(data)")
+        assertTrue("append 必须把记录本体同步落到队列文件（appendText）", enqueue >= 0)
         assertTrue(
-            "writeArray 必须调用 commit() 同步落盘（apply() 是异步，进程被杀会丢数据）",
-            writeArray.contains(".commit()")
+            "入队落盘之前不许出现 return：那条分支只在内存里改了数组，进程一杀就静默丢失",
+            append.lastIndexOf("return") < enqueue
         )
+        assertEquals(
+            "入队出口必须恰好一个（多条路径各自入队，迟早漂出一条忘记入队）",
+            1,
+            Regex("appendText\\(").findAll(append).count()
+        )
+        // 入队只有是 O(1) 才有意义：一旦有人为了"顺便去重"在 append 里读整份队列，就退回旧载体
+        // 那个"每条通知都全量重写整根 JSON 数组"的形状 —— 而那正是当年那道 500 条上限
+        // 看起来"不得不有"的理由。读整份队列只许发生在压实路径里。
         assertFalse(
-            "writeArray 不得使用 apply()（异步落盘无法保证「入队前已持久化」这一内容保底前提）",
-            writeArray.contains(".apply()")
+            "append 内不得读整份队列（readLines / resolve 只属于 compactAndEvict 与 drainAll）",
+            append.contains("readLines(")
+        )
+    }
+
+    @Test
+    fun historyCacheDropCountIsCommittedSynchronously() {
+        // 「丢了 N 条」这个数**自己**不能被丢：这是 #94-A 那条横幅唯一的来源。
+        // 与上一条分开放，是因为反证要各点各的名 —— 两条判据装在同一个 @Test 里，
+        // 植入就只能报出一条用例，另一条维度的证据从此没法单独出示（T133 片5 反证 Q8/Q9）。
+        val cache = src("android/app/src/main/kotlin/com/fnthink/notice/HistoryCache.kt")
+        val compact = functionBody(cache, "private fun compactAndEvict(")
+        assertTrue(
+            "溢出计数必须落到 KEY_DROPPED：丢了它，「有 N 条没交接出去」这件事就没人知道了",
+            compact.contains("putInt(KEY_DROPPED")
+        )
+        assertTrue(
+            "compactAndEvict 那一笔计数必须 commit()（apply 是异步，进程被杀就少报一次）",
+            compact.contains(".commit()")
         )
 
-        // append() 的落盘必须是**单一出口**。原契约数的是"writeArray 至少两次"（去重路径 +
-        // 追加路径各自写盘），那只是在近似"两条分支都别漏写"。#94 取证时把去重/追加合并成
-        // 纯函数 mergeIntoArray + 末尾统一落盘 —— 漏写的可能从"两个分支"归零成"没有分支"，
-        // 此时"≥2"既满足不了也表达不了这件事。改钉形状：**恰好一个落盘点，且它之前不许有 return**
-        // （落盘之前的 return 就是"某条路径只在内存里改了数组"的那个静默丢失）。
-        val append = functionBody(cache, "fun append(")
-        val writes = Regex("writeArray\\(").findAll(append).count()
-        assertEquals(
-            "append 必须恰好一个 writeArray 落盘点（多条路径各自写盘，迟早漂出一条忘记落盘）",
-            1,
-            writes
-        )
-        val firstWrite = append.indexOf("writeArray(")
-        val lastReturn = append.lastIndexOf("return")
+        val drain = functionBody(cache, "fun drainAll(")
         assertTrue(
-            "落盘之前不许出现 return：那条分支改的是内存里的数组，进程一杀就静默丢失",
-            lastReturn < 0 || lastReturn > firstWrite
+            "交付那一发必须连同 KEY_DROPPED 一起清掉：否则同一批「丢了 N 条」下次启动再报一遍",
+            drain.contains("remove(KEY_DROPPED")
         )
-        assertFalse(
-            "append 内不得自行裸调 prefs.edit()（绕过 writeArray 即绕过 commit 保证）",
-            append.contains("prefs.edit()")
-        )
+        assertTrue("drainAll 那一笔计数必须 commit()", drain.contains(".commit()"))
     }
 
     @Test

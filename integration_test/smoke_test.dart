@@ -111,6 +111,8 @@ void main() {
           },
         ],
         'dropped': 0,
+        // 桩必须跟着载荷形状走（T133 量级②）：Dart 现在按 `truncated` 决定要不要再拉一批。
+        'truncated': false,
       },
       'drainDeliveryResults': <Map<String, dynamic>>[
         {

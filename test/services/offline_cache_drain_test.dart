@@ -11,11 +11,13 @@ import '../test_setup.dart';
 ///
 /// 原生 `drainOfflineCache` 一次交付 `{records: [...], dropped: N}` —— 记录与"期间因缓存满
 /// 被丢弃的条数"必须**同一次**给（分开读之间原生可能又丢了新的，计数就漏）。
-/// 这里钉四件事：
+/// 这里钉五件事：
 /// 1. 记录合得进来，且丢弃条数一起带出来（否则"不静默丢失"这条不变量又落空）；
 /// 2. `dropped=0` 不留提示（不是每次开应用都告诉用户"一切正常"）；
 /// 3. 形状不对时**不崩也不猜**：宁可一条都不合并，也不能把半个结构当成记录读进来；
-/// 4. 提示被用户收下后不再重复（原生侧交付时已清零）。
+/// 4. 提示被用户收下后不再重复（原生侧交付时已清零）；
+/// 5. T133 量级②：原生一次只交**一批**，`truncated` 为真必须继续排到没了为止 ——
+///    而那支循环自己要有上限（上限只停手，不删任何东西：余下的仍躺在原生队列文件里）。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   initTestDatabase();
@@ -24,8 +26,26 @@ void main() {
   late Database db;
   Object? drainPayload;
 
+  /// 分批交付的脚本：非空时**每次** `drainOfflineCache` 调用按顺序给一批，给完退回 [drainPayload]。
+  /// （原生换了载体之后一次只交一批，"还剩没有"由载荷里的 `truncated` 说 —— 见 T133 量级②。）
+  final List<Object?> drainQueue = <Object?>[];
+  int drainCalls = 0;
+
+  /// 置真后，脚本给完就**一直**回「还有、这批空」——只用来试那枚循环上限，不是原生真会这样。
+  bool drainSpinsForever = false;
+
   Future<Object?> onChannelCall(MethodCall call) async {
-    if (call.method == 'drainOfflineCache') return drainPayload;
+    if (call.method == 'drainOfflineCache') {
+      drainCalls++;
+      if (drainQueue.isNotEmpty) return drainQueue.removeAt(0);
+      if (drainSpinsForever) {
+        return <String, Object?>{
+          'records': const <Object?>[],
+          'truncated': true,
+        };
+      }
+      return drainPayload;
+    }
     return null;
   }
 
@@ -34,6 +54,9 @@ void main() {
     await helper.createSchemaForTest(db);
     helper.debugDatabase = db;
     drainPayload = null;
+    drainSpinsForever = false;
+    drainCalls = 0;
+    drainQueue.clear();
     GetIt.instance.reset();
     stubNativeChannels(onCall: onChannelCall);
   });
@@ -114,5 +137,71 @@ void main() {
 
     service.ackOfflineDrops();
     expect(service.pendingOfflineDrops, 0);
+  });
+
+  // ── 分批交付（T133 量级②）────────────────────────────────────────────
+  test('原生报 truncated ⇒ 一次启动排空到没了，不是只拿第一批', () async {
+    drainQueue.addAll(<Object?>[
+      <String, Object?>{
+        'records': [offlineRecord('p1_a'), offlineRecord('p1_b')],
+        'truncated': true,
+      },
+      <String, Object?>{
+        'records': [offlineRecord('p2_a')],
+        'truncated': false,
+      },
+    ]);
+    final service = NotificationService();
+    await service.loadRecords();
+
+    expect(
+      service.records.map((r) => r.id),
+      containsAll(<String>['p1_a', 'p1_b', 'p2_a']),
+      reason:
+          '原生那道 500 条的存储闸拆了之后，一次交付只是其中一批 —— 不续拉就等于'
+          '「离线期间的历史只进来头一批，剩下的下次打开再说」，那是新的静默丢失',
+    );
+    expect(drainCalls, 2, reason: '第二批才是"排到没了"的那一发');
+    expect(await helper.getAllNotifications(), hasLength(3));
+  });
+
+  test('同一条记录跨批重复 ⇒ 只入库一次', () async {
+    drainQueue.addAll(<Object?>[
+      <String, Object?>{
+        'records': [offlineRecord('dup_1')],
+        'truncated': true,
+      },
+      <String, Object?>{
+        'records': [offlineRecord('dup_1')],
+        'truncated': false,
+      },
+    ]);
+    final service = NotificationService();
+    await service.loadRecords();
+
+    expect(
+      service.records.where((r) => r.id == 'dup_1'),
+      hasLength(1),
+      reason: '批与批之间各算一次 existingIds，第二批没重读 ⇒ 同一条并排两次',
+    );
+  });
+
+  test('原生一直报 truncated ⇒ 循环有上限，且余下的不许被当成已交付', () async {
+    drainQueue.add(<String, Object?>{
+      'records': [offlineRecord('spin_1')],
+      'truncated': true,
+    });
+    drainSpinsForever = true;
+    final service = NotificationService();
+    await service.loadRecords();
+
+    // 队列脚本给完就退回 null（形状不对 ⇒ 一条都不合并），所以这里到的是**上限**那一支。
+    expect(drainCalls, 200, reason: '没有上限 ⇒ 原生一句 truncated 就能把启动变成死循环');
+    expect(service.records.map((r) => r.id), contains('spin_1'));
+    expect(
+      service.pendingOfflineDrops,
+      0,
+      reason: '到上限只是"这次不排了"，余下的仍躺在原生队列文件里 —— 不丢，也不许报"丢了"',
+    );
   });
 }

@@ -204,6 +204,9 @@ void main() {
           },
         ],
         'dropped': 0,
+        // 桩必须跟着载荷形状走（T133 量级②）：Dart 现在按 `truncated` 决定要不要再拉一批，
+        // 缺这一键=假=只交一批，形状一变这里就悄悄不对了。
+        'truncated': false,
       },
       'drainDeliveryResults': <Map<String, dynamic>>[
         {
