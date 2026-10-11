@@ -881,13 +881,17 @@ void main() {
   });
 
   group('待确认列表与本机名单（T42 第五片）', () {
-    FnthinkPairRequest req(String level, {String id = 'pr_9'}) =>
-        FnthinkPairRequest(
-          requestId: id,
-          requester: '8KMNPQRSTVWX999777',
-          requesterPublicKey: 'AAAA',
-          level: level,
-        );
+    FnthinkPairRequest req(
+      String level, {
+      String id = 'pr_9',
+      String name = '',
+    }) => FnthinkPairRequest(
+      requestId: id,
+      requester: '8KMNPQRSTVWX999777',
+      requesterPublicKey: 'AAAA',
+      level: level,
+      peerName: name,
+    );
 
     String confirmBody({String? decision, String? grantedLevel}) =>
         '{"requestId":"pr_9",'
@@ -934,6 +938,37 @@ void main() {
       expect(rows.single.publicKey, 'AAAA');
       expect(rows.single.requestId, 'pr_9');
       expect(rows.single.grantedAt, greaterThan(0));
+    });
+
+    test('同意那一发把对面自报的名字一起写进本机名单那一行（T128 片3）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final rows = <FnthinkPeer>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          body: confirmBody(grantedLevel: 'L1'),
+        ),
+        recordPeer: (peer) async {
+          rows.add(peer);
+          return FnthinkPeerWrite.created;
+        },
+      );
+      final answer = await c.confirmPairing(
+        request: req('L2', name: '客厅那台'),
+        approve: true,
+      );
+      expect(answer.ok, isTrue);
+      expect(
+        rows.single.peerName,
+        '客厅那台',
+        reason:
+            '本机这一份是镜像：名字不写下来，屏幕上那一行就永远只剩地址码，'
+            '而它明明是这一发带过来的读数',
+      );
+      expect(rows.single.alias, '', reason: 'alias 只有改名那一发能写 —— 远端读数不占那一格');
     });
 
     test('对方要 L3 ⇒ 发出去的是封顶那一档，不是 L3', () async {
@@ -1326,6 +1361,7 @@ void main() {
         required FnthinkPairRequestState state,
         String id = 'pr_p',
         int statusAt = 1780000030000,
+        String name = '',
       }) => FnthinkSentPairRequest(
         requestId: id,
         target: '7YD4RKQPBM8XZ3VHNT',
@@ -1335,6 +1371,7 @@ void main() {
         createdAt: 1780000000000,
         expiresAt: 1780000060000,
         statusAt: statusAt,
+        peerName: name,
       );
 
       test('写进去的那一行：地址码／档位／时刻都来自这一条，清单是空的，公钥是空读数', () async {
@@ -1356,6 +1393,24 @@ void main() {
         expect(peer.grantedAt, 1780000030000, reason: '时刻取 `at`（状态最后一次变的那一刻）');
         expect(peer.requestId, 'pr_p');
         expect(peer.forwards, isFalse, reason: '升格不等于设为转发目标 —— 那是另一枚勾选');
+      });
+
+      test('升格那一发带着对面自报的名字 ⇒ 名单那一行把它记下来（T128 片3）', () async {
+        final written = await round([
+          decided(
+            status: 'approved',
+            state: FnthinkPairRequestState.approved,
+            name: '它自己说的名字',
+          ),
+        ]);
+        expect(
+          written.single.peerName,
+          '它自己说的名字',
+          reason:
+              '这一面是本机唯一能拿到对面名字的来处：那台从没在本机屏上被点过同意，'
+              '而屏幕上"这一行是谁"总得有个出处',
+        );
+        expect(written.single.alias, '', reason: '本机起的名字另有一列，远端读数不许替它做决定');
       });
 
       test('还在等／被拒／过期：一行都不升', () async {

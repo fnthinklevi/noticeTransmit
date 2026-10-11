@@ -512,7 +512,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       FnthinkNote(
         keyName: 'fnthink-pair-request-${request.requestId}',
         text: l10n.fnthinkPairRequestLine(
-          request.requester,
+          // 地址码在前、对面自报的名字在括号里（与名单行同一个格式作者 `fnthinkPeerLabel`）：
+          // 用户点同意时要核的是那 18 位，名字只是让人少查一次。它没报过名字 ⇒ 只剩地址码。
+          request.label,
           request.level,
           // 「多久之前」只有这一份口径（与通道健康度那句共用同一把尺，见 `fnthinkAgoBucket`）；
           // 服务端没带创建时刻就写 '—'，不拿"此刻"凑一条看起来刚刚请求过的。
@@ -970,7 +972,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       final ok = await IosDialogActions.askConfirm(
         context,
         title: l10n.fnthinkPairAskTitle,
-        message: l10n.fnthinkPairAskMsg(request.requester, willGrant),
+        message: l10n.fnthinkPairAskMsg(request.label, willGrant),
         // 确认键不复用列表里那句"同意"：弹层内外两句一模一样，用户分不清自己点的是哪一个，
         // 而 `find.text` 会一次抓到两个。
         confirmText: l10n.confirm,

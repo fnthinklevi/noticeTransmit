@@ -79,6 +79,10 @@
     "autoApprove": false,
     "failureMessageShape": "single-generic",
     "clockAuthority": "server",
+    "peerNameField": "peerName",
+    "_peerNameWhy": "两面投影里那一格「对面那台自己报上来的名字」的键名（T128 片3）。⚠ 它的**出处不是配对载荷**：设备名在自登记那一发就带上去了（`clientEvents.register.requiredTopLevelFields` 里的 `name`，服务端截到 `peerNameMaxChars` 存进设备表），所以这一格是服务端**现取现回**的读数 —— 不新增签名载荷字段，也不在请求表里存一份快照：快照会在对面改名之后永远显示旧的那个，而「同一格两个作者」正是这一族最容易漂的地方。两侧同读这一枚键名：`pairstore` 按它拼投影、包内两个解析器按它取值，Dart 与 JS 都不写字面量。它**不参与任何授权判断**（服务端与本机认的一直是那 18 位地址码），读成什么都不改变谁能发、谁能执行。空串 = 那一台没报过名字，界面就只剩地址码（不替它编一个「未命名」）。",
+    "peerNameMaxChars": 60,
+    "_peerNameMaxCharsWhy": "这一格的长度上限，唯一作者。此前它住在两处 JS 的 `slice(0, 60)` 字面量里，而设备侧显示时又是另一套截法 ⇒ 三个数各拍各的。立进契约之后服务端写那一格与设备侧夹那一格读同一个数。",
     "relationshipStoredOn": "target-device-record",
     "_relationshipStoredOnWhy": "授权的内容是「A 允许 B 投给我」，做决定的是被投的那台：存在 A 的行里，A 才能自己划掉（撤销不需要问 B）。契约里「逐条勾选」「每次本地确认」「重建身份后所有发送方重配」说的全是接收端的动作——挂在发送方记录上时，这三处没有一处执行得了。#131 前两片把关系建起来了才发现：收单时读的是发送方自己那一行的 grant，等于谁登记过就能给任何人投。⚠ 这一条钉的是「**一段**关系住在哪一行」，不是「一次确认创建几段」（T130 片2 起一次确认创建两段，见 reverseGrantOnConfirm）：反向那一段照样住在它自己的被投那台上（B 的行里），所以「谁划掉得动哪一行」这条判据一段都没松动 —— 改口径时把这两件事合起来读，别拿这一句去否掉双写，也别拿双写去否掉这一句。",
     "reverseGrantOnConfirm": true,
@@ -1072,6 +1076,17 @@
     "visibleVia": "poll",
     "pollKey": "pairRequests",
     "_pollKeyWhy": "A 只能靠 poll 看见它：这里显式写出响应键名，是为了让「创建了东西却没人取得它」能被判出来——少这一行，validate 就只能在代码里猜那个键叫什么，而猜错的表现是请求静静地躺在表里，A 屏幕上永远显示「等待配对」。",
+    "incomingFields": [
+      "id",
+      "requester",
+      "requesterPublicKey",
+      "level",
+      "codeDigest",
+      "createdAt",
+      "expiresAt",
+      "peerName"
+    ],
+    "_incomingFieldsWhy": "接收方（被请求那一台）那一条投影的字段名单（T128 片3）。它此前**只活在 JS 里那七行对象字面量**（`pairstore.pendingFor`），于是「契约声明了 poll 回这一面」与「这一面实际有哪些键」之间没有任何东西连着：往请求表里加一个内部键，它会顺手出现在响应里；而契约声明一个键名，投影照旧给不出（那一格在屏幕上永远空着）。翻成名单之后两侧同读它 —— 投影按名单拼、包内解析器按名单取、validate 断言名单里每一项投影真给得出。与 `sentFields` 的差别只在主语：这一面回 `requester`／`requesterPublicKey`／`codeDigest`（被请求那台要拿去核对是谁、并比对自己手上那枚口令），发起方那一面一概不回。",
     "sentPollKey": "sentPairRequests",
     "_sentPollKeyWhy": "第二面：发起方（B）也要读得到自己那条请求走到了哪儿（T110：「我填了地址码和口令，对方怎么看待匹配？我怎么看对方进度？」）。它与 `pollKey` 受同一条约束——显式写出键名、并由 validate 断言它出现在 `clientEvents.poll.returns` 里；少了那条断言，「契约声明了一条读口而路由没挂」与「路由挂了而设备读错了键」在屏幕上是同一句话：列表空着。两条键名**不许相同**：同名 ⇒ 一个响应里长出两个同名键、后写的盖掉先写的（盖掉顺序是 JS 的插入顺序，谁都不知道屏幕上那条是谁的），B 那边就会画出「谁在请求配对你」而发起请求的正是他自己。",
     "sentFields": [
@@ -1081,9 +1096,10 @@
       "status",
       "createdAt",
       "expiresAt",
-      "at"
+      "at",
+      "peerName"
     ],
-    "_sentFieldsWhy": "发出方这一面**显式挑字段**，而且名单比接收方那份窄：不回显 `requester`（问的人就是他）、不回显 `requesterPublicKey`（那就是他自己那把公钥，复述一遍只是多一处能漏的地方）、**不回 `codeDigest`** —— 摘要是「能拿去比对的东西」（与 `endpointList._neverReturnsSecretWhy` 同一条论证），而发起方本来就知道自己用过的那枚口令，这一面拿它换不到任何信息。名单里那个 `at` 是 `statusChangedAt` 的对外名字：表里那一列带主语（哪个字段变了），线上这个键与 T105 片③ 的回执同一个词、同一个含义（状态变更那一刻，0 = 旧记录没记过）。",
+    "_sentFieldsWhy": "发出方这一面**显式挑字段**，而且名单比接收方那份窄：不回显 `requester`（问的人就是他）、不回显 `requesterPublicKey`（那就是他自己那把公钥，复述一遍只是多一处能漏的地方）、**不回 `codeDigest`** —— 摘要是「能拿去比对的东西」（与 `endpointList._neverReturnsSecretWhy` 同一条论证），而发起方本来就知道自己用过的那枚口令，这一面拿它换不到任何信息。名单里那个 `at` 是 `statusChangedAt` 的对外名字：表里那一列带主语（哪个字段变了），线上这个键与 T105 片③ 的回执同一个词、同一个含义（状态变更那一刻，0 = 旧记录没记过）。⚠ `peerName`（T128 片3）在这一面上指的是**对面那台**（`target`）自报的名字，不是发起方自己的 —— 两面共用一个键名、主语随面换，与 `requester`／`target` 那种「同名列不变主语」的写法不同，是因为这一格本机拿它只做一件事：给那一行填「它自己叫什么」。发起方靠这一格把对方升格成名单行时，屏幕上那句名字才有出处。",
     "perDeviceLimit": 3,
     "globalLimit": 2000,
     "_limitsWhy": "两条都是写放大防线，不是配额：pair 的入口要求一把已登记的合法身份与一枚正确口令，本来就打不进来；这两条防的是「一台设备反复挂口令反复扫」把请求表撑到无界。超上限时新请求不落地并回带原因，绝不静默挤掉已经挂在 A 屏幕上的那一条（那等于让 A 确认一个自己没见过的请求）。"

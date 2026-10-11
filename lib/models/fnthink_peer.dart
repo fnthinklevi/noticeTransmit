@@ -1,3 +1,5 @@
+import 'package:fnthink_push/fnthink_push.dart';
+
 /// 本机记下的一个**已配对发送方**（T42 的数据源）。
 ///
 /// 为什么这台设备需要这张表：授权本身在服务端（A 的 `grantsBy`），但 A 的界面上要能回答
@@ -7,11 +9,16 @@
 /// poll 的 `pairRequests` 里只有 `requester / requesterPublicKey / level`（见
 /// `server/lib/fnthink/pairstore.js` 的 `pendingFor`），本机从没拿到过它。
 /// 等有出处了再加列（先在契约里把它带上），别建一列空着让界面显示"（ unnamed ）"。
+/// ↑ **这句已被 T128 片3 推翻，原句留着**：契约现在带上了（`pairing.peerNameField` +
+///   `pairRequest.incomingFields` / `sentFields`），服务端从设备表现取那份自登记的读数，
+///   所以这一列叫 `peer_name`、有出处、空串就画地址码 —— 那句「别建一列空着」仍然生效。
 ///
-/// 有的那一列叫 **`alias`（T128 片1）**，与上面那句不矛盾也**不是同一件事**：
-/// 它是**这台自己给对面起的名字**（"客厅那台"／"公司的手机"），只有本机看得见，
-/// 不发给服务端、不进任何载荷。所以它不会遇到"对端改了名本机读到的是旧的那个"那类问题 ——
-/// 那种问题只能靠契约带名字来解决，而契约今天没有带。
+/// 有的那一列叫 **`alias`（T128 片1）**，与 `peer_name` **不是同一件事**：
+/// `alias` 是**这台自己给对面起的名字**（"客厅那台"／"公司的手机"），只有本机看得见，
+/// 不发给服务端、不进任何载荷、也不被任何远端读数覆盖；`peer_name` 是**对面自己报的**，
+/// 它会同一条地址码上被刷新（对面改了名，本机下一次读到的就是新的那一个）。
+/// 两者在屏幕上只出现一个（`whoLabel`：本机起的优先），但两列都要存 —— 抹掉哪一个都是
+/// 替用户做决定。
 ///
 /// 列名只在本文件的 [toDbRow] / [fromDbRow] 里出现（与 `FnthinkInboxMessage` 同一条纪律）。
 class FnthinkPeer {
@@ -25,6 +32,7 @@ class FnthinkPeer {
     this.revision = 0,
     this.forwards = false,
     this.alias = '',
+    this.peerName = '',
   });
 
   /// 对端的 18 位地址码（Crockford Base32）。它是主键：一台设备只该有一行授权记录。
@@ -63,9 +71,18 @@ class FnthinkPeer {
 
   /// 本机给这一行起的名字（T128 片1）。空串 = 没起过，界面上就只显地址码。
   ///
-  /// ⚠ 它**不是**对端报来的名字（那个从没流到本机，见文件头），也不参与任何授权判断：
+  /// ⚠ 它**不是**对端报来的名字（那一个在 [peerName]），也不参与任何授权判断：
   /// 服务端认的一直是地址码。改名改的是"这一行在屏幕上叫什么"，仅此而已。
   final String alias;
+
+  /// 对面那台**自己报上来的**设备名（T128 片3）。空串 = 没读到过（它没登记过名字、
+  /// 或本机是从一份旧答复里升格出来的那一行）。
+  ///
+  /// 它是**远端读数**，与 [alias] 正好相反：本机不替它做归一化以外的加工，
+  /// 而授权路径可以刷新它（对面改了名，本机下一次读到的就是新的那一个）。
+  /// ⚠ 它**不参与任何授权判断**，也不进任何载荷 —— 判"这台能不能投、能做什么"的
+  /// 永远是那 18 位地址码与逐条清单。把它读成"它说自己叫什么所以它就是那台"是冒用的入口。
+  final String peerName;
 
   static const table = 'fnthink_peers';
 
@@ -90,6 +107,7 @@ class FnthinkPeer {
     'revision',
     'forwards',
     'alias',
+    'peer_name',
   ];
 
   Map<String, Object?> toDbRow() => {
@@ -104,6 +122,7 @@ class FnthinkPeer {
     'revision': revision,
     'forwards': forwards ? 1 : 0,
     'alias': alias,
+    'peer_name': peerName,
   };
 
   static FnthinkPeer fromDbRow(Map<String, Object?> row) {
@@ -126,6 +145,8 @@ class FnthinkPeer {
       // 而"全发"那一头是静默把本机的通知推出去。
       forwards: (row['forwards'] as num?)?.toInt() == 1,
       alias: '${row['alias'] ?? ''}',
+      // 老库里没有这一列时读成空串（不是"没名字"的一种猜测，就是"本机没读到过"）。
+      peerName: '${row['peer_name'] ?? ''}',
     );
   }
 
@@ -135,11 +156,19 @@ class FnthinkPeer {
   String toString() =>
       'FnthinkPeer($peerAddress, key=${publicKey.length > 8 ? '${publicKey.substring(0, 8)}…' : publicKey}, $level)';
 
-  /// 名单那一行「是谁」那一段（T128 片1，**唯一作者**）。
+  /// 名单那一行「是谁」那一段（T128 片1 定下顺序，片3 把远端读数接进来；**唯一作者**）。
   ///
-  /// 顺序是刻意反过来的：地址码在前、别名在括号里。别名是本机自己编的，
-  /// 它不能替换掉那一行唯一能被核对的东西 —— 用户对着对面那台的屏幕核的就是这 18 位。
-  String get whoLabel => alias.isEmpty ? peerAddress : '$peerAddress ($alias)';
+  /// 顺序是刻意反过来的：地址码在前、名字在括号里 —— 用户对着对面那台的屏幕核的就是
+  /// 这 18 位，任何名字都不能替换它。
+  ///
+  /// ⚠ 两个名字只画一个，而**本机起的优先**：`alias` 是这台屏幕上的人打的字，
+  /// `peer_name` 是**对面自己说的**（任何人都能把设备名改成"客厅那台"）。让自报的那一个
+  /// 盖掉本机起的那一个，等于把"这一行在你屏幕上叫什么"开放给对面 —— 而那正是冒用者
+  /// 最想改的一格。两个都空就只剩地址码。
+  String get whoLabel => fnthinkPeerLabel(
+    addressCode: peerAddress,
+    name: alias.isEmpty ? peerName : alias,
+  );
 }
 
 /// 写一条授权的结果。三种必须分开：**换钥不是"更新"**。
@@ -150,11 +179,13 @@ enum FnthinkPeerWrite {
   /// 同码同钥再来一次 = 重新授权（刷新档位与时间）。
   refreshed,
 
-  /// 这一行**已经在名单里**，而这一发没有可写的新读数 ⇒ 一行都不改（T130 片3）。
+  /// 这一行**已经在名单里**，而这一发没有可写的新读数 ⇒ **授权那几格一行都不改**（T130 片3）。
   ///
   /// 来路只有那一条：对面替本机确认了一次（服务端双写的那一段），本机因此要把那台升格成
   /// 一行 —— 可那一行如果已经在本机自己的名单里（本机先前点过一次同意写进去的），
   /// 它的档位与逐条清单就是**本机自己勾的**那份，比升格这一发的空清单更权威。
+  /// ⚠ 唯一可以动的是 `peer_name`（T128 片3，且只在带来的读数非空时）：那一格记的是
+  ///   "那台自己说什么"，不是授权；这一发恰好带着它的读数来，不动它就没有别的作者写得到。
   /// 与 `keySwapped` 分开是必须的：那是"要人判断的事件"，这是"什么都没发生"。
   alreadyPresent,
 

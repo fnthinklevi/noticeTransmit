@@ -31,7 +31,7 @@ const { alphabetFromContract, normalize } = require('./credentials');
 // 一次确认创建**两段**关系（T130 片2），但本文件只调 `grantPairLegs` 那一个入口 ——
 // "两段各写哪一行、反向那一段带不带清单"是设备表的事，请求表只管"这一发答的是哪条请求"。
 // 方向上不成环：devicestore 不认识 pairstore。
-const { grantPairLegs } = require('./devicestore');
+const { grantPairLegs, registeredNameOf } = require('./devicestore');
 const { loadTable, saveTable } = require('./table');
 
 const REQUEST_FILE = path.join(DATA_DIR, 'fnthink_pair_requests.json');
@@ -234,7 +234,11 @@ function sentFields(contract) {
       );
     }
     // `at` 是 `statusChangedAt` 的对外别名（见契约 `_storedFieldsWhy`），表里没有叫 `at` 的列。
-    const inRow = stored.includes(field) || WIRE_ALIASES[field] !== undefined;
+    // 名字那一格同理不在表里（它的出处是**设备表**，T128 片3）：两面都现取，请求表不存快照。
+    const inRow =
+      stored.includes(field) ||
+      WIRE_ALIASES[field] !== undefined ||
+      field === peerNameKey(contract);
     if (!inRow) {
       throw new Error(
         `pairRequest.sentFields 里的「${field}」在这张表的 storedFields 里根本没有：` +
@@ -255,7 +259,112 @@ function sentFields(contract) {
       );
     }
   }
+  // ⚠ 名字那一格（T128 片3）在这一面也必须有：发起方把对面升格成名单行时，这是它唯一
+  //   能带过去的名字读数。少了它的表现不是报错，是那一行永远只剩地址码。
+  if (!unique.has(peerNameKey(contract))) {
+    throw new Error(
+      `pairRequest.sentFields 少了 pairing.peerNameField「${peerNameKey(contract)}」：` +
+        '这一面是发起方升格名单行的来处，名字给不出就只能一直显示地址码',
+    );
+  }
   return fields.slice();
+}
+
+/// 「对面那台自己报上来的名字」在线上那一格的键名（T128 片3；两面共用同一枚，主语随面换）。
+function peerNameKey(contract) {
+  const raw = ((contract || {}).pairing || {}).peerNameField;
+  if (typeof raw !== 'string' || raw === '') {
+    throw new Error(
+      '契约缺 pairing.peerNameField（非空字符串）：投影按它拼、设备侧解析器按它取，' +
+        '缺了这一枚两侧就各自发明一个键名，而那一格在屏幕上永远空着',
+    );
+  }
+  return raw;
+}
+
+/// 接收方（被请求那一台）那一条投影的字段名单，判据与 `sentFields` 同形。
+///
+/// 这一面此前**没有名单**：投影就是 JS 里那七行对象字面量。后果是两个方向都看不见 ——
+/// 往请求表里加一个内部键，它会跟着字面量的改动顺手出门；而契约里声明一个键名，
+/// 投影照旧给不出。有了名单，"这一面实际回哪些键"才有一份共同出处。
+function incomingFields(contract) {
+  const spec = requestSpec(contract);
+  const fields = spec.incomingFields;
+  if (!Array.isArray(fields) || fields.length === 0) {
+    throw new Error(
+      '契约缺 pairRequest.incomingFields（非空数组）：接收方那一面的投影照它挑字段，' +
+        '没有名单就是实现自己拼一份 —— 那正是"内部键顺手出门"与"声明的键永远给不出"两半的来源',
+    );
+  }
+  const stored = spec.storedFields || [];
+  const neverStored = spec.neverStored || [];
+  const name = peerNameKey(contract);
+  for (const field of fields) {
+    if (typeof field !== 'string' || field === '') {
+      throw new Error(`pairRequest.incomingFields 里有一项不是名字：${JSON.stringify(field)}`);
+    }
+    if (neverStored.includes(field)) {
+      throw new Error(
+        `pairRequest.incomingFields 含 neverStored 的那一项「${field}」：这一面要把口令类字段带出门，` +
+          '而"只活在那一次输入里"那条红线就是它写的',
+      );
+    }
+    if (field === 'target') {
+      throw new Error(
+        'pairRequest.incomingFields 里有 target：读这一面的人就是 target 自己，' +
+          '回显他只是多一处能漏的地方（与 sentFields 不回 requester 是同一条理由）',
+      );
+    }
+    if (field === name) continue;
+    if (!stored.includes(field)) {
+      throw new Error(
+        `pairRequest.incomingFields 里的「${field}」在这张表的 storedFields 里根本没有：` +
+          '投影会当场把它读成 undefined，而设备侧解析器把"读不出"判成整条不合法 ⇒ ' +
+          '「有人配你」那一栏永远空着',
+      );
+    }
+  }
+  const unique = new Set(fields);
+  if (unique.size !== fields.length) {
+    throw new Error(`pairRequest.incomingFields 有重名项：${fields.join('/')}`);
+  }
+  // 这四样是设备侧判定"这一条到底能不能答复"的必需键（见 `FnthinkPairRequest.tryFrom`）：
+  // 少任何一样，那一面交出去的行会被整条丢掉，而丢掉的表现与"没人请求"一模一样。
+  for (const must of ['id', 'requester', 'requesterPublicKey', 'level']) {
+    if (!unique.has(must)) {
+      throw new Error(
+        `pairRequest.incomingFields 少了「${must}」：对面的解析器把这几样当必需键，` +
+          '少一样整条请求就被丢掉，屏幕上就是"没人请求配对"',
+      );
+    }
+  }
+  if (!unique.has(name)) {
+    throw new Error(
+      `pairRequest.incomingFields 少了 pairing.peerNameField「${name}」：同意屏上那一句` +
+        '「谁在请求配对你」就只剩地址码，而用户点的正是那一句',
+    );
+  }
+  return fields.slice();
+}
+
+/// 按名单拼一条投影（T128 片3 起两面共用这一个装配点）。
+///
+/// 三类来源各有出处：名字那一格**现取设备表**（`nameSubject` 是这一面上"不是我那一台"的
+/// 地址码）；`at` 那一个对外别名查 `WIRE_ALIASES`；其余就是表里的列。
+function projectRecord(contract, fields, devices, record, nameSubject) {
+  const name = peerNameKey(contract);
+  const out = {};
+  for (const field of fields) {
+    if (field === name) {
+      out[field] = registeredNameOf(contract, devices, nameSubject);
+      continue;
+    }
+    const source = WIRE_ALIASES[field] || field;
+    // `at` 是唯一可能缺的一列（本片之前的记录写的是 decidedAt／到期扫描没写）：
+    // 缺 = 0 = "不知道"，宁可不给也不拿当下时间凑一个（同 T105 片③ 那条）。
+    out[field] = field === 'at' ? Number(record[source] || 0) : record[source];
+  }
+  return out;
 }
 
 /// 表里那一列 → 线上那个键。只有这一个别名（其余字段名两面相同，所以名单能直接当投影用）。
@@ -269,7 +378,7 @@ const WIRE_ALIASES = { at: 'statusChangedAt' };
 ///     发起方要的恰恰是"后来怎么样了"——只看 pending 的那份等于回答"还没人同意"然后永远停在那儿。
 ///  ③ 表里的 `statusChangedAt` 出门叫 `at`（与 T105 片③ 的回执同一个词；0 = 旧记录没记过）。
 /// 到期的先落地（expireDue）：一条早已过期的请求不该还在发起方屏幕上挂着 pending。
-function sentFor(contract, requests, addressCode, now, limit) {
+function sentFor(contract, requests, devices, addressCode, now, limit) {
   expireDue(contract, requests, now);
   const fields = sentFields(contract);
   const me = keyOf(contract, addressCode);
@@ -277,37 +386,23 @@ function sentFor(contract, requests, addressCode, now, limit) {
     .filter((record) => String(record.requester) === me)
     .sort((a, b) => Number(a.createdAt) - Number(b.createdAt) || (a.id < b.id ? -1 : 1))
     .slice(0, Math.max(0, Number(limit) || 0));
-  return rows.map((record) => {
-    const out = {};
-    for (const field of fields) {
-      const source = WIRE_ALIASES[field] || field;
-      // `at` 是唯一可能缺的一列（本片之前的记录写的是 decidedAt／到期扫描没写）：
-      // 缺 = 0 = "不知道"，宁可不给也不拿当下时间凑一个（同 T105 片③ 那条）。
-      out[field] = field === 'at' ? Number(record[source] || 0) : record[source];
-    }
-    return out;
-  });
+  // 名字那一格在这一面取的是 `target`（对面那台），不是发起方自己 —— 同一枚键名、主语随面换。
+  return rows.map((record) => projectRecord(contract, fields, devices, record, record.target));
 }
 
-/// 一台设备 poll 到的待确认请求。**显式挑字段**：将来记录里多一个内部键（比如留痕用的原因）
+/// 一台设备 poll 到的待确认请求。**显式挑字段**（名单在契约 `pairRequest.incomingFields`，
+/// T128 片3 之前它是这个函数里的七行字面量）：将来记录里多一个内部键（比如留痕用的原因）
 /// 不会顺手出现在响应里。target 不回显（问的人就是它）。
-function pendingFor(contract, requests, addressCode, now) {
+function pendingFor(contract, requests, devices, addressCode, now) {
   const spec = requestSpec(contract);
   const pending = initialStatus(contract, spec);
   expireDue(contract, requests, now);
+  const fields = incomingFields(contract);
   const me = keyOf(contract, addressCode);
   return Object.values(requests)
     .filter((record) => record.status === pending && record.target === me)
     .sort((a, b) => Number(a.createdAt) - Number(b.createdAt))
-    .map((record) => ({
-      id: record.id,
-      requester: record.requester,
-      requesterPublicKey: record.requesterPublicKey,
-      level: record.level,
-      codeDigest: record.codeDigest,
-      createdAt: record.createdAt,
-      expiresAt: record.expiresAt,
-    }));
+    .map((record) => projectRecord(contract, fields, devices, record, record.requester));
 }
 
 /// A 处理自己的一条配对请求（#131 第三片）。`devices` 传进来是因为同意要写授权，
@@ -386,10 +481,13 @@ module.exports = {
   createRequest,
   decideRequest,
   expireDue,
+  incomingFields,
   initialStatus,
   loadRequests,
+  peerNameKey,
   pendingFor,
   pollKey,
+  projectRecord,
   requestSpec,
   saveRequests,
   sentFields,

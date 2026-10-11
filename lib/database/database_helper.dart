@@ -71,7 +71,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 23;
+  static const int dbVersion = 24;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -524,9 +524,13 @@ class DatabaseHelper
   ///
   /// 授权本体在服务端的 `grantsBy` 里，这张表是**本机那一份"我记得我同意过什么"**：
   /// 没有它，T42 那页要显示的"可信发送方列表"没有数据源，而"撤掉一个授权"在界面上也无从点起。
-  /// ⚠ 故意没有 `peer_name`（对端名字从没流到本机，见模型的注释）；
-  /// 也故意没有 `revoked_at`：吊销是服务端那一步（T31），本机这份跟着删除走，
+  /// ⚠ 故意没有 `revoked_at`：吊销是服务端那一步（T31），本机这份跟着删除走，
   /// 留一个"已撤销但还在表里"的状态位会让两端各判一次"这个人还算不算数"。
+  ///
+  /// 两个名字列各有作者（T128）：`alias`（片1）是**这台自己给对面起的**，只有改名那一发写它；
+  /// `peer_name`（片3）是**对面自报的**，只有名单写入咽喉按 poll 带来的读数写它。
+  /// 两列都要存而不是合成一列：合成一列的话"对面改了名"会把本机起的名字冲掉，
+  /// 而"我给它起了名"会让本机再也读不到对面说什么 —— 两个方向都是替用户做决定。
   Future<void> _createFnthinkPeers(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS ${FnthinkPeer.table} (
@@ -538,7 +542,8 @@ class DatabaseHelper
         items TEXT NOT NULL DEFAULT '',
         revision INTEGER NOT NULL DEFAULT 0,
         forwards INTEGER NOT NULL DEFAULT 0,
-        alias TEXT NOT NULL DEFAULT ''
+        alias TEXT NOT NULL DEFAULT '',
+        peer_name TEXT NOT NULL DEFAULT ''
       )
     ''');
     await db.execute('''
@@ -895,6 +900,20 @@ class DatabaseHelper
         db,
         FnthinkPeer.table,
         'alias',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (oldVersion < 24) {
+      // v24 / T128 片3：名单那一行的**对面自报名**（`peer_name`）。同样只加列、DEFAULT 空串：
+      // 存量那些行的名字**没有历史出处** —— 那台设备什么时候改过设备名、改名之前叫什么，
+      // 服务端只留最后一次读数，本机更早的 poll 也没带过这一格。
+      // ⚠ 不许在这里替它们猜一个：空串在界面上的表现就是"只剩那 18 位地址码"，
+      // 而地址码恰好是唯一能被核对的东西。下一次 poll 到这一台时，写入咽喉会把读数填进来。
+      await _addColumnIfMissing(
+        db,
+        FnthinkPeer.table,
+        'peer_name',
         "TEXT NOT NULL DEFAULT ''",
       );
     }
@@ -1502,9 +1521,11 @@ class DatabaseHelper
   /// 本机只拿得到地址码、档位与时刻 —— 那一面的投影 `sentFields` 里没有对面的公钥）。
   /// 于是三条分开：
   ///  - 名单里没有这一行 ⇒ 照写（`created`，公钥那一格空着，等本机自己看见那把钥匙时补）；
-  ///  - 已有这一行而来的又是空读数 ⇒ **一行都不改**（`alreadyPresent`）：那一行的档位与
+  ///  - 已有这一行而来的又是空读数 ⇒ **授权那几格都不改**（`alreadyPresent`）：那一行的档位与
   ///    逐条清单是本机自己在同意屏上勾的，拿一份空清单去覆盖就是把人家勾过的东西抹掉 ——
-  ///    收紧也是一次改动，而改这一行的权限在"本机点同意"那一发上，不在升格这一发上；
+  ///    收紧也是一次改动，而改这一行的权限在"本机点同意"那一发上，不在升格这一发上。
+  ///    ⚠ 唯一的例外是 `peer_name`（T128 片3）：它不是授权，是"那台自己说什么"的读数，
+  ///    而升格这一发恰好带它来；只在读数非空时写那一格。
   ///  - 已有这一行、存底是空的而这一发带来真读数 ⇒ 正常刷新，那一格从此有出处。
   Future<FnthinkPeerWrite> upsertFnthinkPeer(FnthinkPeer peer) async {
     final db = await database;
@@ -1522,7 +1543,18 @@ class DatabaseHelper
       }
       final storedKey = '${existing.first['public_key'] ?? ''}';
       if (peer.publicKey.isEmpty) {
-        // 没有读数就没有可比的东西：既不判换钥，也不写。
+        // 没有读数就没有可比的东西：既不判换钥，也不写授权那几格。
+        // ⚠ 唯一可以动的是 `peer_name`（T128 片3）：那一格不是授权，画的是"这台自己说什么"，
+        //   而升格这一发恰好带着它的读数来（对面那台自报的设备名）。只写那一格、
+        //   且只在读数非空时写 —— alreadyPresent 要守的是"档位与逐条清单一个字不动"。
+        if (peer.peerName.isNotEmpty) {
+          await txn.update(
+            FnthinkPeer.table,
+            {'peer_name': peer.peerName},
+            where: 'peer_address = ?',
+            whereArgs: [peer.peerAddress],
+          );
+        }
         return FnthinkPeerWrite.alreadyPresent;
       }
       if (storedKey.isNotEmpty && storedKey != peer.publicKey) {
@@ -1533,6 +1565,11 @@ class DatabaseHelper
       // 我在屏幕上给这台起的名字没了"。别名只有一个作者（下面的改名那一发），
       // 授权路径必须绕开它。
       final values = peer.toDbRow()..remove('alias');
+      // ⚠ 同一条理由也管 `peer_name`（T128 片3）：**空读数不等于"它说它没有名字"**，
+      //   而是"这一发没带读数来"（服务端是旧的、或那台还没登记过名字）。让它覆盖就等于
+      //   一次重新配对把已经读到的名字抹掉，而这一格除了 poll 没有别的作者 —— 抹掉之后
+      //   界面上没有任何一步能把它写回来。
+      if (peer.peerName.isEmpty) values.remove('peer_name');
       await txn.update(
         FnthinkPeer.table,
         values,

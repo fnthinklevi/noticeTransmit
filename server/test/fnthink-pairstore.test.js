@@ -164,31 +164,119 @@ describe('pairRequest 表（#131 2B）', () => {
     pairstore.createRequest(contract, requests, input(), NOW + 10);
     pairstore.createRequest(contract, requests, input(), NOW + 5);
     pairstore.createRequest(contract, requests, input({ target: B }), NOW + 1);
-    const mine = pairstore.pendingFor(contract, requests, A, NOW + 20);
+    const mine = pairstore.pendingFor(contract, requests, {}, A, NOW + 20);
     expect(mine.map((r) => r.createdAt)).toEqual([NOW + 5, NOW + 10]);
-    expect(pairstore.pendingFor(contract, requests, B, NOW + 20).length).toBe(1);
+    expect(pairstore.pendingFor(contract, requests, {}, B, NOW + 20).length).toBe(1);
     requests[mine[0].id].status = 'denied';
-    expect(pairstore.pendingFor(contract, requests, A, NOW + 21).length).toBe(1);
+    expect(pairstore.pendingFor(contract, requests, {}, A, NOW + 21).length).toBe(1);
   });
 
-  test('响应里显式挑字段：内部键与 target 都不回显', () => {
+  test('响应里显式挑字段：键集合 == 契约 incomingFields，内部键与 target 都不回显', () => {
     const requests = pairstore.loadRequests();
     const created = pairstore.createRequest(contract, requests, input(), NOW);
     // 模拟"哪天有人顺手在记录上多存一个内部键"（留痕原因是最典型的例子）。
     requests[created.request.id].internalNote = '口令在第 2 次尝试时不对';
-    const out = pairstore.pendingFor(contract, requests, A, NOW);
-    expect(Object.keys(out[0]).sort()).toEqual(
-      [
-        'codeDigest',
-        'createdAt',
-        'expiresAt',
-        'id',
-        'level',
-        'requester',
-        'requesterPublicKey',
-      ].sort(),
-    );
+    const out = pairstore.pendingFor(contract, requests, {}, A, NOW);
+    // ⚠ 名单不抄字面量（T128 片3）：这里比的是**契约那一份**，所以契约加一列而投影没跟上、
+    //   或投影多给一列而契约没声明，两边都会在这一条上现形。
+    expect(Object.keys(out[0]).sort()).toEqual([...contract.pairRequest.incomingFields].sort());
     expect(out[0].requester).toBe(B);
+    expect(out[0]).not.toHaveProperty('internalNote');
+    expect(out[0]).not.toHaveProperty('target');
+  });
+
+  // ── 对面自报的名字（T128 片3）─────────────────────────────────────────────
+  test('这一面的 peerName 取的是**发起方**登记的那个名字', () => {
+    const requests = pairstore.loadRequests();
+    pairstore.createRequest(contract, requests, input(), NOW);
+    const devices = { [B]: { name: '  客厅那台  ' } };
+    const out = pairstore.pendingFor(contract, requests, devices, A, NOW + 1);
+    expect(out[0].peerName).toBe('客厅那台');
+  });
+
+  test('那台没登记过名字 ⇒ 空串，而不是把这条请求判没', () => {
+    const requests = pairstore.loadRequests();
+    pairstore.createRequest(contract, requests, input(), NOW);
+    const out = pairstore.pendingFor(contract, requests, {}, A, NOW + 1);
+    expect(out).toHaveLength(1);
+    expect(out[0].peerName).toBe('');
+    const partial = pairstore.pendingFor(contract, requests, { [B]: { name: '' } }, A, NOW + 1);
+    expect(partial[0].peerName).toBe('');
+  });
+
+  test('名字截到契约那一个数（长度只有一位作者）', () => {
+    const cap = contract.pairing.peerNameMaxChars;
+    const requests = pairstore.loadRequests();
+    pairstore.createRequest(contract, requests, input(), NOW);
+    const devices = { [B]: { name: '长'.repeat(cap + 9) } };
+    const out = pairstore.pendingFor(contract, requests, devices, A, NOW + 1);
+    expect(out[0].peerName.length).toBe(cap);
+  });
+
+  test('那一面（发起方）的 peerName 是**对面**的：取 target，不取 requester', () => {
+    const requests = pairstore.loadRequests();
+    // 默认那条是「B 请求配 A」：从 B（发起方）这一面看，对面就是 target = A。
+    pairstore.createRequest(contract, requests, input(), NOW);
+    const devices = { [A]: { name: '被请求那一台' }, [B]: { name: '发起方自己报的名' } };
+    const sent = pairstore.sentFor(contract, requests, devices, B, NOW + 1, 50);
+    expect(sent[0].target).toBe(A);
+    expect(sent[0].peerName).toBe('被请求那一台');
+    expect(sent[0].peerName).not.toBe('发起方自己报的名');
+  });
+
+  test('incomingFields 的名单坏了要抛：五种形状各报各的', () => {
+    const mutate = (fn) => {
+      const broken = JSON.parse(JSON.stringify(contract));
+      fn(broken);
+      return broken;
+    };
+    expect(() =>
+      pairstore.incomingFields(mutate((c) => delete c.pairRequest.incomingFields)),
+    ).toThrow(/incomingFields/);
+    expect(() =>
+      pairstore.incomingFields(mutate((c) => (c.pairRequest.incomingFields = []))),
+    ).toThrow(/非空数组/);
+    expect(() =>
+      pairstore.incomingFields(mutate((c) => c.pairRequest.incomingFields.push('pairingCode'))),
+    ).toThrow(/neverStored/);
+    expect(() =>
+      pairstore.incomingFields(mutate((c) => c.pairRequest.incomingFields.push('target'))),
+    ).toThrow(/target/);
+    expect(() =>
+      pairstore.incomingFields(mutate((c) => c.pairRequest.incomingFields.push('statusChangedAt'))),
+    ).not.toThrow();
+    expect(() =>
+      pairstore.incomingFields(mutate((c) => c.pairRequest.incomingFields.push('notAColumn'))),
+    ).toThrow(/storedFields/);
+    expect(() =>
+      pairstore.incomingFields(
+        mutate((c) => {
+          c.pairRequest.incomingFields = c.pairRequest.incomingFields.filter(
+            (f) => f !== 'requesterPublicKey',
+          );
+        }),
+      ),
+    ).toThrow(/requesterPublicKey/);
+    expect(() =>
+      pairstore.incomingFields(
+        mutate((c) => {
+          c.pairRequest.incomingFields = c.pairRequest.incomingFields.filter(
+            (f) => f !== c.pairing.peerNameField,
+          );
+        }),
+      ),
+    ).toThrow(/peerNameField/);
+    expect(() => pairstore.incomingFields(mutate((c) => (c.pairing.peerNameField = '')))).toThrow(
+      /peerNameField/,
+    );
+  });
+
+  test('sentFields 少了名字那一格也要抛：升格那一行没名字就永远只剩地址码', () => {
+    const broken = JSON.parse(JSON.stringify(contract));
+    broken.pairRequest.sentFields = broken.pairRequest.sentFields.filter(
+      (f) => f !== broken.pairing.peerNameField,
+    );
+    expect(() => pairstore.sentFields(broken)).toThrow(/peerNameField/);
   });
 
   test('契约那段缺形状时是抛，不是按一个默认值办', () => {
@@ -453,8 +541,12 @@ describe('sentFor（T110 第二面：我发起的那条走到了哪儿）', () =
       input({ target: B, requester: A, requesterPublicKey: 'pk-a', codeDigest: 'a'.repeat(64) }),
       NOW + 2,
     ).request.id;
-    expect(pairstore.pendingFor(contract, requests, A, NOW + 3).map((r) => r.id)).toEqual([toA]);
-    expect(pairstore.sentFor(contract, requests, A, NOW + 3, 50).map((r) => r.id)).toEqual([toB]);
+    expect(pairstore.pendingFor(contract, requests, {}, A, NOW + 3).map((r) => r.id)).toEqual([
+      toA,
+    ]);
+    expect(pairstore.sentFor(contract, requests, {}, A, NOW + 3, 50).map((r) => r.id)).toEqual([
+      toB,
+    ]);
 
     // 批准掉 toA：A 的接收面少一条，B 的发起面**多出一个终态**（那正是这一面存在的全部理由）。
     pairstore.decideRequest(
@@ -464,8 +556,8 @@ describe('sentFor（T110 第二面：我发起的那条走到了哪儿）', () =
       { requestId: toA, target: A, requester: B, decision: 'approved', level: 'L1', items: [] },
       NOW + 4,
     );
-    expect(pairstore.pendingFor(contract, requests, A, NOW + 5)).toHaveLength(0);
-    const sentB = pairstore.sentFor(contract, requests, B, NOW + 5, 50);
+    expect(pairstore.pendingFor(contract, requests, {}, A, NOW + 5)).toHaveLength(0);
+    const sentB = pairstore.sentFor(contract, requests, {}, B, NOW + 5, 50);
     expect(sentB.map((r) => r.id)).toEqual([toA]);
     expect(sentB[0].status).toBe(contract.clientEvents.pairConfirm.approveDecision);
   });
@@ -474,11 +566,11 @@ describe('sentFor（T110 第二面：我发起的那条走到了哪儿）', () =
     const requests = pairstore.loadRequests();
     const id = pairstore.createRequest(contract, requests, input(), NOW).request.id;
     // 还没人答过 ⇒ "状态什么时候变的"不知道。
-    expect(pairstore.sentFor(contract, requests, B, NOW + 1, 50)[0].at).toBe(0);
+    expect(pairstore.sentFor(contract, requests, {}, B, NOW + 1, 50)[0].at).toBe(0);
 
     const later = NOW + contract.identity.pairingCode.ttlSeconds * 1000 + 7;
     expect(pairstore.expireDue(contract, requests, later)).toBe(1);
-    const out = pairstore.sentFor(contract, requests, B, later, 50);
+    const out = pairstore.sentFor(contract, requests, {}, B, later, 50);
     // 「服务端从不批准」在词表上的形状：到期写的那个终态，本机答复那两发永远写不出来
     // （它必须落在 pairConfirm.decisions 之外，否则"过期"与"被拒"就是同一个词）。
     const expiredWord = contract.pairRequest.terminalStatuses.find(
@@ -497,7 +589,7 @@ describe('sentFor（T110 第二面：我发起的那条走到了哪儿）', () =
     const second = pairstore.createRequest(contract, requests, input(), NOW + 4).request.id;
     requests[second].internalNote = '口令在第 2 次尝试时不对';
 
-    const all = pairstore.sentFor(contract, requests, B, NOW + 20, 50);
+    const all = pairstore.sentFor(contract, requests, {}, B, NOW + 20, 50);
     expect(all.map((r) => r.id)).toEqual([second, first]);
     expect(Object.keys(all[0]).sort()).toEqual([...contract.pairRequest.sentFields].sort());
     const text = JSON.stringify(all);
@@ -506,9 +598,9 @@ describe('sentFor（T110 第二面：我发起的那条走到了哪儿）', () =
     expect(text).not.toContain('requesterPublicKey');
     // 截断留的是**最旧**那几条（与 receiptsForSender 同一排干方向）：这一面的正常规模是
     // perDeviceLimit 那个量级（个位数），limit 只是响应体大小的防线，不是常态。
-    expect(pairstore.sentFor(contract, requests, B, NOW + 20, 1).map((r) => r.id)).toEqual([
+    expect(pairstore.sentFor(contract, requests, {}, B, NOW + 20, 1).map((r) => r.id)).toEqual([
       second,
     ]);
-    expect(pairstore.sentFor(contract, requests, B, NOW + 20, 0)).toHaveLength(0);
+    expect(pairstore.sentFor(contract, requests, {}, B, NOW + 20, 0)).toHaveLength(0);
   });
 });

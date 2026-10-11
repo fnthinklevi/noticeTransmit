@@ -73,12 +73,14 @@ void main() {
     String key = 'pk-AAAA',
     String level = 'L2',
     int at = 1700000000000,
+    String name = '',
   }) => FnthinkPeer(
     peerAddress: address,
     publicKey: key,
     level: level,
     grantedAt: at,
     requestId: 'rq-$address',
+    peerName: name,
   );
 
   String dbSource() => stripComments(
@@ -262,6 +264,92 @@ void main() {
       expect(after.alias, '客厅那台');
     });
 
+    // ── 对面自报的名字（T128 片3）：它是读数，不是授权 ──────────────────────
+    test('alreadyPresent 这一发**只**能动名字那一格：档位与清单照旧一字不改', () async {
+      await freshDb();
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'pk-original',
+          level: 'L2',
+          grantedAt: 1700000000000,
+          items: ['alert:ring'],
+        ),
+      );
+      expect(
+        await helper.upsertFnthinkPeer(
+          peer('8K3FJ6QPTM9WZ4VHNS', key: '', level: 'L1', name: '它自己说的名字'),
+        ),
+        FnthinkPeerWrite.alreadyPresent,
+        reason: '结论仍然叫 alreadyPresent：授权那一行没被这一发动过',
+      );
+      final after = (await helper.loadFnthinkPeers()).single;
+      expect(after.peerName, '它自己说的名字');
+      expect(after.level, 'L2');
+      expect(after.items, ['alert:ring']);
+      expect(after.publicKey, 'pk-original');
+      expect(after.grantedAt, 1700000000000);
+    });
+
+    test('重新授权**不许抹掉**已经读到的名字（空读数 = 这一发没带读数）', () async {
+      // 与 alias 那一条同一条理由，但来路不同：老服务端不带这一格、或对面还没登记过名字，
+      // 都会给出一个空串。把它照写就等于"配了一次对，屏幕上那台改回只剩地址码"，
+      // 而这一格除了 poll 没有第二个作者 —— 抹掉之后没有任何一步能写回来。
+      await freshDb();
+      await helper.upsertFnthinkPeer(
+        peer('8K3FJ6QPTM9WZ4VHNS', key: 'pk-1', name: '客厅那台'),
+      );
+      expect(
+        await helper.upsertFnthinkPeer(
+          peer('8K3FJ6QPTM9WZ4VHNS', key: 'pk-1', level: 'L3'),
+        ),
+        FnthinkPeerWrite.refreshed,
+      );
+      final kept = (await helper.loadFnthinkPeers()).single;
+      expect(kept.peerName, '客厅那台');
+      expect(kept.level, 'L3', reason: '授权那一格照旧刷新：不动的只有"没读数"那几格');
+    });
+
+    test('对面改了名 ⇒ 下一次带读数的授权把那一格换掉（这是镜像，不是本机起的名字）', () async {
+      await freshDb();
+      await helper.upsertFnthinkPeer(
+        peer('8K3FJ6QPTM9WZ4VHNS', key: 'pk-1', name: '旧的那一个'),
+      );
+      await helper.upsertFnthinkPeer(
+        peer('8K3FJ6QPTM9WZ4VHNS', key: 'pk-1', name: '新的那一个'),
+      );
+      expect((await helper.loadFnthinkPeers()).single.peerName, '新的那一个');
+    });
+
+    test('本机起的名字**永不被远端读数覆盖**：alias 只有一个作者（改名那一发）', () async {
+      await freshDb();
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'pk-1',
+          level: 'L1',
+          grantedAt: 1700000000000,
+          alias: '我给它起的',
+          peerName: '它自己说的',
+        ),
+      );
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'pk-1',
+          level: 'L2',
+          grantedAt: 1700000001000,
+          // 调用方手上那份对象是刚拼出来的（没读回旧行），照着写就等于把本机起的名字换掉。
+          alias: '调用方顺手带的另一个名字',
+          peerName: '它自己说的第二次',
+        ),
+      );
+      final row = (await helper.loadFnthinkPeers()).single;
+      expect(row.alias, '我给它起的', reason: '授权路径绕开 alias（toDbRow 里 remove 掉那一格）');
+      expect(row.peerName, '它自己说的第二次');
+      expect(row.level, 'L2');
+    });
+
     test('② 存底是空读数、这一发带来真钥匙 ⇒ refreshed 且把那一格补上（不判成换钥）', () async {
       // 与上一条是一对：升格那一行先挂着（没有公钥），日后本机自己点一次同意就拿到那把钥匙。
       // 如果这里仍按"两边不等就是换钥"判，界面上会弹出一句"这台设备换了身份"，
@@ -391,6 +479,11 @@ void main() {
         'granted_at': 1700000000000,
       });
       expect(await columnsOf(old), isNot(contains('alias')), reason: '锚点：旧形状');
+      expect(
+        await columnsOf(old),
+        isNot(contains('peer_name')),
+        reason: '锚点：v24 那一列也不许已经在旧形状里，否则这条迁移用例是空跑',
+      );
 
       await helper.upgradeSchemaForTest(old, 22, DatabaseHelper.dbVersion);
       expect(await columnsOf(old), FnthinkPeer.columns.toSet());
@@ -400,6 +493,11 @@ void main() {
         rows.single.alias,
         '',
         reason: '存量那台过去没有名字可读，替它编一个就是屏幕上多出一台并不存在的设备',
+      );
+      expect(
+        rows.single.peerName,
+        '',
+        reason: '同一个理由：对面报来的名字本机也是今天才开始读的，历史读数不存在',
       );
     });
 
@@ -433,6 +531,31 @@ void main() {
         ).whoLabel,
         '$base (客厅那台)',
         reason: '能被核对的那 18 位不能被一个本机编的名字替掉 ⇒ 顺序不能反',
+      );
+      // 片3 多了第二个名字，屏幕上仍然只有一个：**本机起的优先**。
+      // 让对面自报的那一个盖掉本机打的字，等于把"这一行在你屏幕上叫什么"开放给对面 ——
+      // 任何人都能把自己的设备名改成"客厅那台"，而这一行唯一不能被冒充的就是主人与称呼。
+      expect(
+        const FnthinkPeer(
+          peerAddress: base,
+          publicKey: 'pk',
+          level: 'L1',
+          grantedAt: 1,
+          alias: '我给它起的',
+          peerName: '它自己说的',
+        ).whoLabel,
+        '$base (我给它起的)',
+      );
+      expect(
+        const FnthinkPeer(
+          peerAddress: base,
+          publicKey: 'pk',
+          level: 'L1',
+          grantedAt: 1,
+          peerName: '它自己说的',
+        ).whoLabel,
+        '$base (它自己说的)',
+        reason: '本机没起过名字时，对面自报的那个才有位置 —— 两列都存，只画一个',
       );
     });
     test('迁移碰到「这台还没有这张表」时跳过，不许半张半张地造表', () async {

@@ -515,7 +515,9 @@ class FnthinkReceiveCoordinator {
   /// `target`，档位是自己请求的那一档，时刻是 `sentPairRequests` 的 `at`，出处是那条请求的 id。
   /// 没有出处的只有**对面的公钥**：那一面的投影只回状态与时刻（`requesterPublicKey` 住在对面
   /// 那一侧），所以这一发带的是**空读数**，而名单的咽喉认得它（[FnthinkPeerWrite.alreadyPresent]）：
-  /// 已有那一行时一个字都不动，也不会把"发现换钥"那道闸判成换钥。
+  /// 已有那一行时**授权那几格一个字都不动**，也不会把"发现换钥"那道闸判成换钥。
+  /// ⚠ 片3 起这一发同时带着对面的自报名（`peerName`）：那一格不是授权，咽喉允许它被非空读数刷新，
+  ///   而"本机自己勾过的档位与逐条清单不许被覆盖"那条承诺一字未改。
   ///
   /// ⚠ 这一行是**对面被允许往本机投**那一段的本机镜像，不是"本机点过同意"：服务端双写过去时
   /// 清单恒空（契约 `reverseGrantItems=empty`），所以本机的 apply 段本来就只能放 L1。
@@ -538,6 +540,9 @@ class FnthinkReceiveCoordinator {
           level: sent.level,
           grantedAt: sent.statusAt,
           requestId: sent.requestId,
+          // 对面自报的名字（T128 片3）：这一面的投影里那一格取的就是 `target` 的读数。
+          // 空串是合法的（它没登记过名字），咽喉会因此一个字都不写 —— 不是抹掉已有的。
+          peerName: sent.peerName,
         ),
       );
     } catch (e) {
@@ -1031,6 +1036,9 @@ class FnthinkReceiveCoordinator {
           // 而"什么时候在这台设备上同意的"本来就以这一台为准。
           grantedAt: DateTime.now().toUtc().millisecondsSinceEpoch,
           requestId: request.requestId,
+          // 对面自报的名字（T128 片3）：本机这一份是"它说什么"的镜像，与 `alias`（本机起的）
+          // 各一列。空串走咽喉那一条"空读数不覆盖"，所以旧服务端不会把已有名字抹掉。
+          peerName: request.peerName,
           // T134 片3：本机这一行记的必须是**服务端收下那一份清单**。
           // ⚠ 不镜像的后果不是"名单少一格"：设备侧 apply 段那条逐条判据读的就是本机这份
           //   （`FnthinkPeerService.grantFor(...)` → L3 执行前那一判），服务端认了、本机自己

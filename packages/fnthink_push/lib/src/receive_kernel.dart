@@ -285,6 +285,7 @@ class FnthinkReceiveKernel {
       pending: pending,
       nextDelay: currentDelay,
       pairRequests: FnthinkPairRequest.parseList(
+        contract,
         reply.body[contract.pairRequestPollKey],
       ),
       // 同一发 poll 的**另一面**（T110）：我发起过的那些现在算什么状态。键名也从契约读，
@@ -1782,6 +1783,27 @@ class FnthinkPairArmResult {
 
 /// 一条等本机答复的配对请求（poll 的 `pairRequests` 那一项）。
 ///
+/// 「对面自己报的名字」那一格怎么读（T128 片3，两面共用 ⇒ 一个作者）。
+///
+/// 三件事都在这一个函数里：键名从契约取（两面同一枚）、读不出一律空串（**不许**因为
+/// 服务端是旧的就把整条请求丢掉 —— 那一格是装饰性的读数）、按契约那一个数再夹一次
+/// （服务端截过，但中转服务器不是唯一写这一格的地方：自部署方可以直接改设备表）。
+String _peerNameFrom(FnthinkContract contract, Map raw) {
+  final value = raw[contract.peerNameField];
+  if (value is! String) return '';
+  final trimmed = value.trim();
+  final cap = contract.peerNameMaxChars;
+  return trimmed.length > cap ? trimmed.substring(0, cap) : trimmed;
+}
+
+/// 「这一行是谁」那一段的**唯一格式作者**（T128 片1 定下这个顺序，片3 把远端读数接进来）。
+///
+/// 顺序是刻意反过来的：地址码在前、名字在括号里。名字有两个来处（本机自己起的别名、
+/// 对面自报的设备名），而它俩都不能替换掉那一行唯一能被核对的东西 ——
+/// 用户对着对面那台的屏幕核的就是这 18 位。
+String fnthinkPeerLabel({required String addressCode, String name = ''}) =>
+    name.isEmpty ? addressCode : '$addressCode ($name)';
+
 /// 只解析"要拿去答复与要显示"的那几个键：`target` 与 `status` 服务端不必回（这一发是发给
 /// 本机的、状态今日只有 pending），所以**不拿 storedFields 的全表当解析必填**——
 /// 那会让每一条请求都被判成不合法，表现是"有人配你"那一栏永远是空的。
@@ -1793,6 +1815,7 @@ class FnthinkPairRequest {
     required this.level,
     this.createdAt,
     this.expiresAt,
+    this.peerName = '',
   });
 
   /// 答复它时要带回给服务端的那个 id（`pairConfirm.fields.requestId`）。
@@ -1807,11 +1830,24 @@ class FnthinkPairRequest {
   final int? createdAt;
   final int? expiresAt;
 
-  static List<FnthinkPairRequest> parseList(Object? raw) {
+  /// 那台**自己报上来的名字**（T128 片3；出处是它自登记那一发，服务端从设备表现取）。
+  ///
+  /// 空串 = 它没报过名字，界面上就只剩地址码 —— 不替它编一个「未命名」，那是本机在
+  /// 替对面说它自己没说过的话。⚠ 它**不是**本机给它起的别名（`FnthinkPeer.alias`），
+  /// 也不是判据：本机与服务端认的都是地址码。
+  final String peerName;
+
+  /// 「这是哪一台」在屏幕上那一句（与名单行同一个格式作者）。
+  String get label => fnthinkPeerLabel(addressCode: requester, name: peerName);
+
+  static List<FnthinkPairRequest> parseList(
+    FnthinkContract contract,
+    Object? raw,
+  ) {
     if (raw is! List) return const [];
     final out = <FnthinkPairRequest>[];
     for (final item in raw) {
-      final parsed = tryFrom(item);
+      final parsed = tryFrom(contract, item);
       if (parsed != null) out.add(parsed);
     }
     return out;
@@ -1820,7 +1856,11 @@ class FnthinkPairRequest {
   /// 键缺或类型不对 ⇒ null（这条被丢掉）。"读成空字符串"是最坏的一种宽容：
   /// 那条请求会画成"某台设备请求配对你"，而它的 `requester` 是空的 —— 用户点同意时
   /// 连要授权给谁都不知道。
-  static FnthinkPairRequest? tryFrom(Object? raw) {
+  ///
+  /// ⚠ 名字那一格**不在**上面那四样里：它是装饰性的读数，老服务端不回它、
+  /// 老设备没登记过名字都会给出空值 —— 把它当必需键就是让每一条请求都消失，
+  /// 那正是"这一栏永远空着"最难查的一种来法。
+  static FnthinkPairRequest? tryFrom(FnthinkContract contract, Object? raw) {
     if (raw is! Map) return null;
     String req(String key) {
       final v = raw[key];
@@ -1843,6 +1883,7 @@ class FnthinkPairRequest {
       level: level,
       createdAt: created is int ? created : null,
       expiresAt: expires is int ? expires : null,
+      peerName: _peerNameFrom(contract, raw),
     );
   }
 }
@@ -1867,6 +1908,7 @@ class FnthinkSentPairRequest {
     this.createdAt = 0,
     this.expiresAt = 0,
     this.statusAt = 0,
+    this.peerName = '',
   });
 
   /// 那条请求的 id。界面不拿它做任何事（本机对这条已经没有可写的动作），
@@ -1895,6 +1937,16 @@ class FnthinkSentPairRequest {
 
   /// 状态最后一次变更的那一刻（`at`）。0 = 还没变更过（pending 那条就是这种）。
   final int statusAt;
+
+  /// **对面那台**（[target]）自己报上来的名字（T128 片3；与接收方那面的 `peerName`
+  /// 同一枚键名、主语随面换）。空串 = 没读到（那一台没登记过名字，或服务端是旧的）。
+  ///
+  /// 它是本机把这一条**升格成名单行**时唯一能带过去的名字读数（T130 片3 那条路上
+  /// 公钥是没有的，档位与时刻是本机自己请求的）。
+  final String peerName;
+
+  /// 「这是哪一台」在屏幕上那一句（与名单行同一个格式作者）。
+  String get label => fnthinkPeerLabel(addressCode: target, name: peerName);
 
   static List<FnthinkSentPairRequest> parseList(
     FnthinkContract contract,
@@ -1940,6 +1992,7 @@ class FnthinkSentPairRequest {
       createdAt: num('createdAt'),
       expiresAt: num('expiresAt'),
       statusAt: num('at'),
+      peerName: _peerNameFrom(contract, raw),
     );
   }
 }

@@ -362,13 +362,16 @@ router.post(
       // 配对请求走的是另一张表（它不是消息：没有正文、不过 type 词表），
       // 但它的可见性与消息一样只有一条路 —— 设备来取。键名取自契约 pairRequest.pollKey，
       // 少这一行的表现是"请求躺在表里，A 屏幕上永远显示等待配对"。
-      [PAIR_FACES.incoming]: pendingFor(contract, requests, auth.sender, now),
+      [PAIR_FACES.incoming]: pendingFor(contract, requests, state.devices, auth.sender, now),
       // T110 第二面：同一条记录对**发起方**也要可见（"我发起给谁、现在算什么状态、多久之前"）。
       // 与上面那一条共用这张表、共用到期扫描，但选择键相反（requester 而不是 target）、
       // 且**含终态**——发起方要的恰恰是"后来怎么样了"。投影名单来自契约 pairRequest.sentFields。
+      // ⚠ 两面都带 `state.devices`：那一格里「对面自己报的名字」的出处是设备表
+      //   （自登记那一发写进去的），请求表里没有这一列，也不存快照（T128 片3）。
       [PAIR_FACES.outgoing]: sentFor(
         contract,
         requests,
+        state.devices,
         auth.sender,
         now,
         contract.clientEvents.poll.maxBatchPerPoll,

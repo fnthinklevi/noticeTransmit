@@ -20,6 +20,8 @@ const {
   rejectKeyFor,
   assertPublicKey,
   verifyPairingCode,
+  // 设备名的长度闸（T128 片3）：登记这一发写进去的那一格与配对投影取的那一格必须同一个数。
+  clampPeerName,
 } = require('./devicestore');
 const {
   canonicalBytes,
@@ -299,7 +301,7 @@ function authorizeRegister(contract, state, input) {
   const fresh = checkFresh(contract, state, input, sender);
   if (fresh.outcome) return fresh.outcome;
 
-  const name = typeof input.name === 'string' ? input.name.slice(0, 60) : '';
+  const name = clampPeerName(contract, input.name);
   return { ok: true, kind: 'register', addressCode: sender, publicKey, name };
 }
 

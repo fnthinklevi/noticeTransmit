@@ -14,6 +14,24 @@ import 'package:test/test.dart';
 void main() {
   late FnthinkContract c;
 
+  /// 按路径改**一处**、其余原样 —— 与下面那些组同一手法：红的只可能是被改的那一维。
+  /// `value: null` 表示"把这一枚键删掉"（那些节缺位时的读法就是这里要测的）。
+  /// ⚠ 它在 `main()` 的作用域里，不住在某一个 group 内：片4 与片3 两组都要它，
+  ///   抄两份就会有一份在契约形状变了的那天没跟上（那正是本仓对"两份真值"的口径）。
+  FnthinkContract edited(List<String> path, Object? value) {
+    final root = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
+    var node = root;
+    for (final key in path.take(path.length - 1)) {
+      node = node[key] as Map<String, Object?>;
+    }
+    if (value == null) {
+      node.remove(path.last);
+    } else {
+      node[path.last] = value;
+    }
+    return FnthinkContract.parse(jsonEncode(root));
+  }
+
   setUp(() => c = FnthinkContract.readFile());
 
   group('版本声明', () {
@@ -3102,22 +3120,6 @@ void main() {
   });
 
   group('勾选项的整串语法（T134 片4，粒度＝参数级）', () {
-    // 按路径改**一处**、其余原样 —— 与上面那些组同一手法：红的只可能是被改的那一维。
-    // `value: null` 表示"把这一枚键删掉"（那些节缺位时的读法就是这里要测的）。
-    FnthinkContract edited(List<String> path, Object? value) {
-      final root = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
-      var node = root;
-      for (final key in path.take(path.length - 1)) {
-        node = node[key] as Map<String, Object?>;
-      }
-      if (value == null) {
-        node.remove(path.last);
-      } else {
-        node[path.last] = value;
-      }
-      return FnthinkContract.parse(jsonEncode(root));
-    }
-
     final grammar = const ['clientEvents', 'pairConfirm', 'itemGrammar'];
 
     test('真契约：粒度、分隔符、拒绝那一句都从契约读得出（不在实现里写死）', () {
@@ -3258,6 +3260,139 @@ void main() {
         anyElement(
           contains('channel:toggle 必须列在 capabilities.l2.requiresArgumentFrom'),
         ),
+      );
+    });
+  });
+
+  group('对面自报的名字（T128 片3：两面投影里那一格）', () {
+    test('真契约：键名与长度读得出，两面名单里都有它', () {
+      expect(c.peerNameField, 'peerName');
+      expect(c.peerNameMaxChars, 60);
+      expect(c.pairRequestIncomingFields, contains(c.peerNameField));
+      expect(c.pairRequestSentFields, contains(c.peerNameField));
+      // 它**不是**请求表的列：出处是设备表（自登记那一发写的）。
+      expect(c.pairRequestStoredFields, isNot(contains(c.peerNameField)));
+    });
+
+    test('键名或长度缺位 ⇒ 两个 getter 各抛各的，validate 也各报各的', () {
+      final noKey = edited(const ['pairing', 'peerNameField'], null);
+      expect(() => noKey.peerNameField, throwsStateError);
+      expect(
+        noKey.validate(),
+        anyElement(contains('pairing.peerNameField')),
+        reason: '键名没有 ⇒ 投影与解析器各发明一个，那一格在屏幕上永远空着',
+      );
+      final noCap = edited(const ['pairing', 'peerNameMaxChars'], null);
+      expect(() => noCap.peerNameMaxChars, throwsStateError);
+      expect(
+        noCap.validate(),
+        anyElement(contains('pairing.peerNameMaxChars')),
+        reason: '长度没有 ⇒ 服务端与设备侧各夹一个数（此前是两处 slice(0,60)）',
+      );
+      expect(
+        edited(const ['pairing', 'peerNameMaxChars'], 0).validate(),
+        anyElement(contains('pairing.peerNameMaxChars')),
+        reason: '0 与"没写"必须同形地报出来，不能被读成"不许有名字"',
+      );
+    });
+
+    test('键名指到口令／摘要类字段 ⇒ 报（不许把秘密的名字挂进投影）', () {
+      for (final name in ['pairingCode', 'codeDigest', 'privateKey']) {
+        expect(
+          edited(const ['pairing', 'peerNameField'], name).validate(),
+          anyElement(contains('不能是口令／密钥／摘要类字段的名字')),
+          reason: '$name 被挂成"名字那一格" ⇒ 这一面就把口令类字段带出门了',
+        );
+      }
+    });
+
+    test('接收面名单坏形状 ⇒ 各报各的（这一面以前根本没有名单）', () {
+      expect(
+        edited(const ['pairRequest', 'incomingFields'], <String>[]).validate(),
+        anyElement(contains('incomingFields 不能为空')),
+      );
+      expect(
+        edited(
+          const ['pairRequest', 'incomingFields'],
+          const [
+            'id',
+            'id',
+            'requester',
+            'requesterPublicKey',
+            'level',
+            'peerName',
+          ],
+        ).validate(),
+        anyElement(contains('incomingFields 有重名项')),
+      );
+      expect(
+        edited(
+          const ['pairRequest', 'incomingFields'],
+          const ['id', 'requester', 'level', 'peerName'],
+        ).validate(),
+        anyElement(contains('少了「requesterPublicKey」')),
+        reason: '对面把缺这一样的整条请求丢掉 ⇒ "有人配你"那一栏永远空着',
+      );
+      expect(
+        edited(
+          const ['pairRequest', 'incomingFields'],
+          const [
+            'id',
+            'requester',
+            'requesterPublicKey',
+            'level',
+            'peerName',
+            'pairingCode',
+          ],
+        ).validate(),
+        anyElement(contains('neverStored')),
+      );
+      expect(
+        edited(
+          const ['pairRequest', 'incomingFields'],
+          const [
+            'id',
+            'requester',
+            'requesterPublicKey',
+            'level',
+            'peerName',
+            'notAColumn',
+          ],
+        ).validate(),
+        anyElement(contains('storedFields 里根本没有')),
+        reason: '名单里列一列表没有的东西 ⇒ 投影读成 undefined，界面那一格空着',
+      );
+    });
+
+    test('名字那一格只在一面有 ⇒ 报（同一张表不许画两种主语）', () {
+      final noNameIncoming = edited(
+        const ['pairRequest', 'incomingFields'],
+        c.pairRequestIncomingFields.where((f) => f != c.peerNameField).toList(),
+      );
+      expect(
+        noNameIncoming.validate(),
+        anyElement(contains('两面投影都必须含 pairing.peerNameField')),
+      );
+      final noNameSent = edited(const [
+        'pairRequest',
+        'sentFields',
+      ], c.pairRequestSentFields.where((f) => f != c.peerNameField).toList());
+      expect(
+        noNameSent.validate(),
+        anyElement(contains('两面投影都必须含 pairing.peerNameField')),
+        reason: '发起方靠这一格把对面升成有名字的名单行，缺了就永远只剩地址码',
+      );
+    });
+
+    test('名字被写进 storedFields（当成请求表的列）⇒ 报：那是第二个作者', () {
+      final snapshotted = edited(
+        const ['pairRequest', 'storedFields'],
+        [...c.pairRequestStoredFields, c.peerNameField],
+      );
+      expect(
+        snapshotted.validate(),
+        anyElement(contains('storedFields 里不该有')),
+        reason: '快照会在对面改名之后永远显示旧的那个 ⇒ 只能现取设备表',
       );
     });
   });

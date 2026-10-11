@@ -1066,7 +1066,8 @@ void main() {
       'serverTime': 1800000000000,
     };
 
-    FnthinkPairRequest? parse(Object? raw) => FnthinkPairRequest.tryFrom(raw);
+    FnthinkPairRequest? parse(Object? raw) =>
+        FnthinkPairRequest.tryFrom(contract, raw);
 
     test('一条完整的请求被解析出来，答复要用的 id 与对端地址都在', () async {
       final harness = _Harness(contract, 1_800_000_000_000);
@@ -1127,6 +1128,80 @@ void main() {
       });
       expect(one, isNotNull);
       expect(one!.createdAt, isNull, reason: '没有就显示未知，不拿 0 当成"1970 年请求的"');
+    });
+
+    // ── 对面自报的名字（T128 片3）───────────────────────────────────────────
+    test('名字那一格读出来，label 里地址码仍然在前', () {
+      final one = parse({
+        'id': 'pr_9',
+        'requester': _peer,
+        'requesterPublicKey': 'AAAA',
+        'level': 'L2',
+        contract.peerNameField: '  客厅那台  ',
+      })!;
+      expect(one.peerName, '客厅那台', reason: '去首尾空白属于"读这一格"的一部分，不该留给界面再做一遍');
+      expect(one.label, '$_peer (客厅那台)');
+    });
+
+    test('服务端没带名字 ⇒ 这一条照旧合法（把它当必需键＝老服务端一条请求都看不见）', () {
+      final one = parse({
+        'id': 'pr_10',
+        'requester': _peer,
+        'requesterPublicKey': 'AAAA',
+        'level': 'L1',
+      })!;
+      expect(
+        one.peerName,
+        '',
+        reason: '空串的意思是"没有读数"，不是"它说自己没有名字" —— 界面上就只剩地址码',
+      );
+      expect(one.label, _peer);
+    });
+
+    test('名字超过契约那一个数 ⇒ 夹到那个数（长度只有一位作者）', () {
+      final cap = contract.peerNameMaxChars;
+      final one = parse({
+        'id': 'pr_11',
+        'requester': _peer,
+        'requesterPublicKey': 'AAAA',
+        'level': 'L1',
+        contract.peerNameField: '长' * (cap + 7),
+      })!;
+      expect(one.peerName.length, cap);
+    });
+
+    test('那一格按契约那枚键名取：换了键名之后旧键名那一格就是没读数', () {
+      final root = jsonDecode(jsonEncode(contract.raw)) as Map<String, Object?>;
+      (root['pairing']! as Map<String, Object?>)['peerNameField'] =
+          'peerNameV2';
+      final moved = FnthinkContract(root);
+      expect(moved.peerNameField, 'peerNameV2');
+      final one = FnthinkPairRequest.tryFrom(moved, {
+        'id': 'pr_12',
+        'requester': _peer,
+        'requesterPublicKey': 'AAAA',
+        'level': 'L1',
+        'peerName': '挂在旧键名上的一格',
+      })!;
+      expect(one.peerName, '', reason: '解析器不写字面量：按新键取，旧键那格读不到 ⇒ 宁可只剩地址码');
+    });
+
+    test('发起方那一面的名字取的是对面（target），不是本机自己', () {
+      final one = FnthinkSentPairRequest.tryFrom(contract, {
+        'id': 'pr_13',
+        'target': _peer,
+        'status': contract.pairConfirmApproveDecision,
+        'level': 'L2',
+        'createdAt': 1780000000000,
+        'at': 1780000060000,
+        contract.peerNameField: '对面那台',
+      })!;
+      expect(one.peerName, '对面那台');
+      expect(
+        one.label,
+        '$_peer (对面那台)',
+        reason: '这一面升格名单行时要写的就是"那台自称什么"，不是复述本机自己的名字',
+      );
     });
   });
 

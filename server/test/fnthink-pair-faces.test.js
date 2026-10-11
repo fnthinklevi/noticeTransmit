@@ -83,7 +83,7 @@ function evBody(kind, kp, sender, target, payloadObj) {
   return { sender, signature: signed.signature, fields: signed.map };
 }
 
-function regBody(addressCode, kp) {
+function regBody(addressCode, kp, name) {
   const signed = sign(kp, {
     version: '1',
     type: contract.clientEvents.register.messageType,
@@ -95,7 +95,9 @@ function regBody(addressCode, kp) {
   return {
     sender: addressCode,
     publicKey: kp.rawBase64,
-    name: '两面用例',
+    // ⚠ 三台各起一个**能分辨主语**的名字（T128 片3）：三份一样的话"投影取错了主语"
+    //   也能绿 —— 而那正是这一格最容易犯的错（两面共用一枚键名，主语随面换）。
+    name: name || '两面用例',
     signature: signed.signature,
     fields: signed.map,
   };
@@ -134,12 +136,15 @@ const incomingOf = (body) => body[contract.pairRequest.pollKey];
 
 describe('poll 的两面（T110：谁在请求配对你 / 我发起的那条走到了哪儿）', () => {
   beforeAll(async () => {
-    for (const [code, kp] of [
-      [HOST, hostKey],
-      [MINE, mineKey],
-      [OTHER, otherKey],
+    for (const [code, kp, name] of [
+      [HOST, hostKey, '被请求那一台'],
+      [MINE, mineKey, '发起配对那一台'],
+      [OTHER, otherKey, '无关的第三台'],
     ]) {
-      await request(app).post('/api/fnthink/register').send(regBody(code, kp)).expect(200);
+      await request(app)
+        .post('/api/fnthink/register')
+        .send(regBody(code, kp, name))
+        .expect(200);
     }
   });
 
@@ -189,6 +194,30 @@ describe('poll 的两面（T110：谁在请求配对你 / 我发起的那条走�
     for (const item of sent) {
       expect(Object.keys(item).sort()).toEqual([...contract.pairRequest.sentFields].sort());
     }
+  });
+
+  // ── 对面自报的名字（T128 片3）─────────────────────────────────────────────
+  test('接收面投影的键集合 == 契约 pairRequest.incomingFields（这一面以前没有名单）', async () => {
+    await pairUp('FGHJKMNPQRSTVWX23456', 'L1');
+    const incoming = incomingOf(await poll(hostKey, HOST));
+    expect(incoming).toHaveLength(1);
+    expect(Object.keys(incoming[0]).sort()).toEqual(
+      [...contract.pairRequest.incomingFields].sort(),
+    );
+  });
+
+  test('两面各带**对面**那台自报的名字：主语一串就成了自己看自己', async () => {
+    await pairUp('GHJKMNPQRSTVWX234567', 'L1');
+    // A（被请求那一台）的接收面：那一格必须是**发起方**的名字。
+    const host = incomingOf(await poll(hostKey, HOST));
+    expect(host).toHaveLength(1);
+    expect(host[0].peerName).toBe('发起配对那一台');
+    expect(host[0].peerName).not.toBe('被请求那一台');
+    // B（发起方）的发起面：同一枚键名指的是**对面**（target），不是他自己。
+    const sent = outgoingOf(await poll(mineKey, MINE));
+    expect(sent).toHaveLength(1);
+    expect(sent[0].peerName).toBe('被请求那一台');
+    expect(sent[0].peerName).not.toBe('发起配对那一台');
   });
 
   test('口令一面都不出门：发起面里既没有明文也没有摘要（③ 只放地址码与状态）', async () => {

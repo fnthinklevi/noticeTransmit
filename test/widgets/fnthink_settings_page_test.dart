@@ -1332,12 +1332,14 @@ void main() {
   });
 
   group('待确认的配对请求（T42 第五片）', () {
-    FnthinkPairRequest request(String level) => FnthinkPairRequest(
-      requestId: 'pr_9',
-      requester: '8KMNPQRSTVWX999777',
-      requesterPublicKey: 'AAAA',
-      level: level,
-    );
+    FnthinkPairRequest request(String level, {String name = ''}) =>
+        FnthinkPairRequest(
+          requestId: 'pr_9',
+          requester: '8KMNPQRSTVWX999777',
+          requesterPublicKey: 'AAAA',
+          level: level,
+          peerName: name,
+        );
 
     /// 把"后台那一轮带回一条请求"这件事装好，再把页面盖上去。
     ///
@@ -1387,6 +1389,30 @@ void main() {
       }
       return (l10n: l10n, h: h);
     }
+
+    // ⚠ 这一组里凡是走 `openWith` 的用例，第一行都必须是 `stubChannels()`：
+    //   漏了它 `pumpAndSettle()` 不收敛（整条挂到超时，报的是 "did not complete"，
+    //   看起来像"页面坏了"，其实这一格没装通道store）。
+    testWidgets('待确认那一行带出对面自报的名字，地址码仍然在前（T128 片3）', (tester) async {
+      stubChannels();
+      await openWith(tester, requests: [request('L1', name: '客厅那台')]);
+      expect(
+        find.textContaining('8KMNPQRSTVWX999777 (客厅那台)'),
+        findsOneWidget,
+        reason: '顺序不能反：能被核对的是那 18 位，名字只是少查一次',
+      );
+    });
+
+    testWidgets('对面没报名字 ⇒ 那一行只剩地址码，不写「未命名」', (tester) async {
+      stubChannels();
+      await openWith(tester, requests: [request('L1')]);
+      expect(find.textContaining('8KMNPQRSTVWX999777 请求配对你'), findsOneWidget);
+      expect(
+        find.textContaining('(未命名)'),
+        findsNothing,
+        reason: '替它编一个名字就是本机在替对面说它自己没说过的话',
+      );
+    });
 
     // ⚠ 这里试过加一条页面级用例（后台那一轮带回 approved ⇒ 名单咽喉收到那一行），
     //   结果 `tester.pumpAndSettle()` 在那条用例上不收敛、整条挂住（两轮各停 4-5 分钟，

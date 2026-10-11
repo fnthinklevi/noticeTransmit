@@ -1083,6 +1083,44 @@ class FnthinkContract {
   List<String> get pairRequestSentFields =>
       strings(const ['pairRequest', 'sentFields']);
 
+  /// 接收方（被请求那一台）那一条投影的字段名单（T128 片3）。
+  ///
+  /// 它此前只活在服务端那七行对象字面量里，于是「契约说这一面回哪些键」与「这一面实际回了
+  /// 哪些键」之间没有任何东西连着：内部键会顺手出门，而契约里补的键名永远给不出。
+  /// 现在 `pendingFor` 照这份名单拼、包内解析器照它读 ⇒ 少一项或多一项都在两端同时现形。
+  List<String> get pairRequestIncomingFields =>
+      strings(const ['pairRequest', 'incomingFields']);
+
+  /// 「对面那台**自己报上来的**名字」在线上那一格的键名（T128 片3，两面共用一枚）。
+  ///
+  /// ⚠ 两面共用同一个键名而**主语随面换**：接收方的这一格是 `requester` 的名字，
+  /// 发起方的这一格是 `target` 的名字 —— 两面上它都指「这条记录里不是我那一台」。
+  /// 分成 `requesterName`／`counterpartName` 两个名字才是两个概念，而这里只有一个概念。
+  /// 出处是**自登记**那一发（`clientEvents.register` 的 `name`），不是配对载荷：
+  /// 服务端设备表本来就有这一格，配对的两面只是把它现取现回。
+  String get peerNameField {
+    final value = str(const ['pairing', 'peerNameField']);
+    if (value == null || value.isEmpty) {
+      throw StateError(
+        '契约缺 pairing.peerNameField（不补默认值）：投影与解析器两侧都按它取值，'
+        '缺了它就等于各自发明一个键名，而那一格在屏幕上永远空着',
+      );
+    }
+    return value;
+  }
+
+  /// 那一格能有多长（唯一作者，T128 片3）。
+  ///
+  /// 此前它住在两处 JS 的 `slice(0, 60)` 字面量里，设备侧显示时另有一套截法 ⇒ 三个数各拍各的。
+  /// 现在服务端写那一格与设备侧夹那一格读同一个数。
+  int get peerNameMaxChars {
+    final value = intOf(const ['pairing', 'peerNameMaxChars']);
+    if (value == null || value <= 0) {
+      throw StateError('契约缺 pairing.peerNameMaxChars（或它不是正整数，实际「$value」）');
+    }
+    return value;
+  }
+
   /// 非终态的那一个初始态（今日 = pending）。**不写死**：界面判"还在等"就读这一行。
   String get pairRequestInitialStatus {
     final value = str(const ['pairRequest', 'initialStatus']);
@@ -3170,6 +3208,84 @@ class FnthinkContract {
         !sentFields.contains('codeDigest'),
         '$created.sentFields 里有 codeDigest：这一面不回摘要 —— 发起方本来就知道自己用过的那枚口令，'
         '而一份能比对的摘要多一处出口就多一处能漏的地方（同 endpointList._neverReturnsSecretWhy）',
+      );
+      // ── 两面投影里那一格「对面自己报上来的名字」（T128 片3）────────────────
+      // 键名只有一枚、两面共用（主语随面换：这一面的它是 requester 的名字，那一面的它是
+      // target 的名字），所以两条名单**要么都含它、要么都不含**。只在一面上有它的表现是
+      // 「我同意过的那台有名字，而我发起的那台没有」—— 而这两句在屏幕上都是名单行。
+      // ⚠ 它**不在** storedFields 里：名字的出处是自登记那一发写的设备表，请求表再存一份
+      //   就是第二个作者，而对面改了名字之后本机读到的会是那份旧快照。
+      final peerKey = str(const ['pairing', 'peerNameField']) ?? '';
+      final peerMax = intOf(const ['pairing', 'peerNameMaxChars']);
+      need(
+        peerKey.isNotEmpty &&
+            !neverStoredSent.contains(peerKey) &&
+            !const [
+              'privateKey',
+              'endpointSecret',
+              'pairingCode',
+              'codeDigest',
+            ].contains(peerKey),
+        'pairing.peerNameField=「$peerKey」不能是空的，也不能是口令／密钥／摘要类字段的名字：'
+        '这一格只放「那台自己报上来给人看的名字」，把秘密的名字挂到这里就是把出口开进投影',
+      );
+      need(
+        peerMax != null && peerMax > 0,
+        'pairing.peerNameMaxChars 必须是正整数（实得 $peerMax）：服务端写那一格与设备侧夹那一格'
+        '读的必须是同一个数，缺了它就是两处各拍一个长度（此前那两处 JS 各写了一份 slice(0,60)）',
+      );
+      final incomingFields = strings([created, 'incomingFields']);
+      need(
+        incomingFields.isNotEmpty,
+        '$created.incomingFields 不能为空：接收方那一面的投影此前只活在 JS 的对象字面量里，'
+        '契约没这份名单时「这一面实际回哪些键」就没有共同出处 —— 内部键会顺手出门，'
+        '而契约里补的键名永远给不出（那一格在屏幕上永远空着）',
+      );
+      need(
+        incomingFields.toSet().length == incomingFields.length,
+        '$created.incomingFields 有重名项（$incomingFields）：同一列被写两次，后写的盖掉先写的',
+      );
+      for (final must in const [
+        'id',
+        'requester',
+        'requesterPublicKey',
+        'level',
+      ]) {
+        need(
+          incomingFields.contains(must),
+          '$created.incomingFields 少了「$must」：设备侧解析器把这四样当"这一条到底能不能答复"的'
+          '必需键，少一样整条请求就被丢掉，而丢掉的表现是「有人配你」那一栏永远空着（$incomingFields）',
+        );
+      }
+      for (final secret in neverStoredSent) {
+        need(
+          !incomingFields.contains(secret),
+          '$created.incomingFields 含 neverStored 的那一项「$secret」：口令类字段不许出这一面的门',
+        );
+      }
+      // 名单里的每一项都必须**真的在表里**（名字那一格除外，它来自设备表）：
+      // 这一条与 JS 侧 `incomingFields()` 同形 —— 投影的实现只照名单拼，名单里列一个
+      // 表没有的键，表现不是报错而是那一格永远空，而"空"与"这台没有那个值"分不出来。
+      final storedForIncoming = strings([created, 'storedFields']);
+      for (final field in incomingFields) {
+        if (field == peerKey) continue;
+        need(
+          storedForIncoming.contains(field),
+          '$created.incomingFields 里的「$field」在这张表的 storedFields 里根本没有：'
+          '投影会当场把它读成 undefined，而设备侧解析器把"读不出"判成整条不合法 ⇒ '
+          '「有人配你」那一栏永远空着',
+        );
+      }
+      need(
+        incomingFields.contains(peerKey) && sentFields.contains(peerKey),
+        '两面投影都必须含 pairing.peerNameField=「$peerKey」（incoming=$incomingFields / '
+        'sent=$sentFields）：这一格是名单行上「它是谁」那一段唯一的远端出处，一面有一面没有'
+        '就是让同一张表画两种主语',
+      );
+      need(
+        !strings([created, 'storedFields']).contains(peerKey),
+        '$created.storedFields 里不该有「$peerKey」：名字的出处是设备表（自登记那一发写进去的），'
+        '请求表里再存一份快照就是第二个作者 —— 对面改名之后本机读到的永远是旧的那一个',
       );
       final ceiling = '${entry.value['levelCeilingFrom'] ?? ''}';
       if (ceiling.isNotEmpty) {

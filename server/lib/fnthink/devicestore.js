@@ -52,6 +52,44 @@ const ENDPOINT_CAP_CODE = 'FNTHINK_ENDPOINT_CAP'; /// 登记这一步的两种**
 /// 一次 500 + "这个地址码已经绑过另一把钥匙"，而 /register 是公网面 —— 那就是枚举器。
 const DEVICE_KEY_SWAP_CODE = 'FNTHINK_DEVICE_KEY_SWAP';
 
+/// 「那台自己报上来的名字」这一格的长度（T128 片3，唯一作者）。
+///
+/// 此前它住在这一行下面两处的 `slice(0, 60)` 字面量里（登记与 validate 各一份），而设备侧
+/// 显示时又是另一套截法 ⇒ 三个数各拍各的。契约立出 `pairing.peerNameMaxChars` 之后，
+/// 写这一格与读这一格都从这一处过。
+function peerNameMaxChars(contract) {
+  const raw = ((contract || {}).pairing || {}).peerNameMaxChars;
+  if (!Number.isInteger(raw) || raw <= 0) {
+    throw shapeError(
+      `契约缺 pairing.peerNameMaxChars（正整数，实得 ${JSON.stringify(raw)}）：` +
+        '设备名写进表与投出投影时截的长度、设备侧再夹的长度必须是同一个数',
+    );
+  }
+  return raw;
+}
+
+/// 把一份名字读数归成"能写进那一格的样子"：非字符串 ⇒ 空串，去首尾空白，截到契约那一个数。
+/// 空串是有含义的（"这台没报过名字"），界面因此只剩地址码，不替它编一个「未命名」。
+function clampPeerName(contract, raw) {
+  if (typeof raw !== 'string') return '';
+  return raw.trim().slice(0, peerNameMaxChars(contract));
+}
+
+/// 设备表里那一格**现取**（T128 片3）。配对的两面投影都从这一处取名字。
+///
+/// ⚠ 故意不在请求表里存一份快照：`pair` 那一发不带名字（它只带口令与档位），名字在
+///   自登记时就写进了设备表，所以这里是一次查表而不是第二次记账。存快照的话对面改了名
+///   本机永远读到旧的那一个 —— 同一格两个作者正是这一族最容易漂的地方。
+///   读不到那台（没登记过、被划掉了）⇒ 空串：这一格是给人看的读数，不参与任何授权判断，
+///   所以"取不到"绝不能变成一次拒绝，也不能变成界面上一句猜测。
+function registeredNameOf(contract, devices, addressCode) {
+  const key = String(addressCode);
+  const record =
+    devices && Object.prototype.hasOwnProperty.call(devices, key) ? devices[key] : null;
+  if (!record || typeof record !== 'object') return '';
+  return clampPeerName(contract, record.name);
+}
+
 function loadDevices() {
   return loadTable(DEVICE_FILE, 'devices');
 }
@@ -164,7 +202,7 @@ function registerDevice(contract, devices, input, now) {
   // 关系那一列**只由契约命名**（下面那一段），这里不许写一遍列名当种子：
   // 写了就是第二份真值，列名换了会多出一个谁都不读的空调用，而正确的那一列照样能建起来 —— 没人报错。
   record.publicKey = publicKey;
-  record.name = typeof input.name === 'string' ? input.name.slice(0, 60) : '';
+  record.name = clampPeerName(contract, input.name);
   if (
     !record[relationshipField(contract)] ||
     typeof record[relationshipField(contract)] !== 'object'
@@ -931,6 +969,11 @@ module.exports = {
   saveDevices,
   saveEndpoints,
   registerDevice,
+  // 「那台自己报的名字」这一格（T128 片3）：写它、截它、现取它，三件事各一个作者，
+  // 而配对的两面投影都从 registeredNameOf 取 —— 请求表里不存第二份。
+  peerNameMaxChars,
+  clampPeerName,
+  registeredNameOf,
   relationshipField,
   assertDeviceStatus,
   revokedStatus,
