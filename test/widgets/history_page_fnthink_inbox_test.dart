@@ -102,7 +102,8 @@ void main() {
         home: HistoryPage(
           initialDirection: initialDirection,
           focusMessageId: focusMessageId,
-          records: const [],
+          forwardedLoader: fakeForwardedLoader(const []),
+          forwardedCountLoader: () async => 0,
           onClear: () async {},
           onExport: () async => <String, dynamic>{},
           onClearToday: () async => 0,

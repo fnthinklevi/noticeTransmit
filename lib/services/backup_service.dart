@@ -9,6 +9,7 @@ import 'package:get_it/get_it.dart';
 import '../models/email_channel.dart';
 import '../models/notification_rule.dart';
 import 'battery_service.dart';
+import 'backup_mode.dart';
 import 'device_info_service.dart';
 import 'device_state_service.dart';
 import 'email_service.dart';
@@ -118,6 +119,10 @@ class BackupService {
       'preferences': {
         'theme_mode': theme.themeMode.name,
         'app_language': locale.language.name,
+        // T135 尾巴：「主不可用⇒自动切备」那枚开关也是**意图**（默认开，
+        // 关掉是一次显式的用户决定）—— 不进备份，换机恢复就静默回落默认开，
+        // 与 #95-A 当年"温度族/设备状态族没进备份"同一个形状。只带值，无凭据。
+        'channel_auto_backup': await BackupMode.autoBackupEnabled(),
       },
       'fnthink': fnthink,
     };
@@ -405,14 +410,16 @@ class BackupService {
       'blacklistKeywords': filter.blacklistKeywords.isNotEmpty,
       'whitelistKeywords': filter.whitelistKeywords.isNotEmpty,
       // N5：电池 = 有自定义规则即视为已有配置；设备名 = 非空；
-      // 偏好 = 主题或语言存在非默认（非 system）值
+      // 偏好 = 主题或语言存在非默认（非 system）值，或那枚自动切备开关被用户关掉
+      //（默认开 —— 关掉是显式决定，"仅导入空缺项"策略要把它算作"本机已有配置"）
       'battery': battery.rules.isNotEmpty,
       'temperature': temperature.rules.isNotEmpty,
       'deviceState': deviceState.rules.isNotEmpty,
       'deviceName': device.deviceName.isNotEmpty,
       'preferences':
           theme.themeMode != ThemeMode.system ||
-          locale.language != AppLanguage.system,
+          locale.language != AppLanguage.system ||
+          !(await BackupMode.autoBackupEnabled()),
       // 「本机配过幻念推送吗」：从没配过的设备，这一格不算"恢复会盖掉东西"
       // （否则"仅导入空缺项"策略下，一台没用过幻念推送的机器会被判成"本机已有配置"）。
       'fnthink': await FnthinkBackup().hasContent(),
@@ -617,6 +624,13 @@ class BackupService {
             orElse: () => AppLanguage.system,
           );
           await GetIt.instance<LocaleService>().setLanguage(language);
+        }
+        // T135 尾巴：那枚「自动切备」开关跟着恢复。⚠ **缺键不写**（老备份没有这一项，
+        // 补写就是替用户按回默认开 —— 与"缺键的类别不补空列表"同一条纪律）；
+        // 键在（true/false 都算）才写。原生每次路由现读这枚键，不需要 notify。
+        final autoBackup = preferences['channel_auto_backup'];
+        if (autoBackup is bool) {
+          await BackupMode.setAutoBackupEnabled(autoBackup);
         }
         return true;
       });

@@ -44,7 +44,8 @@ void main() {
         locale: const Locale('zh'),
         dark: false,
         home: HistoryPage(
-          records: const <NotificationRecord>[],
+          forwardedLoader: fakeForwardedLoader(const <NotificationRecord>[]),
+          forwardedCountLoader: () async => 0,
           onClear: () async {},
           onExport: () async => <String, dynamic>{},
           onClearToday: () async => 0,

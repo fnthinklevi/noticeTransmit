@@ -899,6 +899,7 @@
   "deliverySuccess": "推送成功",
   "deliveryFailed": "推送失败",
   "deliveryPending": "发送中",
+  "deliveryPausedNotSent": "暂停未发送",
   "pushPausedByUser": "已暂停",
   "deliveryIntercepted": "已拦截",
   "deliveryViaBackupTag": "备用",
@@ -1558,6 +1559,8 @@
   "fnthinkSettingsTitle": "幻念推送设置",
   "fnthinkReceive": "接收推送",
   "fnthinkReceiveDesc": "开着才会去服务器取货；关掉则既不发送也不接收",
+  "fnthinkChannelDisclosure": "收到的推送响不响、震不震、弹不弹，由系统通知设置里「幻念推送 · 收件」这一枚渠道决定。本机这侧已按最高档创建：重要性＝紧急（会弹横幅）、声音＝系统默认通知音、振动＝已开。部分厂商系统（如小米）在这一层之上另有按应用的悬浮/锁屏开关，那些只能去系统设置里核对。",
+  "fnthinkOpenChannelSettings": "打开系统渠道设置",
   "fnthinkConsentTitle": "允许通知内容经服务器中转？",
   "fnthinkConsentMsg": "① 不用幻念推送：全部逻辑在本机完成，通知内容不经过任何服务器。\n② 只用本软件转发通知：同样不经过服务器，服务器不收集任何通知内容。\n③ 使用幻念推送：消息需经服务器中转才能送到这台手机 —— 未送达期间正文在服务端加密暂存，最长 7 天，送达或到期立即删除；配对口令与身份私钥不上传，审计只保存元数据（不含正文）。",
   "fnthinkConsentAgree": "我已了解并同意",
@@ -2247,9 +2250,13 @@
       }
     }
   },
-  "fnthinkPresenceAsleep": "当前没在醒着（开关关着，或还没排上）",
+  "fnthinkPresenceAsleep": "当前没在醒着（开关关着，或还没同意）",
+  "fnthinkPresenceDead": "复起链已断：这台不再会自己醒（开关与同意都还在）",
+  "fnthinkPresencePendingFirstRound": "还没排上第一轮（刚开起来，跑完第一轮会自己排上）",
+  "fnthinkPresenceRecover": "立即恢复",
   "fnthinkPollIntervalTitle": "收取间隔",
   "fnthinkPollIntervalUsingDefault": "现在每 {seconds} 秒问一次（协议默认那一档）",
+  "fnthinkRegisterRateLimited": "注册被限流，还要等 {minutes} 分 {seconds} 秒，到点自动重试",
   "fnthinkPollIntervalChosen": "现在每 {seconds} 秒问一次（你选的）",
   "@fnthinkPollIntervalUsingDefault": {
     "placeholders": {
@@ -2263,6 +2270,12 @@
       "seconds": {
         "type": "int"
       }
+    }
+  },
+  "@fnthinkRegisterRateLimited": {
+    "placeholders": {
+      "minutes": {"type": "int"},
+      "seconds": {"type": "int"}
     }
   },
   "fnthinkPollIntervalRange": "可设范围 {min}–{max} 秒，由协议规定，不是本机偏好",

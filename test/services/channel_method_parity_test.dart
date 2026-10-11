@@ -116,10 +116,13 @@ void main() {
     // 124 → 123（T131）：**删掉** `syncDailyPushCount` —— 它把 DB 的「今日记录数」灌成原生
     // 那句「当日已推送」的基数（同一天还取 maxOf），是那个数字在暂停态下仍然上涨的第三个作者。
     // 计数改由原生扇出那一次自己作数（`DailyPushCounter`），Flutter 没有可替它作数的东西了。
-    test('原生方法总数 == 123（防止分支被静默删除/新增未登记）', () {
+    // 123 → 124（T137 验收③）：`openInboxChannelSettings` —— 收件渠道**自己的**系统设置页。
+    // 厂商的悬浮/锁屏/声音开关不在 AOSP 可读范围里（六厂商官方口径一致），
+    // 界面只能"报自己那侧 + 一键跳"，没有"读回来"的那一半。
+    test('原生方法总数 == 124（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        123,
+        124,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -133,7 +136,8 @@ void main() {
         'ConfigChannelHandler': 34,
         // T55：提升/悬浮通知那一族 +3；T124 片C-1：通话记录那两发（读权限 + 申请）+2；
         // 片C-2：定位那两发（FINE||COARSE 的读权限 + 一次'精确／大致'申请）+2。
-        'PermissionChannelHandler': 30,
+        // T137 验收③：收件渠道的系统设置跳转那一发。30 → 31。
+        'PermissionChannelHandler': 31,
         // 首页第三态那两发挂在这一域（读推送开关 + 恢复推送）。15 → 17。
         'DeviceChannelHandler': 17,
         'FileChannelHandler': 12,

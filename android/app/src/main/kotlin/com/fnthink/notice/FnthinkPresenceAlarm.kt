@@ -30,6 +30,17 @@ class FnthinkPresenceAlarm(private val context: Context) {
         private const val PREFS_NAME = "fnthink_presence"
         private const val KEY_NEXT_AT = "next_round_at"
         private const val KEY_CADENCE = "cadence_seconds"
+
+        /**
+         * 「这台**曾经真的排上过**」的那一枚戳（T140 层2 察）。
+         *
+         * 为什么要有它：界面要能区分"链死了"与"还没排上第一轮"，而手上那两个读数分不开——
+         * [cancel] 把 `KEY_NEXT_AT` **和** `KEY_CADENCE` 一起清成 0，所以"被撤过"与"从没排过"
+         * 在 cadence 上长得一模一样（都是 0）；真机那次事故（06:07 `alarm_cancelled` 之后 13.5 小时
+         * 无闹钟）走的正是 cancel 那一条路。这一枚**只在真的排上时写、cancel 不清**，
+         * 它就是"这台至少醒过一次"的证据 ⇒ Dart 那侧的判据才有第三种说法。
+         */
+        private const val KEY_EVER_ARMED_AT = "ever_armed_at"
     }
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
@@ -45,6 +56,20 @@ class FnthinkPresenceAlarm(private val context: Context) {
      * 而数值仍是 Dart 写的（这里不自己算，也不写死一个默认值：默认值就是第二个真值）。
      */
     fun cadenceSeconds(): Long = prefs.getLong(KEY_CADENCE, 0L)
+
+    /** 这台第一次真的排上闹钟的时刻（毫秒）。0 = 从没排上过。见 [KEY_EVER_ARMED_AT]。 */
+    fun everArmedAt(): Long = prefs.getLong(KEY_EVER_ARMED_AT, 0L)
+
+    /** 与 `KEY_NEXT_AT` 同一处写：真的把这一颗交给系统了，才算"排上过"。 */
+    private fun markArmed(fireAt: Long) {
+        val editor = prefs.edit().putLong(KEY_NEXT_AT, fireAt)
+        // 只写第一次：这一枚的名字是"曾经"，每轮都刷就变成"最近一次"，
+        // 而"最近"读起来像新鲜度（那是另一件事，`nextRoundAt` 已经管着了）。
+        if (prefs.getLong(KEY_EVER_ARMED_AT, 0L) == 0L) {
+            editor.putLong(KEY_EVER_ARMED_AT, System.currentTimeMillis())
+        }
+        editor.apply()
+    }
 
     /**
      * 排一轮。`delaySeconds <= 0` 一律**取消而不是排"现在"**：
@@ -69,7 +94,7 @@ class FnthinkPresenceAlarm(private val context: Context) {
             if (exactAllowed()) {
                 try {
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
-                    prefs.edit().putLong(KEY_NEXT_AT, fireAt).apply()
+                    markArmed(fireAt)
                     Log.d(TAG, "幻念收货闹钟已排 fireAt=$fireAt（精确）")
                     return
                 } catch (e: SecurityException) {
@@ -77,7 +102,7 @@ class FnthinkPresenceAlarm(private val context: Context) {
                 }
             }
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
-            prefs.edit().putLong(KEY_NEXT_AT, fireAt).apply()
+            markArmed(fireAt)
             Log.d(TAG, "幻念收货闹钟已排 fireAt=$fireAt（非精确）")
         } catch (e: Exception) {
             // 排不上必须留话：否则这一路从此刻起再没人醒，而界面上看着一切正常。
@@ -91,6 +116,8 @@ class FnthinkPresenceAlarm(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "取消闹钟失败（记录照清，避免界面拿着一个已过期的时间点）", e)
         }
+        // ⚠ 只清"下一颗在哪儿"与"那一档节奏"，**不清 `KEY_EVER_ARMED_AT`**：
+        // 被撤掉这件事本身就是要留给界面看的那条证据（撤过一次＝这台曾经醒过，现在不醒了）。
         prefs.edit().putLong(KEY_NEXT_AT, 0L).putLong(KEY_CADENCE, 0L).apply()
     }
 

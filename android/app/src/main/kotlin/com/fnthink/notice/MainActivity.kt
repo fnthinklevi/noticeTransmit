@@ -1416,6 +1416,29 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * T137 验收③：直接跳到收件渠道（fnthink_inbox_v2）自己的系统设置页。
+     *
+     * 为什么只有"跳"没有"读"：厂商（MIUI 等）在 AOSP 之上另有按应用的悬浮/锁屏/声音开关，
+     * 而那几枚不在任何 APK 可读的 API 里（六厂商官方口径，roadmap §8 附录）——
+     * 界面能诚实做的只有"报我们自己那侧 + 把用户送到能看见全部开关的那一页"。
+     * 26 以下没有按渠道跳转这一档（渠道本身也不存在），退回应用详情页。
+     */
+    internal fun openInboxChannelSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                intent.putExtra(Settings.EXTRA_CHANNEL_ID, FnthinkInboxDisplay.CHANNEL_ID)
+                startActivity(intent)
+                return
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        openAppDetailsSettings()
+    }
+
     internal fun requestXiaomiAutoStart() {
         try {
             val intent = Intent()
@@ -2479,34 +2502,38 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /** 缓存未送达的通知记录（Flutter 引擎未就绪时使用） */
+    /**
+     * 缓存未送达的通知记录（Flutter 引擎未就绪时使用）。
+     *
+     * T133 量级②尾巴：旧写法把记录塞在一份 SP 数组里，上限 200、满了丢最旧、
+     * 每条通知全量重写整根数组 —— 队列里躺的是这些记录的唯一副本，"满了丢最旧"
+     * 就是静默销毁还没交付的历史。现走 [PendingRecordCache]（行文件 + 资源字节闸 +
+     * 丢弃计数并入 #94-A 同一条横幅出口），与 [HistoryCache] 同一口径。
+     */
     internal fun cacheNotificationRecord(data: String) {
         try {
-            val prefs = applicationContext.getSharedPreferences("flutter.notification_cache", android.content.Context.MODE_PRIVATE)
-            val cached = prefs.getString("pending_records", "[]") ?: "[]"
-            val arr = org.json.JSONArray(cached)
-            arr.put(org.json.JSONObject(data))
-            while (arr.length() > 200) arr.remove(0)
-            prefs.edit().putString("pending_records", arr.toString()).apply()
-        } catch (_: Exception) {}
+            PendingRecordCache.append(
+                applicationContext,
+                org.json.JSONObject(data),
+            )
+        } catch (e: Exception) {
+            Log.w("MainActivity", "缓存未送达通知记录失败", e)
+        }
     }
 
-    /** 批量导入缓存的未送达通知记录 */
+    /**
+     * 批量导入缓存的未送达通知记录。
+     *
+     * 逐条投递给 Flutter；失败（引擎分离 / methodChannel 为 null / 抛异常）的记录
+     * 必须留在队列里。此前无论成败都在循环后无条件 remove("pending_records")，
+     * 于是一次 UI 未就绪的启动就会把整批离线缓存抹掉——通知内容彻底消失且无痕迹。
+     * （那一课已由"只写回没交付的那部分"接管：交付成功的从文件里消失，失败的原样留下。）
+     */
     internal fun flushCachedNotificationRecords() {
         try {
-            val prefs = applicationContext.getSharedPreferences("flutter.notification_cache", android.content.Context.MODE_PRIVATE)
-            val cached = prefs.getString("pending_records", "[]") ?: "[]"
-            val arr = org.json.JSONArray(cached)
-            // 逐条投递给 Flutter；失败（引擎分离 / methodChannel 为 null / 抛异常）的记录
-            // 必须留在队列里。此前无论成败都在循环后无条件 remove("pending_records")，
-            // 于是一次 UI 未就绪的启动就会把整批离线缓存抹掉——通知内容彻底消失且无痕迹。
-            val remaining = org.json.JSONArray()
-            for (i in 0 until arr.length()) {
-                val json = try {
-                    arr.getJSONObject(i)
-                } catch (_: Exception) {
-                    continue
-                }
+            val records = PendingRecordCache.readAll(applicationContext)
+            val deliveredIds = mutableListOf<String>()
+            for (json in records) {
                 val delivered = try {
                     val channel = methodChannel ?: throw IllegalStateException("methodChannel 未就绪")
                     val map = mutableMapOf<String, Any?>()
@@ -2521,14 +2548,12 @@ class MainActivity : FlutterActivity() {
                     Log.w("MainActivity", "离线缓存记录投递失败，保留待下次", e)
                     false
                 }
-                if (!delivered) remaining.put(json)
+                if (delivered) deliveredIds.add(json.optString("id"))
             }
-            val editor = prefs.edit()
-            if (remaining.length() == 0) editor.remove("pending_records")
-            else editor.putString("pending_records", remaining.toString())
-            editor.apply()
+            // 只把**已交付**的那些从队里排除：交付期间新 append 进来的记录不能被顺手抹掉
+            PendingRecordCache.writeBack(applicationContext, deliveredIds)
         } catch (e: Exception) {
-            // 整体解析失败（缓存串损坏）时不清空：留待人工排查，避免静默丢数据
+            // 整体失败时不动文件：留待人工排查，避免静默丢数据
             Log.w("MainActivity", "flushCachedNotificationRecords 异常", e)
         }
     }

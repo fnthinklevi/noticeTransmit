@@ -15,6 +15,7 @@ import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_relay_consent.dart';
 import '../services/fnthink_settings.dart';
+import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
@@ -222,15 +223,55 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
     return '${two(at.hour)}:${two(at.minute)}:${two(at.second)}';
   }
 
+  /// 那一行落在哪一档（T140 层2 察）。判据的**唯一作者**是 `judgePresenceLiveness`：
+  /// 页面只把手上那三份事实交进去，不在这儿自己比 `nextRoundAt == 0` —— 那一比就会长出
+  /// 第二份"什么叫死了"，而它和原生的 cancel 语义迟早漂开（cancel 把 cadence 也清了）。
+  FnthinkPresenceLiveness _presenceLiveness() => judgePresenceLiveness(
+    enabled: _enabled,
+    consented: _consented,
+    status: _presence!,
+  );
+
   /// 没有 cadence 就没有「下一次」：只把 clock 那零点几秒写成「下一次」，
   /// 用户会以为这下一下随时都会发生。
   String _presenceText(AppLocalizations l10n) {
     final status = _presence!;
-    if (!status.armed) return l10n.fnthinkPresenceAsleep;
-    final clock = _presenceClock(status.nextRoundAt);
-    return status.cadenceSeconds > 0
-        ? l10n.fnthinkPresenceNext(clock, status.cadenceSeconds)
-        : l10n.fnthinkPresenceNextNoCadence(clock);
+    switch (_presenceLiveness()) {
+      case FnthinkPresenceLiveness.dead:
+        // 真坏的那一档：这台曾经醒过、现在没排上，而开关与同意都还在。
+        return l10n.fnthinkPresenceDead;
+      case FnthinkPresenceLiveness.pendingFirstRound:
+        // 不是故障：刚把接收开起来，第一轮还没跑完（闹钟是每一轮结束时续排的）。
+        return l10n.fnthinkPresencePendingFirstRound;
+      case FnthinkPresenceLiveness.configIncomplete:
+        return l10n.fnthinkPresenceAsleep;
+      case FnthinkPresenceLiveness.armed:
+        final clock = _presenceClock(status.nextRoundAt);
+        return status.cadenceSeconds > 0
+            ? l10n.fnthinkPresenceNext(clock, status.cadenceSeconds)
+            : l10n.fnthinkPresenceNextNoCadence(clock);
+    }
+  }
+
+  /// 「立即恢复」（T140 层3 复）：只走 `startIfEnabled` 那条**现成的**咽喉 ——
+  /// 与开关同一条路。在这儿新写一条"起链"的路，就等于让"什么时候该醒"有两套说法，
+  /// 而那正是这一片要消掉的东西（旧形状里限流一发就撤闹钟，撤的人与排的人不是同一个）。
+  Future<void> _recoverPresence() async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _busy = true);
+    final result = await _coordinator.startIfEnabled();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _running = _coordinator.isRunning;
+      // 起成了就把话留在上一档（那一行本身会变成"下一次 HH:mm:ss"，比一句"已恢复"更实）；
+      // 起不成才要说理由 —— 那些理由与开关那一发用的是同一个作者。
+      _startNote = result.started
+          ? null
+          : _describeStartFailure(result.reason, l10n);
+    });
+    await _readPresence();
   }
 
   Future<void> _readEnabled() async {
@@ -264,6 +305,16 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
     final health = healthOf(host);
     if (!mounted) return;
     setState(() => _serverHealth = health);
+  }
+
+  /// 起不来那句的原话（T139 ①）：限流那一档换成人话（等几分钟、会自动重试），
+  /// 其余理由**原样展示** —— 那些机器码是排查的入口，翻译丢了就没法搜。
+  /// 认限流的判据只有一位作者（`fnthinkRegisterRateLimitedWait`），不在这里另抄正则。
+  String _describeStartFailure(String reason, AppLocalizations l10n) {
+    final wait = fnthinkRegisterRateLimitedWait(reason);
+    if (wait == null) return reason;
+    // 生成器把两个占位符落成了**位置参数**（见 app_localizations.dart 的签名）
+    return l10n.fnthinkRegisterRateLimited(wait.minutes, wait.seconds);
   }
 
   String _serverHealthText(AppLocalizations l10n) {
@@ -356,11 +407,13 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
       setState(() {
         _running = _coordinator.isRunning;
         // 「没同意中转」是本片新增的那一档，机器理由 `not-consented` 用户读不懂 ⇒ 换成人话。
+        // T139 ①：注册被限流那一档同理 —— 那一句必须说出"还要等多久、会自动重试"，
+        // 只显示机器码或"没在跑"，用户读到的还是"坏了"。
         _startNote = result.started
             ? null
             : (result.reason == 'not-consented'
                   ? l10n.fnthinkConsentNotGranted
-                  : result.reason);
+                  : _describeStartFailure(result.reason, l10n));
         _busy = false;
       });
       // 开关翻开 ⇒ 协调者刚排过闹钟（或刚因为起不来撤过）：那一行必须跟着重读，
@@ -385,19 +438,25 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
   Future<void> _receiveNow() async {
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
-    final report = await _coordinator.receiveOnce();
+    final round = await _coordinator.receiveOnce();
     if (!mounted) return;
     setState(() {
       _running = _coordinator.isRunning;
-      if (report == null) {
-        _roundNote = l10n.fnthinkReceiveDisabled;
+      if (round.report == null) {
+        // T139 ③：没跑成的原因各有各的话 —— "接收没开"只许说给真的没开的那一档，
+        // 限流/没同意/签不出名盖在那句话下面，用户照着修的层级就是错的。
+        _roundNote = round.skipReason == 'disabled'
+            ? l10n.fnthinkReceiveDisabled
+            : round.skipReason == 'not-consented'
+            ? l10n.fnthinkConsentNotGranted
+            : _describeStartFailure(round.skipReason ?? '', l10n);
         _lastRound = null;
-      } else if (report.skipped) {
+      } else if (round.report!.skipped) {
         _roundNote = l10n.fnthinkReceiveSkipped;
       } else {
         _roundNote = null;
         // summary 只有计数（没有标题、正文与消息 id），所以可以直接上界面。
-        _lastRound = report.summary;
+        _lastRound = round.report!.summary;
         _startNote = null;
       }
       _busy = false;
@@ -457,6 +516,23 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
           keyName: 'fnthink-receive-status',
           dot: _running,
           text: _running ? l10n.fnthinkStatusRunning : l10n.fnthinkStatusIdle,
+        ),
+        // T137 验收③：只报**我们自己那侧** + 一键跳系统。
+        // 厂商（MIUI 等）的悬浮/锁屏/声音开关不在任何 APK 可读的 API 里（六厂商官方
+        // 口径一致），所以这里没有"读回来告诉你哪一档被关了"的那一半 —— 写得出"我们
+        // 建的渠道是什么样"，厂商那几枚只能请用户去系统里亲眼核对，跳转直达那一页。
+        FnthinkNote(
+          keyName: 'fnthink-channel-disclosure',
+          text: l10n.fnthinkChannelDisclosure,
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SecondaryActionButton(
+            keyName: 'fnthink-open-channel-settings',
+            label: l10n.fnthinkOpenChannelSettings,
+            onPressed: () =>
+                GetIt.instance<PermissionService>().openInboxChannelSettings(),
+          ),
         ),
         // 同意门（T56）：**开着开关也不等于同意中转**。这一行在没同意时始终在场，
         // 并把三情形说明摆在按钮后面 —— 用户要能一眼看出"关掉接收"与"不让人中转内容"
@@ -577,6 +653,18 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
           FnthinkNote(
             keyName: 'fnthink-presence-next',
             text: _presenceText(l10n),
+          ),
+        // 只有链死那一档给按钮：其余三档按了也不会有任何变化，而界面不许摆一枚不做事的按钮。
+        if (_presence != null &&
+            _presenceLiveness() == FnthinkPresenceLiveness.dead)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FnthinkInlineAction(
+              key: const ValueKey('fnthink-presence-recover'),
+              label: l10n.fnthinkPresenceRecover,
+              tone: FnthinkActionTone.neutral,
+              onPressed: _busy ? null : _recoverPresence,
+            ),
           ),
         if (_startNote != null)
           FnthinkNote(keyName: 'fnthink-start-note', text: _startNote!),

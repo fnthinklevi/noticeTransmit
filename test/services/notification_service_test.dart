@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:notice_transmit/database/database_helper.dart';
-import 'package:notice_transmit/models/notification_record.dart';
+import 'package:notice_transmit/database/database_helper.dart'
+    show WebhookChannelStore;
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
 
@@ -370,40 +370,8 @@ void main() {
       expect(status['chan:blocked']['message'], '黑名单（命中: 验证码）');
     });
 
-    test('存量数据迁移：旧版本地化拦截键 → 真实通道 intercepted', () async {
-      // 旧版数据形态：真实通道 pending + 独立的拦截键（v11 前键就是显示名，
-      // 中文环境写 '过滤拦截'、英文环境写 'Blocked'）。经 fromMap 读入即归一为
-      // chan: 键——真实链路里 migrateInterceptedRecords 看到的总是归一后的形状。
-      for (final legacy in [
-        {'channel': 'webhook:企业微信', 'blocked': '过滤拦截'},
-        {'channel': 'webhook:WeCom', 'blocked': 'Blocked'},
-      ]) {
-        service.addRecord(smsRecord());
-        service.records[0] = NotificationRecord.fromMap({
-          ...smsRecord(),
-          'channels': [legacy['channel']],
-          'deliveryStatus': <String, dynamic>{
-            legacy['channel']!: {'status': 'pending', 'message': ''},
-            legacy['blocked']!: {'status': 'failed', 'message': '黑名单（命中: 验证码）'},
-          },
-        });
-
-        await service.migrateInterceptedRecords();
-
-        final status = service.records.first.deliveryStatus;
-        expect(
-          status['chan:wechat_work']['status'],
-          'intercepted',
-          reason: '$legacy',
-        );
-        expect(
-          status['chan:wechat_work']['message'],
-          '黑名单（命中: 验证码）',
-          reason: '$legacy',
-        );
-        // 拦截项不再单列：真实通道已转终态
-        expect(status.keys, isNot(contains('chan:blocked')), reason: '$legacy');
-      }
-    });
+    // ⚠ 存量迁移那条用例挪去了 test/services/history_paging_service_test.dart ——
+    //   T133 量级① 迁移改为 DB 驱动（内存镜像退役），它需要真库台架才能种老形状、
+    //   从 DB 读回修复结果；本文件没有 debugDatabase 台架（其余用例都是内存语义）。
   });
 }

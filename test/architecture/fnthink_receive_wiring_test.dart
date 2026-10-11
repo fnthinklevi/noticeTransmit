@@ -1079,10 +1079,15 @@ void main() {
       );
       expect(
         src,
-        contains(
-          'if (registerReason != null) return (spec: null, reason: registerReason);',
-        ),
+        contains('if (registerReason != null) {'),
         reason: '登记没成还不早退 ⇒ 后面每一发都白换一句同形的 403，界面上看不出是为什么',
+      );
+      // T139 ①：那一发要带出 Retry-After（限流那一档的退避依据），
+      // 所以早退交出去的是结构化的三件，不再是一句裸 reason。
+      expect(
+        src,
+        contains('retryAfterSeconds: registerReason.retryAfterSeconds,'),
+        reason: '限流那一档的退避秒数必须在早退时一并交出去 —— 丢了它，复起链就只能撤或瞎猜',
       );
     });
 

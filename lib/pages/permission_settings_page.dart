@@ -17,11 +17,17 @@ class PermissionSettingsPage extends StatefulWidget {
 
   /// 契约 `capabilities.l3.settings` 那几项在这一台设备上的读数（T52）。
   ///
-  /// ⚠ **这一份由调用方注入，页面不自己去读**：读法只有一处（`collectL3GrantRows`），
-  /// 页面里再读一遍就会出现「两处读数各自漂移」—— 而那正是本仓修过的
-  /// 「权限页恒显已授予」的形状。构造参数是**必填**的：少传一项编译就不过，
-  /// 而不是那一格悄悄不渲染。
-  final List<FnthinkL3GrantRow> l3GrantRows;
+  /// ⚠ **这一份仍然由调用方提供，页面不自己去读**：读法与判态都只有一处
+  ///   （`collectL3GrantRows`），页面里再读一遍就会出现「两处读数各自漂移」——
+  ///   而那正是本仓修过的「权限页恒显已授予」的形状。构造参数是**必填**的：
+  ///   少传一项编译就不过，而不是那一格悄悄不渲染。
+  /// ⚠ 但传进来的是**「去取一次」这件事**（一个函数），不是已经取好的那一份：
+  ///   这一格里每一项说的都是「此刻这台的授权」，而用户点进行去系统里改完回来，
+  ///   那一份就过期了。旧写法注入的是算好的 `List` —— 页面在**被打开那一刻**冻结，
+  ///   于是回前台时同一页上「精确闹钟」出现两行：B1 那一格跟着新读数改口，
+  ///   这一格还停在旧的（表现是「我刚开的权限它还说没开」，而用户只能退出重进）。
+  ///   页面现在只决定**什么时候再取一次**（进页面、回前台、下拉刷新），不决定怎么判。
+  final Future<List<FnthinkL3GrantRow>> Function() loadL3GrantRows;
   final String manufacturer;
   final Future<void> Function() onRefresh;
   final VoidCallback onRequestNotificationListenerPermission;
@@ -44,7 +50,7 @@ class PermissionSettingsPage extends StatefulWidget {
     required this.smsPermissionGranted,
     required this.phonePermissionGranted,
     required this.appListPermissionGranted,
-    required this.l3GrantRows,
+    required this.loadL3GrantRows,
     required this.manufacturer,
     required this.onRefresh,
     required this.onRequestNotificationListenerPermission,
@@ -73,11 +79,35 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
   bool _exactAlarmEnabled = false;
   bool _canScheduleExactAlarms = false;
 
+  /// L3 那一格**这一次**读回来的那几行（空 = 还没读回来，见 `_buildL3Group`）。
+  ///
+  /// ⚠ 它是 state 而不是直接画 `widget.` 那一份，为的就是「回前台要重算」这件事能真的发生：
+  ///   构造参数是打开页面那一刻的快照，画它就等于把「此刻这台的授权」冻在进页那一刻。
+  List<FnthinkL3GrantRow> _l3GrantRows = const [];
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadExactAlarmState();
+    _loadL3GrantRows();
+  }
+
+  /// 再取一次 L3 读数。**取法与判态都不在这里**（那是 `collectL3GrantRows` 那一处作者），
+  /// 这里只决定"什么时候再问一遍"：进页面、从系统设置回来、下拉刷新。
+  Future<void> _loadL3GrantRows() async {
+    final rows = await widget.loadL3GrantRows();
+    if (!mounted) return;
+    setState(() => _l3GrantRows = rows);
+  }
+
+  /// 下拉刷新：外层那一次（刷新六项布尔读数与循环状态）之后，把这一格也重取一遍。
+  /// ⚠ 两件事**必须同一刻做完**再让刷新圈收下：只刷外层的后果是"页面说它刷新过了，
+  ///   而 L3 那几行还是进页那一刻的读数"——那一句"已刷新"就是假的。
+  Future<void> _refreshBoth() async {
+    await widget.onRefresh();
+    await _loadExactAlarmState();
+    await _loadL3GrantRows();
   }
 
   Future<void> _loadExactAlarmState() async {
@@ -118,6 +148,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
       await _permissionService.checkAllPermissions();
       // 从系统授权页返回后刷新精确闹钟授权状态
       await _loadExactAlarmState();
+      // ⚠ L3 那一格必须跟着重取：它说的是"此刻这台设备的授权"，而用户正是去系统里
+      //   改完才回来的。不重取的表现不是崩，是**同一页上两行自相矛盾** ——
+      //   B1 那一格（自读那一份）说"已授权"，这一格还停在进页那一刻说"还没给"。
+      await _loadL3GrantRows();
       if (mounted) setState(() {});
     }
   }
@@ -169,7 +203,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     return Scaffold(
       appBar: AppBar(title: Text(l10n.permSettingsTitle)),
       body: PullToRefreshList(
-        onRefresh: widget.onRefresh,
+        onRefresh: _refreshBoth,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _buildSectionHeader(l10n.essentialPerms, context),
@@ -406,12 +440,16 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
 
   /// L3 那一格：**六行按契约次序全列**，没给的置灰并说一句，不折叠、不隐藏。
   ///
-  /// ⚠ 这里**不读任何状态**：`widget.l3GrantRows` 已经是读模型的产物，
-  /// 在这一层再问一次系统就会出现两处读数（本仓为这个栽过一次）。
+  /// ⚠ 这里**不读任何系统状态**：那一几行由 `loadL3GrantRows` 交回来（组装只有一处作者，
+  /// 见 `main_page_actions._l3GrantRows`）。这一层负责的是**什么时候再问一遍**，
+  /// 不是"怎么判" —— 在这儿再问一次系统就会出现两处读数（本仓为这个栽过一次）。
   Widget _buildL3Group(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // 空 = **还没读回来**（第一帧），不是"这台一项都不用给"：那种情况下画一张空的分组卡，
+    // 用户读到的是"这里没有东西要管"，而真相是"我们还没问过"。所以第一帧什么都不画。
+    if (_l3GrantRows.isEmpty) return const SizedBox.shrink();
     final children = <Widget>[];
-    for (final (i, row) in widget.l3GrantRows.indexed) {
+    for (final (i, row) in _l3GrantRows.indexed) {
       if (i > 0) children.add(_buildDivider(context));
       children.add(
         _buildPermissionTile(
@@ -429,7 +467,12 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
         ),
       );
     }
-    return _buildGroup(children, context);
+    // 这把 key 是给"那张空卡到底画没画"留的观察点：没有它，用例只能断"行在不在"，
+    // 而"一行都不画"与"画了一张什么都没有的卡"在两行文本的断言下长得一模一样。
+    return KeyedSubtree(
+      key: const ValueKey('perm-l3-group-card'),
+      child: _buildGroup(children, context),
+    );
   }
 
   /// 契约里的设置项 key → 这一格叫什么。

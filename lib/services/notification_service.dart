@@ -46,6 +46,7 @@ class NotificationService {
     pendingOfflineDrops = 0;
   }
 
+  /// 启动装载（T133 量级① 重排）。
   Future<void> loadRecords() async {
     try {
       await DatabaseHelper().migrateFromSharedPreferences();
@@ -53,38 +54,54 @@ class NotificationService {
       debugPrint('数据库迁移失败: $e');
     }
 
-    try {
-      // 取消保存上限（P1）：全量加载历史记录，配合全量搜索/按时间筛选。
-      // 数据库无自动删旧逻辑（归档仅导出备份不删源），内存列表 = DB 全量；
-      // 历史页为 ListView 懒加载渲染，万级记录可用。启动耗时随记录数线性增长，
-      // 若未来积压过大（>5 万条）可考虑改为分页加载。
-      final dbRecords = await DatabaseHelper().getAllNotifications();
-      _records.clear();
-      _records.addAll(
-        dbRecords.map((e) => NotificationRecord.fromMap(e)).toList(),
-      );
-    } catch (e) {
-      debugPrint('从数据库加载记录失败: $e');
-      _records.clear();
-    }
+    // T133 量级①：内存列表不再是 DB 的全量镜像。历史页的两条读路（无筛选/有筛选）
+    // 都走 [searchRecords] 的 LIMIT/OFFSET 分页，"启动全量装载"那个旧决定就此退役 ——
+    // 它当初的理由（"配合全量搜索/按时间筛选"）已随分页读口落地而消失。
+    // [_records] 从此只是**本会话工作副本**：新落库的记录、被 [updateDelivery]/
+    // [pushRecordNow] 命中过的记录。不在此列的记录照样有路可走 —— 送达回传与补推
+    // 都有按 id 读 DB 的兜底（N9 / F2 两处，先于本片就位）。
+    //
+    // 迁移是存量修复，失败**不许**挡住后面的离线交接（那是丢数据的一侧），
+    // 所以它自己兜自己的异常；这里 await 只为保持启动次序可读。
+    await migrateInterceptedRecords();
 
     // 拉取原生端离线缓存（软件被杀期间的通知），通过 id 去重后合并入库
     await _drainOfflineCache();
-
-    // 存量修复：旧版本拦截记录的真实通道停留"发送中"
-    await migrateInterceptedRecords();
 
     // 补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
     await drainPendingDeliveries();
   }
 
-  /// 存量数据修复：早期版本把拦截结果写到独立的拦截键下、**不动真实通道**，
-  /// 导致记录的真实通道永远停留 pending（"发送中"）。将含拦截项的记录统一迁移为
-  /// intercepted 状态：停留发送中的通道改为拦截并标注原因，已有终态不覆盖。
+  /// 存量修复（T133 量级① 改为 DB 驱动）：早期版本把拦截结果写到独立的拦截键下、
+  /// **不动真实通道**，导致记录的真实通道永远停留 pending（"发送中"）。将含拦截项的
+  /// 记录统一迁移为 intercepted 状态：停留发送中的通道改为拦截并标注原因，已有终态不覆盖。
+  ///
+  /// 读的是 DB 而不是内存列表 —— 镜像退役后内存里根本没有老记录。一次性：完成后记
+  /// `intercepted_migration_done`，之后启动直接跳过（这枚缺陷的写入路径早已修掉，
+  /// 新记录不会再长出旧形状）。DB 不可用时**不记 flag** —— 下次启动再试，宁可多跑
+  /// 一次全表也不能静默少修。
   Future<void> migrateInterceptedRecords() async {
+    bool alreadyDone = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      alreadyDone = prefs.getBool('intercepted_migration_done') ?? false;
+    } catch (e) {
+      // prefs 读不了（测试环境无桩/极端故障）就当作还没做过：全表过一遍是幂等的，
+      // 宁可多跑也不静默少修；flag 写不进同理（每次启动多查一遍而已）。
+      debugPrint('拦截记录迁移 flag 读取失败，按未迁移处理: $e');
+    }
+    if (alreadyDone) return;
+    List<Map<String, dynamic>> rows;
+    try {
+      rows = await DatabaseHelper().getAllNotifications();
+    } catch (e) {
+      debugPrint('拦截记录迁移读 DB 失败（flag 不记，下次启动再试）: $e');
+      return;
+    }
     var migrated = 0;
-    for (var i = 0; i < _records.length; i++) {
-      final status = _records[i].deliveryStatus;
+    for (final row in rows) {
+      final record = NotificationRecord.fromMap(row);
+      final status = record.deliveryStatus;
       // 拦截项的键随版本有三种拼写（'过滤拦截' / 'Blocked' / 'chan:blocked'），
       // 按规范键识别而非字面量相等——否则迁移静默不命中，缺陷原样保留。
       String? blockedKey;
@@ -114,20 +131,21 @@ class NotificationService {
           'message': message,
         };
       }
-      final newRecord = _records[i].copyWith(deliveryStatus: updated);
-      _records[i] = newRecord;
-      migrated++;
       try {
-        await DatabaseHelper().updateNotificationDelivery(
-          newRecord.id,
-          updated,
-        );
+        await DatabaseHelper().updateNotificationDelivery(record.id, updated);
+        migrated++;
       } catch (e) {
         debugPrint('迁移拦截记录状态到 DB 失败: $e');
       }
     }
     if (migrated > 0) {
       debugPrint('[迁移] 修复 $migrated 条拦截记录的送达状态');
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('intercepted_migration_done', true);
+    } catch (e) {
+      debugPrint('拦截记录迁移 flag 写入失败（下次启动会再过一遍全表）: $e');
     }
   }
 
@@ -205,40 +223,53 @@ class NotificationService {
     }
   }
 
-  /// 一批交接记录入库：按 id 去重（内存列表就是 DB 全量的镜像），逐条 insert。
+  /// 一批交接记录入库：按 id 去重（**查 DB**，不再查内存 —— T133 量级① 之后内存
+  /// 只是会话工作副本，老记录不在里面；命中即跳过，绝不能用一份新的 pending 快照
+  /// 把已有序的送达状态 REPLACE 掉），逐条 insert。
   /// 返回真正入库的条数 —— 调用处按它决定"还要不要再拉"之外的日志，`truncated` 才是续拉的依据。
   Future<int> _mergeOfflineBatch(List<dynamic>? cached) async {
     if (cached == null || cached.isEmpty) return 0;
-    // 获取现有 id 集合，避免重复入库
-    final existingIds = _records.map((r) => r.id).toSet();
+    // 本轮内自去重（同一批里同 id 出现两次只入库一次）+ DB 已有即跳过。
+    final seenThisRun = <String>{};
 
     var merged = 0;
     for (final item in cached) {
       if (item is! Map) continue;
       final map = Map<String, dynamic>.from(item);
       final id = map['id']?.toString() ?? '';
-      if (id.isEmpty || existingIds.contains(id)) continue;
+      if (id.isEmpty || !seenThisRun.add(id)) continue;
+      try {
+        if (await DatabaseHelper().getNotificationById(id) != null) continue;
+      } catch (e) {
+        // 查不成就当"库里没有"照插：原生交付后这条记录在本机只剩这一份，
+        // 静默跳过就是丢记录；插错的代价（覆盖一份送达状态）比整条丢失轻。
+        debugPrint('离线缓存去重查 DB 失败，按新记录照插: $e');
+      }
 
       map['channels'] = _getActiveChannels();
       map['deliveryStatus'] = _buildInitialDeliveries(map['channels']);
       final record = NotificationRecord.fromMap(map);
       _records.insert(0, record);
-      existingIds.add(record.id);
       await DatabaseHelper().insertNotification(record.toMap());
       merged++;
     }
     return merged;
   }
 
-  /// 全量历史搜索（P1）：SQLite LIKE 粗筛 + Dart 端 jsonDecode 精筛。
+  /// 全量历史搜索（P1；T133 量级① 起也是历史页**唯一**读路）：SQLite LIKE 粗筛 +
+  /// Dart 端 jsonDecode 精筛。
   ///
   /// 粗筛由 `DatabaseHelper.searchNotifications` 完成（keyword/时间范围/应用名/包名走 SQL，
   /// 送达状态对 `delivery_info` JSON 文本 LIKE 粗筛，不引 JSON1 依赖）；精筛走
   /// `matchDeliveryFilter`（**口径在 `lib/models/delivery_status.dart` 那一张词表上**，
   /// 粗筛的 LIKE 参数由同一张表生成 ⇒ 两层不会漂开）。
-  /// 返回 (精筛后记录, 是否可能有下一页)——hasMore 以粗筛行数为准，
-  /// 精筛只过滤当页不产生丢条（符合条件者必经粗筛命中）。
-  Future<(List<NotificationRecord>, bool)> searchRecords({
+  ///
+  /// 返回 `(精筛后记录, 粗筛是否未取尽, 本页粗筛行数)`：
+  /// - `hasMore` 以**粗筛**行数为准 —— 精筛只过滤当页，"这一页精筛后为 0 条"不等于
+  ///   "后面没有了"（粗筛宽、精筛窄）；「没有更多了」只能由粗筛取尽来说。
+  /// - 第三位是**本页粗筛行数**，调用方翻页时 offset 必须按它累加，不能按精筛后的
+  ///   条数累加 —— 那会把游标往回拨（每页只前进"筛中的那几条"），既漏翻又重复扫。
+  Future<(List<NotificationRecord>, bool, int)> searchRecords({
     String? keyword,
     int? startTime,
     int? endTime,
@@ -271,7 +302,7 @@ class NotificationService {
           .where((r) => matchDeliveryFilter(r.deliveryStatus, df))
           .toList();
     }
-    return (records, hasMore);
+    return (records, hasMore, rows.length);
   }
 
   Future<void> loadServiceState() async {
@@ -752,44 +783,49 @@ class NotificationService {
 
   // ========== 多种清除方式 ==========
 
-  /// 清除今日通知
+  /// 清除今日通知（T133 量级① 改 DB 驱动）：镜像退役后"今天有哪些"只有 DB 说得准，
+  /// 内存里那几条只是会话工作副本。判据与 [DatabaseHelper.deleteTodayNotifications]
+  /// 同一条（post_time 本地半开区间，与 getTodayCount 一致）—— 会话副本的修剪也用
+  /// 同一判据，不认 `time` 那个显示串（两者不一致时以 post_time 为准）。
   Future<int> clearToday() async {
     final now = DateTime.now();
-    final today =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final toDelete = _records.where((r) => r.time.startsWith(today)).toList();
-    for (final r in toDelete) {
-      await DatabaseHelper().deleteNotification(r.id);
-    }
-    _records.removeWhere((r) => r.time.startsWith(today));
-    return toDelete.length;
+    final start = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    final end = DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+    ).millisecondsSinceEpoch;
+    final deleted = await DatabaseHelper().deleteTodayNotifications();
+    _records.removeWhere((r) => r.postTime >= start && r.postTime < end);
+    return deleted;
   }
 
-  /// 清除指定日期段内的通知
+  /// 清除指定日期段内的通知（DB 驱动，含头含尾，与原内存判据同口径）。
   Future<int> clearDateRange(DateTime start, DateTime end) async {
-    final db = DatabaseHelper();
+    final deleted = await DatabaseHelper().deleteNotificationsInRange(
+      start.millisecondsSinceEpoch,
+      end.millisecondsSinceEpoch,
+    );
     final startMs = start.millisecondsSinceEpoch;
     final endMs = end.millisecondsSinceEpoch;
-    final toDelete = _records
-        .where((r) => r.postTime >= startMs && r.postTime <= endMs)
-        .toList();
-    for (final r in toDelete) {
-      await db.deleteNotification(r.id);
-    }
     _records.removeWhere((r) => r.postTime >= startMs && r.postTime <= endMs);
-    return toDelete.length;
+    return deleted;
   }
 
-  /// 清除最近 N 条通知
+  /// 清除最近 N 条通知（DB 驱动）："最新的 N 条"由 SQL 按 post_time DESC 定，
+  /// 不再是"内存列表头 N 个"—— 镜像退役后内存里未必有最新的那几条之外的东西。
   Future<int> clearLastN(int n) async {
-    if (_records.isEmpty || n <= 0) return 0;
-    final count = n < _records.length ? n : _records.length;
-    final toDelete = _records.take(count).toList();
-    for (final r in toDelete) {
-      await DatabaseHelper().deleteNotification(r.id);
+    if (n <= 0) return 0;
+    final deleted = await DatabaseHelper().deleteNewestNotifications(n);
+    // 同步修剪会话副本：按同一条"最新在前"的排序截掉头 N 个（只多不少地近似 ——
+    // 副本里的条目本就是本会话新落的，DB 那边删谁这里跟着删谁，不一致处以 DB 为准）。
+    if (_records.isNotEmpty) {
+      final sorted = List.of(_records)
+        ..sort((a, b) => b.postTime.compareTo(a.postTime));
+      final doomed = sorted.take(n).map((r) => r.id).toSet();
+      _records.removeWhere((r) => doomed.contains(r.id));
     }
-    _records.removeRange(0, count);
-    return count;
+    return deleted;
   }
 
   Future<bool> stopService() async {

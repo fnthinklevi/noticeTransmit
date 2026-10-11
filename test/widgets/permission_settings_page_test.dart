@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +27,9 @@ void main() {
     required String appListState,
     Map<String, bool?>? l3Readers,
     Map<String, String>? l3Notes,
+    // 「回前台要重算」那两条要自己控制取数节奏（改一份可变的 readers、数被取了几次），
+    // 所以取数这件事留一个口子；不传就用下面那份默认读法（与真机同源：都走 collectL3GrantRows）。
+    Future<List<FnthinkL3GrantRow>> Function()? l3Loader,
   }) async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -57,15 +62,17 @@ void main() {
           smsPermissionGranted: false,
           phonePermissionGranted: false,
           appListPermissionGranted: appListState == 'granted',
-          // 与真机同源：这一格的数据是调用方按契约词表算好注入的（读法只有一处），
-          // 默认"全部读到 false"，各用例按需改某一项。
-          l3GrantRows: collectL3GrantRows(
-            contract,
-            readers:
-                l3Readers ??
-                {for (final k in contract.l3Settings.keys) k: false},
-            notes: l3Notes ?? const {},
-          ),
+          // 与真机同源：这一格的数据仍由调用方按契约词表算好（读法只有一处 `collectL3GrantRows`），
+          // 但交出去的是**「去取一次」这件事** —— 默认"全部读到 false"，各用例按需改某一项。
+          loadL3GrantRows:
+              l3Loader ??
+              () async => collectL3GrantRows(
+                contract,
+                readers:
+                    l3Readers ??
+                    {for (final k in contract.l3Settings.keys) k: false},
+                notes: l3Notes ?? const {},
+              ),
           manufacturer: 'meizu',
           onRefresh: () async {},
           onRequestNotificationListenerPermission: () => notifListenerTaps++,
@@ -243,6 +250,88 @@ void main() {
             .onTap,
         isNotNull,
       );
+    });
+  });
+
+  group('L3 那一格读的是此刻，不是进页那一刻（T140 层4 引）', () {
+    testWidgets('去系统里改完回来 ⇒ 那一行跟着改口（回前台必须再取一次）', (tester) async {
+      // 这一条钉的是"什么时候再问一遍"，不是"问出来的话好不好听"：
+      // 旧写法把**打开页面那一刻算好的那份 List** 当构造参数注入，页面画的是那份快照 ——
+      // 用户就在这一页点「通知访问权限」跳系统、给完回来，那一行还说"还没给"，
+      // 而同一页上 B1 精确闹钟那一格（页面自己读的那一份）已经改口了。
+      // 一屏两句话、互相矛盾，而用户只能靠退出重进来确认自己到底给了没有。
+      var granted = false;
+      var loads = 0;
+      await pumpPage(
+        tester,
+        appListState: 'unknown',
+        l3Loader: () async {
+          loads++;
+          return collectL3GrantRows(
+            contract,
+            readers: {
+              for (final k in contract.l3Settings.keys)
+                k: k == 'notification' && granted,
+            },
+            notes: const {},
+          );
+        },
+      );
+      expect(loads, 1, reason: '进页面取一次');
+      expect(find.text('还没给这台设备授权'), findsNWidgets(contract.l3Settings.length));
+
+      granted = true;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(loads, 2, reason: '回前台必须**再取一次**：只重画不重取，画出来的还是进页那一刻那份快照');
+      expect(
+        find.text('还没给这台设备授权'),
+        findsNWidgets(contract.l3Settings.length - 1),
+        reason: '给了的那一项不能再挂着"还没给" —— 那是把用户刚做完的事抹掉',
+      );
+      expect(find.text('已开启'), findsWidgets);
+    });
+
+    testWidgets('还没取到 ⇒ 那一格一行都不画（不拿一张空卡冒充"这台没项要管"）', (tester) async {
+      // 「还没问过」与「问过了，这项这台没有」在 T52 的四态里是刻意分开的两档；
+      // 旧形状不会有第三种（构造参数当场就有值），换成异步取数之后必须给它一句真话 ——
+      // 最诚实的是**先不画那一格**：分区标题是结构性事实（这一页有这一格），照画。
+      final pending = Completer<List<FnthinkL3GrantRow>>();
+      await pumpPage(
+        tester,
+        appListState: 'unknown',
+        l3Loader: () => pending.future,
+      );
+
+      expect(find.text('对端可以请求的系统设置'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('perm-l3-group-card')),
+        findsNothing,
+        reason: '画一张空的分组卡会被读成"这台没什么要管的"，而真相是我们还没问过',
+      );
+      expect(
+        find.text('自启动（按厂商）'),
+        findsNothing,
+        reason: '取数还在路上就先把行画出来，等于替这台设备回答了一次"没有"',
+      );
+
+      pending.complete(
+        collectL3GrantRows(
+          contract,
+          readers: {for (final k in contract.l3Settings.keys) k: false},
+          notes: const {},
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('perm-l3-group-card')),
+        findsOneWidget,
+        reason: '读到之后那一格必须自己长出来，不需要用户退出重进',
+      );
+      expect(find.text('自启动（按厂商）'), findsOneWidget);
     });
   });
 }

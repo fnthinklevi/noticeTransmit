@@ -45,12 +45,18 @@ class FnthinkPresenceScheduler {
   ///
   /// 撤（`keepAwake == false`）**不读契约**：契约此刻多半正不可用（读不到/不校验），
   /// 而"关掉就该停"不该被契约读数挡住；反过来排的那一次必须读契约，因为间隔只有一个作者。
-  Future<void> notice({required bool keepAwake}) async {
+  ///
+  /// [afterSeconds]（T139 ①）：**一次性退避**——只来自"注册被限流"那一档，值是服务端
+  /// `Retry-After` 的原话。它不是第二份节奏：到点那一轮之后，节奏照旧回契约；
+  /// 若把退避值喂回节奏，等于让"服务端一句限流"变成这台的常设间隔。
+  Future<void> notice({required bool keepAwake, int? afterSeconds}) async {
     if (!keepAwake) {
       await _channel.invokeMethod<void>('cancelFnthinkPresence');
       return;
     }
-    final seconds = await _cadenceSeconds();
+    final seconds = (afterSeconds != null && afterSeconds > 0)
+        ? afterSeconds
+        : await _cadenceSeconds();
     if (!await publishEntryHandle()) {
       debugPrint('[fnthink] 拿不到后台入口 handle ⇒ 这次不排闹钟（排了也起不了引擎，白耗一次唤醒）');
       return;
@@ -76,21 +82,62 @@ class FnthinkPresenceScheduler {
     return FnthinkPresenceStatus(
       nextRoundAt: (raw?['nextRoundAt'] as num?)?.toInt() ?? 0,
       cadenceSeconds: (raw?['cadenceSeconds'] as num?)?.toInt() ?? 0,
+      everArmedAt: (raw?['everArmedAt'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+/// 那一行要说的话有几种（T140 层2 察）。
+///
+/// 判据**只在这一处**（页面不许自己比 `nextRoundAt == 0`）：四档里只有 `dead` 是真的坏，
+/// 把另外三档混着报，要么把"刚开机"说成故障，要么把故障说成刚开机 —— 后者才是这次要修的。
+enum FnthinkPresenceLiveness {
+  /// 闹钟排着：链条活着。
+  armed,
+
+  /// 开关开着、也同意了，可这台**曾经醒过而现在没排上** ⇒ 复起链断了（要人按一下才回来）。
+  dead,
+
+  /// 配置齐了但从没排上过（刚开开关、第一轮还没跑完）⇒ 不是故障，别吓用户。
+  pendingFirstRound,
+
+  /// 开关或同意没齐 ⇒ 本来就不该醒着。
+  configIncomplete,
+}
+
+/// 上面那四档的唯一判据。纯函数：调用方把三份事实交进来，不自己算时钟也不自己比零。
+///
+/// ⚠ 顺序要紧：**排着就先说排着**。开关关着而闹钟还挂着是真事（开机补排那条路上有机会出现），
+/// 把它压成"开关关着"就把这格不一致藏回去了 —— 界面在此刻的职责是报读数，不是替用户解释读数。
+FnthinkPresenceLiveness judgePresenceLiveness({
+  required bool enabled,
+  required bool consented,
+  required FnthinkPresenceStatus status,
+}) {
+  if (status.armed) return FnthinkPresenceLiveness.armed;
+  if (!enabled || !consented) return FnthinkPresenceLiveness.configIncomplete;
+  // 被撤过（`cancel()` 清 nextRoundAt 与 cadence，但**不清** everArmedAt）才叫"断了"；
+  // 从没排过的是"还没排上第一轮"，那一档的说法完全不同。
+  return status.everArmedAt > 0
+      ? FnthinkPresenceLiveness.dead
+      : FnthinkPresenceLiveness.pendingFirstRound;
 }
 
 class FnthinkPresenceStatus {
   const FnthinkPresenceStatus({
     required this.nextRoundAt,
     required this.cadenceSeconds,
+    this.everArmedAt = 0,
   });
 
   /// 下一轮被排在什么时候（毫秒）。0 = 没排。
   final int nextRoundAt;
 
-  /// Dart 上次交下来的那一档间隔（秒）。0 = 没交过。
+  /// Dart 上次交下来的那一档间隔（秒）。0 = 没交过（或被撤时一起清了）。
   final int cadenceSeconds;
+
+  /// 这台**第一次真的排上**闹钟的时刻（毫秒）。0 = 从没排上过。见原生 `KEY_EVER_ARMED_AT`。
+  final int everArmedAt;
 
   bool get armed => nextRoundAt > 0;
 }

@@ -426,18 +426,23 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
-    final report = await _coordinator.receiveOnce();
+    final round = await _coordinator.receiveOnce();
     if (!mounted) return;
     // 问完重读一次本机那两份账（发起面与历史共用一份），否则弹层说"跑完了"而格子还是旧的。
     await _loadPeers();
     if (!mounted) return;
     setState(() => _busy = false);
+    final report = round.report;
     final ran = report != null && !report.skipped;
     await showFnthinkOutcome(
       context,
       ok: ran,
+      // T139 ③：没跑成的原因原话出去 —— "接收没开"只许说给真的没开的那一档，
+      // 限流/没同意盖在那句话下面，用户照着修的层级就是错的。
       detail: report == null
-          ? l10n.fnthinkReceiveDisabled
+          ? (round.skipReason == 'disabled'
+                ? l10n.fnthinkReceiveDisabled
+                : (round.skipReason ?? l10n.fnthinkReceiveDisabled))
           : report.skipped
           ? l10n.fnthinkReceiveSkipped
           : l10n.fnthinkPairRefreshQuiet,

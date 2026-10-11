@@ -85,7 +85,8 @@ void main() {
     FnthinkServiceFactory? serviceFactory,
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
-    Future<void> Function({required bool keepAwake})? presenceNotice,
+    Future<void> Function({required bool keepAwake, int? afterSeconds})?
+    presenceNotice,
     Future<bool> Function(FnthinkInboxMessage message)? recordSent,
     Future<FnthinkRegisterResult> Function(FnthinkLoopSpec spec)?
     registerDevice,
@@ -266,9 +267,11 @@ void main() {
   });
 
   group('手动收取', () {
-    test('关着 ⇒ 返回 null，且不因为"用户点了按钮"就绕过开关', () async {
+    test('关着 ⇒ 没跑成（skipReason=disabled），且不因为"用户点了按钮"就绕过开关', () async {
       final rec = _LoopRecorder();
-      expect(await coordinator(recorder: rec).receiveOnce(), isNull);
+      final round = await coordinator(recorder: rec).receiveOnce();
+      expect(round.report, isNull);
+      expect(round.skipReason, 'disabled');
       expect(rec.builds, 0);
     });
 
@@ -284,16 +287,16 @@ void main() {
       // 手动那一下不该悄悄什么都不做，也不该叠出第二个循环 —— 它拿回的是 skipped 这份账，
       // 而界面上可以说"正在收，这一轮的结局马上见"。
       final whileBusy = await c.receiveOnce();
-      expect(whileBusy, isNotNull);
-      expect(whileBusy!.skipped, isTrue);
-      expect(whileBusy.reason, 'round-in-progress');
+      expect(whileBusy.report, isNotNull);
+      expect(whileBusy.report!.skipped, isTrue);
+      expect(whileBusy.report!.reason, 'round-in-progress');
       expect(rec.builds, 1, reason: '手动那一下不叠第二个循环');
 
       // 等第一轮真的跑完，再点一下：这一次是货真价实的一轮。
       await pumpEventQueue();
       final idle = await c.receiveOnce();
-      expect(idle, isNotNull);
-      expect(idle!.skipped, isFalse);
+      expect(idle.report, isNotNull);
+      expect(idle.report!.skipped, isFalse);
       expect(rec.polls, greaterThanOrEqualTo(2));
     });
 
@@ -322,7 +325,7 @@ void main() {
       final rec = _LoopRecorder();
       final c = coordinator(
         recorder: rec,
-        presenceNotice: ({required bool keepAwake}) async =>
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async =>
             notices.add(keepAwake),
       );
 
@@ -353,7 +356,7 @@ void main() {
 
       final result = await coordinator(
         recorder: rec,
-        presenceNotice: ({required bool keepAwake}) async =>
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async =>
             notices.add(keepAwake),
       ).startIfEnabled();
 
@@ -376,7 +379,7 @@ void main() {
       final rec = _LoopRecorder();
       final c = coordinator(
         recorder: rec,
-        presenceNotice: ({required bool keepAwake}) async =>
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async =>
             notices.add(keepAwake),
       );
       await c.startIfEnabled();
@@ -403,7 +406,7 @@ void main() {
       final rec = _LoopRecorder();
       final c = coordinator(
         recorder: rec,
-        presenceNotice: ({required bool keepAwake}) async =>
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async =>
             throw StateError('模拟：通道那头没人接'),
       );
 
@@ -432,8 +435,8 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
-      final report = await coordinator(recorder: rec).receiveOnce();
-      expect(report, isNotNull);
+      final round = await coordinator(recorder: rec).receiveOnce();
+      expect(round.report, isNotNull);
       expect(rec.builds, 1);
     });
   });
@@ -2336,6 +2339,80 @@ void main() {
       expect(result.started, isFalse);
       expect(result.reason, 'register-failed: rejected-unsigned');
       expect(rec.builds, 0, reason: '登记没成还起循环 ⇒ 每 20 秒白换回一句同形的 403，而界面上看着一切正常');
+    });
+
+    test('T139 ①：注册被限流 ⇒ 闹钟按 Retry-After 排下一次醒，不许撤', () async {
+      enable();
+      final presence = <({bool keepAwake, int? afterSeconds})>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async {
+          presence.add((keepAwake: keepAwake, afterSeconds: afterSeconds));
+        },
+        registerDevice: (_) async => const FnthinkRegisterResult(
+          status: FnthinkPollStatus.rateLimited,
+          reason: 'rate-limited:2208',
+          retryAfterSeconds: 2208,
+          signedWhileUncalibrated: false,
+        ),
+      );
+
+      final result = await c.startIfEnabled();
+
+      expect(result.started, isFalse);
+      expect(result.reason, 'register-failed: rate-limited:2208');
+      expect(presence, hasLength(1));
+      expect(
+        presence.single.keepAwake,
+        isTrue,
+        reason: '限流一次就把闹钟撤了 = 这台再也不自己醒（真机上"很久不自动恢复"的现场）',
+      );
+      expect(
+        presence.single.afterSeconds,
+        2208,
+        reason: '退避必须是服务端给的那一格（Retry-After 原话），不许自己拍一个常量',
+      );
+    });
+
+    test('T139 ①：被拒（服务端不认这台）⇒ 闹钟照撤 —— 那才是"再敲也是这句话"的档', () async {
+      enable();
+      final presence = <({bool keepAwake, int? afterSeconds})>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async {
+          presence.add((keepAwake: keepAwake, afterSeconds: afterSeconds));
+        },
+        registerDevice: (_) async => const FnthinkRegisterResult(
+          status: FnthinkPollStatus.rejectedUnsigned,
+          reason: 'rejected-unsigned',
+          signedWhileUncalibrated: false,
+        ),
+      );
+
+      await c.startIfEnabled();
+
+      expect(presence, hasLength(1));
+      expect(
+        presence.single.keepAwake,
+        isFalse,
+        reason: '"不认这台"与"限流"是两档后果：前者再敲也是那句话，撤闹钟才与开关一致',
+      );
+    });
+
+    test('T139 ①：等待时长只有一位认的人（页面不许另抄正则）', () {
+      expect(
+        fnthinkRegisterRateLimitedWait('register-failed: rate-limited:2208'),
+        (minutes: 36, seconds: 48),
+      );
+      expect(
+        fnthinkRegisterRateLimitedWait('register-failed: rate-limited:45'),
+        (minutes: 0, seconds: 45),
+      );
+      expect(
+        fnthinkRegisterRateLimitedWait('signing-unavailable'),
+        isNull,
+        reason: '认不出就回 null：界面照旧显示原话，不许硬编一句"限流"盖在别的失败上',
+      );
     });
 
     test('没有登记上就不放行任何入口：挂口令那一发也一样早退（一个字节不离机）', () async {

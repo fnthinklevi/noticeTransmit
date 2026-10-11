@@ -3524,6 +3524,12 @@ abstract class AppLocalizations {
   /// **'发送中'**
   String get deliveryPending;
 
+  /// No description provided for @deliveryPausedNotSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停未发送'**
+  String get deliveryPausedNotSent;
+
   /// No description provided for @pushPausedByUser.
   ///
   /// In zh, this message translates to:
@@ -5828,6 +5834,18 @@ abstract class AppLocalizations {
   /// **'开着才会去服务器取货；关掉则既不发送也不接收'**
   String get fnthinkReceiveDesc;
 
+  /// No description provided for @fnthinkChannelDisclosure.
+  ///
+  /// In zh, this message translates to:
+  /// **'收到的推送响不响、震不震、弹不弹，由系统通知设置里「幻念推送 · 收件」这一枚渠道决定。本机这侧已按最高档创建：重要性＝紧急（会弹横幅）、声音＝系统默认通知音、振动＝已开。部分厂商系统（如小米）在这一层之上另有按应用的悬浮/锁屏开关，那些只能去系统设置里核对。'**
+  String get fnthinkChannelDisclosure;
+
+  /// No description provided for @fnthinkOpenChannelSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开系统渠道设置'**
+  String get fnthinkOpenChannelSettings;
+
   /// No description provided for @fnthinkConsentTitle.
   ///
   /// In zh, this message translates to:
@@ -7450,8 +7468,26 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPresenceAsleep.
   ///
   /// In zh, this message translates to:
-  /// **'当前没在醒着（开关关着，或还没排上）'**
+  /// **'当前没在醒着（开关关着，或还没同意）'**
   String get fnthinkPresenceAsleep;
+
+  /// No description provided for @fnthinkPresenceDead.
+  ///
+  /// In zh, this message translates to:
+  /// **'复起链已断：这台不再会自己醒（开关与同意都还在）'**
+  String get fnthinkPresenceDead;
+
+  /// No description provided for @fnthinkPresencePendingFirstRound.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没排上第一轮（刚开起来，跑完第一轮会自己排上）'**
+  String get fnthinkPresencePendingFirstRound;
+
+  /// No description provided for @fnthinkPresenceRecover.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即恢复'**
+  String get fnthinkPresenceRecover;
 
   /// No description provided for @fnthinkPollIntervalTitle.
   ///
@@ -7464,6 +7500,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'现在每 {seconds} 秒问一次（协议默认那一档）'**
   String fnthinkPollIntervalUsingDefault(int seconds);
+
+  /// No description provided for @fnthinkRegisterRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'注册被限流，还要等 {minutes} 分 {seconds} 秒，到点自动重试'**
+  String fnthinkRegisterRateLimited(int minutes, int seconds);
 
   /// No description provided for @fnthinkPollIntervalChosen.
   ///

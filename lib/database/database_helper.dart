@@ -1897,6 +1897,48 @@ class DatabaseHelper
     await db.delete('notifications', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// 清除今日（T133 量级①）：判据与 [getTodayCount] 同一条（post_time 本地半开区间），
+  /// 不再经内存镜像找 id —— 镜像退役后这里就是唯一作者。返回删除行数。
+  Future<int> deleteTodayNotifications() async {
+    final db = await database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    final end = DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+    ).millisecondsSinceEpoch;
+    return await db.delete(
+      'notifications',
+      where: 'post_time >= ? AND post_time < ?',
+      whereArgs: [start, end],
+    );
+  }
+
+  /// 清除指定毫秒段（含头含尾，与原内存判据 `postTime >= startMs && postTime <= endMs`
+  /// 同口径）。返回删除行数。
+  Future<int> deleteNotificationsInRange(int startMs, int endMs) async {
+    final db = await database;
+    return await db.delete(
+      'notifications',
+      where: 'post_time >= ? AND post_time <= ?',
+      whereArgs: [startMs, endMs],
+    );
+  }
+
+  /// 清除最新的 N 条（T133 量级①）：`_records` 镜像退役后，"最新的 N 条"只能在
+  /// SQL 里取 —— 子查询按 post_time DESC 定谁最新，外层按 id 删。返回删除行数。
+  Future<int> deleteNewestNotifications(int n) async {
+    if (n <= 0) return 0;
+    final db = await database;
+    return await db.delete(
+      'notifications',
+      where:
+          'id IN (SELECT id FROM notifications ORDER BY post_time DESC, rowid DESC LIMIT ?)',
+      whereArgs: [n],
+    );
+  }
+
   Future<void> deleteOldNotifications(int keepDays) async {
     final db = await database;
     final cutoffTime = DateTime.now()

@@ -315,7 +315,8 @@ class FnthinkReceiveCoordinator {
   ///
   /// null = 这台没装配续排链路。后果不是崩溃而是**链条悄悄断**：收货照常、界面照常，
   /// 只有"被杀掉之后"那一天没人再去问一次货 —— 所以装配点由守卫看着，不靠运行时报错。
-  final Future<void> Function({required bool keepAwake})? presenceNotice;
+  final Future<void> Function({required bool keepAwake, int? afterSeconds})?
+  presenceNotice;
 
   /// 发送被服务端受理之后，把这一条记进本机历史（T43：「我发过的」那一档）。
   /// null = 这台没装配记历史的链路 ⇒ 发出去的东西在本机不留痕（发送本身照常）。
@@ -590,11 +591,16 @@ class FnthinkReceiveCoordinator {
 
   /// 把"要不要醒"交给平台层。**不等、也不抛**：这是每轮的副作用，
   /// 让它失败把收货循环拖住，是拿主路给旁路陪葬。失败留一行日志，而已排上的那次仍会响。
-  void _presence({required bool keepAwake}) {
+  ///
+  /// [afterSeconds] 只在"注册被限流"那一档非空（T139 ①）：那是一次**一次性**退避
+  /// （睡到服务端说能再来的那一刻），不是第二份节奏 —— 到点那一轮之后，节奏照旧回到契约。
+  void _presence({required bool keepAwake, int? afterSeconds}) {
     final hook = presenceNotice;
     if (hook == null) return;
     unawaited(
-      hook(keepAwake: keepAwake).catchError((Object e) {
+      hook(keepAwake: keepAwake, afterSeconds: afterSeconds).catchError((
+        Object e,
+      ) {
         debugPrint('[fnthink] 续排闹钟没送到（keepAwake=$keepAwake）：$e');
       }),
     );
@@ -609,9 +615,17 @@ class FnthinkReceiveCoordinator {
 
     final resolved = await _resolveSpec(requireEnabled: true);
     if (resolved.reason != null) {
-      // 起不来就顺手撤掉闹钟：留着它，被杀之后那一轮会起引擎、签不出名、什么也不动 ——
-      // 白耗一次唤醒与流量，而界面上写着"收货是关着的"。撤掉才是与开关一致的状态。
-      _presence(keepAwake: false);
+      if ((resolved.retryAfterSeconds ?? 0) > 0) {
+        // T139 ①：注册被限流 ⇒ **复起链不许死**。退避到服务端给的那一刻
+        //（`Retry-After` 原话，不自己拍常量），到点那一轮重新尝试登记。
+        // 旧写法走到 `_presence(keepAwake: false)` 把闹钟撤了 —— 限流一次，
+        // 这台就再也不自己醒，表现正是"很久不自动恢复、只能手动重开"。
+        _presence(keepAwake: true, afterSeconds: resolved.retryAfterSeconds);
+      } else {
+        // 起不来就顺手撤掉闹钟：留着它，被杀之后那一轮会起引擎、签不出名、什么也不动 ——
+        // 白耗一次唤醒与流量，而界面上写着"收货是关着的"。撤掉才是与开关一致的状态。
+        _presence(keepAwake: false);
+      }
       return (started: false, reason: resolved.reason!);
     }
 
@@ -631,19 +645,24 @@ class FnthinkReceiveCoordinator {
   ///
   /// `requireEnabled` 是这两条路唯一的差别：**挂口令不要求总开关开着**。配对是接收的前置，
   /// 不是它的后果；用开关挡住挂口令，用户就没有第二条路把两台设备连起来了。
-  Future<({FnthinkLoopSpec? spec, String? reason})> _resolveSpec({
-    required bool requireEnabled,
-  }) async {
+  /// [retryAfterSeconds] 只在"注册被限流"这一档非空（T139 ①）：它是服务端
+  /// `Retry-After` 的原话，退避重试按它排，调用方不许自己拍一个常量。
+  Future<({FnthinkLoopSpec? spec, String? reason, int? retryAfterSeconds})>
+  _resolveSpec({required bool requireEnabled}) async {
     final FnthinkContract contract;
     try {
       contract = await contracts.load();
     } on FnthinkContractUnavailable catch (e) {
-      return (spec: null, reason: 'contract-unavailable: ${e.reason}');
+      return (
+        spec: null,
+        reason: 'contract-unavailable: ${e.reason}',
+        retryAfterSeconds: null,
+      );
     }
 
     final settings = _buildSettings(contract);
     if (requireEnabled && !await settings.receiveEnabled) {
-      return (spec: null, reason: 'disabled');
+      return (spec: null, reason: 'disabled', retryAfterSeconds: null);
     }
 
     final Uri baseUri;
@@ -664,9 +683,17 @@ class FnthinkReceiveCoordinator {
         contract,
       ).ensureAddressCode()).value;
     } on FnthinkSettingsInvalid catch (e) {
-      return (spec: null, reason: 'settings-invalid: ${e.reason}');
+      return (
+        spec: null,
+        reason: 'settings-invalid: ${e.reason}',
+        retryAfterSeconds: null,
+      );
     } on FnthinkCredentialCorrupted catch (e) {
-      return (spec: null, reason: 'credential-corrupted: ${e.reason}');
+      return (
+        spec: null,
+        reason: 'credential-corrupted: ${e.reason}',
+        retryAfterSeconds: null,
+      );
     }
 
     // 同意门（T56）：**没有一次性显式同意 ⇒ 一个字节都不许离机**。它排在本地那几件之后、
@@ -676,11 +703,15 @@ class FnthinkReceiveCoordinator {
     // ⚠ 配对/端点那条路 `requireEnabled: false`，但**同样要过这道门** —— 它们全都经服务器，
     // 「接收关着」只是不收货，不代表同意把内容交给服务器中转。
     if (!await settings.hasRelayConsent()) {
-      return (spec: null, reason: 'not-consented');
+      return (spec: null, reason: 'not-consented', retryAfterSeconds: null);
     }
 
     if (!await signer.probe()) {
-      return (spec: null, reason: 'signing-unavailable');
+      return (
+        spec: null,
+        reason: 'signing-unavailable',
+        retryAfterSeconds: null,
+      );
     }
 
     final spec = FnthinkLoopSpec(
@@ -703,12 +734,19 @@ class FnthinkReceiveCoordinator {
     // 而这一发之后的每一发都要求它已经成立（#177）。失败要说出原因，不能放行 ——
     // 放行的表现是"下一发又换回一句同形的 403"，那正是这次要修的东西。
     final registerReason = await _ensureRegistered(spec);
-    if (registerReason != null) return (spec: null, reason: registerReason);
+    if (registerReason != null) {
+      return (
+        spec: null,
+        reason: registerReason.reason,
+        retryAfterSeconds: registerReason.retryAfterSeconds,
+      );
+    }
 
-    return (spec: spec, reason: null);
+    return (spec: spec, reason: null, retryAfterSeconds: null);
   }
 
-  /// 本机在服务端那一行（自登记）。返回 null = 可以继续；否则是要交给界面的一句话原因。
+  /// 本机在服务端那一行（自登记）。返回 null = 可以继续；否则是要交给界面的一句话原因
+  /// 加（仅限流那一档）服务端给的重试等待秒数。
   ///
   /// 三档处置（这一档的判据来自"哪一种是暂时的"）：
   ///  - **成功** ⇒ 记下这个（服务器地址 + 地址码）组合，本进程不再重复登记；
@@ -718,7 +756,14 @@ class FnthinkReceiveCoordinator {
   ///  - **其余**（传输失败、时间没校准、nonce 撞了、5xx）⇒ **不记、也不拦**：这些下一次
   ///    会变好，而拦住它们会连带把"被杀之后的复起"链条停掉（开始循环失败会撤闹钟）——
   ///    拿一次网络抖动的代价去换"这台再也不自己醒"，比它要修的问题更坏。
-  Future<String?> _ensureRegistered(FnthinkLoopSpec spec) async {
+  ///
+  /// ⚠ T139 ①：429 与 `rejectedUnsigned` 虽然同在"拦住"那一档，**后果必须分开**——
+  /// 限流是"服务端说了什么时候能再来"（Retry-After 原话带出去，复起链照排），
+  /// 不认这台是"再敲也是那句话"（闹钟该撤）。把两者并成一句 `register-failed: …`
+  /// 就会出现真机上那个现场：限流一次 ⇒ 闹钟被撤 ⇒ 这台再也不自己醒。
+  Future<({String reason, int? retryAfterSeconds})?> _ensureRegistered(
+    FnthinkLoopSpec spec,
+  ) async {
     final hook = registerDevice;
     // 没装配（钩子留空）：本进程不做这一步。生产装配由守卫看着 —— 这一行不能自己
     // 变成"静默跳过"，所以守卫钉的是 DI 里那一行在不在。
@@ -732,7 +777,10 @@ class FnthinkReceiveCoordinator {
     } catch (e) {
       // 钩子自己抛（真实现里是构造期 / 传输层的异常）：这与"服务端拒了"是两种事实，
       // 但都不该被咽掉 —— 咽掉的结果是 `_resolveSpec` 交出 spec，而后面每一发都 403。
-      return 'register-failed: ${e.runtimeType}';
+      return (
+        reason: 'register-failed: ${e.runtimeType}',
+        retryAfterSeconds: null,
+      );
     }
     if (result.ok) {
       _registeredFor = key;
@@ -743,7 +791,10 @@ class FnthinkReceiveCoordinator {
       FnthinkPollStatus.rateLimited,
     };
     if (!blocking.contains(result.status)) return null;
-    return 'register-failed: ${result.reason ?? result.status.name}';
+    return (
+      reason: 'register-failed: ${result.reason ?? result.status.name}',
+      retryAfterSeconds: result.retryAfterSeconds,
+    );
   }
 
   /// 把页面已经在本机挂好的那枚口令**发到服务器**（T42「添加设备」的网络那一半）。
@@ -1362,16 +1413,20 @@ class FnthinkReceiveCoordinator {
     _presence(keepAwake: false);
   }
 
-  /// 页面上"立即收取"那一下。返回 null = 这次没做（没就绪），原因按 `startIfEnabled` 同一套口径记日志。
+  /// 页面上"立即收取"那一下。`skipReason == null` 才是真的跑了一轮（[FnthinkManualRound.report] 在）。
   /// ⚠ 它同样尊重总开关：关掉就是既不发送也不接收，手动那一下也不能把它叫醒。
-  Future<FnthinkLoopReport?> receiveOnce() async {
+  ///
+  /// ⚠ T139 ③：没做成的原因**必须原样交出去**，不许让界面把"接收没开"盖在所有
+  /// 失败上 —— 旧形状返回裸 null，页面上"开关明明开着、点一下却说接收没开"的现场，
+  /// 就是 `register-failed: …`（或没同意、签不出名）被那句话吞掉的样子。
+  Future<FnthinkManualRound> receiveOnce() async {
     var loop = _loop;
     if (loop == null) {
       final result = await startIfEnabled();
       loop = _loop;
       if (loop == null) {
         debugPrint('[fnthink] 手动收取被跳过：${result.reason}');
-        return null;
+        return FnthinkManualRound(skipReason: result.reason);
       }
     }
     final report = await loop.runOnce();
@@ -1379,8 +1434,18 @@ class FnthinkReceiveCoordinator {
     // 少这一行时的表现很具体：开关开着、后台一直在收，而"有人请求配对"那一栏要等下一次
     // 定时器才更新，用户点了"立即收取"却看见空栏。
     _noteRound(report);
-    return report;
+    return FnthinkManualRound(report: report);
   }
+}
+
+/// [FnthinkReceiveCoordinator.receiveOnce] 的一次手动收取：跑成了带 [report]，
+/// 没跑成带 [skipReason]（与 `startIfEnabled` 同一套机器理由 —— `disabled` 之外
+/// 的那些**不是**"接收没开"，界面要分开说）。
+class FnthinkManualRound {
+  const FnthinkManualRound({this.report, this.skipReason});
+
+  final FnthinkLoopReport? report;
+  final String? skipReason;
 }
 
 /// 发起面那一行 → 本机那一条账（T116）。
@@ -1414,3 +1479,17 @@ FnthinkPairRequestRecord pairRecordFromIncoming(FnthinkPairRequest request) =>
       expiresAt: request.expiresAt ?? 0,
       updatedAt: DateTime.now().toUtc().millisecondsSinceEpoch,
     );
+
+/// 从一句机器理由里认出"注册被限流，服务端让等多少秒"（T139 ①）。
+///
+/// 理由串的形状由内核定（`register-failed: rate-limited:<秒>`，见
+/// `receive_kernel.dart` 的 `interpret`）；这里只**认**不造 —— 认不出（别的失败
+/// 原因、或形状漂了）回 null，界面就照旧显示原话。界面拿它换成人话时**必须**
+/// 以这一位为准：在页面里另抄一个正则就是第二本账。
+({int minutes, int seconds})? fnthinkRegisterRateLimitedWait(String reason) {
+  final m = RegExp(r'rate-limited:(\d+)').firstMatch(reason);
+  if (m == null) return null;
+  final total = int.tryParse(m.group(1)!) ?? 0;
+  if (total <= 0) return null;
+  return (minutes: total ~/ 60, seconds: total % 60);
+}

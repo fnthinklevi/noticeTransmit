@@ -196,6 +196,9 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                     mapOf(
                         "nextRoundAt" to alarm.nextRoundAt(),
                         "cadenceSeconds" to alarm.cadenceSeconds(),
+                        // T140 层2：界面要分得开"链死了"与"还没排上第一轮"，而 cancel 之后
+                        // nextRoundAt 与 cadenceSeconds 双双归 0、两者长得一样 —— 这一枚就是那段历史。
+                        "everArmedAt" to alarm.everArmedAt(),
                     ),
                 )
             }

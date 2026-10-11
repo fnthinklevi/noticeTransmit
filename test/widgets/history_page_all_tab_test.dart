@@ -90,7 +90,8 @@ void main() {
         dark: false,
         home: HistoryPage(
           initialDirection: initialDirection,
-          records: [record('r_1')],
+          forwardedLoader: fakeForwardedLoader([record('r_1')]),
+          forwardedCountLoader: () async => 1,
           onClear: () async {},
           onExport: () async => <String, dynamic>{},
           onClearToday: () async {

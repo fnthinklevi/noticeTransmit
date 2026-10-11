@@ -31,8 +31,36 @@ import '../services/repush_eligibility.dart';
 import '../services/history_channel_chips.dart';
 import 'fnthink_send_page.dart';
 
+/// 转发那本账的一页读口（T133 量级①）：一页 = `(精筛后记录, 粗筛是否未取尽, 本页粗筛行数)`。
+///
+/// `hasMore` 以**粗筛**行数为准（"这一页精筛后为 0 条"不等于后面没有了）；
+/// 翻页 offset 必须按第三位（粗筛行数）累加，按精筛后条数累加会把游标往回拨。
+/// 生产走 `NotificationService.searchRecords`；测试注入内存替身 ——
+/// 与 `inboxLoader` 同一条理由（widget 测试不开 sqlite）。
+typedef ForwardedPageLoader =
+    Future<(List<NotificationRecord>, bool, int)> Function({
+      String? keyword,
+      int? startTime,
+      int? endTime,
+      String? appName,
+      String? packageName,
+      String? deliveryFilter,
+      required int limit,
+      required int offset,
+    });
+
 class HistoryPage extends StatefulWidget {
-  final List<NotificationRecord> records;
+  /// 转发那一档的分页读口（T133 量级①）。null = 生产默认（`NotificationService.searchRecords`）。
+  ///
+  /// ⚠ 它取代了旧的 `records:` 构造参数：那一份是"内存全量镜像"的读法，镜像
+  /// 随本片退役 —— 两条读路（无筛选/有筛选）都走这一口，历史从此**不设上限、
+  /// 由分页取数循环驮着**，不再有"哪一条因为不在内存里就看不见/重推不了"的档。
+  final ForwardedPageLoader? forwardedLoader;
+
+  /// 转发那本账的总条数（无筛选时的标题数与「清除全部」确认框用）。
+  /// null = 生产默认（`NotificationService.getTotalCount`）。
+  final Future<int> Function()? forwardedCountLoader;
+
   final Future<void> Function() onClear;
   final Future<Map<String, dynamic>> Function() onExport;
   final Future<int> Function() onClearToday;
@@ -87,7 +115,8 @@ class HistoryPage extends StatefulWidget {
 
   const HistoryPage({
     super.key,
-    required this.records,
+    this.forwardedLoader,
+    this.forwardedCountLoader,
     required this.onClear,
     required this.onExport,
     required this.onClearToday,
@@ -119,8 +148,17 @@ class _HistoryPageState extends State<HistoryPage> {
   String _filterPackageName = '';
   // 送达状态筛选：档名即口径（三个 id 在 `models/delivery_status.dart` 那一张表上）
   String _filterDelivery = deliveryFilterAll;
-  // 非 null 时为 DB 搜索模式（全量历史分页加载），null 为常规模式（内存 records）
+  // 转发那本账的分页读数（T133 量级①）。null = 还没读过头一页（无筛选时也走这里：
+  // "无筛选"只是一次不带参数的查询，不是另一条读路 —— 内存镜像那条路已随本片退役）。
   List<NotificationRecord>? _searchResults;
+
+  /// 粗筛选页游标：本会话已经扫过多少行**粗筛**结果。翻页 offset 按它累加 ——
+  /// 按精筛后的条数累加会在"粗筛宽、精筛窄"时把游标往回拨（每页只前进筛中的那几条），
+  /// 既漏翻又把同一段重复扫一遍。
+  int _coarseOffset = 0;
+
+  /// 转发那本账的总条数（无筛选标题与「清除全部」确认框用；读口注入，见构造函数）。
+  int? _forwardedTotal;
 
   /// 原生离线缓存溢出过的条数（#94-A）。>0 时页顶提示一次，关掉即清 ——
   /// 原生在交付时就清零了，所以它天然只报一次，不需要"已读"状态。
@@ -135,7 +173,9 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 解决 AppBar 图标过多的问题；样式与长按屏蔽菜单一致（iOS 底部弹层）。
   void _showMoreActionsSheet() {
     final l10n = AppLocalizations.of(context);
-    final canAct = widget.records.isNotEmpty;
+    // T133 量级①：有没有可操作的东西看分页读数（头一页还没回来时先不给点，
+    // 与"列表还在加载"同一形状，而不是假装里面是空的）。
+    final canAct = _searchResults?.isNotEmpty ?? false;
     showModalBottomSheet(
       context: context,
       // 颜色与圆角交给 sheet 自己的 Material：以前涂在中间层 Container 的
@@ -254,9 +294,8 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 后者只回答"该露哪几枚"，不该知道"这一行此刻被谁点开过"。
   final Set<String> _expandedChipRows = {};
 
-  /// 当前展示的记录（搜索模式取 DB 结果，否则取内存过滤结果）
-  List<NotificationRecord> get _displayedRecords =>
-      _searchResults ?? _filteredRecords;
+  /// 当前展示的记录（统一走分页读数；null = 头一页还没回来）
+  List<NotificationRecord> get _displayedRecords => _searchResults ?? const [];
 
   /// 可补推池：当前展示列表里**可以再发一次**的那些（判据见 `repush_eligibility.dart`）。
   ///
@@ -402,6 +441,12 @@ class _HistoryPageState extends State<HistoryPage> {
       //   （见 `main_page_actions.dart` 那两路）。在这里兑现就是让"全部"猜一次那一条属于哪本账。
       unawaited(_loadAll());
     }
+    if (_direction == 'forwarded') {
+      // T133 量级①：转发那本账的第一页当场取 —— 内存镜像退役后，它不再有
+      // "启动时就已经在内存里"可以吃，进来就要自己拉。
+      unawaited(_loadSearch(reset: true));
+      unawaited(_refreshTotal());
+    }
   }
 
   /// 把「进来就该展开的那一条」兑现**一次**（T83）。
@@ -484,21 +529,6 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  List<NotificationRecord> get _filteredRecords {
-    if (_searchQuery.isEmpty) return widget.records;
-    final q = _searchQuery.toLowerCase();
-    return widget.records.where((r) {
-      final title = r.title.toLowerCase();
-      final content = r.content.toLowerCase();
-      final app = r.appName.toLowerCase();
-      final pkg = r.packageName.toLowerCase();
-      return title.contains(q) ||
-          content.contains(q) ||
-          app.contains(q) ||
-          pkg.contains(q);
-    }).toList();
-  }
-
   // ── P1 全量历史搜索/筛选逻辑 ──
 
   bool get _hasActiveFilter =>
@@ -537,17 +567,10 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  /// 触发搜索：有关键字或筛选条件走 DB 全量搜索，否则回常规内存模式。
+  /// 触发搜索（T133 量级①：无筛选也走同一条分页读路，"无筛选"只是一次不带参数的查询）。
   /// 关键字输入带 300ms 防抖；面板应用时 immediate 立即查询。
   void _refreshSearch({bool immediate = false}) {
     _debounce?.cancel();
-    if (!_hasActiveFilter) {
-      setState(() {
-        _searchResults = null;
-        _hasMore = false;
-      });
-      return;
-    }
     if (immediate) {
       _loadSearch(reset: true);
       return;
@@ -557,27 +580,80 @@ class _HistoryPageState extends State<HistoryPage> {
     });
   }
 
+  /// 转发那本账的总条数（无筛选标题与清除确认框）。读失败不猜，留 null 让界面说"读不出"。
+  Future<void> _refreshTotal() async {
+    try {
+      final total =
+          await (widget.forwardedCountLoader ??
+              () => GetIt.instance<NotificationService>().getTotalCount())();
+      if (!mounted) return;
+      setState(() => _forwardedTotal = total);
+    } catch (e) {
+      debugPrint('历史总数读取失败: $e');
+    }
+  }
+
+  /// 生产默认读口（`forwardedLoader` 为 null 时）：`NotificationService.searchRecords`。
+  ForwardedPageLoader get _defaultForwardedLoader =>
+      ({
+        String? keyword,
+        int? startTime,
+        int? endTime,
+        String? appName,
+        String? packageName,
+        String? deliveryFilter,
+        required int limit,
+        required int offset,
+      }) {
+        return GetIt.instance<NotificationService>().searchRecords(
+          keyword: keyword,
+          startTime: startTime,
+          endTime: endTime,
+          appName: appName,
+          packageName: packageName,
+          deliveryFilter: deliveryFilter,
+          limit: limit,
+          offset: offset,
+        );
+      };
+
+  /// 取数循环（T133 量级①）：按 `_pageSize` 一页一页往回要，**凑满一屏才撒手** ——
+  /// 粗筛宽、精筛窄，某一页精筛后剩 0 条不等于后面没有了，所以空页不许停手；
+  /// 「没有更多了」只能由粗筛取尽（`hasMore == false`）来说。
+  /// 游标按**粗筛行数**累加（见 [_coarseOffset]），终止性由它保证：hasMore 为真时
+  /// 每轮至少前进一页粗筛行，游标单调递增直到取尽。
   Future<void> _loadSearch({required bool reset}) async {
     if (_loadingMore) return;
     setState(() => _loadingMore = true);
-    final offset = reset ? 0 : (_searchResults?.length ?? 0);
+    final load = widget.forwardedLoader ?? _defaultForwardedLoader;
     try {
-      final service = GetIt.instance<NotificationService>();
-      final (records, hasMore) = await service.searchRecords(
-        keyword: _searchQuery.isEmpty ? null : _searchQuery,
-        startTime: _startTimeMs,
-        endTime: _endTimeMs,
-        appName: _filterAppName.isEmpty ? null : _filterAppName,
-        packageName: _filterPackageName.isEmpty ? null : _filterPackageName,
-        deliveryFilter: _filterDelivery == deliveryFilterAll
-            ? null
-            : _filterDelivery,
-        limit: _pageSize,
-        offset: offset,
-      );
+      final loaded = reset
+          ? <NotificationRecord>[]
+          : List<NotificationRecord>.of(_searchResults ?? const []);
+      var coarse = reset ? 0 : _coarseOffset;
+      final want = loaded.length + _pageSize;
+      var hasMore = false;
+      do {
+        final (page, more, coarseRows) = await load(
+          keyword: _searchQuery.isEmpty ? null : _searchQuery,
+          startTime: _startTimeMs,
+          endTime: _endTimeMs,
+          appName: _filterAppName.isEmpty ? null : _filterAppName,
+          packageName: _filterPackageName.isEmpty ? null : _filterPackageName,
+          deliveryFilter: _filterDelivery == deliveryFilterAll
+              ? null
+              : _filterDelivery,
+          limit: _pageSize,
+          offset: coarse,
+        );
+        loaded.addAll(page);
+        coarse += coarseRows;
+        hasMore = more;
+      } while (hasMore && loaded.length < want);
       if (!mounted) return;
       setState(() {
-        _searchResults = reset ? records : [...?_searchResults, ...records];
+        _searchResults = loaded;
+        _coarseOffset = coarse;
         _hasMore = hasMore;
         _loadingMore = false;
       });
@@ -597,9 +673,14 @@ class _HistoryPageState extends State<HistoryPage> {
       _filterAppName = '';
       _filterPackageName = '';
       _filterDelivery = deliveryFilterAll;
+      // 置回"还没读"，随后当场补第一页 —— T133 量级① 之后没有筛选态/常规态两条路，
+      // 清掉筛选 = 回到"不带参数的查询"，不能停在一份带着旧筛选结果的列表上。
       _searchResults = null;
+      _coarseOffset = 0;
       _hasMore = false;
     });
+    unawaited(_loadSearch(reset: true));
+    unawaited(_refreshTotal());
   }
 
   /// 时间范围摘要（筛选条显示用），如 09-01 ~ 09-07 或单日 2026-09-08
@@ -898,7 +979,9 @@ class _HistoryPageState extends State<HistoryPage> {
       case 'intercepted':
         return l10n.deliveryIntercepted;
       case 'paused':
-        return l10n.pushPausedByUser;
+        // T138 ③：「已暂停」只说用户动了开关，没说**这条的下场** —— 那一格要回答
+        // 的是"这条发出去没有"：暂停期间根本没发。与 failure 同一档的措辞密度。
+        return l10n.deliveryPausedNotSent;
       default:
         return l10n.deliveryPending;
     }
@@ -1685,6 +1768,12 @@ class _HistoryPageState extends State<HistoryPage> {
   /// （同一对注入点、同样显式 100、同样"注入优先、生产走服务层"）。
   /// 这里不做任何合并或排序 —— 合起来的口径是假的（见 [_buildAllView] 上面那段）。
   Future<void> _loadAll() async {
+    // 转发那本账的头一页也要在位（T133 量级①）：全部档的转发段画的就是这份
+    // 分页读数 —— 镜像退役后它没有"启动时已经在内存里"可以吃，没读过就当场补。
+    if (_searchResults == null) {
+      unawaited(_loadSearch(reset: true));
+      unawaited(_refreshTotal());
+    }
     final inRows =
         await (widget.inboxLoader ?? () => _inboxService.list(limit: 100))();
     final outRows =
@@ -1722,6 +1811,12 @@ class _HistoryPageState extends State<HistoryPage> {
     });
     if (nextIsFnthink) unawaited(_loadInbox());
     if (nextIsAll) unawaited(_loadAll());
+    if (value == 'forwarded' && _searchResults == null) {
+      // 切回转发档而头一页还没读过（进页时停在别的档）：当场补读 ——
+      // 与 initState 那一下同一条路，不另写一份。
+      unawaited(_loadSearch(reset: true));
+      unawaited(_refreshTotal());
+    }
   }
 
   Widget _directionBar(AppLocalizations l10n) {
@@ -1873,9 +1968,7 @@ class _HistoryPageState extends State<HistoryPage> {
           SliverToBoxAdapter(
             // 与转发档那一屏同一句：搜不到与从来没有，是两件事。
             child: _allSectionEmpty(
-              _searchResults != null || widget.records.isNotEmpty
-                  ? l10n.noMatchRecords
-                  : l10n.noRecords,
+              _hasActiveFilter ? l10n.noMatchRecords : l10n.noRecords,
             ),
           )
         else
@@ -2577,21 +2670,30 @@ class _HistoryPageState extends State<HistoryPage> {
     switch (selected) {
       case 'today':
         deleted = await widget.onClearToday();
+        // 删的是分页读数底下那张表：当场重读，不能留着已经不存在的行。
+        unawaited(_loadSearch(reset: true));
+        unawaited(_refreshTotal());
         break;
       case 'last10':
         deleted = await widget.onClearLastN(10);
+        unawaited(_loadSearch(reset: true));
+        unawaited(_refreshTotal());
         break;
       case 'last50':
         deleted = await widget.onClearLastN(50);
+        unawaited(_loadSearch(reset: true));
+        unawaited(_refreshTotal());
         break;
       case 'all':
         // T90 片13：破坏性动作一律走统一确认框（T06 那条判据：确认写在执行那一步里）。
         // #203：形状换成早退 —— 「弹了框但没按答案办」这一类由咽喉清单那条契约钉
         // （它认的是**同一个标识符被否定过**，不是某种写法）。
+        // T133 量级①：确认框里的数读分页读口的总数（镜像退役后内存里没有全集）。
+        final total = _forwardedTotal;
         final confirm = await IosDialogActions.askConfirm(
           context,
           title: l10n.confirmClear,
-          message: l10n.clearConfirmMsg(widget.records.length),
+          message: l10n.clearConfirmMsg(total ?? 0),
           confirmText: l10n.confirm,
           cancelText: l10n.cancel,
           destructive: true,
@@ -2600,7 +2702,10 @@ class _HistoryPageState extends State<HistoryPage> {
         );
         if (!confirm) break;
         await widget.onClear();
-        deleted = widget.records.length;
+        deleted = total ?? 0;
+        // 清空之后当场重读：列表（空了）与总数（0）都要跟上，不能留着旧页。
+        unawaited(_loadSearch(reset: true));
+        unawaited(_refreshTotal());
         break;
     }
     if (deleted > 0 && mounted) {
@@ -2627,8 +2732,10 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final searchMode = _searchResults != null;
-    final records = _searchResults ?? _filteredRecords;
+    // T133 量级①：两条读路并成一条（都是分页），"搜索模式"只还剩一个含义 ——
+    // 挂着筛选（标题数是"已加载的筛选结果"，不是全表总数）。
+    final searchMode = _hasActiveFilter;
+    final records = _displayedRecords;
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
@@ -2644,7 +2751,9 @@ class _HistoryPageState extends State<HistoryPage> {
               ? l10n.batchSelectedCount(_batchSelected.length)
               : searchMode
               ? l10n.searchResultCount(records.length)
-              : l10n.historyTitle(records.length),
+              // 无筛选的标题数是**全表总数**（读口注入）—— 分页之后 loaded.length
+              // 只是"已加载的前几页"，拿来当总数就是骗人（写着 (200)，库里 5000 条）。
+              : l10n.historyTitle(_forwardedTotal ?? records.length),
         ),
         actions: _batchMode
             ? [
@@ -2779,6 +2888,10 @@ class _HistoryPageState extends State<HistoryPage> {
                 ? _buildAllView(l10n, records)
                 : _direction == 'received' || _direction == 'sent'
                 ? _buildInboxView(l10n)
+                : _searchResults == null
+                ? // 头一页还没回来（T133 量级①：无筛选也要当场拉第一页）。
+                  // 不给"空列表"闪一下：那一闪读起来就是"历史被清了"。
+                  const Center(child: CircularProgressIndicator())
                 : records.isEmpty
                 ? Center(
                     child: Column(
@@ -2791,9 +2904,10 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          searchMode || widget.records.isNotEmpty
-                              ? l10n.noMatchRecords
-                              : l10n.noRecords,
+                          // 挂着筛选筛出 0 条 = "没匹配上"；没筛选而空 = "从来没有"。
+                          // （分页取数循环保证取尽之前不会以空页收场 —— 停在这里的空
+                          //   一定是粗筛取尽后的空。）
+                          searchMode ? l10n.noMatchRecords : l10n.noRecords,
                           style: TextStyle(
                             color: AppColors.secondaryLabel(context),
                             fontSize: 15,
@@ -2805,8 +2919,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 : ListView.separated(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount:
-                        records.length + (searchMode && _hasMore ? 1 : 0),
+                    itemCount: records.length + (_hasMore ? 1 : 0),
                     separatorBuilder: (_, _) => Padding(
                       padding: const EdgeInsets.only(left: 56),
                       child: Divider(
@@ -2816,9 +2929,10 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                     ),
                     itemBuilder: (context, index) {
-                      // 末尾加载指示：搜索模式且可能有下一页
+                      // 末尾加载指示：粗筛还没取尽（T133 量级① 两条读路都有下一页）
                       if (index >= records.length) {
                         return Padding(
+                          key: const ValueKey('history-load-more'),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Center(
                             child: _loadingMore

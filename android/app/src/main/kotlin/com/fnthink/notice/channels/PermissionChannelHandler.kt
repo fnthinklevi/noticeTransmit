@@ -112,6 +112,12 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 activity.requestBatteryOptimization()
                 result.success(true)
             }
+            // T137 验收③：收件渠道自己的系统设置页 —— 厂商的悬浮/锁屏/声音开关不在 AOSP
+            // 可读范围里，界面只能"报自己那侧 + 一键跳"，没有"读回来"的那一半。
+            "openInboxChannelSettings" -> {
+                activity.openInboxChannelSettings()
+                result.success(true)
+            }
             "isIgnoringBatteryOptimizations" -> {
                 result.success(activity.isIgnoringBatteryOptimizations())
             }

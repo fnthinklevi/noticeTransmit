@@ -1510,6 +1510,17 @@ class NotificationMonitorService : NotificationListenerService() {
             if (selected.isEmpty()) return
             if (!force && !PushToggleManager.isPushActive()) {
                 Log.d(TAG, "Fnthink fanout skipped (push paused): ${info.appName}")
+                // T138 ①：幻念族也要落一个**可判的档**。旧写法静默 return，那一格永远停在
+                // 「推送中」，直到 T112 那道 90 秒上限来收场 —— 界面说的全是假话。
+                // "结果由发送侧逐条回执"管的是**送达事实**（成功/失败）；"暂停没发"不是
+                // 送达事实，也不写送达日志（Dart 侧 `normalized == paused` 不落 log 的那份
+                // 契约）—— 它只让历史那一格说"暂停未发送"这句真话。与邮件同形：
+                // paused 分支**不带**备用标记，这条消息根本没投递出去。
+                val paused = WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.PAUSED,
+                    0, "Push paused (skipped)", false
+                )
+                DeliveryNotifier.notify(this, info.id, "fnthink", paused)
                 return
             }
             val hooks = selected.filter { it.isWebhook }

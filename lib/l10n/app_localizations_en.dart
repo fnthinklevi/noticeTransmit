@@ -1901,6 +1901,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryPending => 'Sending';
 
   @override
+  String get deliveryPausedNotSent => 'Paused · not sent';
+
+  @override
   String get pushPausedByUser => 'Paused by user';
 
   @override
@@ -3246,6 +3249,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Messages are only fetched while this is on; off means neither sending nor receiving';
 
   @override
+  String get fnthinkChannelDisclosure =>
+      'Whether an incoming push sounds, vibrates, or pops up is decided by the \"Fnthink Push · Inbox\" notification channel in system settings. This device creates it at the top tier: importance = urgent (heads-up banner), sound = system default notification tone, vibration = on. Some vendor systems (e.g. Xiaomi) add per-app floating/lock-screen switches above this layer; those can only be checked in system settings.';
+
+  @override
+  String get fnthinkOpenChannelSettings => 'Open system channel settings';
+
+  @override
   String get fnthinkConsentTitle =>
       'Allow notification content to be relayed through the server?';
 
@@ -4281,7 +4291,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPresenceAsleep =>
-      'Not waking on its own right now (switch off, or not armed yet)';
+      'Not waking on its own right now (switch off, or consent not given)';
+
+  @override
+  String get fnthinkPresenceDead =>
+      'Wake-up chain is broken: this device will no longer wake on its own (switch and consent are both still on)';
+
+  @override
+  String get fnthinkPresencePendingFirstRound =>
+      'First round not scheduled yet (just turned on; it arms itself after the first round)';
+
+  @override
+  String get fnthinkPresenceRecover => 'Recover';
 
   @override
   String get fnthinkPollIntervalTitle => 'Poll interval';
@@ -4289,6 +4310,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String fnthinkPollIntervalUsingDefault(int seconds) {
     return 'Asks every ${seconds}s (the protocol default)';
+  }
+
+  @override
+  String fnthinkRegisterRateLimited(int minutes, int seconds) {
+    return 'Registration is rate-limited; retrying automatically in $minutes min $seconds s';
   }
 
   @override

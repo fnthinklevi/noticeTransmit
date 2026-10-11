@@ -133,6 +133,14 @@ class PermissionService {
   Future<void> requestBatteryOptimization() =>
       _requestPermission('requestBatteryOptimization');
 
+  /// T137 验收③：跳到「幻念推送 · 收件」那枚渠道**自己的**系统设置页。
+  ///
+  /// 只有"跳"没有"读"：厂商（MIUI 等）的按应用悬浮/锁屏/声音开关不在 AOSP 可读
+  /// 范围里（六厂商官方口径一致），界面上那句话报的是我们自己那侧的配置，
+  /// 厂商那几枚只能请用户到那一页亲眼核对。
+  Future<void> openInboxChannelSettings() =>
+      _requestPermission('openInboxChannelSettings');
+
   Future<void> requestXiaomiAutoStart() =>
       _requestPermission('requestXiaomiAutoStart');
 

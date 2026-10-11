@@ -519,6 +519,11 @@ class FnthinkReceiveKernel {
         status: verdict.status,
         signedWhileUncalibrated: signedWhileUncalibrated,
         reason: verdict.reason ?? 'register-http:${reply.status}',
+        // T139 ①：Retry-After 只在 429 那一档有意义 —— 其他失败带的 nextDelay 是
+        // 轮询节奏，不是"什么时候能再来登记"。退避的重试按它排。
+        retryAfterSeconds: verdict.status == FnthinkPollStatus.rateLimited
+            ? verdict.nextDelay.inSeconds
+            : null,
       );
     }
     // 200 但没回地址码 = 服务端没有认下这一台（回的是空对象或半个对象）。
@@ -1739,6 +1744,7 @@ class FnthinkRegisterResult {
     this.name = '',
     this.peersGrantingMe = 0,
     this.reason,
+    this.retryAfterSeconds,
   });
 
   final FnthinkPollStatus status;
@@ -1755,6 +1761,11 @@ class FnthinkRegisterResult {
 
   final bool signedWhileUncalibrated;
   final String? reason;
+
+  /// 服务端 `Retry-After` 的秒数。**只在 rateLimited 那一档非空** —— 它是"什么时候
+  /// 能再来登记"的唯一出处（T139 ①），别的失败带的是轮询节奏，不是这句话。
+  /// 退避的重试按它排，不许调用方自己拍一个常量。
+  final int? retryAfterSeconds;
 
   bool get ok => status == FnthinkPollStatus.ok;
 }

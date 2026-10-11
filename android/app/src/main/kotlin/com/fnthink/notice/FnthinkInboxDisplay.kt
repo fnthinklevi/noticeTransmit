@@ -37,16 +37,17 @@ object FnthinkInboxDisplay {
      * ⚠ **T55（2026-10-05 维护者拍板走方案一）：这一段 id 是本轮换过的**。
      * 渠道 importance **创建后不可改**（`ensureChannel` 见到同名渠道就 return），而原来这枚是
      * `IMPORTANCE_DEFAULT` —— 进通知栏、有声，**不弹 heads-up**，"通知到了但岛不弹"。
-     * 两条出路（换 id ／ 走 `NotificationChannelCompat` 加引导）里维护者选了换 id，代价是：
-     * **已装用户升级后系统设置里会多出一枚同名但没人用的旧渠道**（它停在 DEFAULT），
-     * 且旧渠道上用户改过的设置不再作用到新渠道。这一条写在这里，别让后人以为是重命名写错了。
-     * ⚠ 旧 id 保留在 [LEGACY_CHANNEL_ID] 里，**不是**给谁回退用的（本类没有任何地方读它），
-     * 只是让"上一版用的是哪个"有据可查。要不要在升级时 `deleteNotificationChannel` 清掉它，
-     * 是一次独立的取舍（会删掉用户在那枚渠道上的历史设置），维护者没拍板 ⇒ 没做。
+     * 两条出路（换 id ／ 走 `NotificationChannelCompat` 加引导）里维护者选了换 id。
+     * ⚠ **T137（2026-10-11 维护者验收①）：旧渠道 `fnthink_inbox` 升级时清掉**。
+     * 真机取证（Xiaomi d78f2b5b）看到的就是它没删的下场：MIUI 设置页出现**两行一模一样的
+     * 「幻念推送 · 收件」**、连描述都同一句 ⇒ 用户根本不知道自己在调哪一行（他这次关的是
+     * 哪一行，从读数里判不出来）。守卫钉住"本包名下只许有一条收件渠道"
+     * （`FnthinkInboxChannelGuardTest`）。删渠道会连带删掉用户在那枚渠道上的历史设置 ——
+     * 那枚是 DEFAULT 的旧档，删掉正是要把"用户调错了行"这个坑填了。
      */
     const val CHANNEL_ID = "fnthink_inbox_v2"
 
-    /** 上一版那枚渠道（DEFAULT）。见 [CHANNEL_ID] 的注释：只留名，不删、不读。 */
+    /** 上一版那枚渠道（DEFAULT）。升级时由 [ensureChannel] 清掉，见 [CHANNEL_ID] 注释。 */
     const val LEGACY_CHANNEL_ID = "fnthink_inbox"
 
     /** 三元组里的那个 id 固定；区分靠 tag。见类注释 ①。 */
@@ -182,6 +183,11 @@ object FnthinkInboxDisplay {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return
         try {
             val manager = context.getSystemService(NotificationManager::class.java)
+            // T137 验收①：旧渠道升级时清掉 —— 真机上它造成 MIUI 设置页两行同名「幻念推送 · 收件」，
+            // 用户分不清在调哪一行。放在 ensure 的最后：新渠道先立住，旧的才删。
+            if (manager.getNotificationChannel(LEGACY_CHANNEL_ID) != null) {
+                manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+            }
             if (manager.getNotificationChannel(CHANNEL_ID) != null) return
             manager.createNotificationChannel(
                 NotificationChannel(
@@ -199,6 +205,20 @@ object FnthinkInboxDisplay {
                     // T55 ③ 角标：渠道默认 `setShowBadge(true)`，这里**显式写出来**而不是靠默认 ——
                     // 靠默认的那天默认值一改，这条就静默失效，而报告里看不出任何东西。
                     setShowBadge(true)
+                    // T137 验收②：震动与声音**显式给**，不靠系统默认兜着。
+                    // 真机取证：这枚渠道盘上 `mVibrationPattern=null`＋`mVibrationEnabled=false`，
+                    // 而同机别家 HIGH 渠道写着 `[100,100,200]` —— "不震"是我们没配，不是 ROM 关的。
+                    // ⚠ 与 importance 同一个物理事实：这些只在**渠道创建那一次**生效；
+                    //   已装设备盘上的旧渠道不会被这行改写 —— 那一半由界面引导去系统设置（T137 验收③）。
+                    vibrationPattern = longArrayOf(100, 100, 200)
+                    enableVibration(true)
+                    setSound(
+                        android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                        android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build(),
+                    )
                 },
             )
         } catch (e: Exception) {

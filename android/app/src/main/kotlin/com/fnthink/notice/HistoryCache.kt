@@ -236,6 +236,23 @@ object HistoryCache {
     }
 
     /**
+     * 把另一条离线队列（`PendingRecordCache`，"引擎未就绪"那一支）溢出丢弃的条数
+     * **并进同一枚溢出计数**。两条队列的"丢了 N 条"从同一个口出 —— 下一次
+     * [drainAll] 的 `dropped` 一起带给 Flutter，#94-A 那条横幅才是完整的一句话；
+     * 各报各的下场是用户看到两个互相都说不全的"丢了多少条"。
+     *
+     * 计数那一笔 `commit()`（同步），与 [compactAndEvict] 里那一笔同一条纪律：
+     * 丢的是"有 N 条没交接出去"这件事本身，计数不能异步赌。
+     */
+    internal fun noteOverflowDropped(context: Context, count: Int) {
+        if (count <= 0) return
+        val p = prefs(context)
+        p.edit()
+            .putInt(KEY_DROPPED, p.getInt(KEY_DROPPED, 0) + count)
+            .commit()
+    }
+
+    /**
      * 追加一条入队。同步落盘，确保即使进程被杀也不丢。
      */
     fun append(context: Context, data: JSONObject) {

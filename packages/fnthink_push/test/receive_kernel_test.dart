@@ -2216,6 +2216,37 @@ void main() {
       expect(result.reason, 'rejected-unsigned');
     });
 
+    test('T139 ①：429 ⇒ 结果带上 Retry-After 的秒数；别的失败不带', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: code('rateLimited'),
+        body: const {'receipt': 'rate_limited'},
+        retryAfterSeconds: 2208,
+      );
+      final rateLimited = await harness.kernel().register(
+        publicKey: publicKey,
+        name: 'n',
+      );
+      expect(rateLimited.status, FnthinkPollStatus.rateLimited);
+      expect(
+        rateLimited.retryAfterSeconds,
+        2208,
+        reason: '"什么时候能再来登记"只有服务端说得起这句话 —— 退避按它排',
+      );
+
+      // 对照：非限流的失败没有 Retry-After 可言（它的 nextDelay 是轮询节奏，
+      // 拿它当退避就是把节奏错当成"再来"的承诺）。
+      harness.reply = FnthinkReply(
+        status: code('forbidden'),
+        body: const {'receipt': 'rejected_unsigned'},
+      );
+      final rejected = await harness.kernel().register(
+        publicKey: publicKey,
+        name: 'n',
+      );
+      expect(rejected.retryAfterSeconds, isNull);
+    });
+
     test('传输异常 ⇒ transportError，且什么都不改（与 poll 同一条纪律）', () async {
       final harness = _Harness(contract, 1_800_000_000_000)
         ..throws = const SocketException('no route');

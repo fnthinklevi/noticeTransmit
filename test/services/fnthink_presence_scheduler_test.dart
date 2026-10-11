@@ -69,6 +69,31 @@ void main() {
   tearDown(() => clearNativeChannelStubs());
 
   group('排与撤（节奏只有一个作者）', () {
+    test('T139 ①：一次性退避（afterSeconds）⇒ 交下去的是退避值，不读契约', () async {
+      // 契约副本特意改成 27：若实现把退避值弄丢、退回契约节奏，交下去的就是 27，
+      // 这条当场红 —— "限流退避"与"收货节奏"是两件事，后者不许冒充前者。
+      mockAppChannel();
+      final scheduler = FnthinkPresenceScheduler(
+        contracts: loaderFrom(mutatedContract(27)),
+      );
+
+      await scheduler.notice(keepAwake: true, afterSeconds: 2208);
+
+      final schedule = calls.firstWhere(
+        (c) => c.method == 'scheduleFnthinkPresence',
+      );
+      expect(
+        (schedule.arguments as Map)['seconds'],
+        2208,
+        reason: '退避值是服务端 Retry-After 的原话 —— 丢了它，复起只能瞎猜或被撤',
+      );
+      // 只排这一次：退避是 one-shot，不许顺手把契约节奏那颗也排上。
+      expect(
+        calls.where((c) => c.method == 'scheduleFnthinkPresence'),
+        hasLength(1),
+      );
+    });
+
     test('间隔来自契约：契约副本改成 27，交下去的就得是 27', () async {
       expect(mutatedContract(27) == realContractText, isFalse);
       mockAppChannel();

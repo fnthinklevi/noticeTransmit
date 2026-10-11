@@ -8,6 +8,7 @@ import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 import 'package:notice_transmit/models/webhook_channel.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
+import 'package:notice_transmit/services/backup_mode.dart';
 import 'package:notice_transmit/services/backup_service.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/channel_config_codec.dart';
@@ -760,6 +761,78 @@ void main() {
         reason:
             '列名键必须排在 camel 之前：否则只带 channel_type 的行（老备份、legacy 迁移）'
             '会被这里重算成 generic，恢复一次备份丢一次通道类型',
+      );
+    });
+  });
+
+  // ── T135 尾巴：「主不可用⇒自动切备」那枚开关进备份/恢复 ─────────────────
+  //
+  // 它是**意图**（默认开，关掉是一次显式的用户决定）——不进备份，换机恢复就静默
+  // 回落默认开，与 #95-A 当年"温度族/设备状态族没进备份"同一个形状。
+  group('T135 尾巴：「自动切备」开关进备份/恢复', () {
+    test('collect 把开关带进 preferences（关掉也是值）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${BackupMode.autoBackupPrefKey}': false,
+      });
+      final data = await backup.collectBackupData();
+
+      expect(
+        (data['preferences'] as Map)['channel_auto_backup'],
+        isFalse,
+        reason: '备份不带这枚键 ⇒ 换机恢复后那一格静默回落默认开，谁也不知道',
+      );
+    });
+
+    test('关掉的开关跟着恢复落回 prefs', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${BackupMode.autoBackupPrefKey}': true,
+      });
+      final payload = legacyV1Payload()
+        ..['preferences'] = {'channel_auto_backup': false};
+
+      final report = await restore(payload);
+
+      expect(report.failedCategories, isEmpty, reason: '整次恢复不该有类别失败');
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getBool(BackupMode.autoBackupPrefKey),
+        isFalse,
+        reason: '备份里明确写了"关"，恢复回来却是"开" = 替用户做了一个没做过的决定',
+      );
+    });
+
+    test('「仅导入空缺项」判据：开关被关掉 ⇒ preferences 算"本机已有配置"', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${BackupMode.autoBackupPrefKey}': false,
+      });
+
+      final existing = await backup.detectExisting();
+
+      expect(
+        existing['preferences'],
+        isTrue,
+        reason: '默认开、关掉是显式决定 —— 恢复策略下它必须被当成会盖掉的东西',
+      );
+    });
+
+    test('缺键（有 preferences 块但没有这一项的旧备份）不写 —— 不替用户按回默认开', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${BackupMode.autoBackupPrefKey}': false,
+      });
+      // ⚠ 真正的缺口形状：preferences **块在**（老一点的备份有主题/语言）、
+      //   只是这枚键还没有 —— 那种备份走过的是同一个恢复分支。整块都没有的 v1
+      //   走的是 `preferences is Map` 之外那条路，钉不到这里要钉的缺口。
+      final payload = legacyV1Payload()
+        ..['preferences'] = {'theme_mode': 'dark', 'app_language': 'zh'};
+
+      final report = await restore(payload);
+
+      expect(report.failedCategories, isEmpty);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getBool(BackupMode.autoBackupPrefKey),
+        isFalse,
+        reason: '备份里没有这一项 ⇒ 恢复不许碰它（补写就是替用户按回默认开）',
       );
     });
   });

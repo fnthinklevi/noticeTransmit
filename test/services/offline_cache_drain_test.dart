@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
+import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -183,6 +184,40 @@ void main() {
       service.records.where((r) => r.id == 'dup_1'),
       hasLength(1),
       reason: '批与批之间各算一次 existingIds，第二批没重读 ⇒ 同一条并排两次',
+    );
+  });
+
+  test('T133 量级①：DB 已有而内存没有的那条 ⇒ 跳过，不许用新的 pending 快照覆盖送达状态', () async {
+    // 镜像退役后的真场景：设备死了三天，离线批次里躺着的 id 在 DB 里早就有
+    // （带着 success 的送达状态），而内存副本里根本没有它。去重必须查 DB ——
+    // 查内存查不到就会照插，insertNotification 的 REPLACE 把送达状态抹成 pending，
+    // 那条历史从此永远"发送中"。
+    await DatabaseHelper().insertNotification({
+      ...offlineRecord('db_known_1'),
+      'deliveryStatus': <String, dynamic>{
+        'chan:dingtalk': {'status': 'success', 'message': ''},
+      },
+    });
+    drainPayload = <String, Object?>{
+      'records': [offlineRecord('db_known_1')],
+      'dropped': 0,
+    };
+
+    final service = NotificationService();
+    await service.loadRecords();
+
+    expect(
+      service.records.where((r) => r.id == 'db_known_1'),
+      hasLength(0),
+      reason: 'DB 已有的记录不该被并进会话副本（那是重复）',
+    );
+    final kept = NotificationRecord.fromMap(
+      (await DatabaseHelper().getNotificationById('db_known_1'))!,
+    );
+    expect(
+      kept.deliveryStatus['chan:dingtalk']?['status'],
+      'success',
+      reason: '去重查内存不查 DB 的下场：success 被一份新造的 pending 快照 REPLACE 掉',
     );
   });
 

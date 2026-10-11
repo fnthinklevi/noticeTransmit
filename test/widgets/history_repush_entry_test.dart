@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
@@ -65,7 +66,8 @@ void main() {
         locale: const Locale('zh'),
         dark: false,
         home: HistoryPage(
-          records: records,
+          forwardedLoader: fakeForwardedLoader(records),
+          forwardedCountLoader: () async => records.length,
           onClear: () async {},
           onExport: () async => <String, dynamic>{},
           onClearToday: () async => 0,
@@ -104,6 +106,29 @@ void main() {
       }),
     ]);
 
+    expect(find.byKey(pushNowKey('n-paused')), findsOneWidget);
+  });
+
+  testWidgets('T138 ③：暂停那一格说的是「暂停未发送」，带的就是 force 那一发', (tester) async {
+    await pumpHistory(tester, [
+      row('n-paused', '取件码', {
+        'chan:email': {'status': 'paused', 'message': '转发已暂停'},
+      }),
+    ]);
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+
+    expect(
+      find.text(l10n.deliveryPausedNotSent),
+      findsOneWidget,
+      reason: '那一格要回答"这条发出去没有"：暂停期间根本没发 —— 不许再只讲开关',
+    );
+    expect(
+      find.text(l10n.pushPausedByUser),
+      findsNothing,
+      reason: '「已暂停」只说用户动了开关，把它留在送达格里就是把两件事混成一句',
+    );
+    // 「带 force 那一发」= 片1 的单条出口（它就是那条不受暂停开关限制的路，
+    // force=true 在原生那一侧）——这一格上必须摸得到：
     expect(find.byKey(pushNowKey('n-paused')), findsOneWidget);
   });
 

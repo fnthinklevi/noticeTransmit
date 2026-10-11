@@ -136,7 +136,31 @@ extension _MainPageActions on _MainPageState {
         initialDirection: direction,
         // 只有从通知进来时才非空：页面读完那张表之后自动展开这一条（T83）。
         focusMessageId: focusMessageId,
-        records: _notificationService.records,
+        // T133 量级①：转发那本账走分页读口 —— 内存全量镜像已退役，
+        // 不再传 `records:`（那是"内存列表 = DB 全量"旧决定的读法）。
+        forwardedLoader:
+            ({
+              keyword,
+              startTime,
+              endTime,
+              appName,
+              packageName,
+              deliveryFilter,
+              required limit,
+              required offset,
+            }) {
+              return _notificationService.searchRecords(
+                keyword: keyword,
+                startTime: startTime,
+                endTime: endTime,
+                appName: appName,
+                packageName: packageName,
+                deliveryFilter: deliveryFilter,
+                limit: limit,
+                offset: offset,
+              );
+            },
+        forwardedCountLoader: () => _notificationService.getTotalCount(),
         onClear: () async {
           await _notificationService.clearRecords();
           await _refreshTotalCount();
@@ -253,7 +277,7 @@ extension _MainPageActions on _MainPageState {
         smsPermissionGranted: _permissionService.smsGranted,
         phonePermissionGranted: _permissionService.phoneGranted,
         appListPermissionGranted: _permissionService.appListGranted,
-        l3GrantRows: await _l3GrantRows(),
+        loadL3GrantRows: _l3GrantRows,
         manufacturer: _deviceInfoService.manufacturer,
         onRefresh: _checkPermissions,
         onRequestNotificationListenerPermission:

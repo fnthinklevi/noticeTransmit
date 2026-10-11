@@ -899,6 +899,7 @@
   "deliverySuccess": "Sent",
   "deliveryFailed": "Failed",
   "deliveryPending": "Sending",
+  "deliveryPausedNotSent": "Paused · not sent",
   "pushPausedByUser": "Paused by user",
   "deliveryIntercepted": "Blocked",
   "deliveryViaBackupTag": "Backup",
@@ -1537,6 +1538,8 @@
   "fnthinkSettingsTitle": "Fnthink push settings",
   "fnthinkReceive": "Receive pushes",
   "fnthinkReceiveDesc": "Messages are only fetched while this is on; off means neither sending nor receiving",
+  "fnthinkChannelDisclosure": "Whether an incoming push sounds, vibrates, or pops up is decided by the \"Fnthink Push · Inbox\" notification channel in system settings. This device creates it at the top tier: importance = urgent (heads-up banner), sound = system default notification tone, vibration = on. Some vendor systems (e.g. Xiaomi) add per-app floating/lock-screen switches above this layer; those can only be checked in system settings.",
+  "fnthinkOpenChannelSettings": "Open system channel settings",
   "fnthinkConsentTitle": "Allow notification content to be relayed through the server?",
   "fnthinkConsentMsg": "① Not using push: everything runs on this device; notification content never touches a server.\n② Only forwarding notifications locally: same — the server collects no notification content at all.\n③ Using push: messages must be relayed through the server to reach this phone. Until delivered, the body is encrypted and stored on the server for at most 7 days and is deleted immediately on delivery or expiry; pairing codes and the identity private key are never uploaded, and audits keep metadata only (no bodies).",
   "fnthinkConsentAgree": "I understand and agree",
@@ -2226,9 +2229,13 @@
       }
     }
   },
-  "fnthinkPresenceAsleep": "Not waking on its own right now (switch off, or not armed yet)",
+  "fnthinkPresenceAsleep": "Not waking on its own right now (switch off, or consent not given)",
+  "fnthinkPresenceDead": "Wake-up chain is broken: this device will no longer wake on its own (switch and consent are both still on)",
+  "fnthinkPresencePendingFirstRound": "First round not scheduled yet (just turned on; it arms itself after the first round)",
+  "fnthinkPresenceRecover": "Recover",
   "fnthinkPollIntervalTitle": "Poll interval",
   "fnthinkPollIntervalUsingDefault": "Asks every {seconds}s (the protocol default)",
+  "fnthinkRegisterRateLimited": "Registration is rate-limited; retrying automatically in {minutes} min {seconds} s",
   "fnthinkPollIntervalChosen": "Asks every {seconds}s (your choice)",
   "@fnthinkPollIntervalUsingDefault": {
     "placeholders": {
@@ -2242,6 +2249,12 @@
       "seconds": {
         "type": "int"
       }
+    }
+  },
+  "@fnthinkRegisterRateLimited": {
+    "placeholders": {
+      "minutes": {"type": "int"},
+      "seconds": {"type": "int"}
     }
   },
   "fnthinkPollIntervalRange": "Allowed range {min}–{max}s, set by the protocol, not a local preference",

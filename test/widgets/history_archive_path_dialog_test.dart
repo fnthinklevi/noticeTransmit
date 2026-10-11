@@ -110,7 +110,8 @@ void main() {
         dark: false,
         home: HistoryPage(
           initialDirection: 'all',
-          records: const [],
+          forwardedLoader: fakeForwardedLoader(const []),
+          forwardedCountLoader: () async => 0,
           onClear: () async {},
           onExport: () async => <String, dynamic>{},
           onClearToday: () async => 0,

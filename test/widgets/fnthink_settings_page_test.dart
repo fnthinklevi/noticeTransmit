@@ -568,6 +568,25 @@ void main() {
       expect(find.byKey(const ValueKey('fnthink-start-note')), findsNothing);
     });
 
+    testWidgets('T137 验收③：渠道那句「只报自己那侧 + 一键跳」在位', (tester) async {
+      stubChannels();
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+      expect(
+        find.byKey(const ValueKey('fnthink-channel-disclosure')),
+        findsOneWidget,
+        reason: '厂商的悬浮/锁屏/声音开关读不回来，我们建渠道那侧的承诺必须自己说',
+      );
+      expect(
+        find.text(l10n.fnthinkChannelDisclosure),
+        findsOneWidget,
+        reason: '那一行说的必须是 ARB 里那一句（自己那侧的三档 + 厂商层只能去系统核对）',
+      );
+      final open = find.byKey(const ValueKey('fnthink-open-channel-settings'));
+      expect(open, findsOneWidget, reason: '跳系统渠道设置的那一枚按钮要在场');
+      expect(find.text(l10n.fnthinkOpenChannelSettings), findsOneWidget);
+    });
+
     testWidgets('起不来 ⇒ 开关**留在开**、原话贴在下面（不回弹、不谎称在跑）', (tester) async {
       stubChannels();
       final h = harness(canSign: false);
@@ -4118,6 +4137,11 @@ void main() {
       expect(row, findsOneWidget);
       expect(find.text(l10n.fnthinkPresenceAsleep), findsOneWidget);
       expect(find.textContaining('00:00:00'), findsNothing);
+      // 「立即恢复」只在链断那一档出现（T140 层3）：本来就不该醒着时按它不改变任何事实。
+      expect(
+        find.byKey(const ValueKey('fnthink-presence-recover')),
+        findsNothing,
+      );
     });
 
     testWidgets('排上了 ⇒ 显示的是原生读回来的那个时间点与那一档秒数', (tester) async {
@@ -4138,6 +4162,11 @@ void main() {
         findsOneWidget,
       );
       expect(find.text(l10n.fnthinkPresenceAsleep), findsNothing);
+      expect(
+        find.byKey(const ValueKey('fnthink-presence-recover')),
+        findsNothing,
+        reason: '排上了还摆一枚「立即恢复」＝请用户去修一个没坏的东西',
+      );
     });
 
     testWidgets('开关开关各一下，那一行每次都跟着变（不是读一次就停在那儿）', (tester) async {
@@ -4180,6 +4209,137 @@ void main() {
         reason: '读不出来时画一句"没在醒着"是假话：用户会去翻开关，而真相是这一版问不到原生',
       );
       expect(find.text(l10n.fnthinkPresenceAsleep), findsNothing);
+    });
+
+    /// 把「这台开着接收、也同意过中转」那份世界种进 prefs（T140 层2/层3 三档都要它）。
+    ///
+    /// ⚠ 必须**同时**种这两枚：只种开关时 `hasRelayConsent()` 读回 false，页面会落进
+    ///   「本来就不该醒着」那一档，于是"断链"这一档在这一张页上永远测不到。
+    /// ⚠ 种了开关**不等于**循环起来了 —— 页面 initState 不调 `startIfEnabled`，
+    ///   所以「只是看了一眼不该把链接上」这件事在下面每条里都由 `builds()` 当场钉住。
+    void seedAwakePrefs() {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyConsentVersion}': 1,
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+    }
+
+    testWidgets('开着接收、也同意过，而闹钟没排上 ⇒ 说"复起链已断"，并给出「立即恢复」', (tester) async {
+      // `everArmedAt > 0` 而 `nextRoundAt == 0` 是这一档唯一的形状：这台**曾经**排上过（于是
+      // 不是"刚开起来、第一轮还没跑完"）。而原生 cancel 会把 cadence 一起清掉 ⇒ 能分开
+      // 「被撤过」与「从没排过」的读数只剩这一枚，所以桩里 cadence 给 0 才是真实形状。
+      seedAwakePrefs();
+      stubChannels(
+        presenceStatus: () => {
+          'nextRoundAt': 0,
+          'cadenceSeconds': 0,
+          'everArmedAt': DateTime(2026, 10, 11, 9, 0).millisecondsSinceEpoch,
+        },
+      );
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('fnthink-presence-next'));
+      await revealTo(tester, row);
+      expect(find.text(l10n.fnthinkPresenceDead), findsOneWidget);
+      expect(find.text(l10n.fnthinkPresenceAsleep), findsNothing);
+      expect(
+        find.byKey(const ValueKey('fnthink-presence-recover')),
+        findsOneWidget,
+      );
+      expect(h.builds(), 0, reason: '只是看了一眼：链断了不该在进场时就被悄悄接上');
+    });
+
+    testWidgets('从没排上过那一档说"还没排第一轮"，不给按钮（按了不改变任何事实）', (tester) async {
+      seedAwakePrefs();
+      // 三枚读数全 0 = 开关刚翻开、第一轮还没跑完（闹钟是每一轮结束时续排的）。
+      stubChannels();
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('fnthink-presence-next'));
+      await revealTo(tester, row);
+      expect(find.text(l10n.fnthinkPresencePendingFirstRound), findsOneWidget);
+      expect(
+        find.text(l10n.fnthinkPresenceDead),
+        findsNothing,
+        reason: '把"还没来得及"报成"断了"，用户会去按一枚不做事的按钮，而真相是再等一轮',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-presence-recover')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('按「立即恢复」走的就是开关那同一条咽喉：循环起来、那一行跟着改口、按钮消失', (tester) async {
+      // 这一条钉的是"复"这一片的**做法**：不新起第二条起链的路（那等于让"什么时候该醒"
+      // 有两套说法），而是把开关那一发复用。观察点是循环被建了几次 —— 页面自己改文案
+      // 也能让断言里的句子变对，但 `builds()` 不会跟着变。
+      var armed = false;
+      seedAwakePrefs();
+      final fireAt = DateTime(2026, 9, 30, 21, 34, 56).millisecondsSinceEpoch;
+      stubChannels(
+        presenceStatus: () => armed
+            ? {'nextRoundAt': fireAt, 'cadenceSeconds': 20, 'everArmedAt': 1}
+            : {'nextRoundAt': 0, 'cadenceSeconds': 0, 'everArmedAt': 1},
+      );
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.fnthinkPresenceDead), findsOneWidget);
+
+      armed = true;
+      final button = find.byKey(const ValueKey('fnthink-presence-recover'));
+      await revealTo(tester, button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(h.builds(), 1, reason: '按下去必须真的把这条链走一遍，不是只把界面文案改口');
+      expect(h.coordinator.isRunning, isTrue);
+      expect(
+        find.text(l10n.fnthinkPresenceNext('21:34:56', 20)),
+        findsOneWidget,
+        reason: '恢复之后那一行要说的是原生读回来的下一次，而不是"已恢复"这种无凭证的话',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-presence-recover')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('按了恢复而起不来 ⇒ 说理由（与开关那一发同一个作者），那一行仍留在"断了"', (tester) async {
+      seedAwakePrefs();
+      stubChannels(
+        presenceStatus: () => {
+          'nextRoundAt': 0,
+          'cadenceSeconds': 0,
+          'everArmedAt': DateTime(2026, 10, 11, 9, 0).millisecondsSinceEpoch,
+        },
+      );
+      final h = harness(canSign: false);
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(const ValueKey('fnthink-presence-recover'));
+      await revealTo(tester, button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('fnthink-start-note')))
+            .data,
+        contains('signing-unavailable'),
+        reason: '同一个咽喉就该给同一份原话；为「恢复」另编一套理由，等于承认这里有第二条链',
+      );
+      expect(
+        find.text(l10n.fnthinkPresenceDead),
+        findsOneWidget,
+        reason: '没恢复成就不改口 —— 这一行读的是原生那份排程，不是按下按钮这件事',
+      );
+      expect(h.coordinator.isRunning, isFalse);
     });
   });
 

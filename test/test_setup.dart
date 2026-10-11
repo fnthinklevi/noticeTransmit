@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/models/notification_record.dart';
+import 'package:notice_transmit/pages/history_page.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// 测试用数据库初始化。
@@ -10,6 +12,27 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void initTestDatabase() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
+}
+
+/// T133 量级①：转发那本账的分页读口替身 —— 按与真库相同的形状**切片**：
+/// `offset` 起取 `limit` 条，第三位（粗筛行数）= 本页行数，`hasMore` = 切完还有。
+/// 筛选参数照收不理（替身不做筛选语义；要测筛选的用例自带表或自带读口）。
+/// 配 `forwardedCountLoader: () async => rows.length` 就是完整的内存账本。
+ForwardedPageLoader fakeForwardedLoader(List<NotificationRecord> rows) {
+  return ({
+    keyword,
+    startTime,
+    endTime,
+    appName,
+    packageName,
+    deliveryFilter,
+    required limit,
+    required offset,
+  }) async {
+    final slice = rows.skip(offset).take(limit).toList();
+    final hasMore = offset + slice.length < rows.length;
+    return (slice, hasMore, slice.length);
+  };
 }
 
 /// 碰**服务层写路径**的测试必须先接住原生通道，两种坏法都见过：
