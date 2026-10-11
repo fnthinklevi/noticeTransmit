@@ -69,11 +69,12 @@ void main() {
     for (final family in kFnthinkRemoteChannelFamilies) {
       for (final want in [true, false]) {
         final built = buildChannelArgument(
+          contract,
           family: family,
           id: 'chan-42',
           enabled: want,
         );
-        final parsed = parseChannelTarget(built);
+        final parsed = parseChannelTarget(contract, built);
         expect(parsed, isNotNull, reason: '拼出来的串对面拆不开：$built');
         expect(parsed!.family, family);
         expect(parsed.id, 'chan-42');
@@ -84,7 +85,7 @@ void main() {
 
   test('拼出来的 L3 item 带目标值，且 parseL3Item 认它（幂等那一条）', () {
     for (final want in [true, false]) {
-      final item = buildL3Item(key: 'monitoring', want: want);
+      final item = buildL3Item(contract, key: 'monitoring', want: want);
       final parsed = parseL3Item(
         contract,
         item,
@@ -103,7 +104,7 @@ void main() {
     expect(
       parseL3Item(
         contract,
-        buildL3Item(key: 'monitoring'),
+        buildL3Item(contract, key: 'monitoring'),
         confirmedThisTime: true,
         grantedKeys: const {'monitoring'},
       ),
@@ -111,14 +112,27 @@ void main() {
     );
   });
 
-  test('族表与谓词同步；幻念那一族不在可远程启停的范围里', () {
-    for (final family in kFnthinkRemoteChannelFamilies) {
-      expect(isKnownChannelFamily(family), isTrue, reason: '$family 列了却不认');
+  test('族认不认得由契约说；幻念那一族不在可远程启停的范围里', () {
+    // 判据的唯一出处是契约 `l2.channelTargetShape.families`（本机那份常量从片4 起只剩
+    // "发送侧把这几族画成可点的选项"一个用途；两份相等由 `channel_target_shape_contract_test.dart` 钉）。
+    // 这里验的是**执行那一侧真的按契约判**，不是按本机那份常量判。
+    String wire(String family) => buildChannelArgument(
+      contract,
+      family: family,
+      id: 'acme',
+      enabled: false,
+    );
+    for (final family in contract.l2ChannelTargetFamilies) {
+      expect(
+        parseChannelTarget(contract, wire(family)),
+        isNotNull,
+        reason: '$family 在契约里却被本机拆成 null ⇒ 两份读法分叉了',
+      );
     }
     for (final other in ['fnthink', 'sms', '', 'Webhook']) {
       expect(
-        isKnownChannelFamily(other),
-        isFalse,
+        parseChannelTarget(contract, wire(other)),
+        isNull,
         reason: '$other 不该被认 —— 认了就等于把远程启停开给一族没拍过的通道',
       );
     }

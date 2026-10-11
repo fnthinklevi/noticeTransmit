@@ -973,6 +973,36 @@ void main() {
       expect(answer.reason, 'unknown-level:L9');
     });
 
+    test('⚠ 勾里混进一格不合法的串 ⇒ 本机不签这一发，理由就是那一格的（T134 片4）', () async {
+      // 服务端对词表外的名字与"要参数却给了裸名字"都回 400（状态码从契约 `unknownItemStatus` 读），
+      // 而 400 在界面上与"口令错"同形 —— 用户刚点完"同意"，看到的却是那一句，
+      // 谁都不会想到问题在自己勾的那一格。所以发出去之前本机先看一眼，
+      // 用的判据与那张表**同一枚**（`grantItemProblem`）。
+      final asked = <http.Request>[];
+      final rows = <FnthinkPeer>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+        recordPeer: (peer) async {
+          rows.add(peer);
+          return FnthinkPeerWrite.created;
+        },
+      );
+      final answer = await c.confirmPairing(
+        request: req('L2'),
+        approve: true,
+        items: const ['app:launch'],
+      );
+      expect(answer.ok, isFalse);
+      expect(
+        answer.reason,
+        contract.grantItemBareNameRejectedFor('app:launch'),
+        reason: '理由要说得出是**哪一格**不行，不然与"口令错"是同一句话',
+      );
+      expect(asked, isEmpty, reason: '签出去换一句 400 不是"试一次"，是把口令再推出去一次');
+      expect(rows, isEmpty);
+    });
+
     test('同一条畸形请求仍然可以拒绝（划掉它不需要档位）', () async {
       final asked = <http.Request>[];
       final c = coordinator(

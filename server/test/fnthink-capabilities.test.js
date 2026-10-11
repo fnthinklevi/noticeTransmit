@@ -22,6 +22,10 @@ const {
   confirmItemVocabulary,
   decideCapability,
   endpointGrant,
+  grantItemBareRejected,
+  grantItemKind,
+  grantItemSeparator,
+  grantItemSplit,
   grantFromNode,
   normalizeConfirmItems,
 } = require('../lib/fnthink/capabilities');
@@ -200,5 +204,189 @@ describe('confirmItemVocabulary / normalizeConfirmItems（T134 片2）', () => {
       reason: 'item-not-string',
     });
     expect(normalizeConfirmItems(contract, ['  '])).toEqual({ reason: 'item-empty' });
+  });
+});
+// ── T134 片4：勾选项的整串语法（粒度＝参数级）。四边同片，服务端这一边管"别收下没人能发的串"──
+describe('整串语法（T134 片4：itemGrammar / requiresArgumentFrom / reports / channelTargetShape）', () => {
+  test('切串那把刀来自契约：分隔符不是写死的斜杠', () => {
+    expect(grantItemSeparator(contract)).toBe(
+      contract.clientEvents.pairConfirm.itemGrammar.argumentSeparator,
+    );
+    expect(grantItemSplit(contract, 'channel:toggle/webhook:acme:off')).toEqual({
+      base: 'channel:toggle',
+      argument: 'webhook:acme:off',
+      hasSeparator: true,
+    });
+    // 名字自己不含分隔符（那一条由 contract.dart 的 validate 钉住），所以"切第一段"是唯一拆法。
+    expect(grantItemSplit(contract, 'alert:ring').hasSeparator).toBe(false);
+    const other = JSON.parse(JSON.stringify(contract));
+    other.clientEvents.pairConfirm.itemGrammar.argumentSeparator = '~';
+    expect(grantItemSplit(other, 'app:launch~demo').base).toBe('app:launch');
+    // 分隔符写歪 ⇒ 抛，不"退化成按斜杠切"：那会把一整批合法串读成词表外。
+    const broken = JSON.parse(JSON.stringify(contract));
+    broken.clientEvents.pairConfirm.itemGrammar.argumentSeparator = '//';
+    expect(() => grantItemSeparator(broken)).toThrow(/必须是单个字符/);
+  });
+
+  test('带参数的整串被收下，裸名字被拒且回的是契约那一句', () => {
+    expect(
+      normalizeConfirmItems(contract, [
+        'channel:toggle/webhook:acme:off',
+        'app:launch/demo-shortcut',
+      ]),
+    ).toEqual({
+      items: ['app:launch/demo-shortcut', 'channel:toggle/webhook:acme:off'],
+    });
+    const rejected = normalizeConfirmItems(contract, ['channel:toggle']);
+    expect(rejected).toEqual({
+      reason: grantItemBareRejected(contract, 'channel:toggle'),
+    });
+    expect(rejected.reason).toBe('item-argument-required:channel:toggle');
+    // 模板换词 ⇒ 理由跟着换：这句话服务端没有第二份，与设备侧同一句才核对得上。
+    const renamed = JSON.parse(JSON.stringify(contract));
+    renamed.clientEvents.pairConfirm.itemGrammar.bareNameRejected = 'needs-argument:X';
+    expect(grantItemBareRejected(renamed, 'sms:search')).toBe('needs-argument:sms:search');
+    const shapeBroken = JSON.parse(JSON.stringify(contract));
+    shapeBroken.clientEvents.pairConfirm.itemGrammar.bareNameRejected = 'needs-argument';
+    expect(() => grantItemBareRejected(shapeBroken, 'sms:search')).toThrow(/必须是「词:X」形状/);
+  });
+
+  test('不要参数的项带了参数 ⇒ unexpected-argument（带个尾斜杠也算带了）', () => {
+    expect(normalizeConfirmItems(contract, ['alert:ring/x'])).toEqual({
+      reason: 'unexpected-argument:alert:ring',
+    });
+    // ⚠ 这一条钉的是 `hasSeparator` 与"参数空不空"的区别：`alert:ring/` 的参数段是空串，
+    //   只按空串判就会把一格"线上永远发不出的串"签进授权表，而界面上写着已授权。
+    expect(normalizeConfirmItems(contract, ['alert:ring/'])).toEqual({
+      reason: 'unexpected-argument:alert:ring',
+    });
+    expect(normalizeConfirmItems(contract, ['alert:ring'])).toEqual({
+      items: ['alert:ring'],
+    });
+  });
+
+  test('词表外点名到**名字**那一段（不是整串），原型链上的名字不算设置项', () => {
+    expect(normalizeConfirmItems(contract, ['no-such-item/x'])).toEqual({
+      reason: 'unknown-item:no-such-item',
+    });
+    // `settings` 是解析出来的对象：用 `in` 会让原型上的名字被当成设置项（#130-A 那批同族）。
+    for (const smuggled of ['__proto__', 'toString', 'constructor']) {
+      expect(normalizeConfirmItems(contract, [smuggled])).toEqual({
+        reason: `unknown-item:${smuggled}`,
+      });
+    }
+  });
+
+  test('count / keyword 两种形状各报各的（上下界从契约现取，不抄一份数字）', () => {
+    const spec = contract.capabilities.l2.reports['notifications:report'];
+    const ok = `notifications:report/${spec.minItems}`;
+    expect(normalizeConfirmItems(contract, [ok])).toEqual({ items: [ok] });
+    expect(normalizeConfirmItems(contract, ['notifications:report/0'])).toEqual({
+      reason: 'bad-report-count:0',
+    });
+    expect(normalizeConfirmItems(contract, ['notifications:report/abc'])).toEqual({
+      reason: 'bad-report-count:abc',
+    });
+    expect(normalizeConfirmItems(contract, [`notifications:report/${spec.maxItems + 1}`])).toEqual({
+      reason: `bad-report-count:${spec.maxItems + 1}`,
+    });
+    const keyword = contract.capabilities.l2.reports['sms:search'];
+    expect(
+      normalizeConfirmItems(contract, [`sms:search/${'x'.repeat(keyword.maxChars + 1)}`]),
+    ).toEqual({ reason: `bad-keyword:${'x'.repeat(keyword.maxChars + 1)}` });
+    // 控制字符：一句话在对面读起来断成两截，而 item 是整串比对的键。
+    expect(normalizeConfirmItems(contract, ['sms:search/a\tb'])).toEqual({
+      reason: 'bad-keyword:a\tb',
+    });
+  });
+
+  test('通道目标那一段：段数／族／空 id／目标词四种坏法各有各的拒', () => {
+    const shape = contract.capabilities.l2.channelTargetShape;
+    const family = shape.families[0];
+    expect(normalizeConfirmItems(contract, [`channel:toggle/${family}:acme:off`])).toEqual({
+      items: [`channel:toggle/${family}:acme:off`],
+    });
+    expect(normalizeConfirmItems(contract, [`channel:toggle/${family}:acme`])).toEqual({
+      reason: `bad-channel-argument:${family}:acme`,
+    });
+    // 多一段也要拒（静默取前三段的话，对面拼错一个字符就变成另一条指令）。
+    expect(normalizeConfirmItems(contract, [`channel:toggle/${family}:acme:off:extra`])).toEqual({
+      reason: `bad-channel-argument:${family}:acme:off:extra`,
+    });
+    expect(normalizeConfirmItems(contract, ['channel:toggle/sms:acme:off'])).toEqual({
+      reason: 'bad-channel-argument:sms:acme:off',
+    });
+    expect(normalizeConfirmItems(contract, [`channel:toggle/${family}::off`])).toEqual({
+      reason: `bad-channel-argument:${family}::off`,
+    });
+    expect(normalizeConfirmItems(contract, [`channel:toggle/${family}:acme:ON`])).toEqual({
+      reason: `bad-channel-argument:${family}:acme:ON`,
+    });
+  });
+
+  test('多一段而尾部仍是合法目标词 ⇒ 也拒（段数这一维不许靠目标词兜住）', () => {
+    // 上面那条"四种坏法"里的多一段用的是 `…:off:extra`，那种串**目标词那一格也会拒** ——
+    // 于是"段数"这一维看着有测试，其实摘掉段数判据仍然全绿（本条反证当时就是这么红的）。
+    const family = contract.capabilities.l2.channelTargetShape.families[0];
+    const word = contract.capabilities.l2.channelTargetShape.targetWords[1];
+    expect(
+      normalizeConfirmItems(contract, [`channel:toggle/${family}:acme:extra:${word}`]),
+    ).toEqual({ reason: `bad-channel-argument:${family}:acme:extra:${word}` });
+  });
+
+  test('L3 那两枚 toggle：目标词只认契约那两个，grant 型那几项不许带参数', () => {
+    const words = contract.capabilities.l3.itemTargetWords;
+    expect(words).toEqual(['on', 'off']);
+    expect(normalizeConfirmItems(contract, ['monitoring/on'])).toEqual({
+      items: ['monitoring/on'],
+    });
+    expect(normalizeConfirmItems(contract, ['monitoring/up'])).toEqual({
+      reason: 'unknown-target-word:up',
+    });
+    expect(normalizeConfirmItems(contract, ['notification/on'])).toEqual({
+      reason: 'unexpected-argument:notification',
+    });
+  });
+
+  test('两处说法不一致 ⇒ 抛（requiresArgumentFrom 与 l2.reports 各说一套）', () => {
+    const missing = JSON.parse(JSON.stringify(contract));
+    delete missing.capabilities.l2.reports['channel:toggle'];
+    expect(() => grantItemKind(missing, 'channel:toggle')).toThrow(/两处说法不一致/);
+    const extra = JSON.parse(JSON.stringify(contract));
+    extra.capabilities.l2.requiresArgumentFrom = extra.capabilities.l2.requiresArgumentFrom.filter(
+      (a) => a !== 'channel:toggle',
+    );
+    expect(() => grantItemKind(extra, 'channel:toggle')).toThrow(/两处说法不一致/);
+    // 看不懂的 argumentKind：只剩"照着猜一种拼法"可走 ⇒ 同样抛。
+    const unknownKind = JSON.parse(JSON.stringify(contract));
+    unknownKind.capabilities.l2.reports['sms:search'].argumentKind = 'flag';
+    expect(() => grantItemKind(unknownKind, 'sms:search')).toThrow(/读不出形状/);
+    // 设置项被当成动作列进 requiresArgumentFrom ⇒ 抛（两份身份，读的人只能猜）。
+    const dual = JSON.parse(JSON.stringify(contract));
+    dual.capabilities.l2.requiresArgumentFrom = [
+      ...dual.capabilities.l2.requiresArgumentFrom,
+      'monitoring',
+    ];
+    expect(() => grantItemKind(dual, 'monitoring')).toThrow(/既在/);
+  });
+
+  test('写进表的整串与收单那一判对得上：勾这一条放行不了那一条', () => {
+    // 这一条把片4 的两端接起来：**勾的是整串** ⇒ 授权表里是整串 ⇒ decideCapability 的
+    // 逐条比对（同样是整串相等）才判得到"这一条"。名字级的那份写法在这里会假绿
+    // （表里是 `app:launch`，线上是 `app:launch/demo`，两边都"看起来收了"却永远判不过）。
+    const granted = normalizeConfirmItems(contract, ['app:launch/demo']);
+    const levels = contract.capabilities.levels;
+    const decide = (item) =>
+      decideCapability(contract, {
+        stage: 'intake',
+        type: 'action',
+        item,
+        grant: { maxLevel: levels[levels.length - 2], items: granted.items },
+      });
+    expect(decide('app:launch/demo').allowed).toBe(true);
+    expect(decide('app:launch/other')).toEqual(
+      expect.objectContaining({ reason: 'item:app:launch/other' }),
+    );
+    expect(decide('app:launch').allowed).toBe(false);
   });
 });

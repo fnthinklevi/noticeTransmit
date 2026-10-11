@@ -164,7 +164,8 @@ String channelDeliveryKey(String rawType) =>
 /// ⚠ 这一张是**显示**用的四族。"可写的族"今天分成**两档**，别再混着说：
 /// **主备**（`updateChannelRole`）四族都有 —— T113 起幻念那一族走只改角色的
 /// `FnthinkChannelService.setRole`（不重验目标），弹层与页面分组都读 `channelFamilies` 那一份；
-/// **启停**（`updateChannelEnabled` / 远程指令 `channel:toggle` 的 `isKnownChannelFamily`）
+/// **启停**（`updateChannelEnabled` / 远程指令 `channel:toggle` 认的族 = 契约
+/// `capabilities.l2.channelTargetShape.families`）
 /// 仍是那三族 —— 那一族的启停只有 `save()`，会连带重验目标，形状与"设一个布尔"不是一件事。
 /// 两张表不一致时的表现是「这一族能配能显示，就是快捷改不了」，所以守卫钉在
 /// `channel_single_points_test.dart`（清单 = switch 的 case 集合 = 弹层遍历的那一份）。

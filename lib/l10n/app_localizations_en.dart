@@ -3617,7 +3617,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairItemsNote =>
-      'Items that need an argument (which channel to toggle, which app to launch, what to search) are not on this list: per-argument granting is not built yet.';
+      'Items that take an argument can only be checked once that argument is set: you grant that one target (which app, what to search, which channel and to which state), not the action name.';
+
+  @override
+  String get fnthinkPairChannelIdLabel => 'Which channel on this device (id)';
 
   @override
   String get fnthinkPairItemsBroken =>

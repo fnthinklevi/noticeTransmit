@@ -10,6 +10,7 @@ import '../models/fnthink_pair_request_record.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_contract_loader.dart';
 import 'fnthink_credential_store.dart';
+import 'fnthink_grant_items.dart';
 import 'fnthink_receive_loop.dart';
 import 'fnthink_receiver_service.dart';
 import 'fnthink_settings.dart';
@@ -937,8 +938,25 @@ class FnthinkReceiveCoordinator {
         ),
       );
     }
+    // 发出去之前本机先看一眼勾上的那一串（T134 片4）。三种"这一串进不了授权表"的来路
+    // —— 词表外的名字、要参数却给了裸名字、参数不成形 —— 都换得到服务端一句 400，
+    // 而界面上的表现是"点了同意，什么都没发生"（那一句与"口令错"同形，没人看得出是清单的问题）。
+    // 判据与那张表用的是**同一枚**（`grantItemProblem`）：两处各判一次，早晚会一处放行一处拦。
+    if (approve) {
+      for (final item in items) {
+        final problem = grantItemProblem(contract, item);
+        if (problem != null) {
+          return FnthinkPairAnswer(
+            result: FnthinkPairConfirmResult(
+              status: FnthinkPollStatus.failed,
+              reason: problem,
+              signedWhileUncalibrated: false,
+            ),
+          );
+        }
+      }
+    }
     final service = _serviceFactory(spec);
-    // 拒绝那一支**一律不带清单**（契约 `itemsMustBeEmptyOnDeny`，内核在构造载荷时也会抛）。
     // 不在这里把它咽成空再由内核判："我在说不"的那一发里同时递出一份授权"这件事，
     // 页面传错了就该炸在签名之前，而不是悄悄发出去换一句 400。
     final grantedItems = approve ? items : const <String>[];
@@ -948,8 +966,9 @@ class FnthinkReceiveCoordinator {
         requestId: request.requestId,
         decision: approve ? approved : others.single,
         level: wanted ?? ceiling,
-        // 逐条勾选（T134 片3）：这一份来自同意屏那张表（`pairItemCandidates` 派生的候选集里
-        // 用户勾上的那些）。⚠ 空清单**不等于这一档什么都能做**：服务端按
+        // 逐条勾选（T134 片3 的表 + 片4 的参数级粒度）：这一份来自同意屏那张表里**勾上的整串**
+        // （`pairItemRows` 派生行、`grantItemWire` 拼串、`grantItemProblem` 判能不能勾）。
+        // ⚠ 空清单**不等于这一档什么都能做**：服务端按
         // `capabilities.itemRequiredFromLevel` 判，从 L2 起逐条项要真实出现在清单里才放行。
         // 老客户端没有这张表 ⇒ 契约 `optionalFields` 让它缺席读成 []，那是降级不是放行。
         items: grantedItems,

@@ -64,7 +64,8 @@ ChannelHealthState channelHealthStateForDisplay(ChannelHealth? h) {
 /// 而那句话说的是**没找到**，不是**没人会写**）。守卫钉住"switch 的 case 集合 == 这一份"。
 ///
 /// ⚠ 只有**主备**这一档是四族。启用/停用（`updateChannelEnabled` 与远程指令
-/// `channel:toggle` 的 `isKnownChannelFamily`）仍是那三族 —— 幻念那一族的启停走
+/// `channel:toggle` 认的那些族 —— 契约 `capabilities.l2.channelTargetShape.families`）
+/// 仍是那三族 —— 幻念那一族的启停走
 /// `FnthinkChannelService.save()`，那一发要连带重验目标，形状与"设一个布尔"不是一件事。
 const List<String> channelFamilies = ['webhook', 'email', 'app', 'fnthink'];
 

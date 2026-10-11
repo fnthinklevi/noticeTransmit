@@ -288,9 +288,12 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   /// 而现场看到的是"命令认得、就是没反应"，两个字段长得都像"参数"）。
   String get _wireItem {
     final contract = _contract!;
-    if (_needsL3Target(contract)) return buildL3Item(key: _item, want: _l3Want);
-    final arg = _wireArgument;
-    return arg.isEmpty ? _item : '$_item/$arg';
+    if (_needsL3Target(contract)) {
+      return buildL3Item(contract, key: _item, want: _l3Want);
+    }
+    // 分隔符从契约读（`itemGrammar.argumentSeparator`）：同意屏勾出来的整串、对面拆的那把刀
+    // 与这里拼的必须是同一枚，写死一处斜杠就是第四份。
+    return contract.grantItemWire(base: _item, argument: _wireArgument);
   }
 
   /// 信封里那个 `argument` 字段：与 item 斜杠段**同源**（同一份拼出来的串）。
@@ -312,6 +315,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       return _keyword.text.trim();
     }
     return buildChannelArgument(
+      contract,
       family: _channelFamily ?? kFnthinkRemoteChannelFamilies.first,
       id: _argument.text.trim(),
       enabled: _channelWant ?? false,

@@ -1,8 +1,9 @@
 import 'package:fnthink_push/fnthink_push.dart';
 
+import 'fnthink_grant_items.dart';
 import 'fnthink_pair_items.dart';
 
-/// 发送方在**本机名单**里那一行准不准这一条指令（T128 片2）。
+/// 发送方在**本机名单**里那一行准不准这一条指令（T128 片2，逐条那一半自 T134 片4 起吃整串）。
 ///
 /// 回 null = 准；回一句 = 拒的理由：`level:<那一档>` ｜`unknown-ceiling:<档>` ｜
 /// `not-granted:<item>`（最后这一条由调用方加 `item:` 前缀，与同族的
@@ -15,18 +16,26 @@ import 'fnthink_pair_items.dart';
 /// `type=notice / item=''`，契约 `capabilities.itemRequiredFromLevel` 那一段对这一族
 /// **根本不响**。「这一条是 L3、动的是 `location:get`」只写在正文那个信封里，
 /// 而信封是**收件这一台**拆的。
-/// ⇒ 用户在这台设备上勾的那份清单（`fnthink_peers.items`，T134 片3 才有写入者）必须
-///   在这里生效，否则「只允许 A 读定位、不允许 B 读定位」这一句在本仓没有任何一行代码
-///   能表达；而今天真正拦住「L1 配对的那台发来 L3 指令」的只剩凭据那一道 ——
+/// ⇒ 用户在这台设备上勾的那份清单（`fnthink_peers.items`）必须在这里生效，否则
+///   「只允许 A 读定位、不允许 B 读定位」这一句在本仓没有任何一行代码能表达；
+///   而今天真正拦住「L1 配对的那台发来 L3 指令」的只剩凭据那一道 ——
 ///   契约 `auth.l2Requires = false` 意味着 **L2 连凭据都不必带**。
 ///
-/// ## ⚠ 逐条那一段只判「本机清单表达得了」的形状
-/// [pairItemCandidates] 是同意屏能给的那几项，而清单的比对是**整串相等**（没有通配，
-/// 与服务端 `grant.items.includes(item)` 同一口径）。契约点名要参数的六项 L2 与两枚
-/// L3 toggle 在线上的 item 长成 `<名>/<参数>`：既不在候选里，也就没人能勾上 ⇒
-/// 这一处**不为它们判「没勾」**。判了等于把这六项当场永久打死，而「粒度收到动作级
-/// 还是参数级」是要维护者拍的一条（roadmap T134 行），不该由这一片代拍。
-/// 收紧的方向由天花板那一条负责：档位不够就拒，与 item 形状无关。
+/// ## 逐条那一段判的是「这一串在不在清单里」（片4 起的口径）
+/// 清单的比对是**整串相等**（没有通配，与服务端 `grant.items.includes(item)` 同一口径），
+/// 而片4 之后同意屏勾出来的也是整串（`<名>/<参数>`）—— 两边同一形状，才对得上。
+///
+/// 这里唯一"不看清单"的一维是**这一串的名字根本不在词表里**：那种指令在前面那一格
+/// （`_rejectItem`）就会被拒成 `unknown-action:` / `unknown-setting:`，本函数不替它编一条
+/// 「没勾」—— 那会把"这个词没人认"与"这个词你没给"两种下一步动作塌成一句。
+/// 除此之外，**只要名字在词表里，清单就管它**：片3 那份"要参数 ⇒ 清单表达不了 ⇒ 清单不管"
+/// 的减法是一条逃路，它让契约点名要参数的那六项（含 `app:launch`）只由档位天花板 +
+/// 整机那一枚读能力开关管，而"这一台能不能启动某一条应用"在本机名单里那一格表达不出来。
+///
+/// ⚠ 由此产生的兼容收窄是刻意的：**老对端发来的裸名字**（`battery_saver` 而不带 `/on`）
+/// 从此判不过。协议层仍认那个裸形（`l3.itemMayCarryTarget`），收窄的只有清单这一层 ——
+/// 顺序照契约 `itemGrammar.versionOrder = server-first`（先传服务端与契约，再上设备包），
+/// 反过来的表现是"勾不上而界面当场说一句"，不是静默放行。
 String? rejectBySenderGrant(
   FnthinkContract contract, {
   required String level,
@@ -46,7 +55,9 @@ String? rejectBySenderGrant(
   // 逐条清单：从契约 `itemRequiredFromLevel` 那一档起才看（L1 压根不看清单 ——
   // 给它画一张"勾了也不参与判据"的表，用户读到的是"多勾一项＝多给一项权限"）。
   if (!pairItemsApplyAtLevel(contract, level)) return null;
-  if (!pairItemCandidates(contract).contains(item)) return null;
+  if (!grantItemBases(contract).contains(contract.grantItemBase(item))) {
+    return null;
+  }
   if (!grant.items.contains(item)) return 'not-granted:$item';
   return null;
 }

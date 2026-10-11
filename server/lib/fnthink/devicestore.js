@@ -34,9 +34,10 @@ const {
   looksLikeCredential,
   saveTable,
 } = require('./table');
-// 逐条清单的取值域（T134 片2）：**不写进本文件的第二份名单** —— 它从契约那两张词表现取。
-// 方向是 devicestore → capabilities（后者只依赖 contract），不构成环。
-const { confirmItemVocabulary } = require('./capabilities');
+// 逐条清单的形状闸（T134 片2 起、片4 起是整串）：**不写进本文件的第二份名单** ——
+// 取值域、切串、每一项要不要参数、参数成不成形，全在 capabilities 那一枚判据里（现取现判）。
+// 这里只保留"抛而不是抹掉"这一层语义：写盘的是授权表，坏串进去了没人会再来问一次。
+const { normalizeConfirmItems } = require('./capabilities');
 
 const DEVICE_FILE = path.join(DATA_DIR, 'fnthink_devices.json');
 const NONCE_FILE = path.join(DATA_DIR, 'fnthink_nonces.json');
@@ -91,31 +92,23 @@ function assertLevel(contract, level) {
 }
 
 /// 逐条清单写盘前的那道形状闸（与 `assertLevel` 同一类：**唯一写入者不信任上游**）。
-/// 取值域只有一个出处（`capabilities.confirmItemVocabulary` 从契约那两张词表现取），
-/// 这里不另写一份名单，也不重做 events 那一段的业务判定 —— 那一份管"能不能收这一发"，
-/// 这一份管"别把不是一个动作的东西写进授权表"。抛而不是抹掉：能走到这里而清单是坏的，
-/// 说明接线断了，抹掉等于把断线写成"用户没勾"。
+///
+/// ⚠ 判据不在这里重写：整串的切法、每一项要不要参数、参数成不成形，全部由
+///   `capabilities.normalizeConfirmItems` 判（那是 events 收那一发时用的同一枚）——
+///   这里再写一份 vocabulary 比对的话，片4 之后它就会把**所有带参数的勾**当成"不在词表里"抛掉，
+///   而表现是"对面明明点了同意，服务端这一格却是空的"。
+/// 抛而不是抹掉：能走到这里而清单是坏的，说明接线断了，抹掉等于把断线写成"用户没勾"。
 function assertItemNames(contract, items) {
   if (!Array.isArray(items)) {
     throw new Error(
       `逐条勾选必须是数组（实为 ${JSON.stringify(items)}）：缺省不等于"没勾"，缺的是调用方漏接的那一发`,
     );
   }
-  const vocabulary = confirmItemVocabulary(contract);
-  const out = [];
-  for (const entry of items) {
-    const value = typeof entry === 'string' ? entry.trim() : '';
-    if (value === '') {
-      throw new Error('逐条勾选里有空项或非字符串项（授权表里"空串"与"没有那一项"同形）');
-    }
-    if (!vocabulary.includes(value)) {
-      throw new Error(
-        `逐条勾选的「${value}」不在契约词表里（授权不能写给一个不存在的动作或设置项）`,
-      );
-    }
-    if (!out.includes(value)) out.push(value);
+  const normalized = normalizeConfirmItems(contract, items);
+  if (normalized.reason) {
+    throw new Error(`逐条清单不合法（${normalized.reason}）：授权不能写给一个表达不了的东西`);
   }
-  return out.sort();
+  return normalized.items;
 }
 
 /// 登记设备。幂等 upsert，但**公钥不许静默替换**。

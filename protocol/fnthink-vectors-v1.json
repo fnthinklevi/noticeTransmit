@@ -830,6 +830,25 @@
         "requiresApplyConfirm": false
       },
       "note": "词表那道在两段都先判（顺序即规则）"
+    },
+    {
+      "id": "c-item-bare-name-not-same-as-argument",
+      "given": {
+        "stage": "intake",
+        "grant": {
+          "maxLevel": "L2",
+          "items": ["app:launch/com.example.demo"]
+        },
+        "type": "action",
+        "item": "app:launch",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "item:app:launch",
+        "requiresApplyConfirm": false
+      },
+      "note": "参数级（T134 片4）里没有任何既有向量碰过的那一格：裸动作名与带参数的整串不是同一项。与 pairConfirm.itemGrammar.bareNameRejected 是一对——前者管『已写进表里的怎么判』，后者管『什么值准写进表』。"
     }
   ],
   "_deliveryVocabulary": "delivery[].given 的 state / event 与 expect.state 只能取契约 delivery.states / delivery.events 里的值；expect.receipt 只能取契约 receipts 里的值。expect.ignored 的形状固定是 ignored:<state>+<event>，非空表示这一步什么都不做 —— 乱序与迟到是网络常态，抛错只会让调用方在错误处理里再造一个状态机。",

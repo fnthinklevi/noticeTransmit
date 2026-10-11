@@ -2,17 +2,17 @@ import 'dart:convert';
 
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/services/fnthink_grant_items.dart';
 import 'package:notice_transmit/services/fnthink_pair_items.dart';
 import 'package:notice_transmit/services/fnthink_remote_action_labels.dart';
 
-/// T134 片3：配对同意那一屏**能勾的那几项**是怎么从契约派生出来的。
+/// T134 片3 的那两枚**档位/取值域**读口（片4 之后"画哪几行"搬去 `fnthink_grant_items.dart`）。
 ///
-/// 这一组用例钉的是三件事，每件都有一个"写歪了会怎样"：
+/// 这一组钉的是三件事，每件都有一个"写歪了会怎样"：
 ///  ① 名单只能从契约那两张表来（在界面里抄一份的代价是：契约加一项而那份没加，
 ///     而那一格的缺席在屏上读起来和"用户没兴趣"一模一样）；
-///  ② **要参数的那几项与 L3 那两枚 toggle 不许出现在这张表上** —— 授权表比的是整串，
-///     而它们线上的 item 是 `<名>/<参数>`。把它们列出来就是让用户勾一项永远判不到的东西，
-///     并在界面上留下"我已经给了"的记录；
+///  ② L1 那一档**不看清单**（给它画一张"勾了才生效"的表，用户读到的是"多勾一项＝多给一项权限"，
+///     而那一读法在这一档不成立）；
 ///  ③ 派生结果必须逐项落在契约声明的取值域里（不一致时**抛**，而不是把一批服务端会回 400
 ///     的名字签出去 —— 那一发的表现是"点了同意，什么都没发生"）。
 void main() {
@@ -27,67 +27,27 @@ void main() {
     return FnthinkContract(root);
   }
 
-  group('候选集（pairItemCandidates）', () {
-    test('就是「L2 名单减去要参数的」并上「L3 里不要目标值的那几项」', () {
-      final got = pairItemCandidates(contract);
-      final expected = <String>[
-        ...contract.l2Actions.where(
-          (a) => !contract.l2ActionsRequiringArgument.contains(a),
-        ),
-        ...contract.l3Settings.entries
-            .where((e) => !e.value.isToggle)
-            .map((e) => e.key),
-      ];
-      expect(got, expected);
-      // 条数直接对着契约的两张表说：期望值由**契约**算，不由被量的那个函数算。
+  group('取值域（pairItemVocabulary）', () {
+    test('两张表都解得出来：名单取值、键控表取**键名**', () {
+      final vocabulary = pairItemVocabulary(contract);
+      expect(vocabulary, containsAll(contract.l2Actions));
+      expect(vocabulary, containsAll(contract.l3Settings.keys));
+      // 键控表若被读成"一张空表"（只认名单的那份写法），L3 那六项会永远算词表外 ——
+      // 而界面上那看起来就是"用户没勾"。所以这里要的是**键名进了名单**。
       expect(
-        got.length,
-        contract.l2Actions.length -
-            contract.l2ActionsRequiringArgument.length +
-            contract.l3Settings.values.where((s) => !s.isToggle).length,
+        vocabulary.length,
+        contract.l2Actions.length + contract.l3Settings.length,
       );
     });
 
-    test('要填参数的与那两枚 toggle 一张都不画（勾了也永远对不上线上那个串）', () {
-      final got = pairItemCandidates(contract).toSet();
-      for (final excluded in [
-        ...contract.l2ActionsRequiringArgument,
-        ...contract.l3Settings.entries
-            .where((e) => e.value.isToggle)
-            .map((e) => e.key),
-      ]) {
-        expect(
-          got,
-          isNot(contains(excluded)),
-          reason: '$excluded 在线上发的是 <名>/<参数>，名字进了表就等于画一项永远判不过的东西',
-        );
-      }
-    });
-
-    test('每一项都在契约声明的取值域里，且每一项都有人话标签', () {
-      final vocabulary = pairItemVocabulary(contract).toSet();
-      for (final item in pairItemCandidates(contract)) {
-        expect(vocabulary, contains(item));
+    test('每一项都有人话标签（没配词条的项会被画成裸标识符）', () {
+      for (final item in pairItemVocabulary(contract)) {
         expect(
           hasFnthinkRemoteActionLabel(item),
           isTrue,
-          reason: '没配词条的项会被画成裸标识符（界面上一串英文冒号词），那是看得见的缺',
+          reason: '$item 在屏上会是英文冒号串，那是看得见的缺',
         );
       }
-    });
-
-    test('取值域指到别的表 ⇒ 抛（不把一批服务端会整发拒的名字签出去）', () {
-      final broken = mutate((root) {
-        ((root['clientEvents'] as Map)['pairConfirm']
-            as Map)['itemsVocabularyFrom'] = [
-          'capabilities.l3.settings',
-        ];
-      });
-      expect(
-        () => pairItemCandidates(broken),
-        throwsStateError,
-        reason: 'L2 那些项落进不了取值域 ⇒ 服务端 400，而这在屏上就是"点了同意没反应"',
-      );
     });
 
     test('取值域路径指空 ⇒ 抛，不读成"没有任何一项能勾"', () {
@@ -114,6 +74,22 @@ void main() {
     test('档位词不在契约的档位表里 ⇒ 回 false（不给勾），不把未知当全给', () {
       expect(pairItemsApplyAtLevel(contract, 'L9'), isFalse);
       expect(pairItemsApplyAtLevel(contract, ''), isFalse);
+    });
+  });
+
+  group('派生层与取值域对不上 ⇒ 抛（片3 立的那条自证，读者换到 pairItemRows）', () {
+    test('取值域指到别的表 ⇒ 抛，不把一批服务端会整发拒的名字签出去', () {
+      final broken = mutate((root) {
+        ((root['clientEvents'] as Map)['pairConfirm']
+            as Map)['itemsVocabularyFrom'] = [
+          'capabilities.l3.settings',
+        ];
+      });
+      expect(
+        () => pairItemRows(broken),
+        throwsStateError,
+        reason: 'L2 那些项落进不了取值域 ⇒ 服务端 400，而这在屏上就是"点了同意没反应"',
+      );
     });
   });
 }

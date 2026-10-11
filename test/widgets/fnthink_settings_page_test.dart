@@ -27,7 +27,7 @@ import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
-import 'package:notice_transmit/services/fnthink_pair_items.dart';
+import 'package:notice_transmit/services/fnthink_grant_items.dart';
 import 'package:notice_transmit/services/fnthink_pair_link.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
@@ -1833,25 +1833,36 @@ void main() {
       expect(sentPayload(ctx.h.confirmAsked().single)['items'], isEmpty);
     });
 
-    testWidgets('L2 那一条画的是契约派生的那几项，要填参数的那一项不在表上', (tester) async {
+    testWidgets('L2 那一条画的是契约派生的**全量**，要参数的那几项此刻勾不动', (tester) async {
       stubChannels();
       final ctx = await openWith(tester, requests: [request('L2')]);
-      for (final item in pairItemCandidates(contract)) {
+      for (final row in pairItemRows(contract)) {
         expect(
-          find.byKey(ValueKey('fnthink-pair-item-pr_9-$item')),
+          find.byKey(ValueKey('fnthink-pair-item-pr_9-${row.base}')),
           findsOneWidget,
           reason: '少画一项＝替用户少给一项授权，而屏幕上看不出来',
         );
       }
-      // `channel:toggle` 在线上发的是 `channel:toggle/<通道>` ⇒ 名字进了表也永远对不上。
+      // 片4 起 `channel:toggle` 也在表上了 —— 但此刻它**点不动**（参数还没给）：
+      // 画出来不等于白送，而「白送」那一维过去是靠「整排不画」实现的，那等于把这一族
+      // 留在清单之外只由天花板管（`app:launch` 因此要么整条不给、要么允许启动任意应用）。
+      final toggleBox = find.byKey(
+        const ValueKey('fnthink-pair-item-pr_9-channel:toggle'),
+      );
       expect(
-        find.byKey(const ValueKey('fnthink-pair-item-pr_9-channel:toggle')),
-        findsNothing,
+        tester.widget<Checkbox>(toggleBox).onChanged,
+        isNull,
+        reason: '没填参数就还能勾 ⇒ 勾出去的是一格线上永远对不上的授权',
+      );
+      // 参数控件画在**同一格**上（不另开一屏）：那一格为什么点不动，得就在原地看得见。
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-arg-pr_9-channel:toggle-id')),
+        findsOneWidget,
       );
       expect(
         find.byKey(const ValueKey('fnthink-pair-items-note-pr_9')),
         findsOneWidget,
-        reason: '为什么这里少几项，必须写在同一格上，不然用户只会以为"这台不给我勾"',
+        reason: '这张表的口径写在同一格上，不然用户只会以为"这台不给我勾"',
       );
       // 画了这张表本身不许替用户答复：一条请求都没发出去，才是"等用户点"。
       expect(ctx.h.confirmAsked(), isEmpty);
@@ -1883,6 +1894,176 @@ void main() {
       );
     });
 
+    // ── T134 片4：勾的是**整串**，那四格各一条 ──────────────────────────
+    testWidgets('通道目标那三格填全 ⇒ 出去的是整串，名字单独不在清单里', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      final box = find.byKey(
+        const ValueKey('fnthink-pair-item-pr_9-channel:toggle'),
+      );
+      await revealTo(tester, box);
+      // 三段里少任何一段都还勾不动：族有默认值，号与目标档没有。
+      expect(tester.widget<Checkbox>(box).onChanged, isNull);
+      final idField = find.byKey(
+        const ValueKey('fnthink-pair-arg-pr_9-channel:toggle-id'),
+      );
+      await revealTo(tester, idField);
+      await tester.enterText(idField, 'acme');
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Checkbox>(box).onChanged,
+        isNull,
+        reason: '只填了号就放开 ⇒ 第三段空着的那一串谁都拆不开',
+      );
+      final onChip = find.byKey(
+        const ValueKey('fnthink-pair-arg-pr_9-channel:toggle-on'),
+      );
+      await revealTo(tester, onChip);
+      await tester.tap(onChip);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Checkbox>(box).onChanged, isNotNull);
+      // 点完芯片行会上下移动：`tap` 落在屏幕外只给 warning，读起来像实现坏了。
+      await revealTo(tester, box);
+      await tester.ensureVisible(box);
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      await _tapPair(tester, ctx.l10n, approve: true);
+      final body = sentPayload(ctx.h.confirmAsked().single);
+      expect(
+        (body['items']! as List).cast<String>(),
+        ['channel:toggle/webhook:acme:on'],
+        reason: '勾的是那一条通道 + 那一档，不是「channel:toggle」这个动作',
+      );
+    });
+
+    testWidgets('目标档换一下就是另一格：勾了 off 不会顺手把 on 也放出去', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      final idField = find.byKey(
+        const ValueKey('fnthink-pair-arg-pr_9-channel:toggle-id'),
+      );
+      await revealTo(tester, idField);
+      await tester.enterText(idField, 'acme');
+      await tester.pumpAndSettle();
+      for (final chip in const ['off', 'on']) {
+        final target = find.byKey(
+          ValueKey('fnthink-pair-arg-pr_9-channel:toggle-$chip'),
+        );
+        await revealTo(tester, target);
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+      }
+      // 最后选的是「开着」，而先选「关掉」那一下不该在表里留下第二格。
+      expect(ctx.h.peerRows(), isEmpty, reason: '还没答复，名单不该有行');
+      final box = find.byKey(
+        const ValueKey('fnthink-pair-item-pr_9-channel:toggle'),
+      );
+      await revealTo(tester, box);
+      await tester.ensureVisible(box);
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      await _tapPair(tester, ctx.l10n, approve: true);
+      expect(
+        (sentPayload(ctx.h.confirmAsked().single)['items']! as List)
+            .cast<String>(),
+        ['channel:toggle/webhook:acme:on'],
+        reason: '同一行只可能是**当前**那一串：留着 off 那一格就是替用户多给一档',
+      );
+    });
+
+    testWidgets('L3 那枚 toggle：没选档勾不上，选了「设成开着」出去的是 <名>/on', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L3')]);
+      final box = find.byKey(
+        const ValueKey('fnthink-pair-item-pr_9-monitoring'),
+      );
+      await revealTo(tester, box);
+      expect(
+        tester.widget<Checkbox>(box).onChanged,
+        isNull,
+        reason: '不带目标值的串在线上会"读当前再翻"，重投一次回到原状 ⇒ 那一格不该白送',
+      );
+      final off = find.byKey(
+        const ValueKey('fnthink-pair-arg-pr_9-monitoring-off'),
+      );
+      await revealTo(tester, off);
+      await tester.tap(off);
+      await tester.pumpAndSettle();
+      await revealTo(tester, box);
+      await tester.ensureVisible(box);
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      await _tapPair(tester, ctx.l10n, approve: true);
+      final body = sentPayload(ctx.h.confirmAsked().single);
+      expect(
+        (body['items']! as List).cast<String>(),
+        ['monitoring/off'],
+        reason: '档位词按契约 itemTargetWords 的位置取（第一个是"开着"），界面不写 on/off',
+      );
+      expect(
+        ctx.h.peerRows().single.items,
+        contains('monitoring/off'),
+        reason: '本机名单读的是同一串，否则对面发来的命令会被本机自己驳回',
+      );
+    });
+
+    testWidgets('参数一改，那一格的勾就掉：旧串不跟着答复出去', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      final box = find.byKey(
+        const ValueKey('fnthink-pair-item-pr_9-sms:search'),
+      );
+      final field = find.byKey(
+        const ValueKey('fnthink-pair-arg-pr_9-sms:search'),
+      );
+      await revealTo(tester, field);
+      await tester.enterText(field, 'abc');
+      await tester.pumpAndSettle();
+      await revealTo(tester, box);
+      await tester.tap(box);
+      await tester.pumpAndSettle();
+      expect(ctx.h.peerRows(), isEmpty, reason: '勾上了还没答复，名单不该动 —— 这里只看界面状态');
+      // 改一个字符：屏幕上现在写着的那一串已经不是刚才勾过的那一串了。
+      await tester.enterText(field, 'abd');
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Checkbox>(box).value,
+        isNot(true),
+        reason: '留着那个勾，答复里出去的是 `sms:search/abc` —— 一个界面上早已不存在的东西',
+      );
+      await _tapPair(tester, ctx.l10n, approve: true);
+      expect(sentPayload(ctx.h.confirmAsked().single)['items'], isEmpty);
+    });
+
+    testWidgets('条数填得越界 ⇒ 那一格仍然勾不上（上下界从契约现取，界面不抄一份）', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      final box = find.byKey(
+        const ValueKey('fnthink-pair-item-pr_9-notifications:report'),
+      );
+      final field = find.byKey(
+        const ValueKey('fnthink-pair-arg-pr_9-notifications:report'),
+      );
+      await revealTo(tester, field);
+      await tester.enterText(field, '999999');
+      await tester.pumpAndSettle();
+      await revealTo(tester, box);
+      expect(
+        tester.widget<Checkbox>(box).onChanged,
+        isNull,
+        reason: '越界的那一条在线上根本不会被受理，勾上就是把"已授权"写给一格空东西',
+      );
+      // 上界从契约现取（界面不抄一份数字）：抄的那份一改契约就悄悄把合法值挡掉了。
+      final maxItems = contract.l2ReportMaxItems('notifications:report');
+      await tester.enterText(field, '$maxItems');
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Checkbox>(box).onChanged,
+        isNotNull,
+        reason: '界上界是**可以**的那一格 —— 判据不能窄到把合法值也挡住',
+      );
+      expect(ctx.h.confirmAsked(), isEmpty);
+    });
     testWidgets('一幅都不勾 ⇒ 那一枚键仍在，值是空数组（不是把键省掉）', (tester) async {
       stubChannels();
       final ctx = await openWith(tester, requests: [request('L2')]);

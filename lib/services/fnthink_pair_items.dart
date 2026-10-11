@@ -1,42 +1,16 @@
 import 'package:fnthink_push/fnthink_push.dart';
 
-/// 配对同意那一屏**能勾的那几项**（T134 片3）。
+/// 配对同意那一屏的**档位维度**与**取值域**（T134 片3）。
 ///
-/// ## 为什么不是整张契约词表
-/// 授权表里的比对是**整串相等**（`grant.items` 那个 `contains`，向量
-/// `c-action-item-not-granted` 的原话是"items 里没有通配"）。而这一台将来真发出去的那个
-/// `item`，对契约点名要参数的六个 L2 动作长成 `<名>/<参数>`、对 L3 那两枚 toggle 长成
-/// `<名>/on|off`（见 `fnthink_send_page.dart` 的 `_wireItem`）。
-/// ⇒ 把那些**名字**勾进表里，它们永远对不上线上的串：界面上写着"已授权"，对面发过来还是一句
-/// `item:<整串>` 的 403。所以这里只给"勾了就真能对上"的那几项 —— 宁可窄。
+/// 「这一屏画哪几行、每行收哪种参数、那一串能不能进授权表」在 `fnthink_grant_items.dart`
+/// （片4 起粒度＝参数级）。这一份只回答另外两件事，因为它们的服务对象不是那张表：
+/// - [pairItemsApplyAtLevel]：**这一档到底看不看清单**。
+/// - [pairItemVocabulary]：契约声明的取值域**本身**（派生层拿它自证没抄名单）。
 ///
-/// 粒度到底收到"动作级"还是"参数级"是要拍的一条产品与安全取舍（按名字匹配＝勾 `app:launch`
-/// 等于允许对面启动任意应用），登记在 roadmap 的 T134 行；**拍下来之前这张表不许放宽**。
-///
-/// ## 名单不在这里抄
-/// 取值域仍是契约那两张表（`clientEvents.pairConfirm.itemsVocabularyFrom` 指过去的两处），
-/// 本文件只做减法。末尾那道"派生结果必须逐项落在契约声明的取值域里"钉的就是这件事：
-/// 哪天 `itemsVocabularyFrom` 改指别的表，这里**抛**，而不是把一批服务端会整发拒（400）的
-/// 名字签出去 —— 后者在屏幕上的表现是"点了同意，什么都没发生"。
-List<String> pairItemCandidates(FnthinkContract contract) {
-  final needsArgument = contract.l2ActionsRequiringArgument.toSet();
-  final out = <String>[
-    ...contract.l2Actions.where((a) => !needsArgument.contains(a)),
-    ...contract.l3Settings.entries
-        .where((e) => !e.value.isToggle)
-        .map((e) => e.key),
-  ];
-  final vocabulary = pairItemVocabulary(contract);
-  final outside = out.where((i) => !vocabulary.contains(i)).toList();
-  if (outside.isNotEmpty) {
-    throw StateError(
-      '本机派生出的勾逐项不在契约声明的取值域里：$outside（取值域路径 = '
-      '${contract.pairConfirmItemsVocabulary.join('/')}）—— '
-      '服务端会整发拒（状态码由 unknownItemStatus 定），而用户在屏上刚勾完',
-    );
-  }
-  return out;
-}
+/// ⚠ 片3 那份"把要参数的项整排减掉"的写法已经删掉了。它当时的理由（"名字勾了对不上线上
+/// 那一串"）到今天仍然成立 —— 成立的是**结论的方向**而不是那次减法：对的做法是让勾选项
+/// 自己也长成线上那一串（`<名>/<参数>`），而不是把那一族留在清单之外只由档位天花板管
+/// （`app:launch` 那一格因此要么整条不给、要么等于允许对面启动任意应用）。
 
 /// 这一档**会不会**去看逐条清单（从契约 `capabilities.itemRequiredFromLevel` 那一档起）。
 ///

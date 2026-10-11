@@ -137,19 +137,182 @@ function confirmItemVocabulary(contract) {
   return out.sort();
 }
 
-/// 把答复载荷里那一枚 `items` 读成"可以写进授权表的清单"（T134 片2）。
+/// 整串里把「动作名」与「参数」分开的那一枚字符（T134 片4，契约声明，服务端不写死斜杠）。
 ///
-/// 四种拒的理由各不相同，**不许合并**（与 parseL2Item / parseL3Item 同一条纪律）：
-///   items-not-array     形状就不是清单（老客户端不会走到这里：契约 optionalFields 缺省填 []）
-///   item-not-string     混进了数字/对象 —— 写进表里下一次读它的是 `includes`，比对的是字符串
-///   item-empty          空项：空串在授权表里与"没有那一项"同形，留着只会让人以为勾上了
-///   unknown-item:<x>    词表外 —— 词表外的勾无从执行，收下就等于把"我给了权限"写成一句空话
+/// 与设备侧 `contract.grantItemBase / grantItemArgument` 同一把刀：**两端切出来的名字必须逐字相同**，
+/// 否则 A 那边勾的是一格、B 那边查表查的是另一格，而两边的比对标的都是整串 —— 那种错位看不见。
+function grantItemSeparator(contract) {
+  const spec = ((contract.clientEvents || {}).pairConfirm || {}).itemGrammar || {};
+  const value = spec.argumentSeparator;
+  if (typeof value !== 'string' || Array.from(value).length !== 1) {
+    throw new Error(
+      'pairConfirm.itemGrammar.argumentSeparator 必须是单个字符（实得 ' +
+        JSON.stringify(value) +
+        '）：勾选项的整串靠它切，切不开就没有"哪一项"可查',
+    );
+  }
+  return value;
+}
+
+/// 把那一枚 item 切成 `{ base, argument, hasSeparator }`。
+///
+/// ⚠ `hasSeparator` 与"参数是不是空串"是两件事：`listener:start/` 的参数段是空串，
+///   只按空串判就成了"没带参数"⇒ 那一格被当成合法写进授权表，而线上从来发不出带尾斜杠的串。
+///   设备侧 `grantItemProblem` 判的是同一件（那几条形状用例钉着），两份必须一起改。
+function grantItemSplit(contract, value) {
+  const separator = grantItemSeparator(contract);
+  const at = value.indexOf(separator);
+  return at < 0
+    ? { base: value, argument: '', hasSeparator: false }
+    : { base: value.slice(0, at), argument: value.slice(at + 1), hasSeparator: true };
+}
+
+/// 这一项**要不要**参数、要的是哪一种形状（读契约那两张表，服务端不存第二份）。
+///
+/// 两处说法不一致就抛：`requiresArgumentFrom` 说"要参数"而 `l2.reports` 没给 `argumentKind`，
+/// 这一项的整串就没有作者 —— 服务端只剩"照着猜一种拼法"，而猜的方向不可控（猜宽了等于
+/// 把"勾一条通道"读成"勾任意一条"）。抛出去由调用处按 400 那一档回，不静默收下。
+function grantItemKind(contract, base) {
+  const caps = contract.capabilities || {};
+  const l2 = caps.l2 || {};
+  const l3 = caps.l3 || {};
+  const reports = l2.reports || {};
+  const settings = l3.settings || {};
+  const needsList = Array.isArray(l2.requiresArgumentFrom) ? l2.requiresArgumentFrom : [];
+  // ⚠ 用 `Object.prototype.hasOwnProperty` 而不是 `in`：`settings` 是从 JSON 解析出来的对象，
+  //   `in` 会把原型上的名字（`__proto__`、`toString`…）当成设置项 —— #130-A 那批治过的同一族。
+  if (Object.prototype.hasOwnProperty.call(settings, base)) {
+    if (needsList.includes(base)) {
+      throw new Error(
+        `${base} 既在 capabilities.l3.settings 里、又被列进 l2.requiresArgumentFrom：` +
+          '一处说它是设置项、一处说它是动作，两端会各按一种读法拼串',
+      );
+    }
+    const isToggle = settings[base] && settings[base].mode === 'toggle';
+    return {
+      // `grant` 型那几项没有"设成哪一档"这一说（它只能请用户去系统里开）。
+      needsArgument: isToggle && l3.itemMayCarryTarget === true,
+      kind: isToggle ? 'toggle' : null,
+    };
+  }
+  const declared = reports[base] ? reports[base].argumentKind : undefined;
+  const kind = declared === undefined || declared === null || declared === 'none' ? null : declared;
+  if (kind !== null && !['count', 'keyword', 'channelTarget'].includes(kind)) {
+    throw new Error(
+      `l2.reports.${base}.argumentKind=${JSON.stringify(declared)} 本机读不出形状：只剩猜一种拼法`,
+    );
+  }
+  const needs = needsList.includes(base);
+  if (needs !== (kind !== null)) {
+    throw new Error(
+      `${base} 在两处说法不一致：requiresArgumentFrom ${needs ? '列了' : '没列'}，` +
+        `l2.reports 的 argumentKind 却是 ${JSON.stringify(declared ?? null)}`,
+    );
+  }
+  return { needsArgument: needs, kind };
+}
+
+/// 参数成不成形（四类形状各一条判据，**不许合成一条"长度对不对"**）。
+/// 理由串与设备侧逐字同一批前缀（`reportArgumentProblem` / `rejectChannelTarget` /
+/// `grantItemProblem`）：两端各写一份迟早漂，而漂的表现是"A 看到的拒因与 B 记下的不是一句话"。
+function grantItemShapeProblem(contract, base, kind, argument) {
+  const caps = contract.capabilities || {};
+  const l2 = caps.l2 || {};
+  const spec = (l2.reports || {})[base] || {};
+  if (kind === 'count') {
+    const trimmed = argument.trim();
+    const count = /^-?\d+$/.test(trimmed) ? Number(trimmed) : null;
+    const min = spec.minItems;
+    const max = spec.maxItems;
+    // 契约没声明上下界 ⇒ 一律不认（fail-closed：没有上界的那一条是一条没人核对过的路）。
+    if (count === null || typeof min !== 'number' || typeof max !== 'number') {
+      return `bad-report-count:${trimmed}`;
+    }
+    if (count < min || count > max) return `bad-report-count:${trimmed}`;
+    return null;
+  }
+  if (kind === 'keyword') {
+    const trimmed = argument.trim();
+    const min = spec.minChars;
+    const max = spec.maxChars;
+    if (
+      typeof min !== 'number' ||
+      typeof max !== 'number' ||
+      trimmed.length < min ||
+      trimmed.length > max
+    ) {
+      return `bad-keyword:${trimmed}`;
+    }
+    // 控制字符（含 NUL 与 DEL）：一句话在对面读起来会断成两截，而 item 是整串比对的键。
+    for (let i = 0; i < trimmed.length; i += 1) {
+      const code = trimmed.charCodeAt(i);
+      if (code < 0x20 || code === 0x7f) return `bad-keyword:${trimmed}`;
+    }
+    return null;
+  }
+  if (kind === 'channelTarget') {
+    const shape = l2.channelTargetShape || {};
+    const separator = shape.segmentSeparator;
+    const words = Array.isArray(shape.targetWords) ? shape.targetWords : [];
+    const families = Array.isArray(shape.families) ? shape.families : [];
+    if (
+      typeof separator !== 'string' ||
+      Array.from(separator).length !== 1 ||
+      families.length === 0 ||
+      words.length !== 2 ||
+      !(typeof shape.segments === 'number' && shape.segments >= 2)
+    ) {
+      // 形状声明本身残缺：**不能**"当没参数收下"，那是把一格没人核对过的串签出去。
+      return `bad-channel-argument:${argument}`;
+    }
+    const parts = argument.split(separator);
+    // ⚠ `!== segments` 而不是 `< segments`：多一段也要拒（静默取前三段的话，
+    //   对面拼错一个字符就变成另一条指令）。
+    if (parts.length !== shape.segments) return `bad-channel-argument:${argument}`;
+    const family = parts[0];
+    const id = parts[1];
+    const wanted = parts[parts.length - 1];
+    if (family === '' || id.trim() === '') return `bad-channel-argument:${argument}`;
+    if (!families.includes(family)) return `bad-channel-argument:${argument}`;
+    // 两个目标词按**位置**读（第一个 = 设成开着）：与设备侧同一约定，由 contract.validate() 钉。
+    if (wanted !== words[0] && wanted !== words[1]) {
+      return `bad-channel-argument:${argument}`;
+    }
+    return null;
+  }
+  if (kind === 'toggle') {
+    const words = (caps.l3 || {}).itemTargetWords || [];
+    if (Array.isArray(words) && words.includes(argument)) return null;
+    return `unknown-target-word:${argument}`;
+  }
+  return `bad-argument-kind:${base}`;
+}
+
+/// 裸名字被判不过时那一句（形状从契约读：`bareNameRejected` 尾部那个 `X` 换成具体名字）。
+function grantItemBareRejected(contract, base) {
+  const spec = ((contract.clientEvents || {}).pairConfirm || {}).itemGrammar || {};
+  const template = spec.bareNameRejected;
+  if (typeof template !== 'string' || !template.endsWith(':X')) {
+    throw new Error(
+      'pairConfirm.itemGrammar.bareNameRejected 必须是「词:X」形状（实得 ' +
+        JSON.stringify(template) +
+        '）：尾部那个 X 才是实现换名字的位置',
+    );
+  }
+  return template.replace(':X', `:${base}`);
+}
+
+/// 把答复载荷里那一枚 `items` 读成"可以写进授权表的清单"（T134 片2；形状自片4 起是整串）。
+///
+/// 拒的理由**不许合并**（与设备侧 `grantItemProblem` 逐字同一批前缀）：
+///   items-not-array / item-not-string / item-empty / unknown-item:<名>
+///   / 契约那句 item-argument-required:<名> / unexpected-argument:<名> / 各形状自己的理由
 /// 返回 `{reason}` 或 `{items}`，不自己造拒绝对象（状态码由调用处按契约那枚旋钮挑）。
 ///
-/// ⚠ **比的是整串，没有通配**（向量 `c-action-item-not-granted` 那条 note 说的就是这件事）：
-///   词表里那 18 项中，带参数的那几项（契约 `l2.requiresArgumentFrom` 六项 + `l3` 两枚 toggle）
-///   在线上的 item 长成 `<名>/<参数>`，因此勾了名字也判不过。粒度那条不在这里拍，
-///   登记在 roadmap T134 片3 前面。
+/// ⚠ **写进表里的是整串**（向量 `c-action-item-not-granted` 那条 note 说的就是"没有通配"）：
+///   片4 之前勾的是**名字**，而线上发的是 `<名>/<参数>` ⇒ 那一格永远判不过，界面上却写着"已授权"。
+///   现在勾的就是那一整串，两端同一形状，"勾了却用不上"从源头关掉；代价是**裸名字不再是合法勾选项**
+///   （兼容范围与发版次序写在契约 `itemGrammar` 那一段里）。
 function normalizeConfirmItems(contract, raw) {
   if (!Array.isArray(raw)) return { reason: 'items-not-array' };
   const vocabulary = confirmItemVocabulary(contract);
@@ -158,7 +321,16 @@ function normalizeConfirmItems(contract, raw) {
     if (typeof entry !== 'string') return { reason: 'item-not-string' };
     const value = entry.trim();
     if (value === '') return { reason: 'item-empty' };
-    if (vocabulary.indexOf(value) < 0) return { reason: `unknown-item:${value}` };
+    const { base, argument, hasSeparator } = grantItemSplit(contract, value);
+    if (vocabulary.indexOf(base) < 0) return { reason: `unknown-item:${base}` };
+    const { needsArgument, kind } = grantItemKind(contract, base);
+    if (!needsArgument) {
+      if (hasSeparator) return { reason: `unexpected-argument:${base}` };
+    } else {
+      if (argument === '') return { reason: grantItemBareRejected(contract, base) };
+      const problem = grantItemShapeProblem(contract, base, kind, argument);
+      if (problem) return { reason: problem };
+    }
     // 重复项**静默去重**而不是拒：一次重试、一份把同一项列了两遍的清单，落进表里都该是同一件事；
     // 拒掉它的表现是"用户点了同意而界面只回一句与口令错同形的话"。
     if (out.indexOf(value) < 0) out.push(value);
@@ -170,6 +342,11 @@ module.exports = {
   confirmItemVocabulary,
   decideCapability,
   endpointGrant,
+  grantItemBareRejected,
+  grantItemKind,
+  grantItemSeparator,
+  grantItemShapeProblem,
+  grantItemSplit,
   grantFromNode,
   // 档位比较开给配对（#131）：级别顺序的出处只能有一个（capabilities.levels 的位置）。
   // 各写一份 rank 表，改档位顺序时只会红一边 —— T30-A 就是为了删掉 pairing.dart 里那份私有表。

@@ -317,12 +317,16 @@ describe('decideRequest（#131 第三片）', () => {
       contract,
       s.requests,
       s.devices,
-      decide({ requestId: s.id, level: 'L2', items: ['alert:ring', 'notifications:report'] }),
+      decide({
+        requestId: s.id,
+        level: 'L2',
+        items: ['alert:ring', 'notifications:report/5'],
+      }),
       NOW,
     );
     expect(devicestore.peerGrant(contract, s.devices[A], B).items).toEqual([
       'alert:ring',
-      'notifications:report',
+      'notifications:report/5',
     ]);
     // 档位对称、清单不对称（契约 reverseGrantItems=empty）：复制过去就是 A 替 B 点头，
     // 而逐条勾选整块存在的理由正是"不替谁点头"。

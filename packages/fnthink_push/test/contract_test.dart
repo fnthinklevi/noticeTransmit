@@ -2879,10 +2879,26 @@ void main() {
   group('回传动作那张表（T124 片B）：改坏哪一条就报哪一条', () {
     // 造一份"只把 l2.reports / requiresArgumentFrom 换掉"的契约 —— 其余原样，
     // 于是每一条断言红的只可能是它自己那一处。
-    FnthinkContract withL2({Object? reports, Object? requiresArgumentFrom}) {
+    //
+    // ⚠ `channel:toggle` 那一格默认**留着**（[declareChannelTarget]）：T134 片4 起它是契约级
+    // 不变量（那是清单里唯一"三段拼出来"的项，参数形状只有一个出处）。跟着注入的表一起删掉它，
+    // 每一条断言都会额外红在同一处无关缺项上 —— "红的只可能是自己那一处"这个前提就没了。
+    // 要专门测「那一格没声明会怎样」，显式传 false（就是下面「整张表缺了」那一条）。
+    FnthinkContract withL2({
+      Object? reports,
+      Object? requiresArgumentFrom,
+      bool declareChannelTarget = true,
+    }) {
       final caps = Map<String, Object?>.from(c.raw['capabilities'] as Map);
       final l2 = Map<String, Object?>.from(caps['l2'] as Map);
-      if (reports != null) l2['reports'] = reports;
+      if (reports != null) {
+        final table = <String, Object?>{};
+        if (declareChannelTarget) {
+          table['channel:toggle'] = const {'argumentKind': 'channelTarget'};
+        }
+        (reports as Map).forEach((key, value) => table['$key'] = value);
+        l2['reports'] = table;
+      }
       if (requiresArgumentFrom != null) {
         l2['requiresArgumentFrom'] = requiresArgumentFrom;
       }
@@ -2927,7 +2943,7 @@ void main() {
       );
     });
 
-    test('argumentKind 不是 count/keyword/none ⇒ 报出来', () {
+    test('argumentKind 不是 count/keyword/none/channelTarget ⇒ 报出来', () {
       final broken = withL2(
         reports: {
           'notifications:report': {...okSpec, 'argumentKind': 'flag'},
@@ -2935,7 +2951,9 @@ void main() {
       );
       expect(
         broken.validate(),
-        anyElement(contains('argumentKind 必须是 count、keyword 或 none')),
+        anyElement(
+          contains('argumentKind 必须是 count、keyword、none 或 channelTarget'),
+        ),
       );
     });
 
@@ -3067,10 +3085,180 @@ void main() {
       expect(c2.l2ReportTitle('sms:search'), isNull);
     });
 
-    test('整张表缺了 ⇒ 空表 = 没有回传动作（不是"默认放行"）', () {
-      final noReports = withL2(reports: const <String, Object?>{});
+    test('整张表缺了 ⇒ 读出来是空表（不是"默认放行"），而那格缺了要报', () {
+      final noReports = withL2(
+        reports: const <String, Object?>{},
+        declareChannelTarget: false,
+      );
       expect(noReports.l2Reports, isEmpty);
-      expect(noReports.validate(), isEmpty, reason: '不写这一节是合法的：没声明就没有回传');
+      expect(
+        noReports.validate(),
+        anyElement(contains('channel:toggle 那一格必须存在')),
+        reason:
+            '不写这一节在过去是合法的（没声明就没有回传）；T134 片4 起'
+            '清单里那一项的参数形状只能从这里读，缺了它两端就各发明一套三段串',
+      );
+    });
+  });
+
+  group('勾选项的整串语法（T134 片4，粒度＝参数级）', () {
+    // 按路径改**一处**、其余原样 —— 与上面那些组同一手法：红的只可能是被改的那一维。
+    // `value: null` 表示"把这一枚键删掉"（那些节缺位时的读法就是这里要测的）。
+    FnthinkContract edited(List<String> path, Object? value) {
+      final root = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
+      var node = root;
+      for (final key in path.take(path.length - 1)) {
+        node = node[key] as Map<String, Object?>;
+      }
+      if (value == null) {
+        node.remove(path.last);
+      } else {
+        node[path.last] = value;
+      }
+      return FnthinkContract.parse(jsonEncode(root));
+    }
+
+    final grammar = const ['clientEvents', 'pairConfirm', 'itemGrammar'];
+
+    test('真契约：粒度、分隔符、拒绝那一句都从契约读得出（不在实现里写死）', () {
+      expect(c.grantItemGranularity, 'argument');
+      expect(c.grantItemsAreArgumentLevel, isTrue);
+      expect(c.grantItemSeparator, '/');
+      expect(c.grantItemBareNameRejected, 'item-argument-required:X');
+      // 尾部那个 X 由实现换成具体名字，拼接处只有这一枚方法。
+      expect(
+        c.grantItemBareNameRejectedFor('app:launch'),
+        'item-argument-required:app:launch',
+      );
+    });
+
+    test('通道目标那三段的形状读得出：族／段数／两个目标值／段分隔符', () {
+      expect(c.l2ChannelTargetFamilies, ['webhook', 'app', 'email']);
+      expect(c.l2ChannelTargetSegmentsOf(), 3);
+      expect(c.l2ChannelTargetWords, ['on', 'off']);
+      expect(c.l2ChannelTargetSeparator, ':');
+      // 段分隔符与勾选项的分隔符是**两个不同的字符**：写成同一个，三段串就切不出唯一结果。
+      expect(c.l2ChannelTargetSeparator, isNot(c.grantItemSeparator));
+    });
+
+    test('itemGrammar 整节缺了 ⇒ validate 报，且 getter 抛而不补默认值', () {
+      final broken = edited([...grammar], null);
+      expect(() => broken.grantItemGranularity, throwsStateError);
+      expect(() => broken.grantItemSeparator, throwsStateError);
+      expect(() => broken.grantItemBareNameRejected, throwsStateError);
+      expect(
+        broken.validate(),
+        anyElement(contains('itemGrammar.argumentSeparator 必须是单个字符')),
+      );
+    });
+
+    test('granularity 被改回动作级 ⇒ 报（改这一维要连着改同意屏与逐条判据）', () {
+      final broken = edited([...grammar, 'granularity'], 'action');
+      expect(broken.validate(), anyElement(contains('不是 argument')));
+      // 读侧跟着这一位走，不在页面里另判一次：契约说动作级，勾选项就退回"无参数的那几项"。
+      expect(broken.grantItemsAreArgumentLevel, isFalse);
+    });
+
+    test('分隔符写成多字符 ⇒ 报（两端各按第一个字符切，整串就不再唯一）', () {
+      final broken = edited([...grammar, 'argumentSeparator'], '//');
+      expect(broken.validate(), anyElement(contains('必须是单个字符')));
+    });
+
+    test('词表里的名字自己含那个分隔符 ⇒ 报（"切第一段＝动作名"有两种解释）', () {
+      // 把分隔符换成 `:`：那 12 项动作名每一项都含它。
+      // 这一维今天不会自己冒出来（名字是 `<family>:<verb>` 形状），但它是"唯一拆法"的前提。
+      final broken = edited([...grammar, 'argumentSeparator'], ':');
+      expect(broken.validate(), anyElement(contains('含分隔符')));
+    });
+
+    test('裸名拒绝那一句少了尾部那个 X ⇒ 报（实现没有可替换的位置）', () {
+      final broken = edited([
+        ...grammar,
+        'bareNameRejected',
+      ], 'item-argument-required');
+      expect(broken.validate(), anyElement(contains('形状必须是「词:X」')));
+      expect(() => broken.grantItemBareNameRejected, throwsStateError);
+    });
+
+    test('channel:toggle 那一格写成别的 kind ⇒ 报（三段串就没有单点）', () {
+      final broken = edited([
+        ...const ['capabilities', 'l2', 'reports'],
+        'channel:toggle',
+        'argumentKind',
+      ], 'keyword');
+      expect(
+        broken.validate(),
+        anyElement(contains('channel:toggle 那一格必须存在且 kind=channelTarget')),
+      );
+    });
+
+    test('channelTarget 那一格带了上下界或 title ⇒ 报（形状两处各写一份必漂）', () {
+      final broken = edited(
+        [
+          ...const ['capabilities', 'l2', 'reports'],
+          'channel:toggle',
+        ],
+        const {'argumentKind': 'channelTarget', 'minChars': 1, 'title': 'x'},
+      );
+      final errors = broken.validate();
+      expect(errors, anyElement(contains('不该出现在 channelTarget 那一格')));
+      // 两枚键各报各的（同一族里的上下界与 title 都不是那一格的合法键）。
+      expect(
+        errors.where((e) => e.contains('不该出现在 channelTarget 那一格')).length,
+        2,
+        reason: 'minChars 与 title 各一条 —— 合并成一句就看不出漏了哪一个',
+      );
+    });
+
+    test('channelTargetShape 整节缺了 ⇒ 四枚 getter 各抛各的，validate 也报', () {
+      final broken = edited(['capabilities', 'l2', 'channelTargetShape'], null);
+      expect(() => broken.l2ChannelTargetFamilies, throwsStateError);
+      expect(() => broken.l2ChannelTargetSeparator, throwsStateError);
+      expect(() => broken.l2ChannelTargetSegmentsOf(), throwsStateError);
+      expect(() => broken.l2ChannelTargetWords, throwsStateError);
+      expect(
+        broken.validate(),
+        anyElement(contains('channelTargetShape 必须给得出')),
+      );
+    });
+
+    test('targetWords 里的词含段分隔符 ⇒ 报（三段切不出唯一结果）', () {
+      final broken = edited(
+        ['capabilities', 'l2', 'channelTargetShape', 'targetWords'],
+        const ['on', 'of:f'],
+      );
+      expect(broken.validate(), anyElement(contains('含段分隔符')));
+    });
+
+    test('两组目标词换了顺序 ⇒ 各报各的（按位置读的那四处会各读反一次）', () {
+      final channel = edited(
+        ['capabilities', 'l2', 'channelTargetShape', 'targetWords'],
+        const ['off', 'on'],
+      );
+      expect(
+        channel.validate(),
+        anyElement(contains('channelTargetShape.targetWords 必须是')),
+      );
+      final toggle = edited(
+        ['capabilities', 'l3', 'itemTargetWords'],
+        const ['off', 'on'],
+      );
+      expect(toggle.validate(), anyElement(contains('l3.itemTargetWords 必须是')));
+    });
+
+    test('channel:toggle 从 requiresArgumentFrom 里摘掉 ⇒ 报（参数就是那条要动的通道）', () {
+      final broken = edited(
+        ['capabilities', 'l2', 'requiresArgumentFrom'],
+        c.l2ActionsRequiringArgument
+            .where((a) => a != 'channel:toggle')
+            .toList(),
+      );
+      expect(
+        broken.validate(),
+        anyElement(
+          contains('channel:toggle 必须列在 capabilities.l2.requiresArgumentFrom'),
+        ),
+      );
     });
   });
 }

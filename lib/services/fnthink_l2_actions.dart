@@ -265,7 +265,7 @@ Future<FnthinkL2Result> dispatchL2Action(
       // ⚠ 拆不出 [RemoteChannelTarget] 就是「参数不成形」—— 收件那一格应当已经拒过，
       //   走到这里说明那两处对同一个字符串的理解不一致（收件那格漏了，或参数被换过）。
       //   记成 `failed` 而不是抛：那正是"这份代码与判据脱节了"，要让留痕看得见。
-      final target = parseChannelTarget(action.argument);
+      final target = parseChannelTarget(contract, action.argument);
       if (target == null) {
         return FnthinkL2Result.failed(
           'bad-channel-argument:${action.argument}',
@@ -395,9 +395,11 @@ Future<FnthinkL2Result> dispatchL2Action(
   }
 }
 
-/// `channel:toggle` 的参数解析（远程执行 片3c-2）。
+/// `channel:toggle` 的参数解析（远程执行 片3c-2，形状自 T134 片4 起**从契约读**）。
 ///
-/// ## 参数形状：`<family>:<id>:<on|off>`
+/// ## 参数形状：`<family><段分隔符><id><段分隔符><on|off>`
+/// 四件都在契约 `capabilities.l2.channelTargetShape`：族表、段分隔符、段数、那两个目标词
+/// （**第一个是「开」**，那一条由 `contract.validate()` 钉住 —— 按位置读的一共四处）。
 ///
 /// ⚠ **三段都必填，缺一段就拒**。这不是格式洁癖，是重投的直接后果：
 /// 契约 `delivery` 的投递语义是 at-least-once（ack 没送到 ⇒ 服务端重投），
@@ -415,73 +417,91 @@ Future<FnthinkL2Result> dispatchL2Action(
 /// ⚠ **family 段必填**（不能只给 id）：三族的 id **允许重复**
 /// （健康缓存按 `family:id` 存就是这个前提），
 /// 所以"按 id 在三族里找第一个"是不确定的 —— 同一条指令两次执行可能命中不同族。
-/// `family` 的合法值就是本机**可远程启停的那三族**，与 [updateChannelRole] / [updateChannelEnabled]
-/// 的 switch 分支同源。⚠ 显示用的族表（`channel_display.dart` 的 `_familyNames`）现在**多一族**
+/// 可远程启停的那几族住在契约里（`channelTargetShape.families`）；本机那份常量
+/// （[kFnthinkRemoteChannelFamilies]）只剩"发送侧把这三族画成可点的选项"这一个用途，
+/// 两份的相等由 `test/architecture/channel_target_shape_contract_test.dart` 钉。
+/// ⚠ 显示用的族表（`channel_display.dart` 的 `_familyNames`）比这里**多一族**
 /// （幻念，T104 片③ 起出现在首页与通道状态页）：要开放远程启停得同时给两条 switch 加分支，
 /// 那是扩大"对面能动我这台的范围"，不是一次显示改动顺带做的事。
 ///
 /// ⚠ **拆不出来就回 null，不猜**：这一层在**进延时窗口之前**跑（判定层那一格），
 /// 而"猜一个族"等于凭空替这条指令选一个要动的东西。
-RemoteChannelTarget? parseChannelTarget(String? argument) {
+RemoteChannelTarget? parseChannelTarget(
+  FnthinkContract contract,
+  String? argument,
+) {
   if (argument == null || argument.isEmpty) return null;
-  final parts = argument.split(':');
-  // ⚠ 用 `length != 3` 而不是 `parts.length < 3`：多一段也要拒 ——
+  final separator = contract.l2ChannelTargetSeparator;
+  final words = contract.l2ChannelTargetWords;
+  final parts = argument.split(separator);
+  // ⚠ 用 `!= 段数` 而不是 `< 段数`：多一段也要拒 ——
   //   `<family>:<id>:<on|off>:<多余>` 静默取前三段的话，对面拼错一个字符就变成另一条指令。
-  if (parts.length != 3) return null;
-  final (family, id, wanted) = (parts[0], parts[1], parts[2]);
-  if (family.isEmpty || id.isEmpty) return null;
-  // ⚠ 只认这两个词，不做 `startsWith('o')` 之类的宽容归一：
+  if (parts.length != contract.l2ChannelTargetSegmentsOf()) return null;
+  final (family, id, wanted) = (parts.first, parts[1], parts.last);
+  if (family.isEmpty || id.trim().isEmpty) return null;
+  // ⚠ 只认词表里那两个词，不做 `startsWith('o')` 之类的宽容归一：
   //   宽容会把拼错的参数变成一次真实的启停，而重投会把它再启停一次。
   final bool? enabled = switch (wanted) {
-    'on' => true,
-    'off' => false,
+    final word when word == words.first => true,
+    final word when word == words[1] => false,
     _ => null,
   };
   if (enabled == null) return null;
-  if (!isKnownChannelFamily(family)) return null;
+  if (!contract.l2ChannelTargetFamilies.contains(family)) return null;
   return RemoteChannelTarget(family: family, id: id, enabled: enabled);
 }
 
-/// 这里**只管远程启停**这一档的三族（`webhook` / `app` / `email`）。
+/// 这里**只管远程启停**那一档的三族（`webhook` / `app` / `email`）。
 ///
-/// ⚠ **这里列的是"可写的族"里的第三份**：另两份在 [updateChannelRole] 与
-/// [updateChannelEnabled] 的 switch 分支。加一族要三处一起改；只改这份的表现是
-/// 「这一族能配能显示，就是远程启停不认识它，界面上还没有提示」。
-/// ⚠ 显示那一张表（`channel_display.dart` 的 `_familyNames`）比这里多一族（幻念）：
-/// 那是 T104 片③ 的**显示**改动。⚠ **别把这一档与"主备"混着读** —— 主备那一档从 T113 起
-/// 四族都能改（幻念走只改角色的 `FnthinkChannelService.setRole`，不重验目标），
-/// 而这一族的**启停**仍只有那三族：幻念的启停只有 `save()` 一条路，会连带重验目标，
-/// 形状与"设一个布尔"不是一件事。要在这里加一个词，先决定的是那条形状，不是这里。
-/// 可被远程启停的那三族（`webhook` / `app` / `email`）—— **名单在这里，判据也在这里**。
-///
-/// 为什么是一枚可枚举的常量而不是只留一个 `isKnownChannelFamily`：发送侧那一格要把这三族
-/// 画成可点的选项（T124 A 片：参数由界面生成，不让人手敲冒号串）。只留谓词的话，
-/// 界面就得自己抄一份名单，而"抄的那份与判的那份不一致"正是这一族反复犯的病。
+/// ⚠ T134 片4 起这一份**不再是判据**：判族认不认得读的是契约
+/// （`capabilities.l2.channelTargetShape.families`，见 [parseChannelTarget]）。
+/// 留这一枚常量是因为发送侧那一格要把这几族**画成可点的选项**，而界面拿不到"契约里那张
+/// 键控表的键"那么顺手的读口 —— 只留谓词的话界面就得自己抄一份名单，而"抄的那份与判的那份
+/// 不一致"正是这一族反复犯的病。两份相等由 `channel_target_shape_contract_test.dart` 现读现比。
+/// ⚠ **别把这一档与"主备"混着读** —— 主备那一档从 T113 起四族都能改（幻念走只改角色的
+/// `FnthinkChannelService.setRole`，不重验目标），而这一族的**启停**仍只有那三族：幻念的启停
+/// 只有 `save()` 一条路，会连带重验目标，形状与"设一个布尔"不是一件事。
+/// 要往契约里加一个词，先决定的是那条形状，不是这里。
 const List<String> kFnthinkRemoteChannelFamilies = ['webhook', 'app', 'email'];
-
-bool isKnownChannelFamily(String family) =>
-    kFnthinkRemoteChannelFamilies.contains(family);
 
 /// 拼 `channel:toggle` 的参数（**发送侧唯一作者**）。
 ///
-/// 形状与理由都在 [parseChannelTarget] 上面那段：三段齐全、第三段是**目标值**而不是"翻"。
+/// 形状与理由都在 [parseChannelTarget] 顶上那段：三段齐全、第三段是**目标值**而不是"翻"，
+/// 而段分隔符与那两个词都从契约现取（勾选项那一侧走 `grantItemWire`，同一枚分隔符）。
 /// 这里不校验 id（对面那台的通道号本机无从知道），但族与目标值只可能取自
-/// [kFnthinkRemoteChannelFamilies] 与 `on`／`off` —— 拼出来的串必然能被对面拆开。
-/// 往返性由用例钉（`parseChannelTarget(buildChannelArgument(…))` 必须还原出同一组值）。
-String buildChannelArgument({
+/// [kFnthinkRemoteChannelFamilies] 与契约那两个词 —— 拼出来的串必然能被对面拆开。
+/// 往返性由用例钉（`parseChannelTarget(contract, buildChannelArgument(contract, …))` 还原同一组值）。
+String buildChannelArgument(
+  FnthinkContract contract, {
   required String family,
   required String id,
   required bool enabled,
-}) => '$family:$id:${enabled ? 'on' : 'off'}';
+}) {
+  final words = contract.l2ChannelTargetWords;
+  return [
+    family,
+    id,
+    enabled ? words.first : words[1],
+  ].join(contract.l2ChannelTargetSeparator);
+}
 
 /// 拼 L3 的 item（**发送侧唯一作者**）：带目标值的那一档才幂等。
 ///
-/// `[want] == null` 回裸 key —— 那是老对端的形状，契约仍收（`l3.itemMayCarryTarget` 是
-/// "可选"而不是"必填"），但**新界面不该产出它**：重投一次就翻两次、回到原状，
+/// `[want] == null` 回裸 key —— 那是老对端的形状，协议层仍收（`l3.itemMayCarryTarget` 是
+/// "可选"而不是"必填"），但**新界面不该产出它、授权表也不认它**（T134 片4：裸名字
+/// 从此不是合法的勾选项，见 `grantItemProblem`）。理由：重投一次就翻两次、回到原状，
 /// 而对面留痕两条都记 done。所以发送侧把目标值做成必选，这一层的 `null` 分支只服务测试。
-String buildL3Item({required String key, bool? want}) {
+String buildL3Item(
+  FnthinkContract contract, {
+  required String key,
+  bool? want,
+}) {
   if (want == null) return key;
-  return '$key/${want ? 'on' : 'off'}';
+  final words = contract.l3ItemTargetWords;
+  return contract.grantItemWire(
+    base: key,
+    argument: want ? words.first : words[1],
+  );
 }
 
 /// 拆出来的那条通道 + 它该被设成哪一档。
@@ -506,10 +526,10 @@ class RemoteChannelTarget {
 ///
 /// ⚠ 判据在**进延时窗口之前**跑：参数不成形就别让它占掉那 10 秒、再发一条
 /// `executing` 回执（对面会以为它在排队），最后才失败。
-/// ⚠ 这不是「参数非空」那条的重复：`parseL2Item` 只判非空，
-/// 而**三段齐全**是本机这一层的形状要求（协议里没有约定参数长什么样）。
-String? rejectChannelTarget(String? argument) {
-  if (parseChannelTarget(argument) == null) {
+/// ⚠ 这不是「参数非空」那条的重复：`parseL2Item` 只判非空，而**三段齐全**是本机这一层的
+/// 形状要求（形状本身在契约 `l2.channelTargetShape`，协议里没有另写一份）。
+String? rejectChannelTarget(FnthinkContract contract, String? argument) {
+  if (parseChannelTarget(contract, argument) == null) {
     return 'bad-channel-argument:${argument ?? ''}';
   }
   return null;
@@ -538,6 +558,11 @@ String? reportArgumentProblem(
   String argument,
 ) {
   final kind = contract.l2ReportKind(action);
+  if (kind == 'channelTarget') {
+    // 三段拼出来的通道目标（T134 片4 起 `channel:toggle` 也归进这一枚判据）：
+    // 形状的单点在契约 `l2.channelTargetShape`，这一层不另拆一次。
+    return rejectChannelTarget(contract, argument);
+  }
   if (kind == 'count') {
     final count = int.tryParse(argument.trim());
     if (count == null || !reportCountInRange(contract, action, count)) {
@@ -570,22 +595,21 @@ String? reportArgumentProblem(
   return 'bad-argument-kind:$action';
 }
 
-/// 这条动作的参数能不能过（判定层那一格的前置判据，**按动作分派**）。
+/// 这条动作的参数能不能过（判定层那一格的前置判据，**按契约声明的 argumentKind 分派**）。
 ///
 /// 回 null = 这个动作没有额外形状要求（认不认得由 `parseL2Item` 在更早那一格判）。
 /// ⚠ 判据在**进延时窗口之前**跑：参数不成形就别让它占掉那 10 秒、再发一条 `executing`
-/// 回执（对面会以为它在排队），最后才失败。每一种参数的形状判据各有唯一作者：
-/// `channel:toggle` → [rejectChannelTarget]，契约那张表里的动作 → [reportArgumentProblem]。
+/// 回执（对面会以为它在排队），最后才失败。
 ///
-/// ⚠ 只列"参数怎么读"分得最细的几种；两个都没有的动作（`listener:*` 等）回 null。
+/// ⚠ T134 片4 起这里**不再按动作名分派**：以前第一支写的是 `action.name == 'channel:toggle'`，
+/// 于是"哪一项的参数是三段串"这件事在界面、判据、契约三处各有一份说法。现在那一句只在契约
+/// （`l2.reports[channel:toggle].argumentKind = channelTarget`），而 [reportArgumentProblem]
+/// 是全部四种形状的唯一作者 —— 契约把某一项换成别的 kind，这里跟着换，不用改代码。
+///
+/// ⚠ 只列"参数怎么读"分得最细的那几种；两种都没有的动作（`listener:*`、`alert:ring` 等）回 null。
 String? rejectL2Argument(FnthinkContract contract, FnthinkL2Action action) {
-  if (action.name == 'channel:toggle') {
-    return rejectChannelTarget(action.argument);
-  }
-  if (contract.l2ReportKind(action.name) != null) {
-    return reportArgumentProblem(contract, action.name, action.argument);
-  }
-  return null;
+  if (contract.l2ReportKind(action.name) == null) return null;
+  return reportArgumentProblem(contract, action.name, action.argument);
 }
 
 /// 契约词表与设备侧映射是否同步。守卫用例调它，改契约时红的就是这一条。

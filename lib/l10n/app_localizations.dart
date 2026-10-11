@@ -6436,8 +6436,14 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairItemsNote.
   ///
   /// In zh, this message translates to:
-  /// **'要填参数的那几项（切哪条通道、启动哪个应用、搜什么词）不在这里勾：那得按参数授权，还没做。'**
+  /// **'带参数的那几项要先定参数才勾得上：勾的是那一条（哪个应用、搜什么词、哪条通道设成哪一档），不是那个动作名。'**
   String get fnthinkPairItemsNote;
+
+  /// No description provided for @fnthinkPairChannelIdLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机哪一条通道（号）'**
+  String get fnthinkPairChannelIdLabel;
 
   /// No description provided for @fnthinkPairItemsBroken.
   ///

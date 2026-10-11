@@ -86,7 +86,13 @@ class RemoteCommandRecognizer {
     required FnthinkGrant grant,
     String source = 'fnthink',
   }) async {
-    final grantedKeys = grant.items.toSet();
+    // ⚠ 这一份是**名字**的集合，不是整串的集合：L3 的词表与"先有授权才谈得上翻"那两格
+    //   问的都是"哪一项设置"，而清单里从片4 起存的是 `<名>/<参数>`。两边直接比会永远差一段
+    //   —— 勾了 `monitoring/on` 却回一句 `missing-grant:monitoring`，而屏幕上写着"已授权"。
+    //   整串那一维由第四道判据（`rejectBySenderGrant`）负责，它比的正是整串。
+    final grantedKeys = {
+      for (final item in grant.items) contract.grantItemBase(item),
+    };
     // ① 开关：关着 ⇒ 当成"不是指令"（照常显示），**不是**拒执行。
     if (!await settings.enabled) return const RemoteCommandNotEnabled();
     // ② 来源渠道（契约 remoteExecution.sources；"判不许有的渠道"与 L2/L3 无关）。
@@ -187,11 +193,22 @@ class RemoteCommandRecognizer {
     //   走完之后才有）。把它算成"拒"的话**每一条 L3 指令都会在这一层被拒**，
     //   而 `parseL3Item(confirmedThisTime: false)` 正是那个会必然返回它的一侧
     //   —— 这就是这一条第一版的写法（实测 6 条红全在这里）。
-    final setting = contract.l3Settings[command.item];
-    if (setting == null) return 'unknown-setting:${command.item}';
-    if (contract.l3SettingsRequiringExistingGrant.contains(command.item) &&
-        !grantedKeys.contains(command.item)) {
-      return 'missing-grant:${command.item}';
+    // ⚠ 查的是**名字**那一段（片4 起 item 是整串 `monitoring/on`）：拿整串去查那张键控表
+    //   会得到 `unknown-setting:monitoring/on`，而发送页本来就发整串 —— 这一格在片4 之前
+    //   只是没被人走到（同意屏给不出带目标值的勾），不是它一直是对的。
+    final key = contract.grantItemBase(command.item);
+    final setting = contract.l3Settings[key];
+    if (setting == null) return 'unknown-setting:$key';
+    // ⚠⚠ 片4 之后这一格与第四道（`rejectBySenderGrant`）**读的是同一份东西**：
+    //   `grantedKeys` 就是名单那一行的 items（按名字取），而 L3 要过第四道就得整串在档，
+    //   在档则名字必在 ⇒ 这一条对**对端那一路已经判不出任何新的东西**（旧用例
+    //   「缺前置授权 ⇒ missing-grant」今天红的位置已经挪到 `not-granted`）。
+    //   它留着是因为 `requiresExistingGrantFrom` 的原意是「这台**自己**先开着这一项，
+    //   对面才谈得上翻」—— 那一维今天没有读口（读的是对端清单，不是本机状态）。
+    //   拆成读本机还是删掉，是一条安全取舍，登记在 roadmap，不由这一片代拍。
+    if (contract.l3SettingsRequiringExistingGrant.contains(key) &&
+        !grantedKeys.contains(key)) {
+      return 'missing-grant:$key';
     }
     return null;
   }
@@ -203,9 +220,12 @@ class RemoteCommandRecognizer {
 
   String? _rejectL1Item(String item) {
     if (parseL2Item(contract, item) is FnthinkL2Ok) return null;
-    // ⚠ 同上：这里问的是"这个词在不在 L3 那张表上"，**不是**问它能不能执行 ——
-    //   所以只查词表，不走 parseL3Item（那会把 confirm-required 一起带出来）。
-    if (contract.l3Settings.containsKey(item)) return null;
+    // ⚠ 同上（`_rejectL3Item` 那条）：这里问的是"这个词在不在 L3 那张表上"，
+    //   而 L1 的 item 也可以是带目标值的整串 ⇒ 先切回名字再查，只查词表，
+    //   不走 parseL3Item（那会把 confirm-required 一起带出来）。
+    if (contract.l3Settings.containsKey(contract.grantItemBase(item))) {
+      return null;
+    }
     return 'unknown-action:$item';
   }
 }

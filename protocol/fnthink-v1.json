@@ -542,7 +542,24 @@
         "contacts:search"
       ],
       "requiresArgumentWhy": "这些 action 必须带参数（通道标识）；不带就是「开关哪一条通道」没写，而默认取第一条通道等于让一条没写清楚的消息改了某个用户没预期的东西。**不写成「缺了就取第一条」** —— 那是一条静默的越权",
+      "channelTargetShape": {
+        "families": [
+          "webhook",
+          "app",
+          "email"
+        ],
+        "segmentSeparator": ":",
+        "segments": 3,
+        "targetWords": [
+          "on",
+          "off"
+        ],
+        "_why": "channel:toggle 那一个参数的形状（T134 片4 起由契约说，与 l2.reports 里那几种 argumentKind 同一层）。三段齐全、族只认 families、目标值只认 targetWords：服务端往授权表写整串时要照它验形状（不然勾进去的是一个谁都拆不开的串，而屏幕上写着「已授权」），设备侧执行时照它拆（`parseChannelTarget`），同意屏照它画选项。⚠ families 在设备侧还有一份硬编码（`kFnthinkRemoteChannelFamilies`）：那是有意的——`parseChannelTarget` 是纯函数，为了读契约把 contract 一路带进去代价大于收益，**漂移由跨语言守卫拦**（test/architecture/channel_target_shape_contract_test.dart），不靠自觉。segments 只许 3：多一段也要拒，`<族>:<id>:<目标>:<多余>` 静默取前三段的话，对面拼错一个字符就变成另一条指令。"
+      },
       "reports": {
+        "channel:toggle": {
+          "argumentKind": "channelTarget"
+        },
         "notifications:report": {
           "argumentKind": "count",
           "minItems": 1,
@@ -581,7 +598,7 @@
           "title": "contacts-search"
         }
       },
-      "reportsWhy": "哪些 L2 动作的参数形状由契约说（T124 片B；**带 `title` 的那几项才会把东西回传** —— title 就是那条回传消息的标题，没有 title 的只声明形状、不回传）。回传走**一条普通消息**（与 `device_state:push` 同一条路）：它必须经签名面那一次投递，才有回执、才进收件端的收件箱 —— 另开一条「结果通道」等于同一件事有两个投递状态机。`argumentKind` 现在有三种：`count`（要几条，闭区间）、`keyword`（一枚词／一个名称，字长闭区间且不许带控制字符）与 `none`（**无参数**的回传动作 —— 它存在的全部理由是把「这条无参动作会回传」写进契约；写 `none` 的**必须**带 title、**不许**列进 requiresArgumentFrom、也不许带任何上下界键）—— **不许合成一种**：数值区间、字长/可见性与「没有参数」不是同一件事。⚠ 上面那些上界的由来：回传正文是一条消息的正文，发送侧按固定字符预算组装并**明写**截断（同一条「不静默丢」的不变量）。",
+      "reportsWhy": "哪些 L2 动作的参数形状由契约说（T124 片B；**带 `title` 的那几项才会把东西回传** —— title 就是那条回传消息的标题，没有 title 的只声明形状、不回传）。回传走**一条普通消息**（与 `device_state:push` 同一条路）：它必须经签名面那一次投递，才有回执、才进收件端的收件箱 —— 另开一条「结果通道」等于同一件事有两个投递状态机。`argumentKind` 现在有三种：`count`（要几条，闭区间）、`keyword`（一枚词／一个名称，字长闭区间且不许带控制字符）与 `none`（**无参数**的回传动作 —— 它存在的全部理由是把「这条无参动作会回传」写进契约；写 `none` 的**必须**带 title、**不许**列进 requiresArgumentFrom、也不许带任何上下界键）—— **不许合成一种**：数值区间、字长/可见性与「没有参数」不是同一件事。 ⚠ 2026-10-11（T134 片4，粒度＝参数级）起多出**第四种** `channelTarget`（`channel:toggle` 那一格，形状在 `capabilities.l2.channelTargetShape`，不带 title 因此不回传）—— 上面那句「现在有三种」是当时的原话，留着不改，读的时候连同这一句一起读。⚠ 上面那些上界的由来：回传正文是一条消息的正文，发送侧按固定字符预算组装并**明写**截断（同一条「不静默丢」的不变量）。",
       "actionReceipt": "failed_action",
       "actionReceiptWhy": "执行失败对外只回 receipts 词表里那一个词。与 T27/T28 那条同源：身份已证明，不许把「没权限」和「执行失败」压成同形的一句话；但也**不许把本地细节（哪个通道、什么异常）写进对外形状** —— 那些要进留痕（T53）"
     },
@@ -909,6 +926,17 @@
         "capabilities.l3.settings"
       ],
       "_itemsVocabularyWhy": "勾选表能取哪些值**必须引用那两张既有名单**，不许为这一发另立第三本账 —— 两端各抄一份清单的结局与 `type` 词表那次一样：A 勾了一条 B 的服务认不出的写法，或反过来悄悄放行。contract.dart 的交叉校验会去解析这些路径并要求每条都指向一份非空名单，指错当场红。⚠ 今天全仓没有任何一处往 `grantsBy[...]` 的 items 里写非空值（见 roadmap T134），所以本片的作用是把接缝通到**能被校验的位置**：值真正有内容要等同意屏那张勾选表落下来。",
+      "itemGrammar": {
+        "granularity": "argument",
+        "granularityWhy": "勾选项的 id 就是**线上的整串形状**（维护者 2026-10-11 拍：参数级）。`app:launch/<包名>`、`sms:search/<词>`、`notifications:report/<条数>`、`channel:toggle/<族>:<id>:<on|off>`、以及 L3 那两枚 toggle 的 `<名>/on|off` —— 勾的是「哪一条」，不是那个动作名。反面形状（动作级）今天正躺在同意屏上：那张表只给得出契约没点名要参数的十项，而带参数的那六项**没有任何一格能勾**，只能由档位天花板 + 整机那一枚读能力开关管 —— 其中 `app:launch` 最扎手（要么整条不给，要么等于允许对面启动任意应用）。",
+        "argumentSeparator": "/",
+        "argumentSeparatorWhy": "整串里把「动作名」与「参数」分开的就是这一个字符：设备侧 `parseL2Item` 按它切第一段、L3 按它切尾部目标值、同意屏拼勾选项也按它，服务端镜像同一把刀（server/lib/fnthink/capabilities.js）。词表里的名字自己不含这个字符（contract.dart 与 validate 钉住），所以「切第一段」是唯一的拆法、不留歧义——不在实现里写死这个斜杠。",
+        "bareNameRejected": "item-argument-required:X",
+        "bareNameRejectedWhy": "契约点名要参数的那几项（`l2.requiresArgumentFrom`）与 L3 那两枚 toggle，**裸名字不再是合法的勾选项**：写进表里也永远判不过（线上从来不发裸名字），而屏幕上会显示「已授权」——那正是本片要修的形状。⇒ 服务端 400（状态码仍从 `unknownItemStatus` 那一枚旋钮读），不是「收下并忽略」。⚠ 与 `l3.itemMayCarryTarget` 那句「不带目标值也收」不冲突：那一句说的是**协议层**（`parseL3Item` 认得裸形，老对端不必升级就能继续发），这一句说的是**清单层**——老对端发来的裸形从此判不过，兼容承诺的范围就此收窄一格，见 versionOrder。",
+        "argumentShapesWhy": "参数形状不在这儿另立一本账，只说清各读哪一处：kind 与上下界在 `capabilities.l2.reports`（含新加的 channelTarget 那一格）、通道目标三段在 `capabilities.l2.channelTargetShape`、toggle 的两个词在 `capabilities.l3.itemTargetWords`。为这一发再抄一份清单的结局与 `type` 词表那次一样：A 勾了一条 B 的服务认不出的写法，或反过来悄悄放行。",
+        "versionOrder": "server-first",
+        "versionOrderWhy": "先传 `server/` + 契约，再上设备包。老设备 + 新服务端：老设备的答复里只有今天那十项裸名字，全在新词表里 ⇒ 照收。新设备 + 老服务端：整串被判 `unknown-item` 400 ⇒ 那一格勾不上、界面当场看得见。顺序反过来不会静默放行，只会当场红——这是刻意选的方向。"
+      },
       "unknownItemStatus": "badRequest",
       "_unknownItemStatusWhy": "词表外的取值 ⇒ 400（状态码从 statusCodes 这一枚键读，不在实现里写数字），而不是「先收下、能做什么做什么」：收下并忽略会让点头那台以为自己勾过了，而服务端那一格其实是空的 —— 与 relationshipRequiredForIntake 那条防的是同一个方向的 fail-open。",
       "itemsMustBeEmptyOnDeny": true,

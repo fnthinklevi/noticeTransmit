@@ -199,7 +199,7 @@ describe('fnthink 服务端存储（T27）', () => {
       store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
       expect(() =>
         store.approvePeer(contract, devices, ADDR, PEER, 'L2', ['wipe_everything'], NOW),
-      ).toThrow(/不在契约词表/);
+      ).toThrow(/unknown-item:wipe_everything/);
       expect(() =>
         store.approvePeer(contract, devices, ADDR, PEER, 'L2', 'alert:ring', NOW),
       ).toThrow(/必须是数组/);
@@ -209,7 +209,7 @@ describe('fnthink 服务端存储（T27）', () => {
         /必须是数组/,
       );
       expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L2', [''], NOW)).toThrow(
-        /空项/,
+        /item-empty/,
       );
       expect(devices[ADDR].grantsBy).toEqual({});
       expect(store.loadDevices()[ADDR].grantsBy).toEqual({});
@@ -337,7 +337,7 @@ describe('fnthink 服务端存储（T27）', () => {
         ADDR,
         PEER,
         'L1',
-        ['notifications:report'],
+        ['notifications:report/5'],
         NOW + 5000,
       );
       // 反向那一发带回的是**当前生效的那一份**（L2 + 它自己勾的那项），并说清这一发没动表。
@@ -347,7 +347,7 @@ describe('fnthink 服务端存储（T27）', () => {
       expect(JSON.stringify(devices[PEER].grantsBy[ADDR])).toBe(before);
       // 正向照写：A 那一行归 A 决定，这一发就是它自己点的。
       expect(store.peerGrant(contract, devices[ADDR], PEER).items).toEqual([
-        'notifications:report',
+        'notifications:report/5',
       ]);
     });
 

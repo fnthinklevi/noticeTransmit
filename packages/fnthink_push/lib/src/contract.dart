@@ -426,6 +426,166 @@ class FnthinkContract {
     return value is int ? value : null;
   }
 
+  // ── 勾选项的整串语法（T134 片4，粒度＝参数级）───────────────────────────
+  //
+  // 这一族 getter 只有一个消费者族：同意屏（画哪几行、每行要不要收参数）与逐条判据
+  // （这一串该不该由清单管）。它们**不判权限** —— 判的还是 `grant.items` 里整串相等那一条，
+  // 这里只回答"这一串说的是什么形状"。
+
+  /// 那张勾选表的**粒度**（契约 `clientEvents.pairConfirm.itemGrammar.granularity`）。
+  ///
+  /// 缺位就抛，不补默认值：这一位缺省时唯一安全的读法是"只给无参数的那几项"，
+  /// 而那正是本片要修掉的形状（带参数的那六项落在清单之外，只由档位天花板管）。
+  String get grantItemGranularity {
+    final value = str(const [
+      'clientEvents',
+      'pairConfirm',
+      'itemGrammar',
+      'granularity',
+    ]);
+    if (value == null || value.isEmpty) {
+      throw StateError(
+        '契约缺 clientEvents.pairConfirm.itemGrammar.granularity（不补默认值）',
+      );
+    }
+    return value;
+  }
+
+  /// 勾选项是否是"整串"（含参数）级别。false 只可能是契约被改回动作级 —— 那时
+  /// 要参数的那几项重新变成"清单表达不了"，同意屏与判据都照这一位走，不各判一次。
+  bool get grantItemsAreArgumentLevel => grantItemGranularity == 'argument';
+
+  /// 整串里把「动作名」与「参数」分开的那**一个**字符（契约声明；两端不写死斜杠）。
+  ///
+  /// 校验器同时钉住"词表里的名字自己不含这个字符"（见 [validate]）—— 那一句成立，
+  /// "切第一段"才是唯一的拆法；不成立时 `a/b` 这种名字会拆出两个都合法的解释。
+  String get grantItemSeparator {
+    final value = str(const [
+      'clientEvents',
+      'pairConfirm',
+      'itemGrammar',
+      'argumentSeparator',
+    ]);
+    if (value == null || value.runes.length != 1) {
+      throw StateError(
+        '契约缺 clientEvents.pairConfirm.itemGrammar.argumentSeparator'
+        '（必须是单个字符）：实得「$value」',
+      );
+    }
+    return value;
+  }
+
+  /// 裸名字被判不过时对外回的那一句形状（契约 `bareNameRejected`，尾部的 `X` 由实现换成名字）。
+  ///
+  /// 这一位从契约读而不是各写一份：服务端拒收与设备侧留痕要说同一句话，
+  /// 漂开之后的表现是"界面上写的理由与日志里那一句对不上"。
+  String get grantItemBareNameRejected {
+    final value = str(const [
+      'clientEvents',
+      'pairConfirm',
+      'itemGrammar',
+      'bareNameRejected',
+    ]);
+    if (value == null || !value.endsWith(':X')) {
+      throw StateError(
+        '契约缺 clientEvents.pairConfirm.itemGrammar.bareNameRejected'
+        '（形状必须是「词:X」，尾部那个 X 是实现替换的名字）：实得「$value」',
+      );
+    }
+    return value;
+  }
+
+  /// 把 `bareNameRejected` 那一句按上某个具体名字（唯一允许的形状拼接处）。
+  String grantItemBareNameRejectedFor(String name) =>
+      grantItemBareNameRejected.replaceAll(':X', ':$name');
+
+  /// 把「名字 + 参数」拼成**线上那一串**（勾选项与发送侧同一作者，T134 片4）。
+  ///
+  /// 分隔符只有这一个出处：设备侧 `parseL2Item` 按它切第一段、L3 按它切尾部目标值、
+  /// 同意屏拼勾选项也按它，服务端镜像同一把刀。写死斜杠的每一处都是第二份、第三份。
+  /// `argument` 为空 ⇒ 原样回名字（那一项**本来就是**无参数的）。
+  String grantItemWire({required String base, String argument = ''}) =>
+      argument.isEmpty ? base : '$base$grantItemSeparator$argument';
+
+  /// 线上那一串里的名字（按契约那枚分隔符切**第一段**）。
+  ///
+  /// "切第一段就是名字"成立的前提是词表里的名字自己不含那个字符 —— 那一条在 [validate] 里。
+  String grantItemBase(String item) {
+    final at = item.indexOf(grantItemSeparator);
+    return at < 0 ? item : item.substring(0, at);
+  }
+
+  /// 那一串里分隔符后面那一段（没有就回空串 —— 空串是"裸名字"，不是"参数为空"）。
+  String grantItemArgument(String item) {
+    final at = item.indexOf(grantItemSeparator);
+    return at < 0 ? '' : item.substring(at + 1);
+  }
+
+  /// `channel:toggle` 那一个参数的形状：可远程启停的族（契约 `l2.channelTargetShape.families`）。
+  List<String> get l2ChannelTargetFamilies {
+    final value = strings(const [
+      'capabilities',
+      'l2',
+      'channelTargetShape',
+      'families',
+    ]);
+    if (value.isEmpty) {
+      throw StateError(
+        '契约缺 capabilities.l2.channelTargetShape.families（或它是空表）：'
+        '空表读出来与"没有一族可以远程启停"难以区分，而同意屏会因此一栏都不画',
+      );
+    }
+    return value;
+  }
+
+  /// 通道目标三段之间的分隔符与段数（契约同一节，缺省即抛——不猜）。
+  String get l2ChannelTargetSeparator {
+    final value = str(const [
+      'capabilities',
+      'l2',
+      'channelTargetShape',
+      'segmentSeparator',
+    ]);
+    if (value == null || value.runes.length != 1) {
+      throw StateError(
+        '契约缺 capabilities.l2.channelTargetShape.segmentSeparator（单个字符）：实得「$value」',
+      );
+    }
+    return value;
+  }
+
+  int l2ChannelTargetSegmentsOf() {
+    final value = intOf(const [
+      'capabilities',
+      'l2',
+      'channelTargetShape',
+      'segments',
+    ]);
+    if (value == null || value < 2) {
+      throw StateError(
+        '契约缺 capabilities.l2.channelTargetShape.segments（≥2）：实得「$value」',
+      );
+    }
+    return value;
+  }
+
+  /// 通道目标那一段允许的两个词（契约 `l2.channelTargetShape.targetWords`，`on` / `off`）。
+  List<String> get l2ChannelTargetWords {
+    final value = strings(const [
+      'capabilities',
+      'l2',
+      'channelTargetShape',
+      'targetWords',
+    ]);
+    if (value.length != 2) {
+      throw StateError(
+        '契约 capabilities.l2.channelTargetShape.targetWords 必须正好两个词'
+        '（一开一关）：实得 ${value.length} 个',
+      );
+    }
+    return value;
+  }
+
   /// L3 系统设置的**封闭词表**（契约 `capabilities.l3.settings`）。
   ///
   /// 与 [l2Actions] 同一套做法：这张表是唯一出处，两端各持一份映射。空表抛而不返回
@@ -1786,9 +1946,31 @@ class FnthinkContract {
       );
       final kind = spec is Map ? spec['argumentKind'] : null;
       need(
-        kind == 'count' || kind == 'keyword' || kind == 'none',
-        'capabilities.l2.reports.${entry.key}.argumentKind 必须是 count、keyword 或 none：$spec',
+        kind == 'count' ||
+            kind == 'keyword' ||
+            kind == 'none' ||
+            kind == 'channelTarget',
+        'capabilities.l2.reports.${entry.key}.argumentKind '
+        '必须是 count、keyword、none 或 channelTarget：$spec',
       );
+      // channelTarget 那一种的形状**不写在这一行里**，它在 `l2.channelTargetShape` 那一个
+      // 单点（族、段数、两个目标词）。这里因此只许出现 argumentKind 一枚键：带上任何
+      // 上下界或 title，就会出现"两处各声明一份形状"——而它们一定会漂。
+      if (kind == 'channelTarget') {
+        for (final stray in const [
+          'minItems',
+          'maxItems',
+          'minChars',
+          'maxChars',
+          'title',
+        ]) {
+          need(
+            !(spec is Map && spec.containsKey(stray)),
+            'capabilities.l2.reports.${entry.key}.$stray 不该出现在 channelTarget 那一格：'
+            '通道目标的形状只住 capabilities.l2.channelTargetShape（两处各写一份必漂）：$spec',
+          );
+        }
+      }
       if (kind != 'none') {
         need(
           l2NeedsArg.contains(entry.key),
@@ -1855,6 +2037,121 @@ class FnthinkContract {
         );
       }
     }
+    // ── 勾选项的整串语法（T134 片4，粒度＝参数级）────────────────────────────
+    //
+    // 「切第一段就是动作名」这一条成立的前提，是词表里的名字自己不含那个分隔符。前提钉在
+    // 这里而不是留给实现自觉：破坏它不会让任何一条行为用例变红——名字里带斜杠时，
+    // 勾选项与线上 item 仍然逐字相等，只是被两个人各自切成了不同的动作名。
+    final grammarSeparator = str(const [
+      'clientEvents',
+      'pairConfirm',
+      'itemGrammar',
+      'argumentSeparator',
+    ]);
+    need(
+      grammarSeparator != null && grammarSeparator.runes.length == 1,
+      'clientEvents.pairConfirm.itemGrammar.argumentSeparator 必须是单个字符（实得'
+      '「$grammarSeparator」）：两端与同意屏都按它切整串，多字符就不是一个分隔符',
+    );
+    final grammarGranularity = str(const [
+      'clientEvents',
+      'pairConfirm',
+      'itemGrammar',
+      'granularity',
+    ]);
+    need(
+      grammarGranularity == 'argument',
+      'clientEvents.pairConfirm.itemGrammar.granularity=$grammarGranularity 不是 argument：'
+      '回到动作级要连同意屏与逐条判据一起改（要参数的那几项重新变成清单表达不了的那几项），'
+      '不是只改这一句',
+    );
+    if (grammarSeparator != null && grammarSeparator.runes.length == 1) {
+      for (final name in [...l2Actions, ...l3SettingsRaw.keys]) {
+        need(
+          !name.contains(grammarSeparator),
+          '词表里的名字「$name」含分隔符「$grammarSeparator」：整串就没有唯一拆法了',
+        );
+      }
+    }
+    final grammarBare = str(const [
+      'clientEvents',
+      'pairConfirm',
+      'itemGrammar',
+      'bareNameRejected',
+    ]);
+    need(
+      grammarBare != null && grammarBare.endsWith(':X'),
+      'clientEvents.pairConfirm.itemGrammar.bareNameRejected 形状必须是「词:X」'
+      '（尾部那个 X 是实现换成具体名字的位置）：实得「$grammarBare」',
+    );
+    // `channel:toggle` 的形状单点必须在（kind 已声明，没有这一处就是"声明了却读不到"）。
+    // 这里读的是上面那个局部的 `l2Reports`（原始 Map<String, Object?>），所以取内层要过一道 Map?。
+    need(
+      (l2Reports['channel:toggle'] as Map?)?['argumentKind'] == 'channelTarget',
+      'capabilities.l2.reports 里 channel:toggle 那一格必须存在且 kind=channelTarget：'
+      '它是清单里唯一"三段拼出来"的那一项，形状没有单点就只能各拆一次',
+    );
+    final channelFamilies = strings(const [
+      'capabilities',
+      'l2',
+      'channelTargetShape',
+      'families',
+    ]);
+    final channelWords = strings(const [
+      'capabilities',
+      'l2',
+      'channelTargetShape',
+      'targetWords',
+    ]);
+    final channelSeparator = str(const [
+      'capabilities',
+      'l2',
+      'channelTargetShape',
+      'segmentSeparator',
+    ]);
+    need(
+      channelFamilies.isNotEmpty &&
+          channelWords.length == 2 &&
+          channelSeparator != null &&
+          channelSeparator.runes.length == 1,
+      'capabilities.l2.channelTargetShape 必须给得出非空 families、两个 targetWords 与'
+      '单字符 segmentSeparator（实得 families=$channelFamilies words=$channelWords '
+      'separator=「$channelSeparator」）：缺任何一件，同意屏与对面拆串的两处就会各发明一套',
+    );
+    for (final word in channelWords) {
+      need(
+        !word.contains(channelSeparator ?? ':'),
+        'channelTargetShape.targetWords 里的「$word」含段分隔符：三段就切不出唯一结果',
+      );
+    }
+    // 两组目标词都按**位置**读：第一个是「设成开着」那一个，第二个是「设成关掉」。
+    // 这条顺序不是排版选择：`parseChannelTarget` / `parseL3Item` / `buildL3Item` 与同意屏
+    // 四处都按位置取档（判"是不是词表里的词"之外，还要知道第几个是开）。顺序一漂，
+    // 一条勾成 `…/off` 的项在对面就变成"开" —— 而那是一句反的授权。
+    need(
+      channelWords.length == 2 &&
+          channelWords.first == 'on' &&
+          channelWords[1] == 'off',
+      'capabilities.l2.channelTargetShape.targetWords 必须是 ['
+      '"on","off"] 这个**顺序**（第一个 = 设成开着）：按位置读的那四处会各读反一次',
+    );
+    final l3TargetWords = strings(const [
+      'capabilities',
+      'l3',
+      'itemTargetWords',
+    ]);
+    need(
+      l3TargetWords.length == 2 &&
+          l3TargetWords.first == 'on' &&
+          l3TargetWords[1] == 'off',
+      'capabilities.l3.itemTargetWords 必须是 ["on","off"] 这个**顺序**'
+      '（第一个 = 设成开着）：与上面那条同一个理由',
+    );
+    need(
+      l2ActionsRequiringArgument.contains('channel:toggle'),
+      'channel:toggle 必须列在 capabilities.l2.requiresArgumentFrom：'
+      '它的参数就是那条要动的通道，缺了它等于"开关某一条通道"没写是谁',
+    );
     final l2Receipt = str(const ['capabilities', 'l2', 'actionReceipt']);
     need(
       l2Receipt != null && l2Receipt.isNotEmpty,
