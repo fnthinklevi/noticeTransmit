@@ -74,12 +74,14 @@ describe('fnthink:doctor（T75 ④）', () => {
 
   test('契约错配 ⇒ 退出 1，并点名是版本不在范围内', () => {
     // 造一份 contractVersion 超前的契约：这是"新代码配旧文件"之外最常见的部署事故形状。
+    // ⚠ 写进**仓库内**（T-sec：doctor 的路径校验只收仓库内文件，测试照同一策略），
+    //   finally 里删掉。
     const contract = JSON.parse(
       fs.readFileSync(path.join(REPO_ROOT, 'protocol', 'fnthink-v1.json'), 'utf8'),
     );
     contract.protocol = 'fnthink-v99';
     contract.contractVersion = 99;
-    const tmp = path.join(os.tmpdir(), `fnthink-doctor-bad-${process.pid}.json`);
+    const tmp = path.join(__dirname, `.tmp-fnthink-doctor-bad-${process.pid}.json`);
     fs.writeFileSync(tmp, JSON.stringify(contract));
     try {
       const r = runDoctor(['--contract', tmp]);
@@ -89,6 +91,24 @@ describe('fnthink:doctor（T75 ④）', () => {
     } finally {
       fs.unlinkSync(tmp);
     }
+  });
+
+  test('T-sec：--contract 指到仓库外 ⇒ 退出 2 并点名越界', () => {
+    const outside = path.join(os.tmpdir(), `fnthink-doctor-outside-${process.pid}.json`);
+    fs.writeFileSync(outside, '{}');
+    try {
+      const r = runDoctor(['--contract', outside]);
+      expect(r.code).toBe(2);
+      expect(`${r.stdout}${r.stderr}`).toContain('越出');
+    } finally {
+      fs.unlinkSync(outside);
+    }
+  });
+
+  test('T-sec：--url 非 https 且非本机 ⇒ 退出 2 并点名只收 https', () => {
+    const r = runDoctor(['--url', 'http://example.com']);
+    expect(r.code).toBe(2);
+    expect(`${r.stdout}${r.stderr}`).toContain('https');
   });
 
   test('不认识的开关要点名（静默忽略一个拼错的 --url 会让人以为问过线上实例了）', () => {

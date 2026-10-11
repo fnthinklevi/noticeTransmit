@@ -43,9 +43,9 @@ function parseArgs(argv) {
   const out = { url: null, contract: DEFAULT_CONTRACT, vectors: DEFAULT_VECTORS };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--url' && argv[i + 1]) out.url = argv[++i];
-    else if (a === '--contract' && argv[i + 1]) out.contract = path.resolve(argv[++i]);
-    else if (a === '--vectors' && argv[i + 1]) out.vectors = path.resolve(argv[++i]);
+    if (a === '--url' && argv[i + 1]) out.url = validateUrl(argv[++i]);
+    else if (a === '--contract' && argv[i + 1]) out.contract = validateLocalFile(argv[++i], '--contract');
+    else if (a === '--vectors' && argv[i + 1]) out.vectors = validateLocalFile(argv[++i], '--vectors');
     else if (a === '--help' || a === '-h') out.help = true;
     else if (a.startsWith('--')) {
       // 不认识的开关必须说出来 —— 静默忽略一个拼错的 `--url` 会让部署者以为
@@ -54,6 +54,42 @@ function parseArgs(argv) {
     }
   }
   return out;
+}
+
+// ── 输入验证（T-sec 加固）────────────────────────────────────────────
+// doctor 是操作员的 CLI，argv 不是攻击者输入；但"参数进 fs / 进网络"这三条
+// 链上加一道显式闸，坏参数在入口就得到一句人话，而不是在深处炸出堆栈。
+
+/** 本地路径：必须是绝对路径、解析后不许越出仓库根。默认值都在仓库内，行为不变。 */
+function validateLocalFile(value, flag) {
+  const resolved = path.resolve(value);
+  if (
+    resolved !== REPO_ROOT &&
+    !resolved.startsWith(REPO_ROOT + path.sep)
+  ) {
+    throw new Error(
+      `${flag} 必须指向仓库内的文件（解析后越出了 ${REPO_ROOT}）：${value}`,
+    );
+  }
+  return resolved;
+}
+
+/** --url：只收 https（本机自检另放行 http 的 localhost/127.0.0.1），不许带 userinfo。 */
+function validateUrl(value) {
+  let u;
+  try {
+    u = new URL(value);
+  } catch (e) {
+    throw new Error(`--url 不是合法 URL：${value}`);
+  }
+  const local = u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) {
+    throw new Error(`--url 只收 https（本机自检可用 http://localhost）：${value}`);
+  }
+  if (u.username || u.password) {
+    throw new Error(`--url 不许携带凭据（userinfo）：${value}`);
+  }
+  return value;
 }
 
 function readJson(file, what) {
@@ -95,7 +131,9 @@ function checkLocal(contractPath, vectorsPath) {
   // ① 服务端这一半的版本闸门（同一份判据，Dart 侧也读它）
   let supportedMajor = null;
   try {
-    const mod = require(path.join(REPO_ROOT, 'server', 'lib', 'fnthink', 'contract.js'));
+    // ⚠ 静态相对路径 require，不拼 REPO_ROOT：模块位置在仓库里是定的，
+    // 动态拼路径只会让"require 了运行期算出来的路径"这一形状去喂安全扫描。
+    const mod = require('../lib/fnthink/contract.js');
     mod.assertSupported(contract);
     supportedMajor = mod.SUPPORTED_MAJOR;
     lines.push(`✓ 服务端实现支持到 v${supportedMajor}，这份契约在范围内`);
@@ -219,7 +257,14 @@ async function checkRemote(url) {
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  let args;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (e) {
+    // 输入验证的失败是"前提不齐"那一档（2）：参数本身没通过，谈不上判断。
+    process.stderr.write(`✗ ${e.message}\n`);
+    return 2;
+  }
   if (args.help) {
     process.stdout.write(
       [

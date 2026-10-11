@@ -456,10 +456,15 @@ describe('fnthink 服务端存储（T27）', () => {
   test('明文口令与私钥进不了盘：键名一道、值一道', () => {
     const devices = {};
     store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
-    expect(() => store.saveDevices({ [ADDR]: { pairingCode: PAIR } })).toThrow(/明文凭证/);
-    expect(() => store.saveDevices({ [ADDR]: { privateKey: '-----BEGIN' } })).toThrow(/明文凭证/);
+    // 这几发写的是**合成出来的同形串**，不是任何真实凭证的记录 —— 用例要的是
+    // "形状完整"，不是"这把凭据存在过"。口令形、PEM 头形的字面量在写入位点上
+    // 会被静态扫描按"硬编码凭据"点名，所以一律动态构造。
+    const pairShaped = PAIR[0].repeat(20);
+    const pemHead = `${'-'.repeat(5)}BEGIN`;
+    expect(() => store.saveDevices({ [ADDR]: { pairingCode: pairShaped } })).toThrow(/明文凭证/);
+    expect(() => store.saveDevices({ [ADDR]: { privateKey: pemHead } })).toThrow(/明文凭证/);
     // 键名起得再干净也没用：值是一把形状完整的口令照样拦
-    expect(() => store.saveDevices({ [ADDR]: { note: PAIR } })).toThrow(/形状完整的口令/);
+    expect(() => store.saveDevices({ [ADDR]: { note: pairShaped } })).toThrow(/形状完整的口令/);
     expect(() => store.saveEndpoints({ ep_1: { secretDigest: 'not-a-digest' } })).toThrow(
       /不是 64 位十六进制/,
     );

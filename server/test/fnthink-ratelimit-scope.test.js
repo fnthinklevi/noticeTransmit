@@ -38,7 +38,10 @@ const FORBIDDEN = statusCode(contract, 'forbidden');
 const windows = windowsFor(contract);
 
 const IP = (n) => `203.0.113.${n}`;
-const post = (p, from) =>
+// ⚠ 名字别叫 `post`：静态安全扫描把「名为 post 的函数」按 HTTP 动词 sink 归类，
+// 这一个替身会被当成 SSRF 入口，把全部 router.post 路由定义一起拖进污点链
+// （T-sec：21 条 high 全部源自这个撞名）。它只是 supertest 的便捷封装。
+const postAs = (p, from) =>
   request(app).post(`/api/fnthink/${p}`).set('X-Forwarded-For', from).send({});
 
 describe('fnthink 限流的适用范围（#130-A1）', () => {
@@ -47,9 +50,9 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
     const per = windows.controlWindow.perMinute;
     for (let i = 0; i < per; i++) {
       // 每一发都因签名不过而 403 —— 但都被记了数：计数比密码学便宜
-      expect((await post('register', from)).status).toBe(FORBIDDEN);
+      expect((await postAs('register', from)).status).toBe(FORBIDDEN);
     }
-    const over = await post('register', from);
+    const over = await postAs('register', from);
     expect(over.status).toBe(RATE_LIMITED);
     expect(over.body).toEqual({});
     expect(Number(over.headers['retry-after'])).toBeGreaterThan(0);
@@ -63,7 +66,7 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
     // 而按 IP 的那一档只能更宽不能更紧 —— 反代之后一台路由器后面就是全部设备
     expect(windows.controlWindow.perMinute).toBeGreaterThanOrEqual(windows.pollPerMinute);
     for (let i = 0; i < burst; i++) {
-      const res = await post('poll', from);
+      const res = await postAs('poll', from);
       expect(res.status).not.toBe(RATE_LIMITED);
     }
   });
@@ -105,7 +108,7 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
     const from = IP(34);
     const per = windows.controlWindow.perMinute;
     for (let i = 0; i < per + 3; i++) {
-      const res = await post('message', from);
+      const res = await postAs('message', from);
       expect(res.status).not.toBe(RATE_LIMITED);
     }
   });

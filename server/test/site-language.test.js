@@ -31,7 +31,10 @@ const domainLangSrc = extractFunction('domainLang');
 const detectLangSrc = extractFunction('detectLang');
 
 // 执行真实现，而不是在这里抄一份期望表：抄一份的话，判据与实现各改一处就会静默分叉。
-const domainLang = new Function(`${domainLangSrc}; return domainLang;`)();
+// ⚠ i18n.js 在 Node 下自我导出这两个纯函数（文件里的 `module.exports` 守卫）——
+// 上一版用 `new Function` 现场编译提取出来的函数体，那是动态代码执行，
+// 静态扫描按"代码注入"点名；require 真模块比 eval 更真，也不再给扫描器喂这一类。
+const { domainLang, detectLang: detectLangImpl } = require('../public/i18n.js');
 
 describe('官网默认语言按域名定', () => {
   test('.top 结尾默认英文', () => {

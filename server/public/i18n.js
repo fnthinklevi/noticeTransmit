@@ -229,6 +229,13 @@ D['通知推送助手'] = 'NoticeTransmit';
   function detectLang() {
     return domainLang(typeof location !== 'undefined' ? location.hostname : '');
   }
+  // Node 下只导出这两个纯函数（site-language.test.js 读真实现，不在测试里另抄一份），
+  // 然后停住：往下第一行就是 localStorage，浏览器才有。浏览器里 `module` 不存在，
+  // 这一支永远不走，站点行为一字不变。
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { domainLang: domainLang, detectLang: detectLang };
+    return;
+  }
   var lang = localStorage.getItem('lang');
   if (!lang) lang = detectLang();
   window._i18nDetect = detectLang;

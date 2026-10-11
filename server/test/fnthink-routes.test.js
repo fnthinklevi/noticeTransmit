@@ -546,15 +546,22 @@ describe('源码守卫', () => {
     // 为什么是源码守卫而不是行为用例：今天列名就是 `grantsBy`，写死的读法与契约的读法**回一样的数**，
     // 行为上分不出来 —— 只有把契约那一列改名时才见分晓，而那一次改名在真机上表现为
     // "所有已配对发送方一夜之间全被拒"（见 relationshipField 函数头）。
+    const libRoot = path.join(__dirname, '..', 'lib');
+    const libRootResolved = path.resolve(libRoot);
     const files = [];
     const walk = (dir) => {
+      // 归属检查（T-sec）：walk 只许待在 lib/ 里 —— 目录树由 readdir 给出，
+      // 这一道把"路径逃出根"从形状上排除，而不是靠调用方的自觉。
+      const root = path.resolve(dir);
+      if (root !== libRootResolved && !root.startsWith(libRootResolved + path.sep)) {
+        throw new Error(`遍历越出 lib/：${dir}`);
+      }
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, entry.name);
         if (entry.isDirectory()) walk(p);
         else if (entry.name.endsWith('.js')) files.push(p);
       }
     };
-    const libRoot = path.join(__dirname, '..', 'lib');
     walk(libRoot);
     const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
     const rel = (p) => path.relative(libRoot, p).replace(/\\/g, '/');

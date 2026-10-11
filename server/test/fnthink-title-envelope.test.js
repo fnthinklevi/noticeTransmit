@@ -173,8 +173,14 @@ describe('标题信封：服务端把整段 body 当不透明正文（跨端向�
     // 负向断言 ⇒ **剥注释**再比：契约文件与本文件的说明里都有这个词，注释不算实现。
     const prefix = contract.deviceSend.titleEnvelope.prefix;
     const dir = path.join(__dirname, '..', 'lib');
+    const dirResolved = path.resolve(dir);
     const files = [];
     const walk = (d) => {
+      // 归属检查（T-sec）：遍历只许待在 lib/ 里，路径逃出根当场抛。
+      const root = path.resolve(d);
+      if (root !== dirResolved && !root.startsWith(dirResolved + path.sep)) {
+        throw new Error(`遍历越出 lib/：${d}`);
+      }
       for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
         const p = path.join(d, entry.name);
         if (entry.isDirectory()) walk(p);

@@ -29,18 +29,21 @@ app.disable('x-powered-by');
 // 攻击者伪造该头即可伪造 IP 绕过封锁/限流（fail-safe 默认）。
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0));
 
-// CORS 白名单：默认仅允许无 Origin 的请求（App 原生 http / curl 等）与 ALLOWED_ORIGINS 中列出的来源。
-// 设置 ALLOWED_ORIGINS='*' 可恢复放行所有来源。多个来源用逗号分隔。
+// CORS 白名单：默认仅允许无 Origin 的请求（App 原生 http / curl 等服务端调用）与
+// ALLOWED_ORIGINS 中**逐条列出**的来源。多个来源用逗号分隔。
+// ⚠ 不设 '*' 通配（T-sec 收紧）：通配等于把管理面（会话 cookie、备份导入）的响应
+// 对任意站点可读；需要新增来源时把它写进 ALLOWED_ORIGINS，一行一条地来。
+// 部署注意：若线上 .env 里曾写 ALLOWED_ORIGINS='*'，改成显式域名清单。
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map((s) => s.trim())
-  .filter(Boolean);
+  .filter((s) => s && s !== '*');
 app.use(
   cors({
     origin(origin, callback) {
       // 无 Origin（原生 App、服务端调用、同源）直接放行
       if (!origin) return callback(null, true);
-      if (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) {
+      if (ALLOWED_ORIGINS.includes(origin)) {
         return callback(null, true);
       }
       return callback(null, false);
