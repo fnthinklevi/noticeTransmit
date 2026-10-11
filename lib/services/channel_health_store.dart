@@ -11,6 +11,7 @@ class ChannelHealth {
     required this.latencyMs,
     required this.probedAt,
     this.httpCode,
+    this.okSuccesses = 0,
   });
 
   final bool reachable;
@@ -22,11 +23,23 @@ class ChannelHealth {
   /// webhook 探测有 HTTP 码；应用通道（换 token）与邮件（SMTP 认证）没有
   final int? httpCode;
 
+  /// 这是这条通道**连续第几次**成功探测（失败那一次记 0）。
+  ///
+  /// 为什么由写记录这一侧算，而不是让原生自己数（原生确实数失败次数，见
+  /// `ChannelAvailability.noteResult`）：探测结果只有写的那一次同时看得见旧值与新值，
+  /// 而原生只在**有人来路由**时才读到这份记录 —— 在原生数"我见到几次成功"就等于把
+  /// "通知来得勤不勤"混进证据里（同一串探测结果，通知多的设备切回快、通知少的永远切不回）。
+  /// 唯一的消费者是自动切回判据（`ChannelRouting.RECOVERY_SUCCESS_COUNT`），
+  /// 阈值住在那一侧，这里只报事实。
+  final int okSuccesses;
+
   factory ChannelHealth.fromMap(Map<dynamic, dynamic> map) => ChannelHealth(
     reachable: map['reachable'] == true,
     latencyMs: (map['latencyMs'] as num?)?.toInt() ?? 0,
     probedAt: (map['probedAt'] as num?)?.toInt() ?? 0,
     httpCode: (map['httpCode'] as num?)?.toInt(),
+    // 旧记录没这个字段 ⇒ 0（= 说不出连着几次，切回那一侧就当没证据）
+    okSuccesses: (map['okSuccesses'] as num?)?.toInt() ?? 0,
   );
 
   Map<String, Object?> toMap() => {
@@ -34,6 +47,7 @@ class ChannelHealth {
     'latencyMs': latencyMs,
     'httpCode': httpCode,
     'probedAt': probedAt,
+    'okSuccesses': okSuccesses,
   };
 }
 
@@ -105,6 +119,9 @@ class ChannelHealthStore {
 
   /// 记一次探测结果（内存 + prefs）。失败只记日志：健康度是派生缓存，
   /// 写不进去下次再探就是，不该把保存/测试流程带崩。
+  ///
+  /// 顺手把 [ChannelHealth.okSuccesses] 算出来：连着的成功往上加、一次失败归零 ——
+  /// 这一句必须在这里，因为"上一次是什么"只有写这一次的这里同时握得到两份值。
   Future<void> record(
     String family,
     String id, {
@@ -113,11 +130,17 @@ class ChannelHealthStore {
     int? httpCode,
   }) async {
     if (id.isEmpty) return;
+    final prev = of(family, id);
     final health = ChannelHealth(
       reachable: reachable,
       latencyMs: latencyMs,
       httpCode: httpCode,
       probedAt: DateTime.now().millisecondsSinceEpoch,
+      okSuccesses: !reachable
+          ? 0
+          // 失败那一次已经把计数写成 0 了 ⇒ 这里只需要问"有没有前一份记录"，
+          // 再判一次 `prev.reachable` 是同一件事写两遍（还会让人以为 0 不是从失败来的）。
+          : (prev == null ? 1 : prev.okSuccesses + 1),
     );
     final key = keyOf(family, id);
     _entries[key] = health;

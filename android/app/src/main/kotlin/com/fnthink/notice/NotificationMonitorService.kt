@@ -1432,32 +1432,41 @@ class NotificationMonitorService : NotificationListenerService() {
         val fnthinks = configManager.getFnthinkChannelConfigs()
         val now = System.currentTimeMillis()
 
-        fun available(family: String, id: String): Boolean = ChannelAvailability.reasonOf(
-            fails = ChannelAvailability.failsOf(this, family, id),
-            record = ChannelAvailability.readHealth(this, family, id),
-            nowMs = now,
-        ).isAvailable
+        fun read(family: String, id: String): ChannelAvailability.Read =
+            ChannelAvailability.observe(this, family, id, now)
 
         val members = ArrayList<ChannelRouting.Member>()
         webhooks.forEach {
-            members.add(ChannelRouting.Member("webhook:" + it.id, it.role, available("webhook", it.id)))
+            val r = read("webhook", it.id)
+            members.add(ChannelRouting.Member("webhook:" + it.id, it.role, r.available, r.recovery))
         }
         apps.forEach {
-            members.add(ChannelRouting.Member("app:" + it.id, it.role, available("app", it.id)))
+            val r = read("app", it.id)
+            members.add(ChannelRouting.Member("app:" + it.id, it.role, r.available, r.recovery))
         }
         emails.forEach {
-            members.add(ChannelRouting.Member("email:" + it.id, it.role, available("email", it.id)))
+            val r = read("email", it.id)
+            members.add(ChannelRouting.Member("email:" + it.id, it.role, r.available, r.recovery))
         }
         // 幻念族（T94 片4）同一次决策，不另判一次：另判就会出现"邮件走备用、幻念还在推主通道"
-        // 的半吊子状态，而这一族的健康度还没有探针（见下），所以可用性恒为真。
+        // 的半吊子状态。可用性这一档仍**硬编 true**（T132 记的第③条：这一族的探测走 Dart 自己
+        // 那条链，原生侧还没有把它接进 available 的判据）；但**切回证据照实取**——T106 片③
+        // 之后这一族确实有探测记录（`probeFnthinkChannels` 写同一份健康单点），
+        // 攒够的那一份该说得出"这条主通道可以切回去了"。
         fnthinks.forEach {
-            members.add(ChannelRouting.Member("fnthink:" + it.id, it.role, true))
+            val r = read("fnthink", it.id)
+            members.add(ChannelRouting.Member("fnthink:" + it.id, it.role, true, r.recovery))
         }
 
         val engaged = BackupModeStore.isEngaged(this)
-        val decision = ChannelRouting.route(members, engaged)
-        // 只在真的发生降级时锁存；已经锁着就不重复写盘
-        if (decision.engagedBackup && !engaged) BackupModeStore.engage(this)
+        val decision = ChannelRouting.route(
+            members,
+            engaged,
+            autoBackup = BackupModeStore.autoBackupEnabled(this),
+            engagedAtMs = BackupModeStore.engagedAt(this),
+        )
+        // 锁存的写口只有一处，且两条链共用（T135）：降级与自动切回都在那里落盘
+        BackupModeStore.applyDecision(this, engaged, decision)
 
         val want = decision.keys.toHashSet()
         // 扇出范围（片4）：四族各自过一遍。slug 的取法与**送达回传用的那一段**同源 ——

@@ -45,10 +45,20 @@ class WebhookRoutingTest {
     private fun select(
         specs: List<Triple<String, ChannelRole, Boolean>>,
         backupEngaged: Boolean = false,
+        autoBackup: Boolean = true,
+        engagedAtMs: Long = 0L,
     ): Pair<WebhookRouting.Selection, Set<String>> {
         val avail = HashSet<String>()
         val configs = specs.map { (id, role, ok) -> cfg(id, role, ok, avail) }
-        val s = WebhookRouting.select(configs, available = { id -> id in avail }, backupEngaged)
+        val s = WebhookRouting.select(
+            configs,
+            // 这一族只验"判据接上了没有"，所以探测证据一律给 null（= 没有读数）：
+            // 自动切回那一条判据本身钉在 ChannelRoutingDecisionTest 里，不在这里数第二遍。
+            read = { id -> ChannelAvailability.Read(available = id in avail, recovery = null) },
+            backupEngaged = backupEngaged,
+            autoBackup = autoBackup,
+            engagedAtMs = engagedAtMs,
+        )
         return s to avail
     }
 
@@ -134,6 +144,21 @@ class WebhookRoutingTest {
         )
     }
 
+    @Test
+    fun `那枚开关关掉时短信与来电这两条链也不锁存（开关管全部三条链）`() {
+        // 只在一处判开关 = "转发的切了、短信的没切"，而 backup_engaged 是**设备级**的一格。
+        val (s, _) = select(
+            listOf(
+                Triple("p1", ChannelRole.PRIMARY, false),
+                Triple("b1", ChannelRole.BACKUP, true),
+            ),
+            autoBackup = false,
+        )
+        assertEquals(listOf("b1"), ids(s))
+        assertFalse("关掉的那一条绝不写 backup_engaged", s.engagedBackup)
+        assertTrue("当轮推的不是主档 ⇒ 那一发历史仍然要标「走了备用」", s.viaBackup)
+    }
+
     // ── 形状：短信与来电两条链不许再各走各的 ──
 
     private fun strip(src: String): String =
@@ -188,6 +213,39 @@ class WebhookRoutingTest {
             assertTrue(
                 "$rel 的送达回传没带 viaBackup ⇒ 历史页看不见「本次走了备用」",
                 src.contains("viaBackup = viaBackup,"),
+            )
+        }
+    }
+
+    @Test
+    fun `锁存的写口只有一处，两条链都只调它一次（T135）`() {
+        // 为什么钉形状而不是钉行为：`backup_engaged` 是设备级的一格，而它有四个可能的写点
+        // （通知转发、短信、来电、手动切回）。前三个各自写一份 ⇒ "这台切没切"随哪条链先跑而变，
+        // 而自动切回更要每个写点各判一次"该不该解除" —— 判六遍就总有漏判的那一遍（T128 数装配点那一课）。
+        for (rel in listOf(
+            "src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt",
+            "src/main/kotlin/com/fnthink/notice/WebhookRouting.kt",
+        )) {
+            val src = source(rel)
+            assertEquals(
+                "$rel 里 applyDecision 不是恰好一处 ⇒ 有第二条落盘路径",
+                1,
+                Regex("""BackupModeStore\.applyDecision\(""").findAll(src).count(),
+            )
+            assertEquals(
+                "$rel 还在自己写锁存（engage/release）⇒ 绕过那一个写口",
+                0,
+                Regex("""BackupModeStore\.(engage|release)\(""").findAll(src).count(),
+            )
+            assertEquals(
+                "$rel 没把「自动切备」那枚开关读进来 ⇒ 开关只管一半的链",
+                1,
+                Regex("""BackupModeStore\.autoBackupEnabled\(""").findAll(src).count(),
+            )
+            assertEquals(
+                "$rel 没把降级时刻喂进判据 ⇒ 自动切回会拿降级之前的成功读数当证据",
+                1,
+                Regex("""BackupModeStore\.engagedAt\(""").findAll(src).count(),
             )
         }
     }

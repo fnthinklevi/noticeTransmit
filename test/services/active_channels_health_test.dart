@@ -770,6 +770,40 @@ void main() {
       );
     });
 
+    test('探测候选不看角色，也不看那份锁存（T135：切回要的那份读数从这里继续长）', () async {
+      await seedChannels(
+        hooks: [
+          {...hookRow(name: '主'), 'id': 'wh-p', 'role': 'primary'},
+          {...hookRow(name: '备'), 'id': 'wh-b', 'role': 'backup'},
+          {...hookRow(name: '不参与'), 'id': 'wh-n', 'role': 'none'},
+          {...hookRow(name: '还没设'), 'id': 'wh-u', 'role': 'unset'},
+        ],
+        apps: [
+          {...appRow(), 'id': 'app-p', 'role': 'primary'},
+          {...appRow(name: '备用那条'), 'id': 'app-b', 'role': 'backup'},
+        ],
+      );
+
+      // 判据打在"候选集合 == 服务侧那份全量"上，而不是打在四个 id 字面量上：
+      // saveChannels 可能改写 id，而这一条要拦的是"按角色筛掉一批"，不是"id 叫什么"。
+      final hookIds = webhookService.channels
+          .map((c) => c['id'].toString())
+          .toSet();
+      expect(hookIds.length, 4, reason: '四档角色各一条才叫"每一档都被试过"');
+      expect(
+        webhookService.probeTargets.map((t) => t.id).toSet(),
+        hookIds,
+        reason:
+            '降级锁存期间主通道不再被发送，切回判据唯一还在长的读数就是这份探测记录 —— '
+            '候选一旦按角色筛（primary／backup／none／unset 少任何一档），'
+            '"主又可用了"这件事就永远没有生产者',
+      );
+      expect(
+        appService.probeTargets.map((t) => t.id).toSet(),
+        appService.channels.map((c) => c['id'].toString()).toSet(),
+      );
+    });
+
     test('全族扫一遍：只探过期的那条，刚探过的一个字节都不发', () async {
       final health = GetIt.instance<ChannelHealthStore>();
       await seedChannels(

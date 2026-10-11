@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,9 +43,14 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   /// 首次进入提示（只弹一次，落 prefs）。键名与 `rule_engine_guide_seen` 同一套写法。
   bool _showGuide = false;
 
-  /// 原生是否已降级到备用通道（T12）。锁存不会自动解除（防抖动），
-  /// 所以这一页既要显示"当前在走备用"，也要给一个手动切回。
-  bool _backupEngaged = false;
+  /// 备用模式那一格的读数（T12 锁存 + T135 自动切回留痕）。
+  /// null = 还没读到 —— 这时**两句都不说**：把"还没读到"画成"没在走备用"或
+  /// "已经回到主通道"都是替用户做一个他没做过的决定。
+  BackupModeState? _backup;
+
+  /// 「主通道不可用时自动切到备用通道」那枚开关（T135，默认开）。
+  /// 初值取默认值而不是 null：这一格在弹层里，读到之前画出来必须是那个用户没动过的默认档。
+  bool _autoBackup = true;
 
   /// 分组的固定顺序（首页卡是按"应用→webhook→邮件→幻念"的观感排的，这里按族的常用度排，
   /// 幻念在最后一族：它没有自动重探，徽标在多数时刻是「从未探测」，排前面会把这页顶格变成未知）。
@@ -71,9 +77,15 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   }
 
   Future<void> _loadBackupMode() async {
-    final engaged = await BackupMode.isEngaged();
+    // 两发并发读的是同一格的两半（锁存状态住原生、那枚开关住 prefs），
+    // 谁先回来都不影响对方：这一页每次 setState 都是整格重画。
+    final backup = await BackupMode.read();
+    final auto = await BackupMode.autoBackupEnabled();
     if (!mounted) return;
-    setState(() => _backupEngaged = engaged);
+    setState(() {
+      _backup = backup;
+      _autoBackup = auto;
+    });
   }
 
   Future<void> _checkFirstTime() async {
@@ -92,8 +104,13 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     setState(() {});
   }
 
-  /// 备用模式横幅（T12）：降级是自动的、恢复是手动的。不写清楚，用户的观感就是
+  /// 备用模式横幅（T12）：降级是自动的，切回也有自动那一条（T135），但手动那一枚留着 ——
+  /// 用户不等探测攒够证据时就该能立刻切回去。不写清楚，用户的观感就是
   /// 「我明明修好了主通道，为什么还在推备用」。
+  ///
+  /// 那句话里的**次数**（`recoveryCount`）不在这个文件数：它是原生判据
+  /// （`ChannelRouting.RECOVERY_SUCCESS_COUNT`）的一部分，由 `getBackupMode` 带回来。
+  /// 这里抄一个「3」，判据改了界面上就还写着旧的那个数。
   Widget _backupBanner(BuildContext context, AppLocalizations l10n) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -113,7 +130,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              l10n.backupModeBanner,
+              l10n.backupModeBanner(_backup?.recoveryCount ?? 0),
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.4,
@@ -128,6 +145,50 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
               await _loadBackupMode();
             },
             child: Text(l10n.backupModeSwitchBack),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 「已经回到主通道」那一行（T135 验收③：切回这件事必须用户看得见）。
+  ///
+  /// 自动那一条尤其要说得出**什么时候、凭什么**：不然表现就是"我昨天配好的东西
+  /// 今天自己变了"。这一句由原生那份留痕驱动，而原生只在时效内报它（超过就成了历史，
+  /// 不再是状态），下一次降级也会把它抹掉。
+  ///
+  /// 那句"多久以前"用的是 [fnthinkAgoLabel] 而不是本页别处在用的 [channelHealthAgoLabel]：
+  /// 后者那句话自带"探测"这个主语（"40 分钟前探测"），接进这里就成了
+  /// "已于 40 分钟前探测 回到主通道"。分档仍是同一个作者（`fnthinkAgoBucket`），只是措辞换了主语。
+  Widget _returnedLine(BuildContext context, AppLocalizations l10n) {
+    final at = _backup?.releasedAt;
+    final ago = fnthinkAgoLabel(l10n, at);
+    if (at == null || ago == null) return const SizedBox.shrink();
+    final auto = _backup!.releasedAuto;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.check_circle_outline,
+            size: 16,
+            color: AppColors.green,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              auto
+                  ? l10n.backupModeReturnedAuto(
+                      ago,
+                      _backup?.recoveryCount ?? 0,
+                    )
+                  : l10n.backupModeReturnedManual(ago),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
           ),
         ],
       ),
@@ -166,7 +227,10 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
               )
             : null,
         children: [
-          if (_backupEngaged) _backupBanner(context, l10n),
+          if (_backup?.engaged == true) _backupBanner(context, l10n),
+          // 切回之后那一行（T135）：没有锁存、但有一段"刚回到主通道"的事实要说。
+          if (_backup?.engaged == false && _backup?.releasedAt != null)
+            _returnedLine(context, l10n),
           if (_showGuide) _guideCard(context, l10n),
           for (final family in _familyOrder)
             ..._familySection(context, l10n, family, [
@@ -416,6 +480,53 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
                         ),
                       ),
                     ),
+                  // 设备级那一档，放在逐条通道那张表**之前**：它管的是"这台要不要自动切"，
+                  // 而不是"这一条算什么档"。落点按 T113 那份作者走（主备设置只有这一处），
+                  // 不在首页另开一格。
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.backupAutoSwitchLabel,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.primaryLabel(context),
+                                ),
+                              ),
+                              // 那句解释只在关掉之后才出现：默认档不需要说明书，
+                              // 而"关掉会怎样"必须当场说清（不然下一屏就是"我设的东西怎么不切了"）。
+                              if (!_autoBackup)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    l10n.backupAutoSwitchOffNote,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      height: 1.4,
+                                      color: AppColors.secondaryLabel(context),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        CupertinoSwitch(
+                          key: const ValueKey('backup-auto-switch'),
+                          value: _autoBackup,
+                          activeTrackColor: AppColors.blue,
+                          onChanged: (v) =>
+                              _setAutoBackup(v, () => setSheetState(() {})),
+                        ),
+                      ],
+                    ),
+                  ),
                   Flexible(
                     child: ListView(
                       shrinkWrap: true,
@@ -451,6 +562,19 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
 
   /// 推荐上限：只用于提示，不做硬限制。
   static const int _recommendedPrimaryMax = 5;
+
+  /// 那枚「自动切备」开关（T135）。写的是 prefs 里那把**跨语言**的键：
+  /// 作者是这里，读者是原生路由（`BackupModeStore.KEY_AUTO_BACKUP`）——
+  /// 所以这一发不通知原生"配置变了"，原生每次路由都现读。
+  ///
+  /// ⚠ 重画要点两下：弹层是 Navigator 上另一条 route，本页的 `setState` 传不过去 ——
+  /// 只点页面的那一下，表现就是"开关拨了、屏幕上没动"（`_roleRow` 同一坑）。
+  Future<void> _setAutoBackup(bool value, VoidCallback sheetRefresh) async {
+    await BackupMode.setAutoBackupEnabled(value);
+    sheetRefresh();
+    if (!mounted) return;
+    setState(() => _autoBackup = value);
+  }
 
   Widget _roleRow(
     BuildContext context,

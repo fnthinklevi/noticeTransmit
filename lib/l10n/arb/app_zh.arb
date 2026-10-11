@@ -76,8 +76,36 @@
   "roleGuideAction": "去设置",
   "roleGuideLater": "以后再说",
   "mainBackupChannelGone": "通道已不存在，本次设置未保存。",
-  "backupModeBanner": "当前正在按备用通道推送：主通道连续不可用时系统会自动降级，且不会自动切回。确认主通道已恢复后点「切回主通道」。",
+  "backupModeBanner": "当前正在按备用通道推送：主通道连续不可用时系统会自动降级，攒够 {n} 次连续探测成功后会自动回到主通道；也可以随时手动切回。",
+  "@backupModeBanner": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "backupModeSwitchBack": "切回主通道",
+  "backupModeReturnedAuto": "已于 {ago} 自动回到主通道（连续 {n} 次探测成功）。",
+  "@backupModeReturnedAuto": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "backupModeReturnedManual": "已于 {ago} 切回主通道。",
+  "@backupModeReturnedManual": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "backupAutoSwitchLabel": "主通道不可用时自动切到备用通道",
+  "backupAutoSwitchOffNote": "关掉之后每条通知各自判断走哪条通道，不再记住「已切到备用」，也不会自动切回。",
   "permSettings": "权限设置",
   "permSettingsDesc": "配置通知、电池、后台运行等权限",
   "pushHistory": "推送历史",

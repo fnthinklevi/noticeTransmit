@@ -200,11 +200,30 @@ class AppLocalizationsEn extends AppLocalizations {
       'That channel is gone; the change was not saved.';
 
   @override
-  String get backupModeBanner =>
-      'Pushing via backup channels: the app fell back automatically and will not switch back by itself. Confirm the primary channels are healthy, then tap \"Switch to primary\".';
+  String backupModeBanner(int n) {
+    return 'Pushing via backup channels: the app fell back on its own and returns to primary after $n consecutive successful probes. You can also switch back any time.';
+  }
 
   @override
   String get backupModeSwitchBack => 'Switch to primary';
+
+  @override
+  String backupModeReturnedAuto(String ago, int n) {
+    return 'Back on primary $ago (after $n consecutive successful probes).';
+  }
+
+  @override
+  String backupModeReturnedManual(String ago) {
+    return 'Switched back to primary $ago.';
+  }
+
+  @override
+  String get backupAutoSwitchLabel =>
+      'Switch to backup when primary is unavailable';
+
+  @override
+  String get backupAutoSwitchOffNote =>
+      'When off, every notification picks its own channel: nothing remembers \"switched to backup\", and nothing switches back on its own.';
 
   @override
   String get permSettings => 'Permissions';

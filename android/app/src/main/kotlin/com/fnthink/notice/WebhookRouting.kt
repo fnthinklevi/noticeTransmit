@@ -23,41 +23,57 @@ object WebhookRouting {
     /**
      * @param viaBackup 本轮不是"只推可用主通道" ⇒ 送达记录要打的那个标记。
      * @param engagedBackup 本轮之后设备级锁存应处于"已切备用"（调用方负责落盘，见 [routeWebhooks]）。
+     * @param decision 路由决策原样带出来：落盘只认这一个对象（[BackupModeStore.applyDecision]），
+     *   这里不另抄一遍"该不该写锁存"的判断 —— 抄一遍就有两个作者，而通知转发那条链
+     *   已经抄过一份了（T135 把它收成一处）。
      */
     class Selection(
         val configs: List<ConfigManager.WebhookChannelConfig>,
-        val viaBackup: Boolean,
-        val engagedBackup: Boolean,
-    )
+        val decision: ChannelRouting.Decision,
+    ) {
+        val viaBackup: Boolean get() = decision.viaBackup
+        val engagedBackup: Boolean get() = decision.engagedBackup
+        val releasedBackup: Boolean get() = decision.releasedBackup
+    }
 
     /**
      * 纯函数：给定配置、可用性读数与锁存状态，返回该推哪几把。
      *
-     * 可用性由调用方喂进来（[available] 收通道 id）⇒ 这条链在 JVM 上可测，不必碰 prefs。
+     * 读数由调用方喂进来（[read] 收通道 id，回 [ChannelAvailability.Read]：可用性 + 探测证据）
+     * ⇒ 这条链在 JVM 上可测，不必碰 prefs。
      */
     fun select(
         configs: List<ConfigManager.WebhookChannelConfig>,
-        available: (String) -> Boolean,
+        read: (String) -> ChannelAvailability.Read,
         backupEngaged: Boolean,
+        autoBackup: Boolean = true,
+        engagedAtMs: Long = 0L,
     ): Selection {
         val decision = ChannelRouting.route(
             configs.map {
-                ChannelRouting.Member("webhook:" + it.id, it.role, available(it.id))
+                val r = read(it.id)
+                ChannelRouting.Member(
+                    key = "webhook:" + it.id,
+                    role = it.role,
+                    available = r.available,
+                    recovery = r.recovery,
+                )
             },
             backupEngaged,
+            autoBackup,
+            engagedAtMs,
         )
         val want = decision.keys.toHashSet()
         return Selection(
             configs.filter { ("webhook:" + it.id) in want },
-            viaBackup = decision.viaBackup,
-            engagedBackup = decision.engagedBackup,
+            decision,
         )
     }
 
     /**
-     * 生产装配：现读每把通道的可用性与那一份设备级锁存，并在**真降级**时写锁存 ——
-     * 与 `routeChannels()` 同一动作。两条链一条写、一条不写的话，"这台到底切没切备用"
-     * 就变成随哪条链先跑而变的东西。
+     * 生产装配：现读每把通道的可用性、探测证据与那一份设备级锁存，再把决策落盘 ——
+     * 与 `routeChannels()` 同一个动作、同一个写口（[BackupModeStore.applyDecision]）。
+     * 两条链一条写、一条不写的话，"这台到底切没切备用"就变成随哪条链先跑而变的东西。
      */
     fun routeWebhooks(
         context: Context,
@@ -67,16 +83,12 @@ object WebhookRouting {
         val engaged = BackupModeStore.isEngaged(context)
         val selected = select(
             configs,
-            available = { id ->
-                ChannelAvailability.reasonOf(
-                    fails = ChannelAvailability.failsOf(context, "webhook", id),
-                    record = ChannelAvailability.readHealth(context, "webhook", id),
-                    nowMs = now,
-                ).isAvailable
-            },
+            read = { id -> ChannelAvailability.observe(context, "webhook", id, now) },
             backupEngaged = engaged,
+            autoBackup = BackupModeStore.autoBackupEnabled(context),
+            engagedAtMs = BackupModeStore.engagedAt(context),
         )
-        if (selected.engagedBackup && !engaged) BackupModeStore.engage(context)
+        BackupModeStore.applyDecision(context, engaged, selected.decision)
         return selected
     }
 }

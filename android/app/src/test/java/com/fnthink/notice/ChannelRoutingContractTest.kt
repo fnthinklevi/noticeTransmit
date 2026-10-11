@@ -266,4 +266,49 @@ class ChannelRoutingContractTest {
             "Dart 送达条目没有粘滞的 viaBackup 字段"
         )
     }
+
+    @Test
+    fun `备用模式那一格只有一个所有者，别处不直接读写那两个键`() {
+        // T135 之后 `backup_engaged` 有两个**入口**（自动判的那发、手动点的那发）
+        // 但仍然只有一个**写口**。最坏的形状不是崩，是各处各写一份：屏幕说的是 A 那一份、
+        // 路由用的是 B 那一份，而两条链路看起来都"正常"。
+        val pkgDir = repoFile(
+            "app/src/main/kotlin/com/fnthink/notice/ChannelRouting.kt",
+        ).parentFile
+        val ktFiles = pkgDir.walk().filter { it.extension == "kt" }.toList()
+        assertTrue(ktFiles.isNotEmpty(), "没从原生源码里取到文件 ⇒ 本条在空转")
+        fun textOf(f: java.io.File) = stripComments(f.readText(Charsets.UTF_8))
+
+        // ① 那个键名只住在 BackupModeStore 那一个文件里
+        val owners = ktFiles
+            .filter { textOf(it).contains("\"backup_engaged\"") }
+            .map { it.name }
+        assertEquals(
+            listOf("ChannelAvailability.kt"),
+            owners,
+            "backup_engaged 出现在第二个文件里 = 有人在别处自己读那份锁存",
+        )
+        // ② 除了 BackupModeStore 自己（定义与 applyDecision 都在那文件内），别处不许调 engage
+        val writers = ktFiles
+            .flatMap { f ->
+                Regex("""BackupModeStore\.engage\(""").findAll(textOf(f)).map { f.name }.toList()
+            }
+        assertEquals(
+            emptyList<String>(),
+            writers,
+            "又出现一个绕过 applyDecision 的降级写点",
+        )
+        // ③ release 的**限定名**调用点只许有手动那一发（自动那一发在 applyDecision 里，是非限定的）
+        val releasers = ktFiles
+            .flatMap { f ->
+                Regex("""BackupModeStore\.release\(""").findAll(textOf(f)).map { f.name }.toList()
+            }
+        assertEquals(
+            listOf("ConfigChannelHandler.kt"),
+            releasers,
+            "解除锁存的入口变了（手动那一发只许在 ConfigChannelHandler）",
+        )
+        // 两条链**各自**调没调 applyDecision：那条口径在 WebhookRoutingTest（它按文件计数），
+        // 这里只钉"这个键只有一个所有者"，同一个判断不写两遍。
+    }
 }

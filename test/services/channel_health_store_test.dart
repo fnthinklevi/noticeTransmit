@@ -98,6 +98,100 @@ void main() {
     });
   });
 
+  // ── 连续成功次数（T135：自动切回那条判据的证据来源）─────────────────────
+  // 这一族计数**只在写记录那一次**算得出：那里同时握着旧值与新值。
+  // 如果让原生自己数"我见到几次成功"，通知来得勤的设备切得快、来得少的永远切不回 ——
+  // 那正是下面第一条用例要拦住的方向，所以这几条钉的是"数的是什么"，不是"屏幕上说什么"。
+  group('连续成功探测次数（切回的证据）', () {
+    test('连着成功往上加，一次失败归零，再成功从 1 起', () async {
+      final store = ChannelHealthStore();
+      await store.load();
+
+      Future<int> probe(bool ok) async {
+        await store.record('webhook', 'wh_1', reachable: ok, latencyMs: 10);
+        return store.of('webhook', 'wh_1')!.okSuccesses;
+      }
+
+      expect(await probe(true), 1);
+      expect(await probe(true), 2);
+      expect(await probe(true), 3);
+      expect(await probe(false), 0, reason: '一次失败就把连着成功清零：判据要的"连着"不能跨过失败累计');
+      expect(await probe(true), 1, reason: '归零后重新开始，不接着上次那个数');
+    });
+
+    test('计数随记录落盘：进程重启（新实例 + load）之后接着数', () async {
+      final first = ChannelHealthStore();
+      await first.load();
+      await first.record('webhook', 'wh_1', reachable: true, latencyMs: 10);
+      await first.record('webhook', 'wh_1', reachable: true, latencyMs: 10);
+
+      final prefs = await SharedPreferences.getInstance();
+      final stored =
+          jsonDecode(prefs.getString('channel_health_webhook:wh_1')!)
+              as Map<String, dynamic>;
+      expect(
+        stored['okSuccesses'],
+        2,
+        reason: '没落盘的话，每次冷启动都从 1 重数 ⇒ 攒够阈值这件事在这台设备上永远做不到',
+      );
+
+      final second = ChannelHealthStore();
+      await second.load();
+      await second.record('webhook', 'wh_1', reachable: true, latencyMs: 10);
+      expect(second.of('webhook', 'wh_1')!.okSuccesses, 3);
+    });
+
+    test('旧记录没这个字段 ⇒ 读成 0，第一次成功记 1（不猜历史上成功过几次）', () async {
+      SharedPreferences.setMockInitialValues({
+        'channel_health_webhook:wh_1': jsonEncode({
+          'reachable': true,
+          'latencyMs': 9,
+          'probedAt': DateTime.now().millisecondsSinceEpoch,
+        }),
+      });
+      final store = ChannelHealthStore();
+      await store.load();
+      expect(
+        store.of('webhook', 'wh_1')!.okSuccesses,
+        0,
+        reason: '说不出连着几次就是没证据；替老数据补一个 1 会让判据读到一份并不存在的证据',
+      );
+
+      await store.record('webhook', 'wh_1', reachable: true, latencyMs: 9);
+      expect(store.of('webhook', 'wh_1')!.okSuccesses, 1);
+    });
+
+    test('两条同 id 的通道各自数各自（键含 family 这一条在计数上也成立）', () async {
+      final store = ChannelHealthStore();
+      await store.load();
+      await store.record('webhook', 'shared-id', reachable: true, latencyMs: 1);
+      await store.record('webhook', 'shared-id', reachable: true, latencyMs: 1);
+      await store.record('app', 'shared-id', reachable: true, latencyMs: 1);
+
+      expect(store.of('webhook', 'shared-id')!.okSuccesses, 2);
+      expect(
+        store.of('app', 'shared-id')!.okSuccesses,
+        1,
+        reason: '串了台就把 webhook 的成功次数算到应用通道头上 ⇒ 那条从未通过的通道被判断"可以切回"',
+      );
+    });
+
+    test('删掉通道时那份计数跟着走（id 复用不带走上一段历史）', () async {
+      final store = ChannelHealthStore();
+      await store.load();
+      await store.record('webhook', 'wh_1', reachable: true, latencyMs: 1);
+      await store.record('webhook', 'wh_1', reachable: true, latencyMs: 1);
+      await store.remove('webhook', 'wh_1');
+
+      await store.record('webhook', 'wh_1', reachable: true, latencyMs: 1);
+      expect(
+        store.of('webhook', 'wh_1')!.okSuccesses,
+        1,
+        reason: '清掉记录却留着计数 ⇒ 下一条同名通道一上来就带着"已连着成功两次"',
+      );
+    });
+  });
+
   group('旧数据读穿（不换键、不丢徽标）', () {
     test('第 6 步之前的键（不带 family）仍读得到，按调用方的族解释', () async {
       SharedPreferences.setMockInitialValues({

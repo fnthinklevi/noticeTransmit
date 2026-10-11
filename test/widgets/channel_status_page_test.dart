@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,14 +86,27 @@ void main() {
     ];
   }
 
-  /// 备用模式的状态住在原生，测试里可翻转（默认未锁存）。
+  /// 备用模式的状态住在原生，测试里可翻转（默认未锁存、也没切回过）。
   bool backupEngaged = false;
+
+  /// 「上一次切回」那两份留痕（T135）：时刻为 null = 从没切回过
+  int? backupReleasedAt;
+  bool backupReleasedAuto = false;
+
+  /// 原生回的那个阈值（判据住在 `ChannelRouting.RECOVERY_SUCCESS_COUNT`，这里只当线值用）
+  const int stubRecoveryCount = 3;
+
   final resetCalls = <String>[];
 
   Future<Object?> onChannelCall(MethodCall call) async {
     switch (call.method) {
       case 'getBackupMode':
-        return {'engaged': backupEngaged};
+        return {
+          'engaged': backupEngaged,
+          'releasedAt': backupReleasedAt,
+          'releasedAuto': backupReleasedAuto,
+          'recoveryCount': stubRecoveryCount,
+        };
       case 'resetBackupMode':
         resetCalls.add(call.method);
         backupEngaged = false;
@@ -104,6 +118,10 @@ void main() {
 
   setUp(() async {
     opened.clear();
+    backupEngaged = false;
+    backupReleasedAt = null;
+    backupReleasedAuto = false;
+    resetCalls.clear();
     await GetIt.instance.reset();
     SharedPreferences.setMockInitialValues({});
     // 见 base.md（53）（54）：testWidgets 里不接住原生通道，服务侧那一句
@@ -365,6 +383,120 @@ void main() {
         find.textContaining('当前正在按备用通道推送'),
         findsNothing,
         reason: '切回后横幅要跟着消失，否则按钮像是没生效',
+      );
+    });
+
+    // ── T135：切回这件事必须用户看得见（自动那一条尤其要说凭什么）────────────
+    // 为什么单独三行：这一族最容易长成的缺陷不是"少一句话"，而是**说错主语**——
+    // 把自动判的那次说成用户切的（他就不知道自己那枚按钮没生效过），
+    // 或把八十小时前的切回一直挂在屏幕上（那就不是状态，是历史）。
+
+    testWidgets('自动切回那一行：带什么时候、凭什么', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+      backupReleasedAt = DateTime.now().millisecondsSinceEpoch - 40 * 60 * 1000;
+      backupReleasedAuto = true;
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('自动回到主通道'),
+        findsOneWidget,
+        reason: '主通道自己修好、系统自己切回来 —— 不写这一句，用户看到的就是"我配的东西今天自己变了"',
+      );
+      expect(
+        find.textContaining('40 分钟前'),
+        findsOneWidget,
+        reason: '"什么时候"是这件事能不能核对的关键：没有时间就等于不可核对',
+      );
+      expect(
+        find.textContaining('连续 3 次探测成功'),
+        findsOneWidget,
+        reason: '那个次数是原生判据带回来的（recoveryCount），界面不自己抄一份',
+      );
+      expect(
+        find.byKey(const ValueKey('backup-mode-switch-back')),
+        findsNothing,
+        reason: '已经回到主通道还挂着「切回主通道」那枚按钮 = 屏幕上有一个不会生效的动作',
+      );
+    });
+
+    testWidgets('手动切回那一行说的是手动，不冒充系统判的', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+      backupReleasedAt = DateTime.now().millisecondsSinceEpoch - 5 * 60 * 1000;
+      backupReleasedAuto = false;
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('切回主通道'), findsOneWidget);
+      expect(
+        find.textContaining('连续'),
+        findsNothing,
+        reason: '那一次是用户自己点的，把探测次数挂上去是替他记了一件他没做过的判断',
+      );
+    });
+
+    testWidgets('从没切回过就没有那一行（缺留痕不许造出一句"已回到主通道"）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('回到主通道'),
+        findsNothing,
+        reason: 'releasedAt 为 null（老数据、或超过时效）时报"已回到主通道"就是凭空一句',
+      );
+    });
+
+    testWidgets('那枚「自动切备」开关：默认开，关掉写 prefs 并当场说清关掉是什么形状', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('channel-status-open-roles')));
+      await tester.pumpAndSettle();
+
+      const key = ValueKey('backup-auto-switch');
+      final switchFinder = find.byKey(key);
+      expect(
+        tester.widget<CupertinoSwitch>(switchFinder).value,
+        isTrue,
+        reason: '默认档必须是开：今天的行为本来就是自动切备',
+      );
+      expect(
+        find.textContaining('每条通知各自判断'),
+        findsNothing,
+        reason: '默认档不需要说明书；那句"关掉会怎样"是关掉之后才要说的',
+      );
+
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getBool('channel_auto_backup'),
+        isFalse,
+        reason: '这一发的读者是原生路由（flutter.channel_auto_backup），没写进去就是关了个空开关',
+      );
+      expect(tester.widget<CupertinoSwitch>(switchFinder).value, isFalse);
+      expect(
+        find.textContaining('每条通知各自判断'),
+        findsOneWidget,
+        reason: '关掉之后"不再记住已切到备用、也不会自动切回"必须当场说清，不然下一屏就是"我的通知怎么不切了"',
       );
     });
 

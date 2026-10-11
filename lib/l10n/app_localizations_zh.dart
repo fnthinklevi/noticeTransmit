@@ -193,11 +193,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainBackupChannelGone => '通道已不存在，本次设置未保存。';
 
   @override
-  String get backupModeBanner =>
-      '当前正在按备用通道推送：主通道连续不可用时系统会自动降级，且不会自动切回。确认主通道已恢复后点「切回主通道」。';
+  String backupModeBanner(int n) {
+    return '当前正在按备用通道推送：主通道连续不可用时系统会自动降级，攒够 $n 次连续探测成功后会自动回到主通道；也可以随时手动切回。';
+  }
 
   @override
   String get backupModeSwitchBack => '切回主通道';
+
+  @override
+  String backupModeReturnedAuto(String ago, int n) {
+    return '已于 $ago 自动回到主通道（连续 $n 次探测成功）。';
+  }
+
+  @override
+  String backupModeReturnedManual(String ago) {
+    return '已于 $ago 切回主通道。';
+  }
+
+  @override
+  String get backupAutoSwitchLabel => '主通道不可用时自动切到备用通道';
+
+  @override
+  String get backupAutoSwitchOffNote =>
+      '关掉之后每条通知各自判断走哪条通道，不再记住「已切到备用」，也不会自动切回。';
 
   @override
   String get permSettings => '权限设置';

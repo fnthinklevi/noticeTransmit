@@ -3,6 +3,7 @@ package com.fnthink.notice.channels
 import com.fnthink.notice.AppChannelRegistry
 import com.fnthink.notice.BackupModeStore
 import com.fnthink.notice.ChannelRegistry
+import com.fnthink.notice.ChannelRouting
 import com.fnthink.notice.DiagLog
 import com.fnthink.notice.EmailChannelSpec
 import com.fnthink.notice.EmailManager
@@ -128,16 +129,25 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 activity.notifyServiceConfigChanged()
                 result.success(true)
             }
-            // ── 备用模式锁存（T12）────────────────────────────────────────
-            // 读：状态页要告诉用户"现在其实在推备用通道"；
-            // 写：只有"手动切回"这一个入口 —— 路由不自动解除锁存（防抖动）。
+            // ── 备用模式锁存（T12，T135 补自动切回与那枚开关）───────────────
+            // 读：状态页要告诉用户"现在其实在推备用通道"，也要说得出上一次是怎么回来的
+            //     （`releasedAt`/`releasedAuto`）与自动切回凭什么（`recoveryCount` 取自判据
+            //      那一处，不在这里另抄一个数 —— 抄一份就会与判据漂开）。
+            // 写：这一枚方法只有"手动切回"；自动那一发由路由落盘（`BackupModeStore.applyDecision`）。
             "getBackupMode" -> {
+                val ctx = activity.applicationContext
+                val release = BackupModeStore.lastRelease(ctx)
                 result.success(
-                    mapOf("engaged" to BackupModeStore.isEngaged(activity.applicationContext))
+                    mapOf(
+                        "engaged" to BackupModeStore.isEngaged(ctx),
+                        "releasedAt" to release?.at,
+                        "releasedAuto" to release?.auto,
+                        "recoveryCount" to ChannelRouting.RECOVERY_SUCCESS_COUNT,
+                    ),
                 )
             }
             "resetBackupMode" -> {
-                BackupModeStore.release(activity.applicationContext)
+                BackupModeStore.release(activity.applicationContext, auto = false)
                 result.success(true)
             }
             "setSmsSetting" -> {

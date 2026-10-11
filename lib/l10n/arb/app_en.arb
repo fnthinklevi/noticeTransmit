@@ -76,8 +76,36 @@
   "roleGuideAction": "Set up",
   "roleGuideLater": "Later",
   "mainBackupChannelGone": "That channel is gone; the change was not saved.",
-  "backupModeBanner": "Pushing via backup channels: the app fell back automatically and will not switch back by itself. Confirm the primary channels are healthy, then tap \"Switch to primary\".",
+  "backupModeBanner": "Pushing via backup channels: the app fell back on its own and returns to primary after {n} consecutive successful probes. You can also switch back any time.",
+  "@backupModeBanner": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "backupModeSwitchBack": "Switch to primary",
+  "backupModeReturnedAuto": "Back on primary {ago} (after {n} consecutive successful probes).",
+  "@backupModeReturnedAuto": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "backupModeReturnedManual": "Switched back to primary {ago}.",
+  "@backupModeReturnedManual": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "backupAutoSwitchLabel": "Switch to backup when primary is unavailable",
+  "backupAutoSwitchOffNote": "When off, every notification picks its own channel: nothing remembers \"switched to backup\", and nothing switches back on its own.",
   "permSettings": "Permissions",
   "permSettingsDesc": "Configure notification, battery, background permissions",
   "pushHistory": "Push History",

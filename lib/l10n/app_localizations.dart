@@ -449,14 +449,38 @@ abstract class AppLocalizations {
   /// No description provided for @backupModeBanner.
   ///
   /// In zh, this message translates to:
-  /// **'当前正在按备用通道推送：主通道连续不可用时系统会自动降级，且不会自动切回。确认主通道已恢复后点「切回主通道」。'**
-  String get backupModeBanner;
+  /// **'当前正在按备用通道推送：主通道连续不可用时系统会自动降级，攒够 {n} 次连续探测成功后会自动回到主通道；也可以随时手动切回。'**
+  String backupModeBanner(int n);
 
   /// No description provided for @backupModeSwitchBack.
   ///
   /// In zh, this message translates to:
   /// **'切回主通道'**
   String get backupModeSwitchBack;
+
+  /// No description provided for @backupModeReturnedAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'已于 {ago} 自动回到主通道（连续 {n} 次探测成功）。'**
+  String backupModeReturnedAuto(String ago, int n);
+
+  /// No description provided for @backupModeReturnedManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'已于 {ago} 切回主通道。'**
+  String backupModeReturnedManual(String ago);
+
+  /// No description provided for @backupAutoSwitchLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'主通道不可用时自动切到备用通道'**
+  String get backupAutoSwitchLabel;
+
+  /// No description provided for @backupAutoSwitchOffNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'关掉之后每条通知各自判断走哪条通道，不再记住「已切到备用」，也不会自动切回。'**
+  String get backupAutoSwitchOffNote;
 
   /// No description provided for @permSettings.
   ///
