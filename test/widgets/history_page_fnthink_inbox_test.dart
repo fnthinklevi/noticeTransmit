@@ -12,6 +12,7 @@ import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
 
 import '../test_setup.dart';
@@ -322,6 +323,25 @@ void main() {
       expect(
         find.byKey(const ValueKey('fnthink-inbox-resend')),
         findsOneWidget,
+      );
+      // T148 差异⑧：这两枚的**形状**由公共件给出 —— 判在 widget 类型与那两枚标签上，
+      // 不判字号/色值字面量（颜色的唯一作者是 `FnthinkInlineAction.colorOf`）。
+      expect(
+        tester
+            .widget<FnthinkInlineAction>(
+              find.byKey(const ValueKey('fnthink-inbox-reply')),
+            )
+            .label,
+        l10n(tester).fnthinkReply,
+        reason: '那枚 key 不再挂在行内动作件上 ⇒ 详情弹层又长回第五种动作形状',
+      );
+      expect(
+        tester
+            .widget<FnthinkInlineAction>(
+              find.byKey(const ValueKey('fnthink-inbox-resend')),
+            )
+            .label,
+        l10n(tester).fnthinkResend,
       );
 
       // 不在册：连查都不用查第二次 —— 给一个必然 403 的按钮比不给更坏

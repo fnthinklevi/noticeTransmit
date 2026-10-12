@@ -25,6 +25,7 @@ import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
+import '../widgets/fnthink_card.dart' show FnthinkInlineAction;
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
 import '../widgets/ios_progress_dialog.dart';
@@ -2190,8 +2191,13 @@ class _HistoryPageState extends State<HistoryPage> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        TextButton(
+                        // T148 差异⑧：这两枚走幻念那一族共用的行内动作件 ——
+                        // 「这一条上可做的一件事」在收件箱页、端点页、名单页已经是同一个形状与
+                        // 同一套语义色（`FnthinkInlineAction.colorOf` 是唯一作者），
+                        // 历史页详情里再搭一枚 Material `TextButton` 就是第五种形状。
+                        FnthinkInlineAction(
                           key: const ValueKey('fnthink-inbox-reply'),
+                          label: l10n.fnthinkReply,
                           onPressed: () => _composeFromInbox(
                             peer: peer,
                             // 回复：标题预填「回复：<原标题>」，正文留空让用户自己写；
@@ -2201,17 +2207,16 @@ class _HistoryPageState extends State<HistoryPage> {
                                 : l10n.fnthinkReplyTitle(message.title),
                             text: '',
                           ),
-                          child: Text(l10n.fnthinkReply),
                         ),
-                        TextButton(
+                        FnthinkInlineAction(
                           key: const ValueKey('fnthink-inbox-resend'),
+                          label: l10n.fnthinkResend,
                           onPressed: () => _composeFromInbox(
                             peer: peer,
                             // 重发：把这一条的标题与正文原样带进弹层，用户点发送就是"再发一次"。
                             title: message.title,
                             text: message.body,
                           ),
-                          child: Text(l10n.fnthinkResend),
                         ),
                       ],
                     ),

@@ -260,19 +260,24 @@ void main() {
   // 不会有任何一条守卫红。这册先把现状钉成数字（只许变薄），下一步换形状时按格往下减。
   // ⚠ 这本账**不是**"这些形状合法"的背书：它记的是欠账，与 T90 那两本同一条纪律。
   group('两张历史页里的动作形状（T148 差异⑧ 的台账）', () {
-    // 现测（2026-10-12，剥注释后逐枚数）：每一格都是一笔要还的债，不是合法形状名单。
-    //   · `history_page.dart` 的 4 枚裸 `TextButton(` ＝ 收件详情弹层里的「回复／重发」两枚 +
-    //     筛选面板「重置」+ 批量底栏「取消」；4 枚 `GestureDetector(` ＝ 行内那枚自搭「现在推送」
-    //     蓝底小钮、chip 展开、档位芯片、筛选条清除；7 枚 `IconButton(` ＝ AppBar／搜索后缀／离线横幅
-    //     那一族（T90 片9 之后仍在 Material 侧）。
+    // 现测（2026-10-12 片4 立账，剥注释后逐枚数）：每一格都是一笔要还的债，不是合法形状名单。
+    //   · `history_page.dart` 裸 `TextButton(` 原 4 枚 ＝ 收件详情弹层「回复／重发」+ 筛选面板
+    //     「重置」+ 批量底栏「取消」；**片6 换掉前两枚**（改走 `FnthinkInlineAction`）⇒ 现 2 枚。
+    //     4 枚 `GestureDetector(` ＝ 行内那枚自搭「现在推送」蓝底小钮、chip 展开、档位芯片、筛选条清除；
+    //     7 枚 `IconButton(` ＝ AppBar／搜索后缀／离线横幅那一族（T90 片9 之后仍在 Material 侧）。
+    //     ⚠ 片6 现读又补两列：这一页还有 **1 枚 `ElevatedButton(`（筛选面板「应用」）与
+    //     1 枚 `FilledButton.icon(`（批量底栏「重推」）—— 两枚 Material 控件此前不在任何一本账里，
+    //     连"别变多"都没人管；差异⑧ 说的"四种形状"实measure 出来是**五种**。
     //   · `remote_history_page.dart` 的 2 枚自搭 `CupertinoButton(` ＝ 撤销那一枚与方向芯片。
     //     注意它**不在**幻念那六张页的口径里（文件名不是 `fnthink_` 前缀），所以「自搭按钮清零」
     //     那条一直管不到它 —— 这一格就是那条漏口的账面。
     const kHistoryPages = <String, Map<String, int>>{
       'lib/pages/history_page.dart': {
-        'TextButton(': 4,
+        'TextButton(': 2,
         'GestureDetector(': 4,
         'IconButton(': 7,
+        'ElevatedButton(': 1,
+        'FilledButton.icon(': 1,
       },
       'lib/pages/remote_history_page.dart': {'CupertinoButton(': 2},
     };
@@ -283,6 +288,10 @@ void main() {
         'CupertinoButton(',
         'GestureDetector(',
         'IconButton(',
+        // Material 那一族只数**构造点**：`FilledButton.styleFrom` 与 `ElevatedButton.styleFrom`
+        // 是同一个按钮的样式声明，不是第二个动作（数 occurrence 会把一枚算成两枚）。
+        'ElevatedButton(',
+        'FilledButton.icon(',
       ])
         k: RegExp('(^|[^A-Za-z0-9_])${RegExp.escape(k)}'),
     };
@@ -331,6 +340,29 @@ void main() {
           );
         }
       }
+    });
+
+    test('收件详情那两枚行内动作由公共件给出（差异⑧ 换形状的第一格）', () {
+      final src = codeByPath['lib/pages/history_page.dart']!;
+      for (final key in const ['fnthink-inbox-reply', 'fnthink-inbox-resend']) {
+        expect(
+          RegExp(
+            "FnthinkInlineAction\\(\\s*key: const ValueKey\\('$key'\\)",
+          ).hasMatch(src),
+          isTrue,
+          reason:
+              '$key 不再由 `FnthinkInlineAction` 给出 ⇒ 这一族的字号与语义色又回到页面自己挑'
+              '（颜色唯一作者是 `FnthinkInlineAction.colorOf`），'
+              '收件详情那一格长回第五种形状（T148 差异⑧）',
+        );
+      }
+      expect(
+        RegExp(
+          "TextButton\\(\\s*key: const ValueKey\\('fnthink-inbox-",
+        ).hasMatch(src),
+        isFalse,
+        reason: '详情弹层里再出现裸 `TextButton` ⇒ 台账那一格 2 枚的读数就是它长回来的',
+      );
     });
   });
 
