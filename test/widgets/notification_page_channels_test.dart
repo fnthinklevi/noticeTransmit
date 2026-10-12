@@ -17,6 +17,7 @@ void main() {
   Widget page(
     List<Map<String, String>> channels, {
     bool running = true,
+    int hidden = 0,
     VoidCallback? onOpenChannelStatus,
   }) {
     return AppRoot(
@@ -28,6 +29,7 @@ void main() {
         pushActive: true,
         notificationCount: 3,
         activeChannels: channels,
+        hiddenChannelCount: hidden,
         onStartService: () {},
         onStopService: () {},
         onResumePush: () {},
@@ -236,5 +238,62 @@ void main() {
     await tester.tap(find.text('当前推送通道'));
     await tester.pumpAndSettle();
     expect(opened, 1, reason: '首页那张卡点不进状态页 = T10 的入口没了');
+  });
+
+  // T151（维护者 2026-10-12 第 7 条）：首页「当前推送通道」只画主通道，其余不在首页出现。
+  // 三档各有真话要说：① 有主档也有其余 ⇒ 只画主档 + 一句「另有 N 条」；
+  // ② 一条主档都没有但仍有启用通道 ⇒ **不能说「未配置推送通道」**（那是假话），要说"未设主通道"；
+  // ③ 什么都没配 ⇒ 继续用原来那句空态。
+  group('首页只画主通道（T151）', () {
+    testWidgets('有一条主档与两条其余 ⇒ 首页只画那一行，并说得出另外两条在哪', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2280);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        page(const [
+          {'label': 'Webhook：钉钉/主群', 'status': 'ok'},
+        ], hidden: 2),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Webhook：钉钉/主群'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-channel-hidden-hint')),
+        findsOneWidget,
+        reason: '安静地少两行 = 用户以为那两条没了；它们仍在推送、也在通道状态页',
+      );
+      expect(find.textContaining('另有 2 条'), findsOneWidget);
+    });
+
+    testWidgets('只有非主档启用 ⇒ 不说「没有配置通道」，改说「未设主通道（另有 1 条启用）」', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2280);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(page(const [], hidden: 1));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('未配置推送通道'),
+        findsNothing,
+        reason: '配过、只是没设主档 —— 说"没配置"会把用户支去翻设置确认自己有没有配过',
+      );
+      expect(
+        find.byKey(const ValueKey('home-channel-empty-hint')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('未设主通道'), findsOneWidget);
+    });
+
+    testWidgets('一条通道都没配 ⇒ 仍走原来那句空态（新分支不许把它一起替换掉）', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2280);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(page(const []));
+      await tester.pumpAndSettle();
+      expect(find.text('未配置推送通道'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-channel-empty-hint')),
+        findsNothing,
+        reason: '两档话必须分得开：一句把"没配"与"配了没设主档"混说，另一句就把两种状态糊成一团',
+      );
+    });
   });
 }

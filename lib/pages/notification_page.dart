@@ -16,6 +16,10 @@ class NotificationPage extends StatelessWidget {
   final bool? pushActive;
   final int notificationCount;
   final List<Map<String, String>> activeChannels;
+
+  /// 首页**不画**的那几条（非主通道，T151）。它们仍在通道状态页、也照在推送里，
+  /// 所以这一格必须说得出"少掉的那些去了哪"，而不是让首页安静地少几行。
+  final int hiddenChannelCount;
   final bool smsMonitorEnabled;
   final VoidCallback onStartService;
   final VoidCallback onStopService;
@@ -44,6 +48,7 @@ class NotificationPage extends StatelessWidget {
     required this.pushActive,
     required this.notificationCount,
     this.activeChannels = const [],
+    this.hiddenChannelCount = 0,
     this.smsMonitorEnabled = false,
     required this.onStartService,
     required this.onStopService,
@@ -281,11 +286,31 @@ class NotificationPage extends StatelessWidget {
                         ),
                       );
                     })
+                  else if (hiddenChannelCount > 0)
+                    // ⚠ 这一档**不能说「未配置推送通道」**：有通道，只是没一条被设为主通道。
+                    // 说成"没配置"是假话，而用户会去翻设置确认自己配过没配过。
+                    Text(
+                      l10n.homeNoPrimaryChannel(hiddenChannelCount),
+                      key: const ValueKey('home-channel-empty-hint'),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.tertiaryLabel(context),
+                      ),
+                    )
                   else
                     Text(
                       l10n.noChannels,
                       style: TextStyle(
                         fontSize: 13,
+                        color: AppColors.tertiaryLabel(context),
+                      ),
+                    ),
+                  if (activeChannels.isNotEmpty && hiddenChannelCount > 0)
+                    Text(
+                      l10n.homeOnlyPrimaryShown(hiddenChannelCount),
+                      key: const ValueKey('home-channel-hidden-hint'),
+                      style: TextStyle(
+                        fontSize: 12,
                         color: AppColors.tertiaryLabel(context),
                       ),
                     ),

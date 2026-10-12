@@ -115,6 +115,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get currentChannels => '当前推送通道';
 
   @override
+  String homeOnlyPrimaryShown(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 条',
+      one: '1 条',
+    );
+    return '仅显示主通道，另有 $_temp0在「通道状态」里';
+  }
+
+  @override
+  String homeNoPrimaryChannel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 条',
+      one: '1 条',
+    );
+    return '未设主通道（另有 $_temp0启用，见「通道状态」）';
+  }
+
+  @override
   String get noChannels => '未配置推送通道';
 
   @override

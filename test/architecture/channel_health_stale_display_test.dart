@@ -64,10 +64,10 @@ void main() {
 
     test('首页那张卡的状态载荷带得出时间，且拿不出时间就退回未知', () {
       final actions = librarySource(root, 'lib/pages/main_page.dart');
-      final builder = blockAfter(
-        actions,
-        'List<Map<String, String>> _getActiveChannels()',
-      );
+      // 锚点带 `{`：T151 把返回类型从 `List<Map<String,String>>` 换成了记录类型
+      // `({rows, hiddenOthers})`，只写"类型 + 名字()"的那把尺当天就过期了
+      // （blockAfter 抛 StateError ⇒ 整条守卫红，而红的不是"没带时间"这件事）。
+      final builder = blockAfter(actions, '_getActiveChannels() {');
       expect(
         builder,
         contains("'probedAt'"),

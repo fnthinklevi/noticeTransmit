@@ -302,6 +302,18 @@ abstract class AppLocalizations {
   /// **'当前推送通道'**
   String get currentChannels;
 
+  /// No description provided for @homeOnlyPrimaryShown.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅显示主通道，另有 {count, plural, =1{1 条} other{{count} 条}}在「通道状态」里'**
+  String homeOnlyPrimaryShown(int count);
+
+  /// No description provided for @homeNoPrimaryChannel.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设主通道（另有 {count, plural, =1{1 条} other{{count} 条}}启用，见「通道状态」）'**
+  String homeNoPrimaryChannel(int count);
+
   /// No description provided for @noChannels.
   ///
   /// In zh, this message translates to:

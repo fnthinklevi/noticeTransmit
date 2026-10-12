@@ -140,6 +140,23 @@ class ActiveChannel {
   }
 }
 
+/// 首页那一格只看**主通道**（维护者 2026-10-12 第 7 条：「当前推送通道改为仅显示主通道，
+/// 其余不在软件首页显示」）。
+///
+/// ⚠ 判 `role` 的这一刀**只住这里**：页面自己写 `role != backup` 之类就是第二个读者
+/// （而 role 的三档里还有一档 `none`＝启用但不参与推送，页面现编的口径十有八九会把它算进去）。
+/// 一起交出 `hiddenOthers` 是要页面**说得出那些没显示的去了哪**（它们仍在通道状态页与推送里），
+/// 而不是让首页安静地少几行。
+({List<ActiveChannel> homeRows, int hiddenOthers}) splitHomeChannels(
+  List<ActiveChannel> all,
+) {
+  final home = [
+    for (final c in all)
+      if (c.role == ChannelConfigCodec.rolePrimary) c,
+  ];
+  return (homeRows: home, hiddenOthers: all.length - home.length);
+}
+
 /// 当前启用的通道清单（**唯一实现**，第 6 步）。
 ///
 /// 此前有两份：`main_page` 返回 `Map{type,name,status}` 给首页显示，

@@ -117,6 +117,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get currentChannels => 'Push Channels';
 
   @override
+  String homeOnlyPrimaryShown(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count more',
+      one: '1 more',
+    );
+    return 'Primary channel only; $_temp0 in Channel status';
+  }
+
+  @override
+  String homeNoPrimaryChannel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count more',
+      one: '1 more',
+    );
+    return 'No primary channel set; $_temp0 enabled — see Channel status';
+  }
+
+  @override
   String get noChannels => 'No channels configured';
 
   @override

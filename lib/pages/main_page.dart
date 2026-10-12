@@ -132,19 +132,29 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   /// `probedAt` 一起交给页面；那句"多久以前"的格式化只有 `channelHealthAgoLabel`
   /// 一个作者，本页与页面都不抄第二份。要让首页少出现"很久以前"，靠的是探测真的
   /// 在跑（#183 的主动节奏），而不是把标签改回恒绿。
-  List<Map<String, String>> _getActiveChannels() {
-    return collectActiveChannels()
-        .map(
-          (c) => {
-            'label': c.displayLine,
-            'status': c.statusLabel,
-            'probedAt': '${c.health?.probedAt ?? 0}',
-          },
-        )
-        .toList(growable: false);
+  ({List<Map<String, String>> rows, int hiddenOthers}) _getActiveChannels() {
+    // 首页只画主通道（T151）；过滤与"藏了几条"这两个数都由 `splitHomeChannels` 一处算，
+    // 页面不自己判 role。被藏的仍在通道状态页与推送里 —— 所以这里要把数目带出去说一句。
+    final all = collectActiveChannels();
+    final split = splitHomeChannels(all);
+    return (
+      rows: split.homeRows
+          .map(
+            (c) => {
+              'label': c.displayLine,
+              'status': c.statusLabel,
+              'probedAt': '${c.health?.probedAt ?? 0}',
+            },
+          )
+          .toList(growable: false),
+      hiddenOthers: split.hiddenOthers,
+    );
   }
 
   List<Widget> _buildPages() {
+    // 只取一次：那两份（显示哪几行 / 藏了几条）必须来自同一遍读，
+    // 取两遍会出现"少了一行而那句提示还说另有 2 条"的自相矛盾。
+    final homeChannels = _getActiveChannels();
     return [
       NotificationPage(
         notificationPermissionGranted:
@@ -153,7 +163,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         // 暂停推送是原生那一份独立状态（通知栏/小部件改的），这里只做"读回来的那一份"的搬运。
         pushActive: _notificationService.pushActive,
         notificationCount: _notificationTotalCount,
-        activeChannels: _getActiveChannels(),
+        activeChannels: homeChannels.rows,
+        hiddenChannelCount: homeChannels.hiddenOthers,
         smsMonitorEnabled: _smsService.smsMonitorEnabled,
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,

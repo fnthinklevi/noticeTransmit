@@ -403,4 +403,96 @@ void main() {
       }
     });
   });
+
+  // ── T151（维护者 2026-10-12 第 7 条：首页当前推送通道改为仅显示主通道）───────────
+  // 首页那张卡原本把 `collectActiveChannels()` 全量铺开。过滤这一刀只许住在一处
+  // （`splitHomeChannels`），因为 role 有**四**档：`none` 是"启用但不参与推送"、
+  // `unset` 是"刚建好还没归队"。页面现编口径最顺手的写法是 `role != backup` ——
+  // 那样首页会画出一条**从不会推送**的通道，用户以为它在，而界面不报任何错。
+  group('首页只画主通道：判 role 那一刀只有一个作者（T151）', () {
+    test('首页两侧（含 main_page 的全部 part）不出现 role 判断', () {
+      // 负向断言一律走 librarySource：main_page 拆过 part，只读入口文件的话
+      // 把判断写进 part 就看不见（T65 那次同一个坑）。
+      final srcs = {
+        'main_page': stripComments(
+          librarySource(root, 'lib/pages/main_page.dart'),
+        ),
+        'notification_page': read('lib/pages/notification_page.dart'),
+      };
+      for (final e in srcs.entries) {
+        for (final token in const [
+          'rolePrimary',
+          'roleBackup',
+          'roleNone',
+          'roleUnset',
+        ]) {
+          expect(
+            e.value.contains(token),
+            isFalse,
+            reason: '${e.key} 自己判 role ⇒ 首页那一刀与 `splitHomeChannels` 分成两份口径',
+          );
+        }
+        expect(
+          RegExp(r'\.role\b').hasMatch(e.value),
+          isFalse,
+          reason: '${e.key} 读了 ActiveChannel.role：过滤被搬回页面',
+        );
+      }
+    });
+
+    test('lib/ 里 `splitHomeChannels` 只有一个调用点', () {
+      final hits = <String, int>{};
+      for (final f in Directory(
+        '$root/lib',
+      ).listSync(recursive: true).whereType<File>()) {
+        if (!f.path.endsWith('.dart')) continue;
+        final n =
+            stripComments(
+              f.readAsStringSync(),
+            ).split('splitHomeChannels(').length -
+            1;
+        if (n > 0) hits[f.path.replaceAll('\\', '/').split('/').last] = n;
+      }
+      expect(
+        hits.keys.toSet(),
+        {'active_channels.dart', 'main_page.dart'},
+        reason:
+            '声明之外又冒出别的读者：$hits —— 首页"显示哪几行"与"藏了几条"必须来自同一遍读，'
+            '两处各读会出现少了一行而那句提示还说另有 2 条',
+      );
+      expect(hits['main_page.dart'], 1, reason: '首页读了两遍 ⇒ 两个数可以自相矛盾');
+    });
+
+    test('装配点把 hiddenChannelCount 真的带过去（漏传 = 那句「另有 N 条」永远不出现）', () {
+      final src = stripComments(
+        librarySource(root, 'lib/pages/main_page.dart'),
+      );
+      expect(
+        src,
+        allOf(
+          contains('activeChannels: homeChannels.rows'),
+          contains('hiddenChannelCount: homeChannels.hiddenOthers'),
+        ),
+        reason: 'NotificationPage 上那一格有默认值 0 ⇒ 漏传不会编译报错，只会让首页安静地少几行',
+      );
+    });
+
+    test('首页那两句不同的话不许合回一句（没配 ≠ 配了没设主档）', () {
+      final page = read('lib/pages/notification_page.dart');
+      expect(page.contains('homeNoPrimaryChannel('), isTrue);
+      expect(page.contains('homeOnlyPrimaryShown('), isTrue);
+      expect(page.contains('l10n.noChannels'), isTrue);
+      // 三档各有 key：页面级用例按 key 认，不按文案认（措辞会漂，形状才是契约）
+      for (final k in const [
+        'home-channel-empty-hint',
+        'home-channel-hidden-hint',
+      ]) {
+        expect(
+          page.contains("ValueKey('$k')"),
+          isTrue,
+          reason: '缺了 $k ⇒ 用例只能靠中文措辞定位，改一个字就瞎',
+        );
+      }
+    });
+  });
 }
