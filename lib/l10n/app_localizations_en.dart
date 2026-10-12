@@ -4918,6 +4918,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'Turn the other device\'s Fnthink inbox collection on/off';
 
   @override
+  String get remoteCategoryListening => 'Listening & relay';
+
+  @override
+  String get remoteCategoryChannels => 'Channels & status';
+
+  @override
+  String get remoteCategorySearch => 'Content lookup';
+
+  @override
+  String get remoteCategoryDevice => 'Device actions';
+
+  @override
+  String get remoteCategorySystem => 'System & permissions';
+
+  @override
+  String get remoteCategoryUncategorized =>
+      'Uncategorized (this table lags the contract)';
+
+  @override
   String get remoteSendFamilyLabel => 'Which family';
 
   @override

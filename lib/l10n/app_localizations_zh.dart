@@ -4664,6 +4664,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteSettingCollectInbox => '开／关对面的幻念收件采集';
 
   @override
+  String get remoteCategoryListening => '监听与转发';
+
+  @override
+  String get remoteCategoryChannels => '通道与状态';
+
+  @override
+  String get remoteCategorySearch => '查找内容';
+
+  @override
+  String get remoteCategoryDevice => '设备动作';
+
+  @override
+  String get remoteCategorySystem => '系统与权限';
+
+  @override
+  String get remoteCategoryUncategorized => '未分类（这张表还没跟上契约）';
+
+  @override
   String get remoteSendFamilyLabel => '哪一族';
 
   @override

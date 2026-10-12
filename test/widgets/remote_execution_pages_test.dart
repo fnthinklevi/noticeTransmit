@@ -101,6 +101,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// 提交键在页面最下面，而这张页是 `ListView`（懒布局）：T146 把 18 枚动作分栏之后它更靠后，
+  /// 可能**根本没被 build** —— `ensureVisible` 对不在树上的键抛 `No element`，
+  /// 只能一格一格滚到建出来为止（与 `fnthink_send_page_test.dart` 同一手法）。
+  Future<void> revealSubmit(WidgetTester tester) => tester.scrollUntilVisible(
+    find.byKey(const ValueKey('remote-send-submit')),
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+
   Future<void> pumpHistory(
     WidgetTester tester, {
     required Future<List<FnthinkRemoteExecutionRecord>?> Function(String?)
@@ -184,9 +193,7 @@ void main() {
               );
             },
       );
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -218,9 +225,7 @@ void main() {
         find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -253,9 +258,7 @@ void main() {
         find.byKey(const ValueKey('remote-send-action-notification')),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -297,9 +300,7 @@ void main() {
         find.byKey(const ValueKey('remote-send-action-listener:start')),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -332,9 +333,7 @@ void main() {
         find.byKey(const ValueKey('remote-send-action-listener:start')),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -387,9 +386,7 @@ void main() {
       await tester.pumpAndSettle();
       // ⚠ L2 **不要**凭据（契约 `auth.l2Requires: false`）⇒ 凭据两格在这里本来就不该出现。
       expect(find.byKey(const ValueKey('remote-send-key')), findsNothing);
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -442,9 +439,7 @@ void main() {
         'K-1',
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       // 先不选目标档：不带目标值 = 对面"读当前再翻"，重投一次就翻回原状。
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
@@ -462,9 +457,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-l3-want-on')));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -510,9 +503,7 @@ void main() {
       );
 
       Future<void> submit() async {
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('remote-send-submit')),
-        );
+        await revealSubmit(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
         await tester.pumpAndSettle();
@@ -589,9 +580,7 @@ void main() {
       );
 
       Future<void> submit() async {
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('remote-send-submit')),
-        );
+        await revealSubmit(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
         await tester.pumpAndSettle();
@@ -649,9 +638,7 @@ void main() {
       expect(find.text(l10n.remoteSendShortcutNameLabel), findsOneWidget);
       expect(find.text(l10n.remoteSendSmsKeywordLabel), findsNothing);
 
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -666,9 +653,7 @@ void main() {
         '开门',
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -708,9 +693,7 @@ void main() {
       expect(find.text(l10n.remoteSendSmsKeywordLabel), findsNothing);
       expect(find.byKey(const ValueKey('remote-send-keyword')), findsOneWidget);
 
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -725,9 +708,7 @@ void main() {
         '10086',
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -778,9 +759,7 @@ void main() {
       expect(find.text(l10n.remoteSendSmsKeywordLabel), findsNothing);
       expect(find.byKey(const ValueKey('remote-send-keyword')), findsOneWidget);
 
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -795,9 +774,7 @@ void main() {
         '张三',
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -843,9 +820,7 @@ void main() {
         findsNothing,
       );
 
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
@@ -909,9 +884,7 @@ void main() {
         find.byKey(const ValueKey('remote-send-action-listener:start')),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('remote-send-submit')),
-      );
+      await revealSubmit(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();

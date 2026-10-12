@@ -11,6 +11,7 @@ import '../services/channel_display.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_l2_actions.dart';
 import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_remote_action_categories.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../theme/app_colors.dart';
@@ -845,27 +846,39 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         if (actions.isEmpty)
           FnthinkNote(keyName: 'remote-send-actions-empty', text: l10n.unknown)
         else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final action in actions)
-                FnthinkChoiceChip(
-                  // key 里仍是契约那个动作名（闸门的路线认它），画出来的换成人话。
-                  keyName: 'remote-send-action-$action',
-                  label: fnthinkRemoteActionLabel(l10n, action),
-                  selected: _item == action,
-                  // 换一项时把上一项选的目标档摘掉：留着会拼出一条"用户没选过"的指令。
-                  onTap: _busy
-                      ? null
-                      : () => setState(() {
-                          _item = action;
-                          _l3Want = null;
-                          _channelWant = null;
-                        }),
-                ),
-            ],
-          ),
+          // T146（裁定 5「当前过于杂乱」）：18 枚平铺的清单按主题分栏。
+          // ⚠ 分栏只改"画在哪一栏底下"：chip 的 key 里仍是契约那个动作名，
+          //   按 key 点 chip 的六处用例与闸门的路线一个字都不动。
+          for (final group in fnthinkRemoteActionGroups(actions)) ...[
+            FnthinkNote(
+              keyName:
+                  'remote-send-action-group-${group.slug.isEmpty ? 'uncategorized' : group.slug}',
+              text: fnthinkRemoteCategoryTitle(l10n, group.slug),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final action in group.actions)
+                  FnthinkChoiceChip(
+                    // key 里仍是契约那个动作名（闸门的路线认它），画出来的换成人话。
+                    keyName: 'remote-send-action-$action',
+                    label: fnthinkRemoteActionLabel(l10n, action),
+                    selected: _item == action,
+                    // 换一项时把上一项选的目标档摘掉：留着会拼出一条"用户没选过"的指令。
+                    onTap: _busy
+                        ? null
+                        : () => setState(() {
+                            _item = action;
+                            _l3Want = null;
+                            _channelWant = null;
+                          }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
         if (needsArgument)
           ...(_needsReportArgument(contract)
               ? _reportArgumentRows(l10n)

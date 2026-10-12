@@ -8467,6 +8467,42 @@ abstract class AppLocalizations {
   /// **'开／关对面的幻念收件采集'**
   String get remoteSettingCollectInbox;
 
+  /// No description provided for @remoteCategoryListening.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听与转发'**
+  String get remoteCategoryListening;
+
+  /// No description provided for @remoteCategoryChannels.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道与状态'**
+  String get remoteCategoryChannels;
+
+  /// No description provided for @remoteCategorySearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找内容'**
+  String get remoteCategorySearch;
+
+  /// No description provided for @remoteCategoryDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备动作'**
+  String get remoteCategoryDevice;
+
+  /// No description provided for @remoteCategorySystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统与权限'**
+  String get remoteCategorySystem;
+
+  /// No description provided for @remoteCategoryUncategorized.
+  ///
+  /// In zh, this message translates to:
+  /// **'未分类（这张表还没跟上契约）'**
+  String get remoteCategoryUncategorized;
+
   /// No description provided for @remoteSendFamilyLabel.
   ///
   /// In zh, this message translates to:
