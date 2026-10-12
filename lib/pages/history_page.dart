@@ -26,6 +26,7 @@ import '../widgets/card_action_sheet.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
 import '../widgets/fnthink_card.dart' show FnthinkInlineAction;
+import '../widgets/primary_action_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
 import '../widgets/ios_progress_dialog.dart';
@@ -1305,25 +1306,27 @@ class _HistoryPageState extends State<HistoryPage> {
                 const SizedBox(height: 8),
                 deliveryChips(setSheet),
                 const SizedBox(height: 16),
+                // T148 差异⑧：这一对「一实一虚」照通道设置页页脚那一对同形
+                // （`Expanded(SecondaryActionButton) + 10 + Expanded(PrimaryActionButton)`）。
+                // 原来是裸 `TextButton` + `ElevatedButton`（配色与圆角在这一格里自挑一份），
+                // 而同一件事（同一张弹层里"办掉它"与"不办只清一下"）在别处已经是公共件那两种形状。
                 Row(
                   children: [
                     Expanded(
-                      child: TextButton(
+                      child: SecondaryActionButton(
+                        keyName: 'history-filter-reset',
+                        label: l10n.filterReset,
                         onPressed: () {
                           Navigator.pop(sheetContext);
                           _clearAllFilters();
                         },
-                        child: Text(
-                          l10n.filterReset,
-                          style: TextStyle(
-                            color: AppColors.secondaryLabel(sheetContext),
-                          ),
-                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: ElevatedButton(
+                      child: PrimaryActionButton(
+                        key: const ValueKey('history-filter-apply'),
+                        label: l10n.filterApply,
                         onPressed: () {
                           Navigator.pop(sheetContext);
                           if (!mounted) return;
@@ -1336,11 +1339,6 @@ class _HistoryPageState extends State<HistoryPage> {
                           });
                           _refreshSearch(immediate: true);
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.blue,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: Text(l10n.filterApply),
                       ),
                     ),
                   ],

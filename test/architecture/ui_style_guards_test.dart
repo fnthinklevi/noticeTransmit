@@ -262,21 +262,22 @@ void main() {
   group('两张历史页里的动作形状（T148 差异⑧ 的台账）', () {
     // 现测（2026-10-12 片4 立账，剥注释后逐枚数）：每一格都是一笔要还的债，不是合法形状名单。
     //   · `history_page.dart` 裸 `TextButton(` 原 4 枚 ＝ 收件详情弹层「回复／重发」+ 筛选面板
-    //     「重置」+ 批量底栏「取消」；**片6 换掉前两枚**（改走 `FnthinkInlineAction`）⇒ 现 2 枚。
+    //     「重置」+ 批量底栏「取消」；**片6 换掉前两枚、片7 换掉「重置」** ⇒ 现 1 枚。
     //     4 枚 `GestureDetector(` ＝ 行内那枚自搭「现在推送」蓝底小钮、chip 展开、档位芯片、筛选条清除；
     //     7 枚 `IconButton(` ＝ AppBar／搜索后缀／离线横幅那一族（T90 片9 之后仍在 Material 侧）。
     //     ⚠ 片6 现读又补两列：这一页还有 **1 枚 `ElevatedButton(`（筛选面板「应用」）与
     //     1 枚 `FilledButton.icon(`（批量底栏「重推」）—— 两枚 Material 控件此前不在任何一本账里，
     //     连"别变多"都没人管；差异⑧ 说的"四种形状"实measure 出来是**五种**。
+    //     ⚠ 片7 换掉「应用」⇒ `ElevatedButton(` **清零**，那一列就此从账上摘掉：本组的键集判据
+    //     （实测形状集合 ⇄ 台账键集相等）会在它长回来当场红 ⇒ 摘列不等于放开，是"这一族已经没了"。
     //   · `remote_history_page.dart` 的 2 枚自搭 `CupertinoButton(` ＝ 撤销那一枚与方向芯片。
     //     注意它**不在**幻念那六张页的口径里（文件名不是 `fnthink_` 前缀），所以「自搭按钮清零」
     //     那条一直管不到它 —— 这一格就是那条漏口的账面。
     const kHistoryPages = <String, Map<String, int>>{
       'lib/pages/history_page.dart': {
-        'TextButton(': 2,
+        'TextButton(': 1,
         'GestureDetector(': 4,
         'IconButton(': 7,
-        'ElevatedButton(': 1,
         'FilledButton.icon(': 1,
       },
       'lib/pages/remote_history_page.dart': {'CupertinoButton(': 2},
@@ -362,6 +363,32 @@ void main() {
         ).hasMatch(src),
         isFalse,
         reason: '详情弹层里再出现裸 `TextButton` ⇒ 台账那一格 2 枚的读数就是它长回来的',
+      );
+    });
+    test('筛选面板那一双「一实一虚」照页脚那一对同形（片7）', () {
+      final src = codeByPath['lib/pages/history_page.dart']!;
+      expect(
+        RegExp(
+          "SecondaryActionButton\\(\\s*keyName: 'history-filter-reset',",
+        ).hasMatch(src),
+        isTrue,
+        reason:
+            '「重置」不再由 `SecondaryActionButton` 给出 ⇒ 这一对虚的那一枚又回到页面自挑配色'
+            '（页脚那一对在通道设置页已经是同一形状，两处各搭各的迟早不一样）',
+      );
+      expect(
+        RegExp(
+          "PrimaryActionButton\\(\\s*key: const ValueKey\\('history-filter-apply'\\),",
+        ).hasMatch(src),
+        isTrue,
+        reason: '「应用」不再由 `PrimaryActionButton` 给出 ⇒ 实心那一枚的圆角/内边距/禁用态又有一份自己的写法',
+      );
+      expect(
+        RegExp(r"Expanded\(\s*child: ElevatedButton\(").hasMatch(src),
+        isFalse,
+        reason:
+            '账上 `ElevatedButton(` 已清零（形状没了就该从账上摘掉）⇒ 这里再出现就是把它长回来了，'
+            '而键集判据也会同时红 —— 两条各钉一维：这条钉装配点，那条钉枚数',
       );
     });
   });
