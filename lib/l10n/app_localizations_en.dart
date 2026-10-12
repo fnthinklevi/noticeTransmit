@@ -5152,6 +5152,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'This page records only this device\'s own copy';
 
   @override
+  String get fnthinkEndpointWhyShort =>
+      'Access endpoints: how third parties push to this device';
+
+  @override
+  String get fnthinkEndpointListPendingShort =>
+      'Not read yet - how many keys this device has';
+
+  @override
+  String fnthinkEndpointListFailedShort(String reason) {
+    return 'This read failed ($reason)';
+  }
+
+  @override
   String get fnthinkShortcutsWhyShort =>
       'The other side can only open entries you registered here';
 

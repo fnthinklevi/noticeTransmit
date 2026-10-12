@@ -2727,12 +2727,85 @@ void main() {
       await revealTo(tester, note);
       expect(
         tester.widget<Text>(note).data,
-        l10n.fnthinkEndpointListPending,
-        reason: '"没有"与"还没看"必须是两句话 —— 空格子会被读成前者',
+        l10n.fnthinkEndpointListPendingShort,
+        reason:
+            '"没有"与"还没看"必须是两句话 —— 空格子会被读成前者；'
+            '所以留在页面上的那一行**必须还是状态原话**（搬进问号的是后半那句解释）',
+      );
+      expect(
+        find.text(l10n.fnthinkEndpointListPending),
+        findsNothing,
+        reason: '整段摊回页面 ⇒ 这一格又长成小字论文（T149 第 4 条）',
       );
       expect(
         find.byKey(const ValueKey('fnthink-endpoint-list-none')),
         findsNothing,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('fnthink-endpoint-list-pending-help')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(l10n.fnthinkEndpointListPending),
+        findsOneWidget,
+        reason: '问号里没有整句 ⇒「不列任何东西、也不说你没有」这条承诺就消失了',
+      );
+    });
+
+    testWidgets('端点页顶上那句「为什么有这一页」只剩短说，整段在问号里（T149 片5）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final h = harness();
+      final l10n = await pumpEndpoint(tester, h);
+      final why = find.byKey(const ValueKey('fnthink-endpoint-why'));
+      await revealTo(tester, why);
+
+      expect(tester.widget<Text>(why).data, l10n.fnthinkEndpointWhyShort);
+      expect(
+        find.text(l10n.fnthinkEndpointWhy),
+        findsNothing,
+        reason: '那 52 字（服务端只存摘要＋这把口令只显示一次）摊在卡顶上就是小字论文',
+      );
+
+      await tester.tap(find.byKey(const ValueKey('fnthink-endpoint-why-help')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(l10n.fnthinkEndpointWhy),
+        findsOneWidget,
+        reason: '"只在这次显示，关掉就再也看不到"这句被搬丢 ⇒ 用户下次真以为回来看得到',
+      );
+    });
+
+    testWidgets('读失败那格：问号里带得上「没读到≠没有」那半句（reason 不许丢）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final h = harness(canSign: false);
+      final l10n = await pumpEndpoint(tester, h);
+      await tapRead(tester);
+      final failed = find.byKey(const ValueKey('fnthink-endpoint-list-failed'));
+      await revealTo(tester, failed);
+      final short = tester.widget<Text>(failed).data!;
+      // 短说那一行自己就得带上 reason（用户点了那一下就要听到为什么没成）；
+      // 从画出来的那一行把它读回来，不抄字面量 —— 抄了改了文案就假红。
+      final reason = short.substring(
+        short.indexOf('（') + 1,
+        short.lastIndexOf('）'),
+      );
+      expect(reason, contains('signing-unavailable'));
+
+      await tester.tap(
+        find.byKey(const ValueKey('fnthink-endpoint-list-failed-help')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(l10n.fnthinkEndpointListFailed(reason)),
+        findsOneWidget,
+        reason: '问号里那句是"不列任何东西、也不说你没有"——丢掉就等于本页改口',
       );
     });
 

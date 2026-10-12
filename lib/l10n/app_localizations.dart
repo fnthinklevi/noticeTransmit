@@ -8845,6 +8845,24 @@ abstract class AppLocalizations {
   /// **'这一页只记本机这一份'**
   String get remoteHistoryBoundaryShort;
 
+  /// No description provided for @fnthinkEndpointWhyShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'接入端点：让第三方平台往这台设备推通知'**
+  String get fnthinkEndpointWhyShort;
+
+  /// No description provided for @fnthinkEndpointListPendingShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没读过这台设备名下有几把入口'**
+  String get fnthinkEndpointListPendingShort;
+
+  /// No description provided for @fnthinkEndpointListFailedShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一次没读到（{reason}）'**
+  String fnthinkEndpointListFailedShort(String reason);
+
   /// No description provided for @fnthinkShortcutsWhyShort.
   ///
   /// In zh, this message translates to:

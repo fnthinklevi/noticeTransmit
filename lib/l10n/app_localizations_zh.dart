@@ -4884,6 +4884,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryBoundaryShort => '这一页只记本机这一份';
 
   @override
+  String get fnthinkEndpointWhyShort => '接入端点：让第三方平台往这台设备推通知';
+
+  @override
+  String get fnthinkEndpointListPendingShort => '还没读过这台设备名下有几把入口';
+
+  @override
+  String fnthinkEndpointListFailedShort(String reason) {
+    return '这一次没读到（$reason）';
+  }
+
+  @override
   String get fnthinkShortcutsWhyShort => '对面只能打开你在这里登记过的入口';
 
   @override

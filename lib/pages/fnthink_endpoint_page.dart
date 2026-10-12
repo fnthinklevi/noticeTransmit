@@ -397,9 +397,14 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
     return FnthinkCard(
       title: l10n.fnthinkEndpointTitle,
       children: [
-        FnthinkNote(
-          keyName: 'fnthink-endpoint-why',
-          text: l10n.fnthinkEndpointWhy,
+        HelpNoteRow(
+          noteKey: 'fnthink-endpoint-why',
+          helpKey: 'fnthink-endpoint-why-help',
+          text: l10n.fnthinkEndpointWhyShort,
+          helpTitle: l10n.fnthinkEndpointTitle,
+          // T149 片5：这一整段（52 字）说的是"服务端只存摘要＋这把口令只出现一次"，
+          // 摊在卡顶上读不动 —— 整段进问号，**正文一字没删**（维护者 2026-10-12 第 4 条）。
+          helpBody: l10n.fnthinkEndpointWhy,
         ),
         if (cap != null)
           FnthinkNote(
@@ -445,15 +450,27 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
             onPressed: _busy ? null : _readEndpoints,
           ),
         ),
+        // 三档分开画：**还没读** / **读了但这次失败** / **读了且为空**。
+        // 「没有」与「还没看」是两句话（#157 那片立的判据），空格子会被读成前者；
+        // 而失败那一档的**短说必须带着 reason** —— 用户点了那一下，就要当场听到
+        // 这一次为什么没成，不能只剩一句"没读到"。
         if (listing == null)
-          FnthinkNote(
-            keyName: 'fnthink-endpoint-list-pending',
-            text: l10n.fnthinkEndpointListPending,
+          HelpNoteRow(
+            noteKey: 'fnthink-endpoint-list-pending',
+            helpKey: 'fnthink-endpoint-list-pending-help',
+            text: l10n.fnthinkEndpointListPendingShort,
+            helpTitle: l10n.fnthinkEndpointTitle,
+            helpBody: l10n.fnthinkEndpointListPending,
           )
         else if (!listing.ok)
-          FnthinkNote(
-            keyName: 'fnthink-endpoint-list-failed',
-            text: l10n.fnthinkEndpointListFailed(
+          HelpNoteRow(
+            noteKey: 'fnthink-endpoint-list-failed',
+            helpKey: 'fnthink-endpoint-list-failed-help',
+            text: l10n.fnthinkEndpointListFailedShort(
+              listing.reason ?? 'no-endpoint-list',
+            ),
+            helpTitle: l10n.fnthinkEndpointTitle,
+            helpBody: l10n.fnthinkEndpointListFailed(
               listing.reason ?? 'no-endpoint-list',
             ),
           )

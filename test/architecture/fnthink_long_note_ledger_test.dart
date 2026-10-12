@@ -29,13 +29,12 @@ void main() {
   int cjkLen(String s) => s.runes.where((c) => c > 0x7f).length;
 
   /// 每页**现在**还挂在页面上的长说明段数（2026-10-12 实测）。搬完一页就把那一行改小或删掉 ——
-  /// `remote_history_page.dart`（片1）、`fnthink_receive_page.dart`（片2）、
-  /// `remote_credential_settings_page.dart`（片3）与 `fnthink_shortcuts_page.dart`（片4）
-  /// 已在这条上被搬空，所以它们不在表里，读到的必须是 0。
+  /// 片1～片5 已把 `remote_history`／`fnthink_receive`／`remote_credential_settings`／
+  /// `fnthink_shortcuts`／`fnthink_endpoint` 这五页搬到问号弹层，它们不在表里，读到的必须是 0。
+  /// ⚠ 不再逐页加 `== 0` 的对照：片2/片3 量过那拦不住尺变瞎，防瞎靠下面那条**语料规模**对照。
   const ledger = <String, int>{
     'fnthink_peers_page.dart': 6,
     'fnthink_send_page.dart': 6,
-    'fnthink_endpoint_page.dart': 3,
   };
 
   Map<String, int> countAll() {
