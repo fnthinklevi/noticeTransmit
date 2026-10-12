@@ -23,6 +23,7 @@ import '../models/delivery_status.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
+import '../widgets/history_row_tile.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
 import '../widgets/ios_progress_dialog.dart';
@@ -693,14 +694,14 @@ class _HistoryPageState extends State<HistoryPage> {
     return '${fmt(_rangeStart!)} ~ ${fmt(_rangeEnd!)}';
   }
 
+  /// 时间那一格的格式化在 `widgets/history_row_tile.dart`（T148：那一列此前每页一份笔）。
+  /// 这里只留"输入可能是 String"这一层（DB 里存的形态两种都有）。
   String _formatTime(dynamic timestamp) {
     if (timestamp == null) return '';
     final ms = timestamp is int
         ? timestamp
         : int.tryParse(timestamp.toString()) ?? 0;
-    if (ms == 0) return '';
-    final dt = DateTime.fromMillisecondsSinceEpoch(ms);
-    return '${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    return historyRowTime(ms);
   }
 
   Color _getTypeColor(String? type) {

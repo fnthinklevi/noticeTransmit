@@ -9,6 +9,7 @@ import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_remote_execution.dart';
 import '../theme/app_colors.dart';
+import '../widgets/history_row_tile.dart';
 import '../widgets/ios_dialog_actions.dart';
 
 /// 远程执行历史（片3b-2；维护者 2026-10-03：参照首页的推送历史实现，**区分收指令和发指令**）。
@@ -276,25 +277,31 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
   }
 
   Widget _row(AppLocalizations l10n, FnthinkRemoteExecutionRecord row) {
-    final state = _stateText(l10n, row);
     final peer = row.peerAddress.isEmpty
         ? l10n.remoteHistoryLocalTrigger
         : (row.incoming
               ? l10n.remoteHistoryFromPeer(row.peerAddress)
               : l10n.remoteHistoryToPeer(row.peerAddress));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Note(
-          keyName: 'remote-history-row-${row.execId}',
-          text: '${row.level} · ${row.item} · $peer · $state',
-        ),
+    // T148 片1：这一行改走通用件（基座＝首页那张推送历史的转发行）。
+    // 以前它是一句拼出来的散文（`L2 · item · 来源 · 状态`）——八处差异里的三条都在这句里：
+    // 没有时间、状态不是"画"出来的而是拼在正文里的、key 的主语与别的页不成体系。
+    return HistoryRowTile(
+      keyNamespace: 'remote-history',
+      identity: row.execId,
+      title: '${row.level} · ${row.item}',
+      time: historyRowTime(row.createdAt),
+      source: peer,
+      status: _stateText(l10n, row),
+      statusColor: _stateColor(row.state),
+      lines: [
         // 裁定 3（2026-10-12）：**状态之外还要有结果与理由**。这两格是"有就说、没有就不说"：
         //   空串在这一层是真的"没有"（`pending` 的那一条还没结果、放行执行成功的那一条没理由），
         //   把它渲染成"理由："那种空句子，就是让界面替本机编一句话。
         // ⚠ 理由与结果**原样显示**（`switch-off`／`auth:wrong`／`missing-grant:…` 这些是判定层的词）：
         //   翻成人话要一张具名词表 + 双向差集守卫（与 `fnthink_remote_action_labels` 同式），
         //   那是 T144 片2；在这里半翻会长出第二个词表，而"半翻"的表现是有些词翻了、有些没翻。
+        // ⚠ 走通用件的 `lines` 而不是 `statusMessage`：那一格画的是**状态的原话**（一行、两行封顶），
+        //   而结果与理由要各留自己的 key 与整句措辞，用户要能分别长按不到、复制得到。
         if (row.result.isNotEmpty)
           _Note(
             keyName: 'remote-history-result-${row.execId}',
@@ -319,6 +326,17 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
       ],
     );
   }
+
+  /// 状态那枚点的颜色。与 [_stateText] 住在同一页、同一个作者：
+  /// 词与色分开两处写，改一处就会"绿色的不认得"这类对不上号的读数。
+  Color _stateColor(String state) => switch (state) {
+    RemoteExecutionStates.done => AppColors.green,
+    RemoteExecutionStates.failed => AppColors.red,
+    RemoteExecutionStates.cancelled => AppColors.orange,
+    RemoteExecutionStates.executing => AppColors.blue,
+    RemoteExecutionStates.pending => AppColors.blue,
+    _ => AppColors.systemGray(context),
+  };
 
   /// 状态词那一格。**存量出现词表外的状态时显示"不认得"**，不当它等于某个已知状态 ——
   /// 那是这一格最容易犯的一个错：把"读不出来"说成"执行完毕"。
