@@ -510,6 +510,176 @@ void main() {
       expect(report.pairRequests, isEmpty);
     });
   });
+
+  group('远程指令那一格（片3c：命中就不按通知弹）', () {
+    // ⚠ 这一组钉的是**循环里那一段顺序**（落库 → 问是不是指令 → 才决定弹不弹）。
+    //   装配那一跳另有守卫（`test/architecture/fnthink_receive_wiring_test.dart`）：
+    //   2026-10-12 量到 `buildFnthinkReceiveLoop` 漏传 `onCommand: spec.onCommand`，
+    //   而**这一组当时全绿** —— 每条用例都把 hook 当构造参数直接递给循环，不经过装配点。
+    //   两边都要有：这里管"接上之后对不对"，守卫管"到底接上了没有"。
+    test('hook 回 true ⇒ 仍然落库，但不按通知弹，ack 报 delivered', () async {
+      final shown = <String>[];
+      final stored = <String>[];
+      final acked = <(String, String)>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('cmd_1')]),
+        ack: (id, result) async {
+          acked.add((id, result));
+          return const FnthinkAckResult(
+            status: FnthinkPollStatus.ok,
+            nextDelay: Duration(seconds: 20),
+          );
+        },
+        persist: (m) async {
+          stored.add(m.messageId);
+          return true;
+        },
+        display: (m) async {
+          shown.add(m.messageId);
+          return true;
+        },
+        onCommand: (_) async => true,
+      );
+      final report = await loop.runOnce();
+      expect(stored, ['cmd_1'], reason: '指令也要进收件表 —— "对方到底对我做过什么"必须查得到');
+      expect(shown, isEmpty, reason: '命中的指令按通知弹出来 = 把一次动作显示成一条消息（维护者报的正是这个形状）');
+      expect(report.displayed, 0);
+      expect(acked, [
+        ('cmd_1', 'delivered'),
+      ], reason: '没显示就不能报 displayed：那是在替服务端宣布"用户看过了"，而它下一秒就删正文');
+    });
+
+    test('hook 回 false ⇒ 照常显示、报 displayed（"这不是指令"那一条路一个字没变）', () async {
+      final shown = <String>[];
+      final acked = <(String, String)>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('m_1')]),
+        ack: (id, result) async {
+          acked.add((id, result));
+          return const FnthinkAckResult(
+            status: FnthinkPollStatus.ok,
+            nextDelay: Duration(seconds: 20),
+          );
+        },
+        persist: (_) async => true,
+        display: (m) async {
+          shown.add(m.messageId);
+          return true;
+        },
+        onCommand: (_) async => false,
+      );
+      await loop.runOnce();
+      expect(shown, ['m_1'], reason: '判定说不是指令，就必须与普通收件一模一样');
+      expect(acked, [('m_1', 'displayed')]);
+    });
+
+    test('这一格没接（null）⇒ 一律按普通通知，不许静默丢弃', () async {
+      // 生产里这就是 2026-10-12 之前那台设备的行为：消息看得见、ack 报 displayed、收件表有货，
+      // 而没有任何东西执行、远程执行历史一行都不写 —— **没有症状**，所以只有守卫会喊。
+      final shown = <String>[];
+      final acked = <(String, String)>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('m_1')]),
+        ack: (id, result) async {
+          acked.add((id, result));
+          return const FnthinkAckResult(
+            status: FnthinkPollStatus.ok,
+            nextDelay: Duration(seconds: 20),
+          );
+        },
+        persist: (_) async => true,
+        display: (m) async {
+          shown.add(m.messageId);
+          return true;
+        },
+      );
+      final report = await loop.runOnce();
+      expect(shown, ['m_1']);
+      expect(acked, [('m_1', 'displayed')]);
+      expect(
+        report.status,
+        FnthinkPollStatus.ok,
+        reason: '没接这一格是合法形状（那台没装远程执行），不是错误',
+      );
+    });
+
+    test('hook 抛异常 ⇒ 那一条按普通通知处理，且整轮不断（另一条照常收）', () async {
+      final shown = <String>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('m_1'), _msg('m_2')]),
+        ack: (id, result) async => const FnthinkAckResult(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 20),
+        ),
+        persist: (_) async => true,
+        display: (m) async {
+          shown.add(m.messageId);
+          return true;
+        },
+        onCommand: (m) async {
+          if (m.messageId == 'm_1') throw StateError('判定层坏了');
+          return false;
+        },
+      );
+      final report = await loop.runOnce();
+      expect(shown, [
+        'm_1',
+        'm_2',
+      ], reason: '"这一格坏了"不该让整批通知都取不到货 —— 那是把一条链的故障扩大成全链的故障');
+      expect(report.acked, 2);
+    });
+
+    test('同一轮里只认得那一条：另一条照常显示，ack 各报各的', () async {
+      final shown = <String>[];
+      final acked = <(String, String)>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('m_1'), _msg('cmd_2')]),
+        ack: (id, result) async {
+          acked.add((id, result));
+          return const FnthinkAckResult(
+            status: FnthinkPollStatus.ok,
+            nextDelay: Duration(seconds: 20),
+          );
+        },
+        persist: (_) async => true,
+        display: (m) async {
+          shown.add(m.messageId);
+          return true;
+        },
+        onCommand: (m) async => m.messageId == 'cmd_2',
+      );
+      await loop.runOnce();
+      expect(shown, ['m_1'], reason: '判定是按条做的；命中一条就把整轮都当指令 = 误伤别的消息');
+      expect(acked, [('m_1', 'displayed'), ('cmd_2', 'delivered')]);
+    });
+
+    test('落库没成的那条**不去问**是不是指令（判定排在落库之后是语义）', () async {
+      // 顺序在这里不是排版：没落到盘上的那条不显示也不 ack（ack 会让服务端删正文），
+      // 而若先问判定、命中就把它从收件表外头"消化"掉，那台设备上就留下一条
+      // 既没执行记录、也没收件行、正文还被服务端删掉的指令。
+      var asked = 0;
+      final acked = <String>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('m_1')]),
+        ack: (id, result) async {
+          acked.add(id);
+          return const FnthinkAckResult(
+            status: FnthinkPollStatus.ok,
+            nextDelay: Duration(seconds: 20),
+          );
+        },
+        persist: (_) async => throw StateError('表被占着'),
+        onCommand: (_) async {
+          asked++;
+          return true;
+        },
+      );
+      final report = await loop.runOnce();
+      expect(asked, 0, reason: '判定层在落库失败那条上响了 ⇒ 那一条从此不进收件表');
+      expect(acked, isEmpty);
+      expect(report.persistedFailed, 1);
+    });
+  });
 }
 
 FnthinkDelivered _msg(String id, {String sender = '8K3FJ6QPTM9WZ4VHNS'}) =>

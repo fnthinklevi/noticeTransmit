@@ -173,6 +173,10 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
     persist: spec.persist,
     display: spec.display,
     recordAck: spec.recordAck,
+    // ⚠ 这一格漏接时的症状不是崩溃：远程指令照常进收件表、照常按通知弹出来，而没有任何
+    //   东西动手，且远程执行历史一行都不写（判定与留痕都在这一格后面）。守卫按
+    //   `FnthinkLoopSpec` 里声明的钩子逐格数转发，见 fnthink_receive_wiring_test。
+    onCommand: spec.onCommand,
     onRound: spec.onRound,
   );
 }

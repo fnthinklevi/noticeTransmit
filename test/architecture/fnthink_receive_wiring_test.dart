@@ -193,6 +193,80 @@ void main() {
     });
   });
 
+  group('spec 的每一格钩子都要传到循环上（装配点那一跳）', () {
+    // 2026-10-12 的现场：维护者报「远程指令无响应、接收端把它当普通消息存了、远程历史没有记录」。
+    // 量到的断点是 `buildFnthinkReceiveLoop` 把 spec 里的 `onCommand` 整格**没转发** ——
+    // DI 给了 coordinator 值、coordinator 把它填进 spec、装配点交给循环时漏了那一行，
+    // 于是循环里的 hook 恒为 null：指令照常进收件表、照常按通知弹出来、远程历史一行不写。
+    //
+    // ⚠ 尺的口径按**类型**取，不写死名单：`FnthinkLoopSpec` 里凡是函数形状的字段都是钩子。
+    //   写死名单的后果是"下一格新钩子忘了转发"这条守卫根本不响（那正是本组存在的理由）。
+    final src = read('lib/services/fnthink_receive_coordinator.dart');
+    final specStart = src.indexOf('class FnthinkLoopSpec {');
+    final loopStart = src.indexOf(
+      'FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {',
+    );
+    final loopBody = loopStart < 0
+        ? ''
+        : src.substring(loopStart, src.indexOf('\n}', loopStart));
+    final hooks = specStart < 0
+        ? <String>[]
+        : (RegExp(r'final\s+[^;]*Function[^;]*\s(\w+);')
+              .allMatches(
+                src.substring(specStart, src.indexOf('\n}', specStart)),
+              )
+              .map((m) => m.group(1)!)
+              .toSet()
+              .toList()
+            ..sort());
+
+    test('这把尺在读东西：钩子名单里必须有 onCommand，且解析得到装配点函数体', () {
+      expect(
+        hooks,
+        contains('onCommand'),
+        reason:
+            '解析不出钩子字段 ⇒ 本组在空跑（`FnthinkLoopSpec` 的写法变了，尺要跟着改，'
+            '而不是把这条删掉）。今天它应当解析出 persist/display/recordAck/onCommand/onRound。',
+      );
+      expect(
+        hooks.length,
+        greaterThanOrEqualTo(5),
+        reason: '钩子只解析出这么几枚：口径漂了（漏读多行那种声明，recordAck 就是多行的）',
+      );
+      expect(
+        loopStart,
+        greaterThanOrEqualTo(0),
+        reason: '装配点搬走了：请把这一组一起搬过去，别删',
+      );
+    });
+
+    test('协调者交出的那份 spec 里真的带着 onCommand（不是到了装配点才凭空接上）', () {
+      // 上面那组钉的是"装配点有没有转发"；这一条钉的是"spec 里有没有带着它"。
+      // 两半都断才闭环：只断转发时，`onCommand: null` 那种写法（值在源头就丢了）不红。
+      expect(
+        src,
+        contains('onCommand: onCommand,'),
+        reason:
+            '协调者的 `_resolveSpec` 不再把本机那一格交给 spec ⇒ 循环拿到的永远是 null，'
+            '而转发那几条守卫照样绿（它们读的是装配点的写法，不是值）',
+      );
+    });
+
+    for (final hook in hooks) {
+      test('$hook 从 spec 传到了循环上', () {
+        expect(
+          loopBody,
+          contains('$hook: spec.$hook'),
+          reason:
+              '装配点没把 $hook 交给循环 ⇒ 生产里那一格恒为 null，而**全场 Dart 测试仍然绿**：'
+              '循环的用例都把 hook 当构造参数直接传，不经过这里。'
+              '症状各有各的哑法：onCommand 漏接＝远程指令被当普通消息显示、执行历史空；'
+              'display 漏接＝一条都不弹但收件箱有货；recordAck 漏接＝回执那两列永远空。',
+        );
+      });
+    }
+  });
+
   group('收件读写只有一个咽喉', () {
     // 「同一件事抄几份」是本仓反复出现的故障形状：未读数、排序口径、"标已读命中没有"这三件事
     // 一旦被页面各写一份，表现是首页入口卡说还有 3 条而列表只列 2 条 —— 两处各自都"对"，
