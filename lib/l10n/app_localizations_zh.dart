@@ -4884,6 +4884,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryBoundaryShort => '这一页只记本机这一份';
 
   @override
+  String get fnthinkPeersBoundaryShort => '这一格记的是本机同意过谁';
+
+  @override
+  String get fnthinkPairPeerPendingNoteShort => '发过去只是对面多了一条待确认';
+
+  @override
   String get fnthinkEndpointWhyShort => '接入端点：让第三方平台往这台设备推通知';
 
   @override

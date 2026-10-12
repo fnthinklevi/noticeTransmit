@@ -5152,6 +5152,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'This page records only this device\'s own copy';
 
   @override
+  String get fnthinkPeersBoundaryShort =>
+      'This cell records who this device has approved';
+
+  @override
+  String get fnthinkPairPeerPendingNoteShort =>
+      'Sending only adds a pending request on the other device';
+
+  @override
   String get fnthinkEndpointWhyShort =>
       'Access endpoints: how third parties push to this device';
 

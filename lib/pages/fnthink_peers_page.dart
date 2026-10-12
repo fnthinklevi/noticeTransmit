@@ -23,6 +23,7 @@ import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/fnthink_outcome.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/fnthink_pair_dialog.dart';
 import 'fnthink_consent_gate.dart';
@@ -935,9 +936,12 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
         ),
         // 提交之后本机这一格不会立刻多出什么：同意由对面那台点，那一行要等下一轮收取才回来。
         // 少了这句，"发过去了"会被读成"已经配上了"，而用户接下来做的动作（发一条试试）当场必失败。
-        FnthinkNote(
-          keyName: 'fnthink-pair-peer-pending',
-          text: l10n.fnthinkPairPeerPendingNote,
+        HelpNoteRow(
+          noteKey: 'fnthink-pair-peer-pending',
+          helpKey: 'fnthink-pair-peer-pending-help',
+          text: l10n.fnthinkPairPeerPendingNoteShort,
+          helpTitle: l10n.fnthinkPairPeer,
+          helpBody: l10n.fnthinkPairPeerPendingNote,
         ),
         if (_pairSubmit != null)
           FnthinkNote(
@@ -945,9 +949,14 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
             text: fnthinkPairSubmitText(l10n, _pairSubmit!),
           ),
         const SizedBox(height: 8),
-        FnthinkNote(
-          keyName: 'fnthink-peers-boundary',
-          text: l10n.fnthinkPeersBoundary,
+        HelpNoteRow(
+          noteKey: 'fnthink-peers-boundary',
+          helpKey: 'fnthink-peers-boundary-help',
+          text: l10n.fnthinkPeersBoundaryShort,
+          helpTitle: l10n.fnthinkPeersTitle,
+          // T149 片6：74 字那一段（撤销先走服务器、已收通知不删、对面的许可由它自己撤）整段进问号，
+          // **正文一字没删** —— 「撤销不会删掉已收到的通知」这句是要紧的承诺。
+          helpBody: l10n.fnthinkPeersBoundary,
         ),
       ],
     );

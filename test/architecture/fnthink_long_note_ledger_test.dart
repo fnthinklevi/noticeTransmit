@@ -33,7 +33,7 @@ void main() {
   /// `fnthink_shortcuts`／`fnthink_endpoint` 这五页搬到问号弹层，它们不在表里，读到的必须是 0。
   /// ⚠ 不再逐页加 `== 0` 的对照：片2/片3 量过那拦不住尺变瞎，防瞎靠下面那条**语料规模**对照。
   const ledger = <String, int>{
-    'fnthink_peers_page.dart': 6,
+    'fnthink_peers_page.dart': 4,
     'fnthink_send_page.dart': 6,
   };
 

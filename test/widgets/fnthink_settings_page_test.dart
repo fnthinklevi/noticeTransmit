@@ -2283,7 +2283,7 @@ void main() {
       requestId: 'pr_9',
     );
 
-    testWidgets('名单里有两台 ⇒ 两行都画出来，档位与时刻跟着名单走，边界那句在场', (tester) async {
+    testWidgets('名单里有两台 ⇒ 两行都画出来，档位与时刻跟着名单走，边界那句只剩短说（整段在问号里）', (tester) async {
       stubChannels();
       final h = harness(
         peers: [
@@ -2319,9 +2319,25 @@ void main() {
       await revealTo(tester, boundary);
       expect(
         tester.widget<Text>(boundary).data,
-        l10n.fnthinkPeersBoundary,
+        l10n.fnthinkPeersBoundaryShort,
         reason:
-            '"撤销撤的是服务器那份授权、已收到的通知不删"必须与名单同屏，而且必须是**这一句**：'
+            '与名单同屏的那一行是**短说**：这一格讲的是"本机同意过谁"，'
+            '整段摊在旁边会把名单本身挤下去（维护者 2026-10-06 的两条口径之一）',
+      );
+      expect(
+        find.text(l10n.fnthinkPeersBoundary),
+        findsNothing,
+        reason: '整段不许同时挂在页面上 —— 那 T149 这一片就没搬走任何东西',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('fnthink-peers-boundary-help')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(l10n.fnthinkPeersBoundary),
+        findsOneWidget,
+        reason:
+            '"撤销撤的是服务器那份授权、已收到的通知不删"必须还在，只是换了位置：'
             '少了它，那一行下面的按钮就会被读成"把这条记录删掉"，而屏幕上再没有别的出处',
       );
       expect(h.peerReads(), greaterThanOrEqualTo(1));
@@ -3976,9 +3992,20 @@ void main() {
         reason: '服务端 autoApprove=false：这一发只让对面多一条待确认，说"配对成功"就是替没发生的事作保',
       );
       expect(
+        find.text(l10n.fnthinkPairPeerPendingNoteShort),
+        findsOneWidget,
+        reason: '页面上留的是短说：这一行说的是"本机这边此刻还没有什么"',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('fnthink-pair-peer-pending-help')),
+      );
+      await tester.pumpAndSettle();
+      expect(
         find.text(l10n.fnthinkPairPeerPendingNote),
         findsOneWidget,
-        reason: '少了这句，"已提交"会被读成"已经配上了"，用户下一步就是发一条试试',
+        reason:
+            '「那一行要等下一轮收取才出现」这一句必须在问号里读得到：少了它，用户点完发送就会立刻发一条试试，'
+            '而那一条当场必失败',
       );
     });
 

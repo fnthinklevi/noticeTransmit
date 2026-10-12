@@ -8845,6 +8845,18 @@ abstract class AppLocalizations {
   /// **'这一页只记本机这一份'**
   String get remoteHistoryBoundaryShort;
 
+  /// No description provided for @fnthinkPeersBoundaryShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一格记的是本机同意过谁'**
+  String get fnthinkPeersBoundaryShort;
+
+  /// No description provided for @fnthinkPairPeerPendingNoteShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'发过去只是对面多了一条待确认'**
+  String get fnthinkPairPeerPendingNoteShort;
+
   /// No description provided for @fnthinkEndpointWhyShort.
   ///
   /// In zh, this message translates to:

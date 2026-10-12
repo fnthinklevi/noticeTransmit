@@ -2562,6 +2562,8 @@
   "remoteHistoryRemoved": "This entry is now gone from this device's history.",
   "remoteHistoryBoundary": "This history is this device's own record: both received and sent. Credentials and command text never enter it — they ride inside that message's encrypted body, while receipts and audit rows each keep their own copy.",
   "remoteHistoryBoundaryShort": "This page records only this device's own copy",
+  "fnthinkPeersBoundaryShort": "This cell records who this device has approved",
+  "fnthinkPairPeerPendingNoteShort": "Sending only adds a pending request on the other device",
   "fnthinkChannelDisclosureShort": "Sound, vibration and banners are decided by the system-side channel",
   "fnthinkRemoteTitle": "Remote control",
   "fnthinkRemoteNeedsReceive": "Turn on Receive first - this page assumes this device is willing to receive",
