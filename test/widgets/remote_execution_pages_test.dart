@@ -90,6 +90,7 @@ void main() {
     loadRecords,
     Future<bool> Function(String)? remove,
     Future<FnthinkContract> Function()? contractOf,
+    Listenable? Function()? events,
   }) async {
     tester.view.physicalSize = const Size(1080, 5400);
     tester.view.devicePixelRatio = 3.0;
@@ -104,6 +105,7 @@ void main() {
             loadRecords: loadRecords,
             removeRecord: remove ?? (id) async => true,
             contractOf: contractOf ?? () async => contract,
+            executionEvents: events,
           ),
         ),
       ),
@@ -969,6 +971,60 @@ void main() {
       await pumpHistory(tester, loadRecords: (_) async => [record('x0000001')]);
       expect(
         find.byKey(const ValueKey('remote-history-boundary')),
+        findsOneWidget,
+      );
+    });
+  });
+
+  // ── T147 ①（维护者 2026-10-12 第 1 条：成功执行过却在历史里看不见）──────────
+  // 那一行**是写进去了**，看不见的是"页面只在 initState 读一次"。延时窗口到点、执行完、
+  // 被拒、撤销 —— 每一步都发生在用户已经开着这一页之后，而屏幕上还是进页那一刻的读数。
+  group('历史页要跟着执行链重取（T147 ①）', () {
+    testWidgets('执行链报一次事件 ⇒ 不用退出重进就能看到新落的那一行', (tester) async {
+      final events = ChangeNotifier();
+      var reads = 0;
+      Future<List<FnthinkRemoteExecutionRecord>?> load(
+        String? direction,
+      ) async {
+        reads++;
+        // 第一次读：只有那条「待执行」；执行链点火后：终态那一行覆盖了同一行。
+        return reads == 1
+            ? [record('e_one')]
+            : [record('e_one', state: 'done')];
+      }
+
+      await pumpHistory(tester, loadRecords: load, events: () => events);
+      expect(reads, 1, reason: '进页读一次是原有的形状，不许偷偷变成两次');
+      expect(
+        find.byKey(const ValueKey('remote-history-row-e_one')),
+        findsOneWidget,
+      );
+
+      events.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(reads, 2, reason: '执行链已经 notify 而页面不重取 = 用户得退出这一页再进来才看见结果');
+    });
+
+    testWidgets('回前台 ⇒ 重取一次（去系统里改完授权回来的那条路）', (tester) async {
+      var reads = 0;
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async {
+          reads++;
+          return [record('e_one')];
+        },
+      );
+      expect(reads, 1);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(reads, 2, reason: '同一族缺陷在权限页（T140 片2）已经踩过一次：读数停在离开那一刻');
+    });
+
+    testWidgets('没有事件源（deps 没给）⇒ 页面照常，不许因为 null 崩', (tester) async {
+      await pumpHistory(tester, loadRecords: (_) async => [record('e_one')]);
+      expect(
+        find.byKey(const ValueKey('remote-history-row-e_one')),
         findsOneWidget,
       );
     });

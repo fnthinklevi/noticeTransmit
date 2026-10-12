@@ -1357,6 +1357,54 @@ void main() {
             '`requiresExistingGrantFrom` 恒判 missing-grant（判定层放行的那条被自己下面一格拦下）',
       );
     });
+    test('进程被杀留下的那几行有人收尾（T147 ③：sweep 不再只有测试调用点）', () {
+      // 这两枚方法写出来那天起就只有用例在调 —— 于是"重启之后那几行还写着待执行"
+      // 这件事从来没有一个执行者。守卫钉的是**调用点存在**，不是它跑得好不好
+      //（跑得对不对由 `fnthink_remote_runner_test.dart` 那两条行为用例钉）。
+      final main = stripComments(
+        librarySource(root, 'lib/pages/main_page.dart'),
+      );
+      expect(
+        main,
+        contains('unawaited(_sweepInterruptedRemoteExecutions())'),
+        reason:
+            '启动链不再**调**它 ⇒ 那些行永远停在待执行。⚠ 尺必须落在"这一发"上而不是方法名：'
+            '方法定义与它体内的 `runner.sweepInterrupted(...)` 都写着那个名字，'
+            '只数名字的话，把调用点注释掉这条还是绿的（Q5 反证当场红出这件事）',
+      );
+      expect(
+        main,
+        contains('loadUnsettledRemoteExecutions()'),
+        reason: 'sweep 的输入是"还欠着的那几行"；读口没有调用点 = 这一族仍是死的',
+      );
+      // 与 `_drainLocalRemoteCommands` 同一条护栏：契约没读到就先不跑（装配那一刻崩过一次）。
+      expect(
+        blockAfter(
+          main,
+          'Future<void> _sweepInterruptedRemoteExecutions() async {',
+        ),
+        contains('getIt<FnthinkContractLoader>().cached == null'),
+        reason:
+            'runner 的注册闭包读 `cached!`；这一发跑在装配之前会崩，而崩在首帧回调里'
+            '现场没有任何线索指向契约加载顺序（#178 片1b 那颗）',
+      );
+    });
+    test('装配点把执行链的事件源接上了页面（漏传 = 那一页永远不动）', () {
+      final page = read('lib/pages/fnthink_remote_page.dart');
+      expect(
+        page,
+        contains('executionEvents:'),
+        reason:
+            '页面那侧订好了监听，装配点不传就是**没人给它可订的东西** —— '
+            '与 T141 那颗同形：漏传不报编译错，行为差在设备上才看得见',
+      );
+      // 必须是**惰性**的：在装配 deps 时就直接取 runner，等于在契约还没读到时碰 `cached!`。
+      expect(
+        page,
+        contains('isRegistered<RemoteCommandRunner>()'),
+        reason: '取 runner 那一发不再是惰性的 ⇒ 冷启动那刻可能白屏（上面两条守卫的前提）',
+      );
+    });
   });
 }
 

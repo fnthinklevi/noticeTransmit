@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
+import '../database/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/platform_channel.dart';
 import '../services/services.dart';
@@ -251,6 +252,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // 与上面两条**完全同一形状** —— 原生在 `configureFlutterEngine` 那一刻推不动，
       // 而通知却可能早于这一刻到达（`NotificationMonitorService` 自己会把进程拉起来）。
       unawaited(_drainLocalRemoteCommands());
+      // T147 ③：进程被杀留下的那些「待执行」行，重启后收一次尾。
+      // 没有这一发，`sweepInterrupted` 就只有一个测试调用点 —— 而那些行会一直写着
+      // 「待执行」，历史页永远说"这条还没开始"，而这台设备其实早就把它忘了。
+      unawaited(_sweepInterruptedRemoteExecutions());
     });
   }
 
@@ -509,6 +514,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Future<void> _drainLocalRemoteCommands() async {
     if (getIt<FnthinkContractLoader>().cached == null) return;
     await getIt<RemoteCommandWiring>().drainLocalCommands();
+  }
+
+  /// 进程被杀之后那一次重启，把还写着「待执行」的那些行收一次尾（T147 ③）。
+  ///
+  /// ⚠ 判据与上面同一条：**契约没读到就直接返回**。runner 的注册闭包里读 `cached!`，
+  ///   把这一发放进 `setupLocator` 会在装配那一刻崩（#178 片1b 真机那颗），
+  ///   而这一串跑在「首帧后回调」里，崩一次现场没有任何线索指向契约加载顺序。
+  /// ⚠ 只收**不在本进程工作集里**的那些（判据在 `sweepInterrupted` 内部）——
+  ///   本进程刚收下、正在等窗口的那一条不该被这一刀砍掉。
+  /// 收不了的后果是那几行下次进来再收，不是丢消息。
+  Future<void> _sweepInterruptedRemoteExecutions() async {
+    if (getIt<FnthinkContractLoader>().cached == null) return;
+    final open = await DatabaseHelper().loadUnsettledRemoteExecutions();
+    if (open.isEmpty) return;
+    await getIt<RemoteCommandRunner>().sweepInterrupted(open);
   }
 
   @override

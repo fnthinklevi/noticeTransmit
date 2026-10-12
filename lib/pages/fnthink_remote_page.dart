@@ -10,6 +10,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_remote_gate.dart';
+import '../services/fnthink_remote_runner.dart';
 import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
@@ -131,6 +132,13 @@ class _FnthinkRemotePageState extends State<FnthinkRemotePage> {
             removeRecord: (id) async =>
                 await coordinator.forgetRemoteExecution?.call(id) ?? false,
             contractOf: () => widget.deps.contracts.load(),
+            // 打开这一页才取那一个 runner：它的注册闭包里读 `contract cached!`，
+            // 在装配 deps 那一刻取，契约还没读到就会当场崩（同 main_page 那两条注释的理由）。
+            // 没注册 = 这一路没有事件源，页面只是回落到"回前台重取"那一半，不报错。
+            executionEvents: () =>
+                GetIt.instance.isRegistered<RemoteCommandRunner>()
+                ? GetIt.instance<RemoteCommandRunner>()
+                : null,
           ),
         ),
       ),

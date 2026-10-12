@@ -8,6 +8,7 @@ import 'package:notice_transmit/services/fnthink_l3_settings.dart';
 import 'package:notice_transmit/services/fnthink_remote_command_handler.dart';
 import 'package:notice_transmit/services/fnthink_remote_execution.dart';
 import 'package:notice_transmit/services/fnthink_remote_runner.dart';
+import 'package:notice_transmit/services/remote_execution_notifier.dart';
 
 /// 远程执行 片3c-3：**执行链编排**（落历史 → 回执 → 延时窗口 → 动手 → 终态回执）。
 ///
@@ -186,24 +187,26 @@ void main() {
     schedule = (d, f) => Timer(const Duration(days: 1), () {});
   });
 
-  RemoteCommandRunner runner() => RemoteCommandRunner(
-    contract: contract,
-    windowSeconds: () async => windowSeconds,
-    l2: l2,
-    l3: l3,
-    saveRecord: (r) async => saved.add(r),
-    sendReceipt: (peer, receipt) async {
-      receipts.add(receipt);
-      return receiptOk;
-    },
-    sendReport: (peer, action, payload) async {
-      reports.add('$peer|$action|$payload');
-      return reportOk;
-    },
-    now: () => clock,
-    schedule: schedule,
-    newId: (seed) => 'x${seed.length.toRadixString(16)}',
-  );
+  RemoteCommandRunner runner({RemoteExecutionNotifier? statusBar}) =>
+      RemoteCommandRunner(
+        contract: contract,
+        windowSeconds: () async => windowSeconds,
+        l2: l2,
+        l3: l3,
+        saveRecord: (r) async => saved.add(r),
+        sendReceipt: (peer, receipt) async {
+          receipts.add(receipt);
+          return receiptOk;
+        },
+        sendReport: (peer, action, payload) async {
+          reports.add('$peer|$action|$payload');
+          return reportOk;
+        },
+        now: () => clock,
+        schedule: schedule,
+        statusBar: statusBar,
+        newId: (seed) => 'x${seed.length.toRadixString(16)}',
+      );
 
   RemoteCommandAccepted accepted({
     String level = 'L2',
@@ -576,4 +579,75 @@ void main() {
       expect(saved.last.reason, 'sms-search-disabled');
     });
   });
+
+  // ── T147 ②（维护者 2026-10-12 第 1 条）───────────────────────────────────
+  // `_execute` 跑在 **Timer 回调**里，没有人 await 它。它抛出时异常只是一个未处理的异步错误，
+  // 而终态那一次写**根本不会发生** ⇒ 那一行永远停在「待执行」，历史页一直说"这条还没开始"，
+  // 而这台设备其实已经试过一遍了。兜底那一条必须落 `failed` + 写明理由：
+  // "没做成"与"不知道做没做成"是两句话，这里能确定的只有"我试过，它炸了"。
+  group('窗口到点那一发抛出（T147 ②）', () {
+    test('仍然落一条 failed，那一行不许永远停在待执行', () async {
+      void Function()? fire;
+      schedule = (d, f) {
+        fire = f;
+        return Timer(const Duration(days: 1), () {});
+      };
+      final r = runner(statusBar: const _ThrowingNotifier());
+
+      await r.run(accepted());
+      expect(fire, isNotNull, reason: '窗口没排上 ⇒ 这一条根本没进入"到点"那一步');
+      expect(saved.last.state, RemoteExecutionStates.pending);
+
+      fire!();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        saved.last.state,
+        RemoteExecutionStates.failed,
+        reason: '抛出后不落终态 = 那一行永远写着「待执行」',
+      );
+    });
+
+    test('兜底那条写的理由是这次抛出本身，不是规则句子', () async {
+      void Function()? fire;
+      schedule = (d, f) {
+        fire = f;
+        return Timer(const Duration(days: 1), () {});
+      };
+      final r = runner(statusBar: const _ThrowingNotifier());
+      await r.run(accepted());
+      fire!();
+      await Future<void>.delayed(Duration.zero);
+      // ⚠ 这条与上一条**分开钉**，是因为 `_finish` 那条路会把理由写成 `illegal-move`
+      //   （内核拒 `pending → failed` 那一格）—— 那是关于规则的句子，不是关于这一次的句子。
+      //   合成一条用例的话，"落没落终态"与"理由诚不诚实"两种坏会红在同一个标题上，分不出是哪一件。
+      expect(
+        saved.last.reason,
+        startsWith('threw:'),
+        reason: '只说 failed 不说为什么，用户与后来查的人都不知道是炸了还是被拒',
+      );
+      expect(saved.last.reason, contains('boom'));
+    });
+
+    test('没抛出的那条路不受兜底壳影响（不许把成功也写成 failed）', () async {
+      void Function()? fire;
+      schedule = (d, f) {
+        fire = f;
+        return Timer(const Duration(days: 1), () {});
+      };
+      final r = runner();
+      await r.run(accepted());
+      fire!();
+      await Future<void>.delayed(Duration.zero);
+      expect(saved.last.state, RemoteExecutionStates.done);
+    });
+  });
+}
+
+/// 到点第一问（"用户在状态栏撤过没有"）就抛的 notifier。
+/// 选这一格是因为它在 `_execute` **最早**的位置：从这里抛出，终态那次写一定没发生。
+class _ThrowingNotifier extends RemoteExecutionNotifier {
+  const _ThrowingNotifier();
+
+  @override
+  Future<bool> takeCancelled(String execId) async => throw StateError('boom');
 }

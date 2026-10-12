@@ -201,9 +201,46 @@ class RemoteCommandRunner extends ChangeNotifier {
     //   而生产里走的是真 Timer（所以真机上看不出问题）⇒ 只有用例会红。
     _timers[execId] = schedule(
       Duration(seconds: seconds),
-      () => _execute(execId),
+      () => unawaited(_fireWindow(execId)),
     );
     return execId;
+  }
+
+  /// 窗口到点那一发的**兜底壳**（T147 ②，维护者 2026-10-12 第 1 条）。
+  ///
+  /// 为什么要有这一层：这个回调跑在 `Timer` 里，**没有人 await 它**。`_execute` 一旦抛出
+  /// （执行器抛、留痕那次写库抛、问原生"撤没撤"那一发抛），异常就变成一个未处理的异步错误，
+  /// 而终态那一次写**根本不会发生** —— 那一行永远停在「待执行」，历史页一直说"这条还没开始"，
+  /// 而这一次执行其实已经试过一遍了。
+  /// ⚠ 兜底那一条落的是 `failed` + 写明理由，**不是**把异常咽掉不留痕：
+  ///   "没做成"与"不知道做没做成"是两句话，这里能确定的只有"我试过，它炸了"。
+  Future<void> _fireWindow(String execId) async {
+    try {
+      await _execute(execId);
+    } catch (e) {
+      await _rescueWindow(execId, 'threw:$e');
+    }
+  }
+
+  /// 抛出之后补那一行。
+  ///
+  /// ⚠ **不走 [_finish]**：那一条要先过内核那一格，而这里工作集里那条很可能还停在
+  ///   `pending`（抛出发生在"迁 executing"之前），内核照规则拒掉 `pending → failed`，
+  ///   落出来的理由是 `illegal-move` —— 那是**关于规则的句子，不是关于这一次的句子**。
+  ///   这里能确定的是"我试过，它炸了"，所以直接写 `failed` 加那句理由。
+  Future<void> _rescueWindow(String execId, String reason) async {
+    final flight = _inFlight.remove(execId);
+    _timers.remove(execId)?.cancel();
+    // 已经落过终态（抛出发生在最后一次写之后）⇒ 没有欠账，不要补第二行。
+    if (flight == null) return;
+    try {
+      await saveRecord(
+        _withState(flight.record, RemoteExecutionStates.failed, reason: reason),
+      );
+    } catch (_) {
+      // 连这一次写都失败：剩下的只有"让界面不要再停在待执行"这一件还能做的事。
+    }
+    notifyListeners();
   }
 
   /// 撤销（状态栏通知与界面顶端横幅**都只经这里**，不许各写一份）。

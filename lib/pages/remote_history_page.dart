@@ -33,6 +33,7 @@ class RemoteHistoryDeps {
     required this.loadRecords,
     required this.removeRecord,
     required this.contractOf,
+    this.executionEvents,
   });
 
   /// 三种"没有记录"必须分开（与推送历史同一纪律）：null = 还不知道（还没读或读失败），
@@ -44,9 +45,22 @@ class RemoteHistoryDeps {
   final Future<bool> Function(String execId) removeRecord;
 
   final Future<FnthinkContract> Function() contractOf;
+
+  /// 执行链那一步的事件源（`RemoteCommandRunner` 本身是 `ChangeNotifier`）。
+  ///
+  /// ⚠ **惰性**（一个函数，而不是一个实例）：runner 的注册闭包里读
+  /// `getIt<FnthinkContractLoader>().cached!`，在装配 deps 的那一刻就去取它，
+  /// 契约还没读到就会崩 —— 而这一页可能正是冷启动后第一个被打开的页面。
+  /// 现在只有页面真的挂载了才取那一个实例（同一句话见 `main_page._drainLocalRemoteCommands`）。
+  ///
+  /// ⚠ 它补的是**「开着这一页时执行完成，列表不动」**那一半：延时窗口到点、执行成功、
+  /// 被拒、撤销，每一步都会 `notifyListeners()`，而这一页以前只在 `initState` 读一次。
+  /// 回前台那一发（[WidgetsBindingObserver]）补不了这一半 —— 用户就停在页面上，没有离开也没有回来。
+  final Listenable? Function()? executionEvents;
 }
 
-class _RemoteHistoryPageState extends State<RemoteHistoryPage> {
+class _RemoteHistoryPageState extends State<RemoteHistoryPage>
+    with WidgetsBindingObserver {
   /// null = 「全部」这一档（**不是**"还没读"—— 读没读过是 [rows] 那件事）。
   String? _direction = kFnthinkRemoteDirectionIn;
 
@@ -56,36 +70,81 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage> {
   String? _note;
   bool _busy = false;
 
+  /// 执行链那一步的事件源（来自 [RemoteHistoryDeps.executionEvents]，只取一次）。
+  Listenable? _events;
+
+  /// 一次读还没落回来时又来了事件：记一笔"欠一次重取"，读完补上。
+  /// 不这么判的话，"执行完成"那一条会连着点出好几次 DB 往返（窗口开始、迁 executing、
+  /// 终态、清横幅，每一步都 notify），而那几次读出来的可能是同一份。
+  bool _loading = false;
+  bool _reloadWanted = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _events = widget.deps?.executionEvents?.call();
+    _events?.addListener(_onExecutionEvent);
     unawaited(_load());
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _events?.removeListener(_onExecutionEvent);
+    super.dispose();
+  }
+
+  /// 回前台重取：这一页说的是"这台设备做过什么"，而用户去系统设置里改完授权、
+  /// 或从状态栏撤了那一条再回来时，屏幕上还停在他离开那一刻的读数（同一族缺陷
+  /// 在权限页 T140 片2 已经踩过一次）。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_load());
+  }
+
+  void _onExecutionEvent() => unawaited(_load());
+
   Future<void> _load() async {
+    if (_loading) {
+      _reloadWanted = true;
+      return;
+    }
+    _loading = true;
     final deps = widget.deps;
-    FnthinkContract? contract;
-    if (deps != null) {
+    // 每一轮重取都从"这一次要读的是最新的"起步：读完若期间又来了事件，末尾补一次。
+    _reloadWanted = false;
+    try {
+      FnthinkContract? contract;
+      if (deps != null) {
+        try {
+          contract = await deps.contractOf();
+        } on FnthinkContractUnavailable {
+          contract = null;
+        }
+      }
+      List<FnthinkRemoteExecutionRecord>? rows;
+      String? error;
       try {
-        contract = await deps.contractOf();
-      } on FnthinkContractUnavailable {
-        contract = null;
+        rows = await deps?.loadRecords(_direction);
+      } catch (e) {
+        error = '$e';
+        rows = null;
+      }
+      if (mounted) {
+        setState(() {
+          _contract = contract;
+          _rows = rows;
+          _error = error;
+        });
+      }
+    } finally {
+      _loading = false;
+      if (_reloadWanted) {
+        _reloadWanted = false;
+        unawaited(_load());
       }
     }
-    List<FnthinkRemoteExecutionRecord>? rows;
-    String? error;
-    try {
-      rows = await deps?.loadRecords(_direction);
-    } catch (e) {
-      error = '$e';
-      rows = null;
-    }
-    if (!mounted) return;
-    setState(() {
-      _contract = contract;
-      _rows = rows;
-      _error = error;
-    });
   }
 
   Future<void> _switchDirection(String? direction) async {
