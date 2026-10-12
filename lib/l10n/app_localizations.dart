@@ -8845,6 +8845,18 @@ abstract class AppLocalizations {
   /// **'这一页只记本机这一份'**
   String get remoteHistoryBoundaryShort;
 
+  /// No description provided for @remoteCredKeyOnceShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一串只出现这一次，现在就得抄走'**
+  String get remoteCredKeyOnceShort;
+
+  /// No description provided for @remoteCredTotpOnceShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一枚只出现一次，现在录进对面那台的验证器'**
+  String get remoteCredTotpOnceShort;
+
   /// No description provided for @fnthinkChannelDisclosureShort.
   ///
   /// In zh, this message translates to:

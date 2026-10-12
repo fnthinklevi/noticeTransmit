@@ -481,7 +481,16 @@ class _RemoteCredentialSettingsPageState
               letterSpacing: 1.1,
             ),
           ),
-          _Note(keyName: 'remote-cred-key-once', text: l10n.remoteCredKeyOnce),
+          // T149 片3：这一整段（68 字：只出现一次、关掉就只剩哈希、谁都看不回来）
+          // 摊在明文下面读不动 —— 收成一行短说 + 问号，**正文一字没删**（维护者
+          // 2026-10-12 第 4 条）。这一句是"错过就没了"的承诺，删掉比搬走更坏。
+          HelpNoteRow(
+            noteKey: 'remote-cred-key-once',
+            helpKey: 'remote-cred-key-once-help',
+            text: l10n.remoteCredKeyOnceShort,
+            helpTitle: l10n.remoteCredKeySection,
+            helpBody: l10n.remoteCredKeyOnce,
+          ),
           Align(
             alignment: Alignment.centerLeft,
             child: CupertinoButton(
@@ -597,9 +606,14 @@ class _RemoteCredentialSettingsPageState
               child: Text(l10n.fnthinkCopy),
             ),
           ),
-          _Note(
-            keyName: 'remote-cred-totp-once',
-            text: l10n.remoteCredTotpOnce,
+          HelpNoteRow(
+            noteKey: 'remote-cred-totp-once',
+            helpKey: 'remote-cred-totp-once-help',
+            text: l10n.remoteCredTotpOnceShort,
+            helpTitle: l10n.remoteCredTotpSection,
+            // T149 片3：80 字那一段（只出现一次、只存接收端、不经过任何服务器）整段进问号，
+            // **正文一字没删** —— 那句"不经过服务器"是要紧的承诺，删掉比搬走更坏。
+            helpBody: l10n.remoteCredTotpOnce,
           ),
         ],
         Align(

@@ -5152,6 +5152,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'This page records only this device\'s own copy';
 
   @override
+  String get remoteCredKeyOnceShort => 'Shown once - copy it now';
+
+  @override
+  String get remoteCredTotpOnceShort =>
+      'Shown once too - enroll it in the other device authenticator now';
+
+  @override
   String get fnthinkChannelDisclosureShort =>
       'Sound, vibration and banners are decided by the system-side channel';
 

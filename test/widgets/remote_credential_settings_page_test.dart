@@ -139,6 +139,106 @@ void main() {
     );
   });
 
+  testWidgets('密钥明文那句「只出现一次」搬进问号：短说在场、点开一字不少', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const ValueKey('remote-cred-key-generate')));
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+
+    expect(find.byKey(const ValueKey('remote-cred-key-fresh')), findsOneWidget);
+    expect(
+      find.text(l10n.remoteCredKeyOnceShort),
+      findsOneWidget,
+      reason: '明文下面那一行短说要在场 —— 它说的是"这一串现在不抄就走不了了"',
+    );
+    expect(
+      find.text(l10n.remoteCredKeyOnce),
+      findsNothing,
+      reason: '那 68 字又摊回明文下面 ⇒ 这一格重新长成小字论文（T149 第 4 条）',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('remote-cred-key-once-help')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.remoteCredKeyOnce),
+      findsOneWidget,
+      reason:
+          '"关掉这一页本机只剩哈希、谁都看不回来"这句被搬丢 ⇒ '
+          '用户下一次还以为回来看得到，而这一枚是**错过就没了**的那种',
+    );
+  });
+
+  testWidgets('TOTP 那格同样只剩一行短说（两处装配点不许只改一处）', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const ValueKey('remote-cred-totp-generate')));
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+
+    expect(
+      find.byKey(const ValueKey('remote-cred-totp-secret')),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.remoteCredTotpOnceShort), findsOneWidget);
+    expect(
+      find.text(l10n.remoteCredTotpOnce),
+      findsNothing,
+      reason: '密钥那一格搬了、TOTP 这一格没搬 = 同一页两种形状（两处装配点要各验一次）',
+    );
+  });
+
+  testWidgets('弹层里那句「只出现一次、不经过服务器」读得到（正文不许被删）', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const ValueKey('remote-cred-totp-generate')));
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('remote-cred-totp-once-help')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.remoteCredTotpOnce),
+      findsOneWidget,
+      reason:
+          '那句"之后由验证器保管、不经过任何服务器"是隐私承诺，'
+          '不是排版 —— 搬的时候丢掉它就等于本页改口了',
+    );
+  });
+
+  testWidgets('两枚问号都按 key 点得中（密钥与 TOTP 是两处装配点，各一枚）', (tester) async {
+    await pump(tester);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+    // ⚠ **一生成一验**：明文那一格只跟"最近这一次生成"绑定，先生成两枚会把密钥那格的
+    //   fresh 顶掉 ⇒ 问号压根不在场，红的就是"我按错顺序"而不是定位串（夹具遮错因那一族）。
+    await tester.tap(find.byKey(const ValueKey('remote-cred-key-generate')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('remote-cred-key-once-help')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.remoteCredKeyOnce),
+      findsOneWidget,
+      reason: '密钥那一格的问号点不开 = helpKey 漂了（不是页面没有那一枚）',
+    );
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('remote-cred-totp-generate')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('remote-cred-totp-once-help')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.remoteCredTotpOnce),
+      findsOneWidget,
+      reason: 'TOTP 那一格是**另一处装配点**：只给密钥那格装上，这一格就没人说话',
+    );
+  });
+
   testWidgets('契约读不到 ⇒ 整页只显示那一句，不给设凭据', (tester) async {
     await pump(tester, failWith: const FnthinkContractUnavailable('missing'));
     expect(

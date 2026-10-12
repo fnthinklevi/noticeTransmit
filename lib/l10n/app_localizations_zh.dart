@@ -4884,6 +4884,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryBoundaryShort => '这一页只记本机这一份';
 
   @override
+  String get remoteCredKeyOnceShort => '这一串只出现这一次，现在就得抄走';
+
+  @override
+  String get remoteCredTotpOnceShort => '这一枚只出现一次，现在录进对面那台的验证器';
+
+  @override
   String get fnthinkChannelDisclosureShort => '响不响、震不震、弹不弹，由系统那一侧的渠道决定';
 
   @override

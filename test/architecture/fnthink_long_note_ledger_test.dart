@@ -29,14 +29,14 @@ void main() {
   int cjkLen(String s) => s.runes.where((c) => c > 0x7f).length;
 
   /// 每页**现在**还挂在页面上的长说明段数（2026-10-12 实测）。搬完一页就把那一行改小或删掉 ——
-  /// `remote_history_page.dart`（片1）与 `fnthink_receive_page.dart`（片2）已在这条上被搬空，
+  /// `remote_history_page.dart`（片1）、`fnthink_receive_page.dart`（片2）与
+  /// `remote_credential_settings_page.dart`（片3）已在这条上被搬空，
   /// 所以它们不在表里，读到的必须是 0。
   const ledger = <String, int>{
     'fnthink_peers_page.dart': 6,
     'fnthink_send_page.dart': 6,
     'fnthink_endpoint_page.dart': 3,
     'fnthink_shortcuts_page.dart': 3,
-    'remote_credential_settings_page.dart': 2,
   };
 
   Map<String, int> countAll() {
@@ -84,7 +84,7 @@ void main() {
     return out;
   }
 
-  test('尺不瞎：已知的重灾区读得出条数、刚搬干净的那一页读出 0', () {
+  test('尺不瞎：重灾区读得出条数、刚搬干净的那几页读出 0', () {
     // 正面对照：这条断言不依赖台账，台账写错也照样红 —— 没有它，"每页都读到 0"
     // 与"尺根本读不到"两种情况长得一模一样。
     final got = countAll();
@@ -104,6 +104,13 @@ void main() {
       reason:
           '片2 搬的是渠道披露那一段（127 字，本表里最长的一条）——'
           '同一形状连搬两页都读得出来，这条对照才不是只对着一页写死的',
+    );
+    expect(
+      got['remote_credential_settings_page.dart'] ?? 0,
+      0,
+      reason:
+          '片3 一次搬两格（密钥明文那句 68 字 + TOTP 那句 80 字）——'
+          '同一页里**两处**装配点都换了形状，只换一处这条就会红',
     );
   });
 
