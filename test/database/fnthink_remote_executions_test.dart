@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
 import 'package:notice_transmit/services/fnthink_remote_execution.dart';
+import 'package:notice_transmit/services/history_paging.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -367,6 +368,91 @@ void main() {
         reason: '回 true 的话界面上会说"删掉了"，而那一行本来就不在',
       );
       expect(await helper.removeRemoteExecutionRecord('xNOPE'), isFalse);
+    });
+  });
+
+  group('分页读口（T148 差异⑦：那一档此前根本没有翻页）', () {
+    Future<void> seedFive() async {
+      for (final id in [
+        'x0000021',
+        'x0000022',
+        'x0000023',
+        'x0000024',
+        'x0000025',
+      ]) {
+        await helper.saveRemoteExecutionRecord(record(id));
+      }
+    }
+
+    test('limit 与 offset 一起用：第二批拿的是后面的行，不是重拿第一批', () async {
+      await freshDb();
+      await seedFive();
+      expect(
+        (await helper.loadRemoteExecutionRecords(
+          limit: 2,
+          offset: 0,
+        )).map((r) => r.execId),
+        ['x0000021', 'x0000022'],
+      );
+      expect(
+        (await helper.loadRemoteExecutionRecords(
+          limit: 2,
+          offset: 2,
+        )).map((r) => r.execId),
+        ['x0000023', 'x0000024'],
+        reason: 'offset 不生效时续拉每一批都是同一批 —— 界面出现同一条重复而后面永远读不到',
+      );
+      expect(
+        (await helper.loadRemoteExecutionRecords(
+          limit: 2,
+          offset: 4,
+        )).map((r) => r.execId),
+        ['x0000025'],
+        reason: '不满一页就是尾：续拉靠这一读数收场',
+      );
+      expect(
+        await helper.loadRemoteExecutionRecords(limit: 2, offset: 5),
+        isEmpty,
+        reason: '游标越界要如实回空，不许回头补第一批',
+      );
+    });
+
+    test('接上续拉：五条按三枚一批读，不重不漏', () async {
+      await freshDb();
+      await seedFive();
+      final all = await drainAllPages<FnthinkRemoteExecutionRecord>(
+        (limit, offset) =>
+            helper.loadRemoteExecutionRecords(limit: limit, offset: offset),
+        pageSize: 3,
+      );
+      expect(all.map((r) => r.execId), [
+        'x0000021',
+        'x0000022',
+        'x0000023',
+        'x0000024',
+        'x0000025',
+      ]);
+    });
+
+    test('按档分页：只续收件那一档，发出的行不许混进来', () async {
+      await freshDb();
+      await helper.saveRemoteExecutionRecord(record('x0000031'));
+      await helper.saveRemoteExecutionRecord(
+        record('x0000032', direction: kFnthinkRemoteDirectionOut),
+      );
+      await helper.saveRemoteExecutionRecord(record('x0000033'));
+      final all = await drainAllPages<FnthinkRemoteExecutionRecord>(
+        (limit, offset) => helper.loadRemoteExecutionRecords(
+          direction: kFnthinkRemoteDirectionIn,
+          limit: limit,
+          offset: offset,
+        ),
+        pageSize: 1,
+      );
+      expect(all.map((r) => r.execId), [
+        'x0000031',
+        'x0000033',
+      ], reason: '翻页与筛选必须同一个口径：offset 数的是筛后的行，不是全表行');
     });
   });
 

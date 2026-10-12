@@ -1689,9 +1689,12 @@ class DatabaseHelper
   /// 历史列表。`direction` 传 null = 两个档一起看（界面上的「全部」）。
   /// ⚠ 排序口径**只有这一处**（`created_at DESC, exec_id ASC`）：翻页与"最新那条是谁"
   /// 必须是同一个顺序，两处各写一次 `ORDER BY` 迟早会不一样。
+  /// ⚠ `limit` 的缺省值不是口径（T148 差异⑦）：生产读口一律经 `drainAllPages` 续到取尽，
+  /// 这一档此前**根本没有翻页**，超过缺省那 200 条就直接看不见而界面不说少。
   Future<List<FnthinkRemoteExecutionRecord>> loadRemoteExecutionRecords({
     String? direction,
     int limit = 200,
+    int offset = 0,
   }) async {
     final db = await database;
     final rows = await db.query(
@@ -1700,6 +1703,7 @@ class DatabaseHelper
       where: direction == null ? null : 'direction = ?',
       whereArgs: direction == null ? null : [direction],
       limit: limit,
+      offset: offset,
     );
     return rows.map(FnthinkRemoteExecutionRecord.fromMap).toList();
   }

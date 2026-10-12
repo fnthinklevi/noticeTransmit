@@ -32,6 +32,7 @@ import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../services/repush_eligibility.dart';
 import '../services/history_channel_chips.dart';
+import '../services/history_paging.dart';
 import 'fnthink_send_page.dart';
 
 /// 转发那本账的一页读口（T133 量级①）：一页 = `(精筛后记录, 粗筛是否未取尽, 本页粗筛行数)`。
@@ -170,7 +171,9 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _loadingMore = false;
   Timer? _debounce;
   final ScrollController _scrollController = ScrollController();
-  static const int _pageSize = 200;
+  // 与幻念两档、远程执行那一档同一个数（T148 差异⑦）：三档都在同一个历史页面上，
+  // 往下滚能看到的深度不该各不相同。
+  static const int _pageSize = kHistoryPageSize;
 
   /// F4：右上角「⋯」动作弹层——收纳低频操作（批量补推/导出/归档路径/清空），
   /// 解决 AppBar 图标过多的问题；样式与长按屏蔽菜单一致（iOS 底部弹层）。
@@ -1729,11 +1732,20 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _loadInbox() async {
     final direction = _inboxDirection;
-    // 显式写 100：这两档都没有翻页，跟服务的默认 50 会悄悄少列一半。
     // 两条路都从**注入优先、生产走服务层**那一份取（页面不直连表：这是守卫钉住的那条线）。
+    // ⚠ 生产那一半续到取尽（T148 差异⑦）：这两档此前写死 100 条**且没有翻页** ⇒
+    // 第 101 条起在界面上不存在，而页面上没有任何一句说"还有没显示的"。
     final load = direction == kFnthinkDirectionOut
-        ? (widget.sentLoader ?? () => _inboxService.listSent(limit: 100))
-        : (widget.inboxLoader ?? () => _inboxService.list(limit: 100));
+        ? (widget.sentLoader ??
+              () => drainAllPages(
+                (limit, offset) =>
+                    _inboxService.listSent(limit: limit, offset: offset),
+              ))
+        : (widget.inboxLoader ??
+              () => drainAllPages(
+                (limit, offset) =>
+                    _inboxService.list(limit: limit, offset: offset),
+              ));
     final rows = await load();
 
     if (!mounted) return;
@@ -1747,7 +1759,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   /// 「全部」档的读法（T84）：**两本账各读各的**，读径与收件档/发出档完全同一条
-  /// （同一对注入点、同样显式 100、同样"注入优先、生产走服务层"）。
+  /// （同一对注入点、同样续到取尽、同样"注入优先、生产走服务层"）。
   /// 这里不做任何合并或排序 —— 合起来的口径是假的（见 [_buildAllView] 上面那段）。
   Future<void> _loadAll() async {
     // 转发那本账的头一页也要在位（T133 量级①）：全部档的转发段画的就是这份
@@ -1757,9 +1769,17 @@ class _HistoryPageState extends State<HistoryPage> {
       unawaited(_refreshTotal());
     }
     final inRows =
-        await (widget.inboxLoader ?? () => _inboxService.list(limit: 100))();
+        await (widget.inboxLoader ??
+            () => drainAllPages(
+              (limit, offset) =>
+                  _inboxService.list(limit: limit, offset: offset),
+            ))();
     final outRows =
-        await (widget.sentLoader ?? () => _inboxService.listSent(limit: 100))();
+        await (widget.sentLoader ??
+            () => drainAllPages(
+              (limit, offset) =>
+                  _inboxService.listSent(limit: limit, offset: offset),
+            ))();
     if (!mounted) return;
     // 期间被切走了档：这两本就是别档的账本了，交出去会画在错的档位上。
     if (_direction != 'all') return;

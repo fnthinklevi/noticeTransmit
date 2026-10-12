@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:get_it/get_it.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import '../database/database_helper.dart';
+import '../services/history_paging.dart';
 import '../services/webhook_service.dart';
 import '../services/battery_service.dart';
 import '../services/temperature_service.dart';
@@ -159,8 +160,15 @@ void setupLocator() {
       // 远程执行历史的读咽喉（片3b-2）。页面**不许**自己开表（守卫
       // `test/architecture/fnthink_receive_wiring_test.dart`），所以这两个 hook 就是
       // 那一格唯一的取货口；漏接时的表现是历史页说"读不出来"，而不是崩。
-      loadRemoteExecutions: (direction) =>
-          DatabaseHelper().loadRemoteExecutionRecords(direction: direction),
+      // ⚠ 这一档此前没有翻页、吃读口缺省的 200 条 ⇒ 第 201 条起直接看不见而界面不说少
+      // （T148 差异⑦）。与转发档同一个口径：续到取尽，深度由 `kHistoryPageSize` 一处管。
+      loadRemoteExecutions: (direction) => drainAllPages(
+        (limit, offset) => DatabaseHelper().loadRemoteExecutionRecords(
+          direction: direction,
+          limit: limit,
+          offset: offset,
+        ),
+      ),
       forgetRemoteExecution: DatabaseHelper().removeRemoteExecutionRecord,
       // 设备自登记（#177）：本机在服务端设备表里那一行是**其余每一发的共同前置** ——
       // 服务端按表里那把钥匙验签，而表里的行只能由 /register 建。缺这一行时全场 Dart 测试

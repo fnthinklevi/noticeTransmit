@@ -124,13 +124,19 @@ void main() {
         reason: '页面不许绕开注入点直连表 —— 那是收件档早就钉住的那条线',
       );
       expect(all, contains('widget.sentLoader ??'));
-      expect(all, contains('limit: 100'), reason: '与收件档/发出档同一个显式条数');
+      // T148 差异⑦：这两档不再自己写死条数，而是与转发档同一个「续到取尽」口径。
+      expect(all, contains('drainAllPages'), reason: '全部档又不续页了 ⇒ 读回到一页的尾就收场');
       expect(
-        count('limit: 100'),
+        count('drainAllPages'),
         4,
         reason:
             'flat 读法只有两本账 × 两个档位（收件/发出档各读一本，全部档一次读两本）'
-            '—— 多一处就要问是不是又开了一条读径',
+            '—— 多一处就要问是不是又开了一条读径，少一处就是某一档退回了一页就收场',
+      );
+      expect(
+        count('limit: 100'),
+        0,
+        reason: '写死的条数回来了：那一档超过它就直接看不见而界面不说少（历史不设上限，T133 已拍）',
       );
       expect(
         all,
