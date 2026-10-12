@@ -119,6 +119,16 @@ object I18n {
 
     fun whitelistTag(): String = if (isEn) "[Whitelist]" else "[白名单]"
 
+    /**
+     * 规则判定「仅记录，不推送」那一条的理由（T150 片2）。
+     *
+     * 这一格与 [filterAppBlockReason] 走同一个伪通道，所以措辞要答同一个问题：
+     * 「这条怎么没出去」。写成"已记录"那种中性说法会盖住事实——它**没投递**，
+     * 而历史那一格必须与「发送中」区分开（旧写法这里静默返回，那一排通道就永远停在初值）。
+     */
+    fun ruleRecordOnlyReason(): String =
+        if (isEn) "Recorded only by rule · not sent" else "按规则仅记录，未推送"
+
     // ========== 更新包签名校验（P0 安全加固，中英双语） ==========
     fun updateSigFileMissing(): String =
         if (isEn) "Update package not found" else "安装包不存在"

@@ -617,6 +617,23 @@ class NotificationMonitorService : NotificationListenerService() {
                             }
                             RuleEngine.Decision.Record -> {
                                 webhookSender.sendBroadcast(info)
+                                // T150 片2（维护者 2026-10-12 第 6 条）：这一档**没有任何发送器会碰它**，
+                                // 于是那条历史的送达列全部停在初值 `pending` ⇒ 界面替本机说「发送中」。
+                                // 补一发拦截伪通道（与"被黑名单/应用过滤拦下"答的是同一个问题：
+                                // 这条怎么没出去），落的是 `intercepted` + 那句理由。
+                                // ⚠ 不许改成"静默 return"或写 `success`：前者是那三颗字的病根，
+                                //    后者替本机说"发出去了"—— 比"发送中"更坏。
+                                DeliveryNotifier.notify(
+                                    this@NotificationMonitorService,
+                                    info.id,
+                                    "FILTER",
+                                    WebhookResponseParser.ParseResult(
+                                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                                        0,
+                                        I18n.ruleRecordOnlyReason(),
+                                        false,
+                                    ),
+                                )
                                 Log.d(TAG, "Notification recorded only: ${info.appName}")
                             }
                             is RuleEngine.Decision.Delay -> {
