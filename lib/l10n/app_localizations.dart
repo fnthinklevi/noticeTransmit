@@ -8881,6 +8881,36 @@ abstract class AppLocalizations {
   /// **'这条链接这台设备用不上'**
   String get fnthinkPairLinkRejectedShort;
 
+  /// No description provided for @fnthinkSendNoticeVsCommandShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知＝让对面看到内容；指令＝让对面做一件事'**
+  String get fnthinkSendNoticeVsCommandShort;
+
+  /// No description provided for @fnthinkSendTargetWebhookOnlyForNoticeShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'指令只发给已配对的设备'**
+  String get fnthinkSendTargetWebhookOnlyForNoticeShort;
+
+  /// No description provided for @fnthinkSendTargetWebhookEmptyShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有启用的 Webhook 通道'**
+  String get fnthinkSendTargetWebhookEmptyShort;
+
+  /// No description provided for @remoteSendReportCountWhyShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'只回传这段文字，不是读取权'**
+  String get remoteSendReportCountWhyShort;
+
+  /// No description provided for @remoteSendChannelIdWhyShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一格要自己填：本机看不到对面的通道'**
+  String get remoteSendChannelIdWhyShort;
+
   /// No description provided for @fnthinkEndpointWhyShort.
   ///
   /// In zh, this message translates to:

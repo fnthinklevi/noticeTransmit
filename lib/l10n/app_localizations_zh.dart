@@ -4902,6 +4902,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairLinkRejectedShort => '这条链接这台设备用不上';
 
   @override
+  String get fnthinkSendNoticeVsCommandShort => '通知＝让对面看到内容；指令＝让对面做一件事';
+
+  @override
+  String get fnthinkSendTargetWebhookOnlyForNoticeShort => '指令只发给已配对的设备';
+
+  @override
+  String get fnthinkSendTargetWebhookEmptyShort => '还没有启用的 Webhook 通道';
+
+  @override
+  String get remoteSendReportCountWhyShort => '只回传这段文字，不是读取权';
+
+  @override
+  String get remoteSendChannelIdWhyShort => '这一格要自己填：本机看不到对面的通道';
+
+  @override
   String get fnthinkEndpointWhyShort => '接入端点：让第三方平台往这台设备推通知';
 
   @override

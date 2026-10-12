@@ -608,9 +608,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         ),
         // T122：两档的**区别**也写在页面上（维护者点名要的那一条）—— 通知＝让对面看到一段内容、
         // 不需要任何授权，也不执行动作；指令＝让对面做一件事、要配对关系与档位授权，最高那档还有延时确认。
-        FnthinkNote(
-          keyName: 'fnthink-send-vs-command',
-          text: l10n.fnthinkSendNoticeVsCommand,
+        HelpNoteRow(
+          noteKey: 'fnthink-send-vs-command',
+          helpKey: 'fnthink-send-vs-command-help',
+          text: l10n.fnthinkSendNoticeVsCommandShort,
+          helpTitle: l10n.fnthinkSendTierLabel,
+          // T149 片8：这两档的区别（一副只是内容、一副要授权与档位、最高那档还有延时确认）
+          // 是用户挑错就要白按一次的那件事 —— 整段进问号，页面上留一行能对上的短说。
+          helpBody: l10n.fnthinkSendNoticeVsCommand,
         ),
         if (_contractError != null)
           FnthinkNote(
@@ -654,9 +659,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           text: l10n.fnthinkSendTargetDevices,
         ),
         if (rows == null)
-          FnthinkNote(
-            keyName: 'remote-send-peers-unknown',
-            text: l10n.remotePeersReadFailed,
+          HelpNoteRow(
+            noteKey: 'remote-send-peers-unknown',
+            helpKey: 'remote-send-peers-unknown-help',
+            text: l10n.remotePeersReadFailedShort,
+            helpTitle: l10n.fnthinkSendTargetTitle,
+            // 「读不出来」与「还没配对过」必须是两句：短说留在原地，整段（含"先去设备绑定
+            // 那一页看一眼"那条去处）进问号。
+            helpBody: l10n.remotePeersReadFailed,
           )
         else if (rows.isEmpty) ...[
           // ⚠ 「还没有配对过任何设备」与「读不出来」是两句：名单空着不是"你可以随便填个地址"。
@@ -692,9 +702,13 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
               ),
             ),
         if (devicesOnly)
-          FnthinkNote(
-            keyName: 'fnthink-send-target-webhook-only-notice',
-            text: l10n.fnthinkSendTargetWebhookOnlyForNotice,
+          HelpNoteRow(
+            noteKey: 'fnthink-send-target-webhook-only-notice',
+            helpKey: 'fnthink-send-target-webhook-only-notice-help',
+            text: l10n.fnthinkSendTargetWebhookOnlyForNoticeShort,
+            helpTitle: l10n.fnthinkSendTargetTitle,
+            // 这一组**不出现**已经是半个"坏消息"：少一句原因，屏幕上就是一组凭空少了的按钮。
+            helpBody: l10n.fnthinkSendTargetWebhookOnlyForNotice,
           )
         else ...[
           const SizedBox(height: 10),
@@ -703,14 +717,23 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             text: l10n.fnthinkSendTargetWebhooks,
           ),
           if (hooks == null)
-            FnthinkNote(
-              keyName: 'fnthink-send-target-webhooks-unknown',
-              text: l10n.remotePeersReadFailed,
+            HelpNoteRow(
+              noteKey: 'fnthink-send-target-webhooks-unknown',
+              helpKey: 'fnthink-send-target-webhooks-unknown-help',
+              text: l10n.remotePeersReadFailedShort,
+              helpTitle: l10n.fnthinkSendTargetWebhooks,
+              // ⚠ 这一句今天与设备名单那一组共用同一个 key（「先去设备绑定那一页」的主语
+              //   在这里其实是通道）—— 搬位置这一片不顺手改措辞，登记的欠账在 roadmap 的 T149 行。
+              helpBody: l10n.remotePeersReadFailed,
             )
           else if (hooks.isEmpty)
-            FnthinkNote(
-              keyName: 'fnthink-send-target-webhooks-empty',
-              text: l10n.fnthinkSendTargetWebhookEmpty,
+            HelpNoteRow(
+              noteKey: 'fnthink-send-target-webhooks-empty',
+              helpKey: 'fnthink-send-target-webhooks-empty-help',
+              text: l10n.fnthinkSendTargetWebhookEmptyShort,
+              helpTitle: l10n.fnthinkSendTargetWebhooks,
+              // 「去那一页建一条」这条去处必须还在：空态只说"没有"而不给出路 = 让用户自己猜。
+              helpBody: l10n.fnthinkSendTargetWebhookEmpty,
             )
           else
             for (final hook in hooks)
@@ -948,9 +971,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         autocorrect: false,
         onChanged: (_) => setState(() {}),
       ),
-      FnthinkNote(
-        keyName: 'remote-send-report-count-why',
-        text: l10n.remoteSendReportCountWhy,
+      HelpNoteRow(
+        noteKey: 'remote-send-report-count-why',
+        helpKey: 'remote-send-report-count-why-help',
+        text: l10n.remoteSendReportCountWhyShort,
+        helpTitle: l10n.remoteSendReportCountLabel,
+        // 「对面拿到的是一条消息，不是一台设备的读取权」是这一发最容易被误读的一句：
+        // 整段进问号，页面上留"只回传这段文字"那一半。
+        helpBody: l10n.remoteSendReportCountWhy,
       ),
     ];
   }
@@ -1026,9 +1054,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         placeholder: l10n.remoteSendArgument,
         autocorrect: false,
       ),
-      FnthinkNote(
-        keyName: 'remote-send-channel-id-why',
-        text: l10n.remoteSendChannelIdWhy,
+      HelpNoteRow(
+        noteKey: 'remote-send-channel-id-why',
+        helpKey: 'remote-send-channel-id-why-help',
+        text: l10n.remoteSendChannelIdWhyShort,
+        helpTitle: l10n.remoteSendArgument,
+        // 「本机看不到对面那台配了哪些通道（要能列得动协议）」是这一格为什么非手填不可的理由，
+        // 也是用户填错时唯一能回头核的一句 ⇒ 整段进问号，正文一字没删。
+        helpBody: l10n.remoteSendChannelIdWhy,
       ),
       const SizedBox(height: 10),
       _wantRow(

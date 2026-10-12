@@ -115,6 +115,26 @@ void main() {
     return AppLocalizations.of(tester.element(find.byType(FnthinkSendPage)));
   }
 
+  /// 把某一枚问号滚到、点开。⚠ 不能直接 `tap`：这一页是 ListView，说明格常在视口外，
+  /// 而 `ensureVisible` 对**还不在树上**的键抛 No element（与上面那几条用例如出一辙）。
+  Future<void> openHelp(WidgetTester tester, String helpKeyName) async {
+    final target = find.byKey(ValueKey(helpKeyName));
+    if (target.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        target,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+    } else {
+      await tester.ensureVisible(target);
+    }
+    // ⚠ 这一泵不能省：`ensureVisible` 只是**排了一次滚动**，不 pump 就仍然打在视口外
+    //   （表现是一句 hitTest 警告 + "弹层没起来"，看着像 helpKey 漂了）。
+    await tester.pumpAndSettle();
+    await tester.tap(target);
+    await tester.pumpAndSettle();
+  }
+
   group('两档并排给，进来停在哪一档由入口决定', () {
     testWidgets('默认停在纯文本那一档：档位／动作那几格不在树上', (tester) async {
       await pump(tester);
@@ -197,12 +217,26 @@ void main() {
       final l10n = AppLocalizations.of(
         tester.element(find.byType(FnthinkSendPage)),
       );
-      expect(find.text(l10n.remotePeersReadFailed), findsOneWidget);
+      expect(find.text(l10n.remotePeersReadFailedShort), findsOneWidget);
       // T123：断言按 key（断形状不断措辞）—— 「读不出来」与「真的没有」是两句，
       // 画哪一句由这一格是哪一个 key 说清，不靠读文案去猜。
       expect(
         find.byKey(const ValueKey('remote-send-peers-unknown')),
         findsOneWidget,
+      );
+      // T149 片8：整段（含"这不是还没配对过"与那条去处）挪进问号，页面上留短说。
+      expect(
+        find.text(l10n.remotePeersReadFailed),
+        findsNothing,
+        reason: '整段不许同时挂在页面上',
+      );
+      await openHelp(tester, 'remote-send-peers-unknown-help');
+      expect(
+        find.text(l10n.remotePeersReadFailed),
+        findsOneWidget,
+        reason:
+            '"读不出来"与"真的没有"这一句区分 + 那条去处必须还读得到：搬进问号时搬丢了，'
+            '屏幕上就只剩一句与"没设备"同形的短话',
       );
       expect(
         find.byKey(const ValueKey('remote-send-peers-empty')),
@@ -392,7 +426,7 @@ void main() {
   });
 
   testWidgets('指令档里 Webhook 那一组**不出现**，只有一句原因', (tester) async {
-    await pump(
+    final l10n = await pump(
       tester,
       initialTier: FnthinkSendTier.command,
       loadWebhooks: () async => const [hook],
@@ -407,5 +441,123 @@ void main() {
       findsOneWidget,
       reason: '不列它就要说清为什么 —— 一句不写的"少了一组"看起来像页面坏了',
     );
+    // T149 片8：那一组为什么少掉了，页面上留一行短说，整段（含"切回纯文本那一档"那条出路）进问号。
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(
+              const ValueKey('fnthink-send-target-webhook-only-notice'),
+            ),
+          )
+          .data,
+      l10n.fnthinkSendTargetWebhookOnlyForNoticeShort,
+    );
+    expect(
+      find.text(l10n.fnthinkSendTargetWebhookOnlyForNotice),
+      findsNothing,
+      reason: '整段不许同时挂在页面上',
+    );
+    await openHelp(tester, 'fnthink-send-target-webhook-only-notice-help');
+    expect(
+      find.text(l10n.fnthinkSendTargetWebhookOnlyForNotice),
+      findsOneWidget,
+      reason:
+          '「要发到通道就切回一条通知」是这一格唯一的出路：搬进问号时搬丢了，'
+          '用户只知道自己这档发不出去，不知道自己站错了哪一档',
+    );
+  });
+
+  testWidgets('两档的区别：页面上是短说，整段在那枚问号里（T149 片8）', (tester) async {
+    final l10n = await pump(tester);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('fnthink-send-vs-command')))
+          .data,
+      l10n.fnthinkSendNoticeVsCommandShort,
+      reason: '挑错一档就要白按一次 ⇒ 这一行必须留在原地能对上',
+    );
+    expect(
+      find.text(l10n.fnthinkSendNoticeVsCommand),
+      findsNothing,
+      reason: '整段（含"最高那一档还要过延时确认"）不许同时摊在页面上',
+    );
+    await openHelp(tester, 'fnthink-send-vs-command-help');
+    expect(
+      find.text(l10n.fnthinkSendNoticeVsCommand),
+      findsOneWidget,
+      reason: '「指令要配对关系与档位授权」这句是指令档为什么灰着的唯一出处，一个字不许少',
+    );
+  });
+
+  testWidgets('通道空态那句：页面上是短说，「去那一页建一条」在那枚问号里（T149 片8）', (tester) async {
+    final l10n = await pump(tester);
+    final empty = find.byKey(
+      const ValueKey('fnthink-send-target-webhooks-empty'),
+    );
+    await tester.scrollUntilVisible(
+      empty,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      tester.widget<Text>(empty).data,
+      l10n.fnthinkSendTargetWebhookEmptyShort,
+    );
+    expect(
+      find.text(l10n.fnthinkSendTargetWebhookEmpty),
+      findsNothing,
+      reason: '整段不许同时挂在页面上',
+    );
+    await openHelp(tester, 'fnthink-send-target-webhooks-empty-help');
+    expect(
+      find.text(l10n.fnthinkSendTargetWebhookEmpty),
+      findsOneWidget,
+      reason:
+          '「去幻念通道那一页建一条（填接入端点的推送地址，并开着它）」是这条空态的出路：'
+          '只剩"还没有"而不说去哪儿建，用户就当场卡住',
+    );
+  });
+
+  testWidgets('两枚参数说明：短说在原地，整段在问号里（T149 片8）', (tester) async {
+    final l10n = await pump(tester, initialTier: FnthinkSendTier.command);
+    for (final (action, noteKey, short, full) in [
+      (
+        'channel:toggle',
+        'remote-send-channel-id-why',
+        l10n.remoteSendChannelIdWhyShort,
+        l10n.remoteSendChannelIdWhy,
+      ),
+      (
+        'notifications:report',
+        'remote-send-report-count-why',
+        l10n.remoteSendReportCountWhyShort,
+        l10n.remoteSendReportCountWhy,
+      ),
+    ]) {
+      await tester.tap(find.byKey(ValueKey('remote-send-action-$action')));
+      await tester.pumpAndSettle();
+      final note = find.byKey(ValueKey(noteKey));
+      await tester.scrollUntilVisible(
+        note,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        tester.widget<Text>(note).data,
+        short,
+        reason: '$action 那一格页面上留的是短说',
+      );
+      expect(find.text(full), findsNothing, reason: '$action：整段不许同时挂在页面上');
+      await openHelp(tester, '$noteKey-help');
+      expect(
+        find.text(full),
+        findsOneWidget,
+        reason:
+            '$action：这一格为什么非手填不可 / 对面拿到的只是消息而不是读取权 —— '
+            '这两句是用户敢不敢填的依据，搬进问号不许搬丢',
+      );
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+    }
   });
 }

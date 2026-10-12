@@ -5175,6 +5175,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPairLinkRejectedShort => 'This device cannot use that link';
 
   @override
+  String get fnthinkSendNoticeVsCommandShort =>
+      'A notice shows content there; a command makes that device act';
+
+  @override
+  String get fnthinkSendTargetWebhookOnlyForNoticeShort =>
+      'Commands go only to paired devices';
+
+  @override
+  String get fnthinkSendTargetWebhookEmptyShort =>
+      'No enabled Webhook channel yet';
+
+  @override
+  String get remoteSendReportCountWhyShort =>
+      'Only this text travels - not read access';
+
+  @override
+  String get remoteSendChannelIdWhyShort =>
+      'Type this one - this device cannot list the other side\'s channels';
+
+  @override
   String get fnthinkEndpointWhyShort =>
       'Access endpoints: how third parties push to this device';
 
