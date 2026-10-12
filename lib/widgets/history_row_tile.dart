@@ -28,6 +28,7 @@ class HistoryRowTile extends StatelessWidget {
     required this.identity,
     required this.title,
     this.time,
+    this.subtitle,
     this.source,
     this.badges = const <Widget>[],
     this.leadingLabel,
@@ -55,6 +56,12 @@ class HistoryRowTile extends StatelessWidget {
   /// 右对齐那一格。**null = 不画**（不许画一个空串占位：那读起来像"这条没有时间"，
   /// 而真话通常是"这一页还没把时间接进来"）。
   final String? time;
+
+  /// 标题下面那行正文摘要（**单行**、省略号）。
+  ///
+  /// 这一格是基座那页（转发行）本来就有的形状：内容空就不画。
+  /// 不许借它塞状态词 —— 状态走 [status]，画法唯一。
+  final String? subtitle;
 
   /// 第三行小字：谁发的 / 发给谁 / 哪台。
   final String? source;
@@ -117,6 +124,19 @@ class HistoryRowTile extends StatelessWidget {
             ),
         ],
       ),
+      if (subtitle != null && subtitle!.isNotEmpty) ...[
+        const SizedBox(height: 3),
+        Text(
+          subtitle!,
+          key: ValueKey('$keyNamespace-subtitle-$identity'),
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.secondaryLabel(context),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
       if (source != null && source!.isNotEmpty) ...[
         const SizedBox(height: 3),
         Text(

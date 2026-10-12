@@ -2426,146 +2426,63 @@ class _HistoryPageState extends State<HistoryPage> {
     final color = isKnownType ? _getTypeColor(type) : _getAppColor(appName);
     final label = isKnownType ? _getTypeLabel(l10n, type) : appName;
 
-    final List<Widget> columnChildren = [
-      Row(
-        children: [
-          if (record.priority == 2) ...[
-            _buildPriorityBadge(context, l10n.priorityBadgeHigh, AppColors.red),
-            const SizedBox(width: 6),
-          ] else if (record.priority == 0) ...[
-            _buildPriorityBadge(context, l10n.priorityBadgeLow, Colors.grey),
-            const SizedBox(width: 6),
-          ],
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: AppColors.primaryLabel(context),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-        ],
-      ),
-    ];
-
-    if (content.isNotEmpty) {
-      columnChildren.add(const SizedBox(height: 3));
-      columnChildren.add(
-        Text(
-          content,
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.secondaryLabel(context),
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      );
-    }
-
-    if (appName.isNotEmpty) {
-      columnChildren.add(const SizedBox(height: 3));
-      columnChildren.add(
-        Text(
-          appName,
-          style: TextStyle(
-            fontSize: 11,
-            color: AppColors.secondaryLabel(context),
-          ),
-        ),
-      );
-    }
-
     // 推送渠道标签 + 各通道送达状态（T133 片2：排法与折法走唯一作者，
     // 页面只交出"这一行此刻展开没有"那一份界面状态）
+    //
+    // T148 片2：这些是**推送特有**的行内容，按通用件的规矩从 `lines` 挂进去 ——
+    // 件不认得"通道"，正如它不该认得"远程执行"。反过来标题/时间/正文/来源四格
+    // 从此不再在这一页各拼一份（差异①③⑤⑥的基座那一半就在这一步收掉）。
     final rows = record.channels.isNotEmpty
         ? record.channels
         : record.deliveryStatus.keys.toList();
     // 有没有还能再发一次的通道（T133 片1：以前只认 `paused` ⇒ 一条真失败的记录
     // 在单条这一层没有任何出口，只能去开批量模式）
     final canRepush = recordNeedsRepush(record.deliveryStatus);
-    if (rows.isNotEmpty) {
-      columnChildren.add(const SizedBox(height: 4));
-      columnChildren.add(_buildChannelChipWrap(record, rows, l10n));
-      // 还能再发一次的那几条：给单条出口（T133 片1 之前只在"暂停"时出现 ⇒
-      // 一条真失败的记录只能去开批量模式才能重推）
-      if (canRepush && widget.onPushNow != null) {
-        columnChildren.add(const SizedBox(height: 6));
-        columnChildren.add(_buildPushNowButton(record, l10n));
-      }
-    } else {
-      columnChildren.add(const SizedBox(height: 4));
-      columnChildren.add(
-        Text(
-          l10n.noChannels,
-          style: TextStyle(
-            fontSize: 10,
-            color: AppColors.secondaryLabel(context),
-          ),
-        ),
-      );
-    }
-
-    final item = InkWell(
+    final item = HistoryRowTile(
+      keyNamespace: 'history',
+      identity: record.id,
+      title: title,
+      time: time,
+      subtitle: content,
+      source: appName,
+      badges: [
+        if (record.priority == 2)
+          _buildPriorityBadge(context, l10n.priorityBadgeHigh, AppColors.red)
+        else if (record.priority == 0)
+          _buildPriorityBadge(context, l10n.priorityBadgeLow, Colors.grey),
+      ],
+      leadingLabel: label.isNotEmpty
+          ? label.substring(0, 1)
+          : l10n.channelBadgeFallback,
+      leadingColor: color,
+      corner: index == 0
+          ? (index == total - 1
+                ? HistoryRowCorner.only
+                : HistoryRowCorner.first)
+          : (index == total - 1
+                ? HistoryRowCorner.last
+                : HistoryRowCorner.middle),
       // F2：批量模式下点行切换选中（不打开详情），长按菜单禁用
       onTap: _batchMode
           ? () => _toggleBatchSelect(record)
           : () => _showRecordDetail(record),
       onLongPress: _batchMode ? null : () => _showRecordActionsSheet(record),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardBg(context),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(index == 0 ? 12 : 0),
-            topRight: Radius.circular(index == 0 ? 12 : 0),
-            bottomLeft: Radius.circular(index == total - 1 ? 12 : 0),
-            bottomRight: Radius.circular(index == total - 1 ? 12 : 0),
+      lines: [
+        if (rows.isNotEmpty)
+          _buildChannelChipWrap(record, rows, l10n)
+        else
+          Text(
+            l10n.noChannels,
+            style: TextStyle(
+              fontSize: 10,
+              color: AppColors.secondaryLabel(context),
+            ),
           ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  label.isNotEmpty
-                      ? label.substring(0, 1)
-                      : AppLocalizations.of(context).channelBadgeFallback,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: columnChildren,
-              ),
-            ),
-          ],
-        ),
-      ),
+        // 还能再发一次的那几条：给单条出口（T133 片1 之前只在"暂停"时出现 ⇒
+        // 一条真失败的记录只能去开批量模式才能重推）
+        if (rows.isNotEmpty && canRepush && widget.onPushNow != null)
+          _buildPushNowButton(record, l10n),
+      ],
     );
 
     // F2：批量模式左侧加勾选框（不可再发的那几条不可选 —— 判据与 `_batchPool` 同一个作者）

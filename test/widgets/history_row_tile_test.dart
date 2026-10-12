@@ -121,6 +121,37 @@ void main() {
       expect(status.data, '执行中');
     });
 
+    testWidgets('正文那一格：给了才画，空串不占行', (tester) async {
+      await pump(
+        tester,
+        const HistoryRowTile(
+          keyNamespace: 'demo-history',
+          identity: 'r6',
+          title: '标题',
+          subtitle: '正文摘要',
+        ),
+      );
+      expect(
+        find.byKey(const ValueKey('demo-history-subtitle-r6')),
+        findsOneWidget,
+      );
+
+      await pump(
+        tester,
+        const HistoryRowTile(
+          keyNamespace: 'demo-history',
+          identity: 'r7',
+          title: '标题',
+          subtitle: '',
+        ),
+      );
+      expect(
+        find.byKey(const ValueKey('demo-history-subtitle-r7')),
+        findsNothing,
+        reason: '没有正文的记录（短信验证码那类）留一行空行，读起来像这一页缺了东西',
+      );
+    });
+
     testWidgets('标题/来源/状态三行都挂得上 key（页面不许再各拼一份）', (tester) async {
       await pump(
         tester,
@@ -183,6 +214,31 @@ void main() {
         page,
         isNot(contains('fromMillisecondsSinceEpoch')),
         reason: '页面里再留一份格式化 ⇒ 下一次改格式还是各改各的',
+      );
+    });
+
+    test('转发行本体走通用件（行壳与四格小字不再自己拼）', () {
+      final page = read('lib/pages/history_page.dart');
+      final row = blockAfter(page, 'Widget _buildRecordItem(');
+      expect(
+        row,
+        contains('HistoryRowTile('),
+        reason: '这一页是通用件的基座；基座自己不走它，"照它长"就没有被照着的那一家',
+      );
+      expect(
+        row,
+        isNot(contains('InkWell(')),
+        reason: '行壳（点击／长按／圆角／内边距）归件；页面再拼一份就是差异①回到原地',
+      );
+      expect(
+        row,
+        isNot(contains('fontSize: 15')),
+        reason: '标题字号回到页面里各写一份 ⇒ 下一次改版式还是各改各的',
+      );
+      expect(
+        row,
+        isNot(contains('width: 36')),
+        reason: '首字母盒的画法归件（差异①那一族的最后一处）',
       );
     });
   });
