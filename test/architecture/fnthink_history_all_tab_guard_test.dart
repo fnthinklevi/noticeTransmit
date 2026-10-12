@@ -25,15 +25,33 @@ void main() {
   int count(String needle) =>
       RegExp(RegExp.escape(needle)).allMatches(src).length;
 
+  /// 另一种切法：`_inboxRow` 的参数表以 `}) {` 收尾，上面那个按 `\n  }` 切的口径在它身上
+  /// 会**截早**（截到参数表那一行，函数体一行都拿不到）。这一族切到"下一个成员开头"。
+  String bodyToNextMember(String signature) {
+    final start = src.indexOf(signature);
+    expect(start, greaterThan(-1), reason: '找不到 $signature —— 它被改名或删掉了？');
+    final end = src.indexOf('\n  Widget ', start + signature.length);
+    expect(end, greaterThan(start), reason: '$signature 之后找不到下一个成员 ⇒ 页面形状变了');
+    return src.substring(start, end);
+  }
+
   group('全部档没有长出第二份实现', () {
     test('收件/发出那一行的形状只有一个作者', () {
-      // 行 key 与未读点 key 各只出现一次 —— 都住在 `_inboxRow` 里。
+      // T148 片3：行 key 由通用件按 `keyNamespace` + `identity` 拼 ⇒ 页面里只许有一枚命名空间，
+      // 而手写的行 key 应当为 0（还有就说明有人绕过件又拼了一份行）。
       expect(
-        count("'fnthink-inbox-row-"),
+        count("keyNamespace: 'fnthink-inbox'"),
         1,
         reason:
             '全部档若自己再抄一份行，`read` 那一列的读法就有了第二个作者，'
             '两处朝不同方向改时界面仍然"看起来正常"',
+      );
+      expect(
+        count("'fnthink-inbox-row-"),
+        0,
+        reason:
+            '行 key 的作者已经交给通用件：页面里再出现这一串 ⇒ 那一行的字号/行距/圆角/状态画法'
+            '就是第二套（T148 那张差异清单的来路）',
       );
       expect(
         count("'fnthink-inbox-unread-"),
@@ -45,6 +63,31 @@ void main() {
         count('_inboxRow(') - 1, // 减去定义那一处
         3,
         reason: '`_inboxRow` 的复用点数变了 ⇒ 要么少接了一处（有一档不画了），要么又多抄了一份',
+      );
+    });
+
+    test('收件行走的是通用件，不再由页面自己拼一行（T148 片3）', () {
+      final row = bodyToNextMember('Widget _inboxRow(');
+      expect(row, contains('HistoryRowTile('));
+      // 行的字号/行距/圆角/状态画法只有件里那一份：页面里再出现这些字面量
+      // ⇒ 同一类事实又长了第二套画法（T148 那张差异清单的来路）。
+      for (final forbidden in ['ListTile(', 'fontSize: 15', 'fontSize: 11']) {
+        expect(
+          row,
+          isNot(contains(forbidden)),
+          reason: '收件行里出现 $forbidden ⇒ 页面又开始自己画行',
+        );
+      }
+      // 三样行内容各归其位：徽标（未读点、「备用」）、状态原话（本机报出去的那一串）。
+      expect(
+        row,
+        contains('badges: ['),
+        reason: '未读点/备用标不走 badge 口 = 又在页面里另画一处',
+      );
+      expect(
+        row,
+        contains('statusMessage:'),
+        reason: '回执那一串走散文拼接 ⇒ 状态画法长出第二套（差异③）',
       );
     });
 

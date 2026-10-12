@@ -980,8 +980,11 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 是**唯一作者**（T150 片1）：这一页以前自己拿 `default:` 兜底成「发送中」，
   /// 于是任何对不上号的状态串都会被界面替本机说一句"这条正在发"。
 
-  /// 优先级徽标（0=低 / 2=高，中优先级不显示以减少噪音）
-  Widget _buildPriorityBadge(BuildContext context, String label, Color color) {
+  /// 标题前那枚文字徽标（优先级 0=低 / 2=高、幻念那一条走了备用路由……）。
+  ///
+  /// 形状只有一份，词由调用方给 —— T148 片3 把收件行的「备用」也接进来时，
+  /// 它和「高优」是同一格事实（这条有什么额外要标的），不是两种控件。
+  Widget _tagBadge(BuildContext context, String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
@@ -1843,48 +1846,63 @@ class _HistoryPageState extends State<HistoryPage> {
   ///
   /// 抽出来不是为了好看：全部档要列的是同一批行，若在那儿再抄一份，`read` 那一列的读法、
   /// 未读点画不画、点下去标不标已读就有了**第二份可以朝不同方向写错**的实现。
+  ///
+  /// T148 片3：行的**画法**交给通用件 `HistoryRowTile`，这里只留幻念收件这一族才有的判断
+  /// （未读点画不画、「备用」标不标、回执那一串原话）。
+  /// ⚠ `keyNamespace: 'fnthink-inbox'` + `identity: messageId` 拼出来的行 key 与改造前
+  ///   **逐字相同**（`fnthink-inbox-row-<messageId>`）—— 闸门与用例都按它定位，
+  ///   所以统一的是形状而不是 key 字符串（见 `history_row_tile.dart` 里那段说明）。
   Widget _inboxRow(
     AppLocalizations l10n,
     FnthinkInboxMessage m, {
     required bool outgoing,
+    required int index,
+    required int total,
   }) {
-    return ListTile(
-      key: ValueKey('fnthink-inbox-row-${m.messageId}'),
-      title: Text(
-        m.title.isEmpty ? m.body : m.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
+    final peer = m.sender.isEmpty ? l10n.unknown : m.sender;
+    return HistoryRowTile(
+      keyNamespace: 'fnthink-inbox',
+      identity: m.messageId,
+      title: m.title.isEmpty ? m.body : m.title,
+      // 时间此前混在那串散文里（`发件人 · 备用 · 03-01 12:00`），拆成自己的格子才有对齐的右列
+      // —— 这是 T148 差异②（各页时间列不一致）里收件那一半。
+      // ⚠ 发出档里 `receivedAt` 记的是本机**发出**的时刻（含义随方向变，与 `sender` 同一套两用）。
+      time: historyRowTime(m.receivedAt),
+      source: outgoing ? '${l10n.fnthinkRecipient}：$peer' : peer,
+      badges: [
+        // 未读点只跟着表里的 read 那一列；已读就**不画**这个点（不画 ≠ 画一个透明的占位）。
+        // 发出的那条没有"未读"这回事，一律不画 —— 全部档里这一条同时是判据②的落点：
+        // 转发与发出两类行都没有"标已读"这件事，所以既不给点也不给入口。
+        //
+        // 反证登记（`8b5c8ad`，三条全 named+restored；报告在本地 outputs/，不入库）：
+        //   无脑画点 ⇒ 红在「已读那行根本不画点」；标完不重新读表 ⇒ 红在「写表 + 重新读表」
+        //   与「不留点不开的幽灵行」；收件档不切数据源 ⇒ 红在整组收件用例。
+        if (!outgoing && !m.read)
+          Container(
+            width: 8,
+            height: 8,
+            key: ValueKey('fnthink-inbox-unread-${m.messageId}'),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.blue,
+            ),
+          ),
         // 「备用」与另外三族共用同一个词条（deliveryViaBackupTag）：这一族此前不标，
         // 于是同一屏里出现"webhook 标了、幻念没标"，看起来像随机丢而不是一族的事。
-        '${outgoing ? '${l10n.fnthinkRecipient}：${m.sender.isEmpty ? l10n.unknown : m.sender}' : (m.sender.isEmpty ? l10n.unknown : m.sender)}'
-        '${m.viaBackup ? ' · ${l10n.deliveryViaBackupTag}' : ''}'
-        ' · ${_formatTime(m.receivedAt)}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      // 未读点只跟着表里的 read 那一列；已读就**不画**这个点（不画 ≠ 画一个透明的占位）。
-      // 发出的那条没有"未读"这回事，一律不画 —— 全部档里这一条同时是判据②的落点：
-      // 转发与发出两类行都没有"标已读"这件事，所以既不给点也不给入口。
-      //
-      // 反证登记（`8b5c8ad`，三条全 named+restored；报告在本地 outputs/，不入库）：
-      //   无脑画点 ⇒ 红在「已读那行根本不画点」；标完不重新读表 ⇒ 红在「写表 + 重新读表」
-      //   与「不留点不开的幽灵行」；收件档不切数据源 ⇒ 红在整组收件用例。
-      leading: m.read || outgoing
-          ? null
-          : Container(
-              width: 8,
-              height: 8,
-              key: ValueKey('fnthink-inbox-unread-${m.messageId}'),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.blue,
-              ),
-            ),
-      trailing: m.ackResult.isEmpty || outgoing
-          ? null
-          : Text(m.ackResult, style: const TextStyle(fontSize: 11)),
+        if (m.viaBackup)
+          _tagBadge(context, l10n.deliveryViaBackupTag, AppColors.blue),
+      ],
+      // 本机报出去的那一串是**原话**（`delivered` / `rejected_*` / `failed_action`）：
+      // 翻成人话属 T144 片2，那一版改的是这一格的来源，不改它的画法。
+      statusMessage: outgoing || m.ackResult.isEmpty ? null : m.ackResult,
+      statusColor: AppColors.secondaryLabel(context),
+      corner: index == 0
+          ? (index == total - 1
+                ? HistoryRowCorner.only
+                : HistoryRowCorner.first)
+          : (index == total - 1
+                ? HistoryRowCorner.last
+                : HistoryRowCorner.middle),
       onTap: () => _showInboxDetail(m, outgoing: outgoing),
     );
   }
@@ -1914,6 +1932,8 @@ class _HistoryPageState extends State<HistoryPage> {
         l10n,
         _inbox[index],
         outgoing: _inboxDirection == kFnthinkDirectionOut,
+        index: index,
+        total: _inbox.length,
       ),
     );
   }
@@ -1968,7 +1988,13 @@ class _HistoryPageState extends State<HistoryPage> {
             itemCount: _allIn.length,
             itemBuilder: (context, index) => _withSourceTag(
               l10n.fnthinkTagInbox,
-              _inboxRow(l10n, _allIn[index], outgoing: false),
+              _inboxRow(
+                l10n,
+                _allIn[index],
+                outgoing: false,
+                index: index,
+                total: _allIn.length,
+              ),
             ),
           ),
         SliverToBoxAdapter(
@@ -1981,7 +2007,13 @@ class _HistoryPageState extends State<HistoryPage> {
             itemCount: _allOut.length,
             itemBuilder: (context, index) => _withSourceTag(
               l10n.fnthinkTagSent,
-              _inboxRow(l10n, _allOut[index], outgoing: true),
+              _inboxRow(
+                l10n,
+                _allOut[index],
+                outgoing: true,
+                index: index,
+                total: _allOut.length,
+              ),
             ),
           ),
       ],
@@ -2449,9 +2481,9 @@ class _HistoryPageState extends State<HistoryPage> {
       source: appName,
       badges: [
         if (record.priority == 2)
-          _buildPriorityBadge(context, l10n.priorityBadgeHigh, AppColors.red)
+          _tagBadge(context, l10n.priorityBadgeHigh, AppColors.red)
         else if (record.priority == 0)
-          _buildPriorityBadge(context, l10n.priorityBadgeLow, Colors.grey),
+          _tagBadge(context, l10n.priorityBadgeLow, Colors.grey),
       ],
       leadingLabel: label.isNotEmpty
           ? label.substring(0, 1)
