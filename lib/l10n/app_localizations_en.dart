@@ -5160,6 +5160,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'Sending only adds a pending request on the other device';
 
   @override
+  String get fnthinkPairApprovedOneWayShort =>
+      'Both sides can push now; the per-item side is theirs to tick';
+
+  @override
+  String get fnthinkPairItemsBrokenShort =>
+      'This request can get the level, not the per-item grants';
+
+  @override
+  String get fnthinkPairItemsNoteShort =>
+      'Items with an argument can only be checked once that argument is set';
+
+  @override
+  String get fnthinkPairLinkRejectedShort => 'This device cannot use that link';
+
+  @override
   String get fnthinkEndpointWhyShort =>
       'Access endpoints: how third parties push to this device';
 

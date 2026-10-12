@@ -28,14 +28,13 @@ void main() {
 
   int cjkLen(String s) => s.runes.where((c) => c > 0x7f).length;
 
-  /// 每页**现在**还挂在页面上的长说明段数（2026-10-12 实测）。搬完一页就把那一行改小或删掉 ——
-  /// 片1～片5 已把 `remote_history`／`fnthink_receive`／`remote_credential_settings`／
-  /// `fnthink_shortcuts`／`fnthink_endpoint` 这五页搬到问号弹层，它们不在表里，读到的必须是 0。
-  /// ⚠ 不再逐页加 `== 0` 的对照：片2/片3 量过那拦不住尺变瞎，防瞎靠下面那条**语料规模**对照。
-  const ledger = <String, int>{
-    'fnthink_peers_page.dart': 4,
-    'fnthink_send_page.dart': 6,
-  };
+  /// 每页**现在**还挂在页面上的长说明段数（2026-10-12 实测）。搬完一页就把那一行删掉 ——
+  /// 片1～片7 已把 `remote_history`／`fnthink_receive`／`remote_credential_settings`／
+  /// `fnthink_shortcuts`／`fnthink_endpoint`／`fnthink_peers` 这六页搬到问号弹层，
+  /// 它们不在表里。
+  /// ⚠ 不逐页加 `== 0` 的对照：片2/片3 量过那拦不住尺变瞎，防瞎靠下面那条**语料规模**对照；
+  ///   而"某一页又长回来了"由上面那条棘轮管 —— 表里没有的页，允许的段数就是 0。
+  const ledger = <String, int>{'fnthink_send_page.dart': 6};
 
   Map<String, int> countAll() {
     final out = <String, int>{};
@@ -109,6 +108,13 @@ void main() {
       reason:
           '片3 一次搬两格（密钥明文那句 68 字 + TOTP 那句 80 字）——'
           '同一页里**两处**装配点都换了形状，只换一处这条就会红',
+    );
+    expect(
+      got['fnthink_peers_page.dart'] ?? 0,
+      0,
+      reason:
+          '片7 一次搬掉这一页的全部四段（最长的 73 字、最短的 46 字，另有两处 key 带 '
+          '`requestId` 插值）—— 台账里这一行也一起删了，所以这里读到非 0 就是"账与实测又分叉"',
     );
     // ⚠ 逐页那条 `== 0` 的对照**拦不住尺变瞎**（片2 量过：把问号那行误当页面说明块，
     //   被抬高的是别的页，刚搬干净的两页反而读不到）。真正与"哪一页搬完了"无关的对照

@@ -8857,6 +8857,30 @@ abstract class AppLocalizations {
   /// **'发过去只是对面多了一条待确认'**
   String get fnthinkPairPeerPendingNoteShort;
 
+  /// No description provided for @fnthinkPairApprovedOneWayShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'两边能互发了，逐条项还要对面自己勾'**
+  String get fnthinkPairApprovedOneWayShort;
+
+  /// No description provided for @fnthinkPairItemsBrokenShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一条只能给档位，逐条授权给不了'**
+  String get fnthinkPairItemsBrokenShort;
+
+  /// No description provided for @fnthinkPairItemsNoteShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'带参数的项要先定参数才勾得上'**
+  String get fnthinkPairItemsNoteShort;
+
+  /// No description provided for @fnthinkPairLinkRejectedShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条链接这台设备用不上'**
+  String get fnthinkPairLinkRejectedShort;
+
   /// No description provided for @fnthinkEndpointWhyShort.
   ///
   /// In zh, this message translates to:

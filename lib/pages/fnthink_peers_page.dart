@@ -349,9 +349,14 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
                   answer.approve &&
                   answer.answer.ok &&
                   _outboundDone)
-                FnthinkNote(
-                  keyName: 'fnthink-pair-one-way',
-                  text: l10n.fnthinkPairApprovedOneWay,
+                HelpNoteRow(
+                  noteKey: 'fnthink-pair-one-way',
+                  helpKey: 'fnthink-pair-one-way-help',
+                  text: l10n.fnthinkPairApprovedOneWayShort,
+                  helpTitle: l10n.fnthinkPairRequests,
+                  // T149 片7：那三句（写下两段授权、各住在被投那台、还欠逐条项）整段进问号，
+                  // **正文一字没删** —— 「对面那台自己要勾」这句是这一屏唯一说清"还没全通"的出处。
+                  helpBody: l10n.fnthinkPairApprovedOneWay,
                 ),
             ],
           ),
@@ -607,10 +612,18 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     String? grantable,
   ) {
     if (_pairItemsBroken) {
+      // ⚠ 这一格**今天从合法契约不可达**：派生失败那三条来路（取值域为空、两处说法相反、
+      // 派生出的项在取值域外）都被 `FnthinkContract.validate()` 在装载那一关挡住，
+      // 而装载失败走的是页面最上面那条 contract-error。所以它是纵深防御，不是可观察判据 ——
+      // 页面级用例覆盖不到它（造不出既合法又派生失败的契约），反证时它也不算独立判据。
+      // 形状仍按 T149 的口径走：页面上只留那半句状态，诊断那半句在问号里。
       return [
-        FnthinkNote(
-          keyName: 'fnthink-pair-items-broken-${request.requestId}',
-          text: l10n.fnthinkPairItemsBroken,
+        HelpNoteRow(
+          noteKey: 'fnthink-pair-items-broken-${request.requestId}',
+          helpKey: 'fnthink-pair-items-broken-${request.requestId}-help',
+          text: l10n.fnthinkPairItemsBrokenShort,
+          helpTitle: l10n.fnthinkPairAskTitle,
+          helpBody: l10n.fnthinkPairItemsBroken,
         ),
       ];
     }
@@ -628,9 +641,14 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       ),
       for (final row in _pairRows)
         ..._pairOneRow(l10n, contract, request, row, checked),
-      FnthinkNote(
-        keyName: 'fnthink-pair-items-note-${request.requestId}',
-        text: l10n.fnthinkPairItemsNote,
+      HelpNoteRow(
+        noteKey: 'fnthink-pair-items-note-${request.requestId}',
+        helpKey: 'fnthink-pair-items-note-${request.requestId}-help',
+        text: l10n.fnthinkPairItemsNoteShort,
+        helpTitle: l10n.fnthinkPairItemsTitle,
+        // 「勾的是那一串（哪个应用、搜什么词、哪条通道设成哪一档），不是那个动作名」——
+        // 这一句决定用户敢不敢勾，摊在表底下就成了三行小字；整段进问号，正文一字没删。
+        helpBody: l10n.fnthinkPairItemsNote,
       ),
     ];
   }
@@ -923,9 +941,14 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
         // 点开的那条链接判不过 ⇒ 必须说一句（用户确实点了一下，"没反应"就是这次要修的缺陷形状）。
         // 只给一句、不分辨原因：分辨"哪种不对"对着抄来的链接就是枚举器。
         if (_pairLinkRejected)
-          FnthinkNote(
-            keyName: 'fnthink-pair-link-rejected',
-            text: l10n.fnthinkPairLinkRejected,
+          HelpNoteRow(
+            noteKey: 'fnthink-pair-link-rejected',
+            helpKey: 'fnthink-pair-link-rejected-help',
+            text: l10n.fnthinkPairLinkRejectedShort,
+            helpTitle: l10n.fnthinkPairPeerTitle,
+            // 两种来路（不是幻念链接／协议版本对不上）在这一句里塌成同一说法 —— 搬进问号也不许
+            // 趁机分辨原因：界面上能分辨哪种写法能被接受，对着一份抄来的链接就是枚举器。
+            helpBody: l10n.fnthinkPairLinkRejected,
           ),
         // 「配对另一台设备」挂在名单这一格里，而不是身份那一格（本机是自己）或页面顶部
         // 一个通用按钮：这一格讲的正是"我和谁有关系"，而这一发要做的就是把一行新的关系挂进去。

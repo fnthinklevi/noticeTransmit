@@ -1816,6 +1816,32 @@ void main() {
         findsOneWidget,
         reason: '代办了两段却不说明白"对面那台还没同意"，用户读到的就是"点一次两边都通了"',
       );
+      // T149 片7：页面上那一行是短说；整段（写下两段授权／各住在被投那台／还欠逐条项）在问号里。
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('fnthink-pair-one-way')))
+            .data,
+        ctx.l10n.fnthinkPairApprovedOneWayShort,
+        reason: '挂在这一格底下的必须是短说，不然这一族又搬回页面上了',
+      );
+      expect(
+        find.text(ctx.l10n.fnthinkPairApprovedOneWay),
+        findsNothing,
+        reason: '整段不许同时挂在页面上',
+      );
+      final oneWayHelp = find.byKey(
+        const ValueKey('fnthink-pair-one-way-help'),
+      );
+      await revealTo(tester, oneWayHelp);
+      await tester.tap(oneWayHelp);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(ctx.l10n.fnthinkPairApprovedOneWay),
+        findsOneWidget,
+        reason:
+            '「L2/L3 要对面那台自己在它的同意屏上勾」是这一屏唯一说清"还没全通"的出处 —— '
+            '搬进问号时把它搬丢，界面上看着一切正常，而用户下一次就当着一次落空的面去发指令',
+      );
     });
 
     testWidgets('没勾 ⇒ 一段都不代办，那句"还缺一半"也不出现', (tester) async {
@@ -1955,6 +1981,29 @@ void main() {
         find.byKey(const ValueKey('fnthink-pair-items-note-pr_9')),
         findsOneWidget,
         reason: '这张表的口径写在同一格上，不然用户只会以为"这台不给我勾"',
+      );
+      // T149 片7：口径那句整段进问号 —— 页面上留的是"要先定参数才勾得上"这一行。
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-pair-items-note-pr_9')),
+            )
+            .data,
+        ctx.l10n.fnthinkPairItemsNoteShort,
+      );
+      expect(find.text(ctx.l10n.fnthinkPairItemsNote), findsNothing);
+      final itemsHelp = find.byKey(
+        const ValueKey('fnthink-pair-items-note-pr_9-help'),
+      );
+      await revealTo(tester, itemsHelp);
+      await tester.tap(itemsHelp);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(ctx.l10n.fnthinkPairItemsNote),
+        findsOneWidget,
+        reason:
+            '「勾的是那一串（哪个应用、搜什么词、哪条通道设成哪一档），不是那个动作名」这句决定'
+            '用户敢不敢勾：搬丢了，屏幕上就再没有一处说清他勾出去的到底是什么',
       );
       // 画了这张表本身不许替用户答复：一条请求都没发出去，才是"等用户点"。
       expect(ctx.h.confirmAsked(), isEmpty);
@@ -4238,11 +4287,38 @@ void main() {
             find.byKey(const ValueKey('fnthink-pair-link-rejected')),
           )
           .data!;
-      expect(note, l10n.fnthinkPairLinkRejected);
+      expect(note, l10n.fnthinkPairLinkRejectedShort);
       expect(
         note.contains('unknown'),
         isFalse,
         reason: '原因不进界面：分辨哪种写法能被接受，对着一份抄来的链接就是枚举器',
+      );
+      // T149 片7：整段（两种来路塌成同一句 + 回那台重新挂一枚口令）挪进问号，**塌成一句**这条不变。
+      expect(
+        find.text(l10n.fnthinkPairLinkRejected),
+        findsNothing,
+        reason: '整段不许同时挂在页面上',
+      );
+      final rejectedHelp = find.byKey(
+        const ValueKey('fnthink-pair-link-rejected-help'),
+      );
+      await revealTo(tester, rejectedHelp);
+      await tester.tap(rejectedHelp);
+      await tester.pumpAndSettle();
+      final dialogText = tester
+          .widget<Text>(find.text(l10n.fnthinkPairLinkRejected))
+          .data!;
+      expect(
+        dialogText,
+        l10n.fnthinkPairLinkRejected,
+        reason:
+            '问号里那一句必须与 ARB 那一条逐字相同：搬进弹层时顺手把"或协议版本对不上"拆开成'
+            '两种说法，就是在这条纪律上重新开了枚举器的口',
+      );
+      expect(
+        dialogText.contains('unknown'),
+        isFalse,
+        reason: '同一条纪律现在要管弹层里那一句，不再只管页面上那一行',
       );
       expect(h.pairAsked(), isEmpty);
     });

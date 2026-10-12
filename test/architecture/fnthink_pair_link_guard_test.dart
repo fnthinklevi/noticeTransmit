@@ -109,15 +109,20 @@ void main() {
       reason: '"判不过 / 没契约 / 没有链接"三件事里前两件都要走到那一句，不能各自分叉出第三种文案',
     );
     for (final arb in ['lib/l10n/arb/app_zh.arb', 'lib/l10n/arb/app_en.arb']) {
-      final text =
-          (jsonDecode(read(arb))
-                  as Map<String, Object?>)['fnthinkPairLinkRejected']!
-              as String;
-      expect(
-        text.contains('{'),
-        isFalse,
-        reason: '$arb：那句 rejection 文案一旦带上占位符，就是在把内部原因念给用户听',
-      );
+      final table = jsonDecode(read(arb)) as Map<String, Object?>;
+      // T149 片7：整段挪进问号弹层之后，页面上那一行换成了短说 —— 这一条纪律管的是**这两句**，
+      // 不是只管其中一句（挪位置不给新那行开后门：短说里冒出一个 reason 占位符，同样是枚举器）。
+      for (final key in const [
+        'fnthinkPairLinkRejected',
+        'fnthinkPairLinkRejectedShort',
+      ]) {
+        final text = table[key]! as String;
+        expect(
+          text.contains('{'),
+          isFalse,
+          reason: '$arb 的 $key：那句 rejection 文案一旦带上占位符，就是在把内部原因念给用户听',
+        );
+      }
     }
   });
 

@@ -4890,6 +4890,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairPeerPendingNoteShort => '发过去只是对面多了一条待确认';
 
   @override
+  String get fnthinkPairApprovedOneWayShort => '两边能互发了，逐条项还要对面自己勾';
+
+  @override
+  String get fnthinkPairItemsBrokenShort => '这一条只能给档位，逐条授权给不了';
+
+  @override
+  String get fnthinkPairItemsNoteShort => '带参数的项要先定参数才勾得上';
+
+  @override
+  String get fnthinkPairLinkRejectedShort => '这条链接这台设备用不上';
+
+  @override
   String get fnthinkEndpointWhyShort => '接入端点：让第三方平台往这台设备推通知';
 
   @override
