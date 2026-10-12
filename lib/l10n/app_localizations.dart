@@ -8839,6 +8839,12 @@ abstract class AppLocalizations {
   /// **'远程执行历史只记本机这一份：收到的与发出的都记。凭据与指令正文不进这一层——它们随那条消息的密文正文走，回执与留痕各存自己的那一份。'**
   String get remoteHistoryBoundary;
 
+  /// No description provided for @remoteHistoryBoundaryShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一页只记本机这一份'**
+  String get remoteHistoryBoundaryShort;
+
   /// No description provided for @fnthinkRemoteTitle.
   ///
   /// In zh, this message translates to:

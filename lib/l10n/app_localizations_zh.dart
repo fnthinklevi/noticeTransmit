@@ -4881,6 +4881,9 @@ class AppLocalizationsZh extends AppLocalizations {
       '远程执行历史只记本机这一份：收到的与发出的都记。凭据与指令正文不进这一层——它们随那条消息的密文正文走，回执与留痕各存自己的那一份。';
 
   @override
+  String get remoteHistoryBoundaryShort => '这一页只记本机这一份';
+
+  @override
   String get fnthinkRemoteTitle => '远程控制';
 
   @override

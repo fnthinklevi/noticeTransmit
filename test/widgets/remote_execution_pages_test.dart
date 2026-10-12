@@ -1214,12 +1214,79 @@ void main() {
     });
   });
 
-  group('历史页：边界那句在场', () {
-    testWidgets('凭据与指令正文不进这一层（那句边界必须在）', (tester) async {
+  group('历史页：边界那句在场（T149 片1 后只留一行短说）', () {
+    testWidgets('页尾是那一行短说，长边界不再摊在页面上', (tester) async {
       await pumpHistory(tester, loadRecords: (_) async => [record('x0000001')]);
+
       expect(
         find.byKey(const ValueKey('remote-history-boundary')),
         findsOneWidget,
+        reason: '那一行还在 ⇒ 只是把位置换了；换成"整句消失"就是把事实删了',
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('remote-history-boundary')))
+            .data,
+        zhL10n.remoteHistoryBoundaryShort,
+      );
+      expect(
+        find.text(zhL10n.remoteHistoryBoundary),
+        findsNothing,
+        reason: '维护者 2026-10-12 第 4 条：页面里不许再摊成段说明',
+      );
+    });
+
+    testWidgets('点那枚问号 ⇒ 弹层起得来（定位串没漂）', (tester) async {
+      await pumpHistory(tester, loadRecords: (_) async => [record('x0000001')]);
+
+      await tester.tap(
+        find.byKey(const ValueKey('remote-history-boundary-help')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('remote-history-boundary-help')),
+        findsOneWidget,
+        reason: '问号按 key 点得中：helpKey 被改形就是这一条先红，而不是"点了没反应"',
+      );
+    });
+
+    testWidgets('弹层里那句长边界在（只挪位置，不许删正文）', (tester) async {
+      await pumpHistory(tester, loadRecords: (_) async => [record('x0000001')]);
+
+      await tester.tap(
+        find.byKey(const ValueKey('remote-history-boundary-help')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(zhL10n.remoteHistoryBoundary),
+        findsOneWidget,
+        reason:
+            '搬进弹层时把整句搬丢了 = "凭据与指令正文不进这一层"这条披露消失，'
+            '而界面上看着一切正常（这一族"只挪位置不删正文"的正反两面）',
+      );
+    });
+
+    testWidgets('空表那一屏的边界句同样只剩短说（两处装配点不许只改一处）', (tester) async {
+      await pumpHistory(tester, loadRecords: (_) async => []);
+
+      expect(
+        find.byKey(const ValueKey('remote-history-boundary')),
+        findsOneWidget,
+        reason: '空表与有货是两条 return，长句在两处各写一遍时就会有一处漏改',
+      );
+      expect(find.text(zhL10n.remoteHistoryBoundary), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey('remote-history-boundary-help')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(zhL10n.remoteHistoryBoundary),
+        findsOneWidget,
+        reason: '空表那一屏的问号是**另一个装配点**：只给有货那屏装上，空屏就没人说这句话',
       );
     });
   });

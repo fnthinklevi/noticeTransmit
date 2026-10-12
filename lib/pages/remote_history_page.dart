@@ -11,6 +11,7 @@ import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution.dart';
 import '../services/fnthink_remote_outcome_words.dart';
 import '../theme/app_colors.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/history_row_tile.dart';
 import '../widgets/ios_dialog_actions.dart';
 
@@ -260,9 +261,12 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
       return [
         _Note(keyName: 'remote-history-empty', text: l10n.remoteHistoryEmpty),
         if (_note != null) _Note(keyName: 'remote-history-note', text: _note!),
-        _Note(
-          keyName: 'remote-history-boundary',
-          text: '• ${l10n.remoteHistoryBoundary}',
+        HelpNoteRow(
+          noteKey: 'remote-history-boundary',
+          helpKey: 'remote-history-boundary-help',
+          text: l10n.remoteHistoryBoundaryShort,
+          helpTitle: l10n.remoteExecHistory,
+          helpBody: l10n.remoteHistoryBoundary,
         ),
       ];
     }
@@ -271,9 +275,14 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
       //   而这一格记的是"发生过什么"，一次性的提示等于没记。
       if (_note != null) _Note(keyName: 'remote-history-note', text: _note!),
       for (final row in rows) _row(l10n, row),
-      _Note(
-        keyName: 'remote-history-boundary',
-        text: '• ${l10n.remoteHistoryBoundary}',
+      // T149 片1：那句边界不再摊在页尾 —— 收成一行短说 + 问号（维护者 2026-10-12 第 4 条
+      // 把 T90 的"两种去处"收窄成一处：长说明只进右上问号弹层）。**正文没删**，只是挪了位置。
+      HelpNoteRow(
+        noteKey: 'remote-history-boundary',
+        helpKey: 'remote-history-boundary-help',
+        text: l10n.remoteHistoryBoundaryShort,
+        helpTitle: l10n.remoteExecHistory,
+        helpBody: l10n.remoteHistoryBoundary,
       ),
     ];
   }

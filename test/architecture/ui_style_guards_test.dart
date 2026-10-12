@@ -483,19 +483,25 @@ void main() {
       );
     });
 
-    test('那三页的成段说明：边界句只许走「底部圆点行」那一形状', () {
+    test('那三页的成段说明：边界句两处都在、只许走「问号弹层」那一形状', () {
       // 判据③ 2026-10-07 的分桶结论：remote 三页 37 处 _Note 里，绝大多数是状态原话／
-      // 字段标签／弹窗正文（§1 明说不许按'美化'去动），唯一一条成段说明是历史页那句边界；
-      // 它的去处定成底部圆点行（与设置页 fnthink-boundary 同一个做法）。这条钉住那个形状，
-      // 改回裸小字就是让'成段说明'重新长回页面里。
+      // 字段标签／弹窗正文（§1 明说不许按'美化'去动），唯一一条成段说明是历史页那句边界。
+      // 2026-10-12 T149 片1 把它从「底部圆点行」换成「问号弹层」—— 两种去处都在这条口径里
+      // （维护者 2026-10-06：提醒文字只有底部无序列表／问号弹窗两种去处），换形状本身合法，
+      // 但**这条要跟着改指向**：正文不许摊回页面，且两处（空态／有货态）一个都不能少。
       final src = codeByPath['lib/pages/remote_history_page.dart']!;
       // ⚠ 这一条第一版只断「至少有一处带圆点」—— 反证 D1 当场证伪：那句在页面里**有两处**
-      //   （空列表态与有列表态各一），只改回其中一处照样绿。现在两处都要圆点，且裸写法零处。
-      const bullet = "'\u2022 \${l10n.remoteHistoryBoundary}'";
+      //   （空列表态与有列表态各一），只改回其中一处照样绿。现在两处都必须在弹层里带全文。
+      const popupBody = 'helpBody: l10n.remoteHistoryBoundary,';
       expect(
-        bullet.allMatches(src).length,
+        popupBody.allMatches(src).length,
         2,
-        reason: '边界句必须两处（空态 / 有货态）都走底部圆点行',
+        reason: '边界句必须两处（空态 / 有货态）都原样进问号弹层，正文一句不许少',
+      );
+      expect(
+        'text: l10n.remoteHistoryBoundaryShort,'.allMatches(src).length,
+        2,
+        reason: '弹层有正文，页面上那行短说也得两处都在 —— 否则读者根本找不到入口',
       );
       expect(
         src.contains('text: l10n.remoteHistoryBoundary,'),

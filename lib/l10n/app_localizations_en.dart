@@ -5148,6 +5148,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This history is this device\'s own record: both received and sent. Credentials and command text never enter it — they ride inside that message\'s encrypted body, while receipts and audit rows each keep their own copy.';
 
   @override
+  String get remoteHistoryBoundaryShort =>
+      'This page records only this device\'s own copy';
+
+  @override
   String get fnthinkRemoteTitle => 'Remote control';
 
   @override
