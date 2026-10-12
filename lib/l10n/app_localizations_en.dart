@@ -1923,6 +1923,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryPending => 'Sending';
 
   @override
+  String get deliveryUnknown => 'Status unknown';
+
+  @override
   String get deliveryPausedNotSent => 'Paused · not sent';
 
   @override

@@ -903,6 +903,7 @@
   "deliverySuccess": "Sent",
   "deliveryFailed": "Failed",
   "deliveryPending": "Sending",
+  "deliveryUnknown": "Status unknown",
   "deliveryPausedNotSent": "Paused · not sent",
   "pushPausedByUser": "Paused by user",
   "deliveryIntercepted": "Blocked",

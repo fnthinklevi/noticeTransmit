@@ -11,6 +11,7 @@ import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/services/active_channels.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
+import 'package:notice_transmit/services/channel_config_codec.dart';
 import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/channel_probe_service.dart';
@@ -375,6 +376,58 @@ void main() {
         deliveryKeysOfActiveChannels(),
         isNot(contains('chan:fnthink')),
         reason: '界面上退掉了而入库快照还按它算 ⇒ 历史记录里那条永远"发送中"',
+      );
+    });
+
+    // ── T150 片1（维护者 2026-10-12 第 6 条）──────────────────────────────
+    // 「不参与推送」那一档（role=none）在原生那侧被 `ChannelRouting.route` 第一步就筛掉，
+    // 于是**没有任何发送器会碰它、也没有任何回执会写回来**。而送达快照是入库瞬间固化的，
+    // 之后没人补 —— 留着那个键，等于在历史里给一个不会来的人留一把永远亮着的「发送中」。
+    test('role=none 的通道不进送达快照，但仍在清单里（T150 片1）', () async {
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_none',
+        name: '不参与的那条',
+        target: peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+        role: ChannelConfigCodec.roleNone,
+      );
+
+      expect(
+        byId('fc_none'),
+        isNotNull,
+        reason: '清单（首页与通道状态页）照要看得见它 —— 收窄的只是送达快照那一份',
+      );
+      expect(
+        deliveryKeysOfActiveChannels(),
+        isNot(contains('chan:fnthink')),
+        reason:
+            '这一档谁都不推，写进 delivery_info 就永远停在 pending ⇒ 历史替本机说一句「发送中」'
+            '（维护者这次看到的正是它）',
+      );
+    });
+
+    test('role=unset 仍进快照：原生那侧认不出就归主档，这条照有回执（不许一起筛掉）', () async {
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_unset',
+        name: '刚建好还没归队',
+        target: peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+        role: ChannelConfigCodec.roleUnset,
+      );
+
+      expect(
+        byId('fc_unset')!.role,
+        ChannelConfigCodec.roleUnset,
+        reason: 'Dart 这一侧保留"未设置"这个事实，不许提前替原生归一化',
+      );
+      expect(
+        deliveryKeysOfActiveChannels(),
+        contains('chan:fnthink'),
+        reason:
+            '把 unset 一起筛掉会造出第二种错：新建一条没点主备 ⇒ 记录里连占位都没有，'
+            '历史页看着像"这条没往这儿推"，而原生 `ChannelRole.fromWire` 认不出归 PRIMARY、照推',
       );
     });
 

@@ -281,7 +281,18 @@ List<ActiveChannel> collectActiveChannels() {
 ///
 /// 去重是必要的：送达键按类型（`chan:<slug>`，第 2 步的决策），两个企微群机器人
 /// 共用一个键，不去重就会在同一记录里存两个相同键（历史页也会画两枚一样的 chip）。
+///
+/// ⚠ **`role=none` 的通道不进这份键列表**（T150 片1，维护者第 6 条）。这一份是**入库瞬间
+/// 固化的快照**，之后再没人补它；而原生 [ChannelRouting.route] 第一步就是
+/// `members.filter { it.role != ChannelRole.NONE }` —— 这一档**任何一轮都不会被交给发送器**，
+/// 于是永远没有回执来把它从 `pending` 推离。留着那个键，等于在历史里给一个不会来的人
+/// 留一把永久亮着的「发送中」。
+///
+/// ⚠ 只排 `none`，**不排 `unset`**：新建还没归队的通道在原生那侧 `ChannelRole.fromWire`
+/// 认不出就归 `PRIMARY`（宁可多推、不可漏推），它照有回执。把 `unset` 一起筛掉会造出
+/// 第二种错：新建一条通道没点主备 ⇒ 这一条记录里连占位都没有，历史页看着像"这条没往这儿推"。
 List<String> deliveryKeysOfActiveChannels() => collectActiveChannels()
+    .where((c) => c.role != ChannelConfigCodec.roleNone)
     .map((c) => c.deliveryKey)
     .toSet()
     .toList(growable: false);

@@ -1849,6 +1849,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deliveryPending => '发送中';
 
   @override
+  String get deliveryUnknown => '状态未知';
+
+  @override
   String get deliveryPausedNotSent => '暂停未发送';
 
   @override

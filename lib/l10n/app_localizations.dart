@@ -3536,6 +3536,12 @@ abstract class AppLocalizations {
   /// **'发送中'**
   String get deliveryPending;
 
+  /// No description provided for @deliveryUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态未知'**
+  String get deliveryUnknown;
+
   /// No description provided for @deliveryPausedNotSent.
   ///
   /// In zh, this message translates to:

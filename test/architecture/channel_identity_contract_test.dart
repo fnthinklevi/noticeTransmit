@@ -383,4 +383,89 @@ void main() {
       }
     });
   });
+
+  // ── T150 片1（维护者 2026-10-12 第 6 条：暂停时那一格一直「发送中」）─────────
+  // 「不参与推送」这一档（`role=none`）**两侧各判一次**：原生在路由第一步筛掉它，
+  // Dart 在入库快照那一步不替它写初值。任一侧单独改，表现都是静默的：
+  // 只改 Dart ⇒ 原生照筛、快照少一档，看不出问题；
+  // 只改原生（比如不再筛）⇒ Dart 那份排除让这些通道的送达结果**无处可写**，历史永远没有这一格。
+  group('role=none 这一档：送达快照侧与路由侧同一个口径（T150）', () {
+    test('原生仍在第一步筛掉 NONE', () {
+      final routing = stripComments(
+        File(
+          '$root/android/app/src/main/kotlin/com/fnthink/notice/ChannelRouting.kt',
+        ).readAsStringSync(),
+      );
+      expect(
+        routing,
+        contains('it.role != ChannelRole.NONE'),
+        reason:
+            '原生不再筛 NONE ⇒ Dart 那侧的排除必须一起改，否则两处各判一遍；'
+            '而这一枚锚点带 `it.` 就与参数名/类型改动无关',
+      );
+    });
+
+    test('Dart 只为还会被人来回执的键写初值，且只排 none', () {
+      final src = stripComments(
+        File('$root/lib/services/active_channels.dart').readAsStringSync(),
+      );
+      final start = src.indexOf('List<String> deliveryKeysOfActiveChannels()');
+      expect(start, greaterThanOrEqualTo(0), reason: '那份键列表的作者换了地方');
+      final end = src.indexOf(';', start);
+      expect(end, greaterThan(start), reason: '提取尺量不到结尾 ⇒ 尺比被量的东西窄');
+      final body = src.substring(start, end);
+      expect(
+        body,
+        contains('c.role != ChannelConfigCodec.roleNone'),
+        reason: '为 role=none 的通道写 `pending` 初值 = 在历史里给一个不会来的人留一把永远亮着的「发送中」',
+      );
+      expect(
+        body,
+        isNot(contains('roleUnset')),
+        reason:
+            '不许把 unset 一起筛掉：原生 `ChannelRole.fromWire` 认不出就归 PRIMARY（宁可多推不可漏推），'
+            '那条通道照有回执；筛掉它的表现是"新建通道没点主备 ⇒ 历史里连占位都没有"',
+      );
+      expect(
+        body,
+        isNot(contains('roleBackup')),
+        reason: '现编"非主即藏"的口径会把 none 与 unset 混起来（T151 同一颗病灶）',
+      );
+    });
+
+    test('页面不再自己有一张送达状态词表（「发送中」不是兜底读数）', () {
+      final page = stripComments(
+        File('$root/lib/pages/history_page.dart').readAsStringSync(),
+      );
+      expect(
+        page.contains('l10n.deliveryPending'),
+        isFalse,
+        reason: '「发送中」只能由 `deliveryStatusText` 在 pending 那一档给；页面里再留一份就会兜底',
+      );
+      expect(
+        page,
+        contains('deliveryStatusText(l10n, status)'),
+        reason: '这一格必须走唯一作者（services/delivery_display.dart）',
+      );
+      final display = stripComments(
+        File('$root/lib/services/delivery_display.dart').readAsStringSync(),
+      );
+      // `default:` 那一支只许说"未知"——这是这一片的全部牙
+      final armAt = display.indexOf('default:');
+      expect(armAt, greaterThanOrEqualTo(0), reason: '那张表没有 default 一支了');
+      final defaultArm = display.substring(armAt);
+      expect(
+        defaultArm,
+        contains('l10n.deliveryUnknown'),
+        reason:
+            '`default:` 回到 deliveryPending，就等于"任何一个对不上号的串都在途"：'
+            '维护者这次看到的正是这句假话',
+      );
+      expect(
+        display,
+        contains("case 'pending':"),
+        reason: '「发送中」必须仍挂在 pending 一个词上（不许把在途那一档一起删了）',
+      );
+    });
+  });
 }

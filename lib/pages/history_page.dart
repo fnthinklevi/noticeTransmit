@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../services/archive_worker.dart' show kArchiveDirModeKey;
 import '../services/channel_display.dart';
+import '../services/delivery_display.dart';
 import '../services/filter_service.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_inbox_service.dart';
@@ -896,17 +897,17 @@ class _HistoryPageState extends State<HistoryPage> {
               width: 6,
               height: 6,
               decoration: BoxDecoration(
-                color: _deliveryStatusColor(status),
+                color: deliveryStatusColor(context, status),
                 shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: 2),
             Text(
-              _deliveryStatusText(status, l10n),
+              deliveryStatusText(l10n, status),
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w500,
-                color: _deliveryStatusColor(status),
+                color: deliveryStatusColor(context, status),
               ),
             ),
           ],
@@ -926,7 +927,10 @@ class _HistoryPageState extends State<HistoryPage> {
           const SizedBox(height: 1),
           Text(
             message,
-            style: TextStyle(fontSize: 10, color: _deliveryStatusColor(status)),
+            style: TextStyle(
+              fontSize: 10,
+              color: deliveryStatusColor(context, status),
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -970,36 +974,9 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  String _deliveryStatusText(String status, AppLocalizations l10n) {
-    switch (status) {
-      case 'success':
-        return l10n.deliverySuccess;
-      case 'failed':
-        return l10n.deliveryFailed;
-      case 'intercepted':
-        return l10n.deliveryIntercepted;
-      case 'paused':
-        // T138 ③：「已暂停」只说用户动了开关，没说**这条的下场** —— 那一格要回答
-        // 的是"这条发出去没有"：暂停期间根本没发。与 failure 同一档的措辞密度。
-        return l10n.deliveryPausedNotSent;
-      default:
-        return l10n.deliveryPending;
-    }
-  }
-
-  Color _deliveryStatusColor(String status) {
-    switch (status) {
-      case 'success':
-        return AppColors.green;
-      case 'failed':
-        return AppColors.red;
-      case 'intercepted':
-      case 'paused':
-        return AppColors.orange;
-      default:
-        return AppColors.blue;
-    }
-  }
+  /// 状态那一格（词表→人话、词表→颜色）住 `services/delivery_display.dart`，
+  /// 是**唯一作者**（T150 片1）：这一页以前自己拿 `default:` 兜底成「发送中」，
+  /// 于是任何对不上号的状态串都会被界面替本机说一句"这条正在发"。
 
   /// 优先级徽标（0=低 / 2=高，中优先级不显示以减少噪音）
   Widget _buildPriorityBadge(BuildContext context, String label, Color color) {
