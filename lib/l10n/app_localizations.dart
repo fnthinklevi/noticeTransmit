@@ -8503,6 +8503,24 @@ abstract class AppLocalizations {
   /// **'未分类（这张表还没跟上契约）'**
   String get remoteCategoryUncategorized;
 
+  /// No description provided for @remoteOutcomePerformed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一项本机做完了'**
+  String get remoteOutcomePerformed;
+
+  /// No description provided for @remoteOutcomeReported.
+  ///
+  /// In zh, this message translates to:
+  /// **'查到的东西已经送回发起的那一台'**
+  String get remoteOutcomeReported;
+
+  /// No description provided for @remoteOutcomeSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'那一档已经改成对面要的值'**
+  String get remoteOutcomeSet;
+
   /// No description provided for @remoteSendFamilyLabel.
   ///
   /// In zh, this message translates to:

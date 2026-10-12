@@ -7,6 +7,7 @@ import 'package:notice_transmit/services/fnthink_l2_actions.dart';
 import 'package:notice_transmit/services/fnthink_l3_settings.dart';
 import 'package:notice_transmit/services/fnthink_remote_command_handler.dart';
 import 'package:notice_transmit/services/fnthink_remote_execution.dart';
+import 'package:notice_transmit/services/fnthink_remote_outcome_words.dart';
 import 'package:notice_transmit/services/fnthink_remote_runner.dart';
 import 'package:notice_transmit/services/remote_execution_notifier.dart';
 
@@ -577,6 +578,70 @@ void main() {
       expect(reports, isEmpty);
       expect(saved.last.state, RemoteExecutionStates.failed);
       expect(saved.last.reason, 'sms-search-disabled');
+    });
+  });
+
+  // ── T144 片2 格①（维护者 2026-10-12 第 2 条：失败**和成功都要有原因**）────────
+  // 这一列以前**没有作者**：成功时 `result` 抄的是 `reason`（而成功时那是 null）⇒ 状态
+  // 「执行完毕」配两格空白；失败时同一个机器词又被抄进两格，界面上两句一模一样。
+  // 现在两列各管一件事：`result` = 本机做成了哪一步（只由那张封闭词表给），
+  // `reason` = 为什么没成／为什么被拦。
+  group('做成的那一条也要有读数（T144 片2 格①）', () {
+    test('没有产出的动作做成 ⇒ result 写 performed，reason 仍留空', () async {
+      windowSeconds = 0;
+      await runner().run(accepted());
+      expect(saved.last.state, RemoteExecutionStates.done);
+      expect(
+        saved.last.result,
+        kFnthinkRemoteOutcomePerformed,
+        reason: '成功时两格全空 = 界面只说"完毕了"，不说做成了什么',
+      );
+      expect(saved.last.reason, isEmpty);
+    });
+
+    test('有产出且真送出去了 ⇒ 写的是 reported，不是泛泛的"做完了"', () async {
+      windowSeconds = 0;
+      l2.reportPayload = '07-12 09:31 微信 张三：晚上一起吃饭';
+      await runner().run(accepted(item: 'notifications:report/10'));
+      expect(
+        saved.last.result,
+        kFnthinkRemoteOutcomeReported,
+        reason: '这一族动作的全部产出就是那段回传：它到了对面手里，才是这一格该说的事',
+      );
+    });
+
+    test('回传送不到 ⇒ 没有读数（不许留一个 reported 说产出已到手）', () async {
+      windowSeconds = 0;
+      l2.reportPayload = 'X';
+      reportOk = false;
+      await runner().run(accepted(item: 'notifications:report/10'));
+      expect(
+        saved.last.result,
+        isEmpty,
+        reason: 'failed 那一行还写着"已送回对面"，就是界面替本机编一句话',
+      );
+    });
+
+    test('L3 那一档做成 ⇒ 写的是 set（改到位这件事本身）', () async {
+      windowSeconds = 0;
+      await runner().run(accepted(level: 'L3', item: 'exact_alarm'));
+      expect(saved.last.state, RemoteExecutionStates.done);
+      expect(saved.last.result, kFnthinkRemoteOutcomeSet);
+    });
+
+    test('没做成 ⇒ 理由只在 reason 一处，同一个码不许再抄进 result', () async {
+      windowSeconds = 0;
+      l2.ok = false;
+      await runner().run(accepted());
+      expect(saved.last.state, RemoteExecutionStates.failed);
+      expect(saved.last.reason, 'nope');
+      expect(
+        saved.last.result,
+        isEmpty,
+        reason:
+            '两格写同一串 ⇒ 界面上两句一模一样，而"结果"与"为什么没成"本来是两件事；'
+            '要显示的是词表里那三个成功词，失败没有"结果"这一说',
+      );
     });
   });
 

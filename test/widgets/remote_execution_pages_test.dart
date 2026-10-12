@@ -1163,6 +1163,57 @@ void main() {
     });
   });
 
+  group('历史页：结果那一格是人话（T144 片2 格①）', () {
+    testWidgets('done 那一行读得到"本机做成了哪一步"', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('e_done', state: 'done', result: 'performed'),
+        ],
+      );
+
+      expect(
+        find.text(zhL10n.remoteHistoryResult(zhL10n.remoteOutcomePerformed)),
+        findsOneWidget,
+        reason: '把列里的机器词原样念出来 = 那一格没有作者',
+      );
+    });
+
+    testWidgets('词表外的读数**原样显示**，不翻成"已完成"', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('e_odd', state: 'done', result: 'some-new-code'),
+        ],
+      );
+
+      expect(
+        find.text(zhL10n.remoteHistoryResult('some-new-code')),
+        findsOneWidget,
+        reason: '读不出来的东西被界面替本机说成"做完了"，比裸词更坏',
+      );
+    });
+
+    testWidgets('failed 那一行只有理由那一格（同一个码不再抄两遍）', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('e_failed', state: 'failed', reason: 'switch-off'),
+        ],
+      );
+
+      expect(
+        find.byKey(const ValueKey('remote-history-result-e_failed')),
+        findsNothing,
+        reason: '两格写同一串时，"结果"与"为什么没成"在界面上塌成同一句话',
+      );
+      expect(
+        find.text(zhL10n.remoteHistoryReason('switch-off')),
+        findsOneWidget,
+      );
+    });
+  });
+
   group('历史页：边界那句在场', () {
     testWidgets('凭据与指令正文不进这一层（那句边界必须在）', (tester) async {
       await pumpHistory(tester, loadRecords: (_) async => [record('x0000001')]);

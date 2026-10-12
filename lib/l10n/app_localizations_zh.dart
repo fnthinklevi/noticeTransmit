@@ -4682,6 +4682,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteCategoryUncategorized => '未分类（这张表还没跟上契约）';
 
   @override
+  String get remoteOutcomePerformed => '这一项本机做完了';
+
+  @override
+  String get remoteOutcomeReported => '查到的东西已经送回发起的那一台';
+
+  @override
+  String get remoteOutcomeSet => '那一档已经改成对面要的值';
+
+  @override
   String get remoteSendFamilyLabel => '哪一族';
 
   @override

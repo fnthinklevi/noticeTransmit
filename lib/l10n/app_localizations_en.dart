@@ -4937,6 +4937,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Uncategorized (this table lags the contract)';
 
   @override
+  String get remoteOutcomePerformed => 'Done on this device';
+
+  @override
+  String get remoteOutcomeReported =>
+      'What was found was sent back to the requester';
+
+  @override
+  String get remoteOutcomeSet =>
+      'That setting now holds the value the peer asked for';
+
+  @override
   String get remoteSendFamilyLabel => 'Which family';
 
   @override

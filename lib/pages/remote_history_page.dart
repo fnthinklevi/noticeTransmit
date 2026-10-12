@@ -9,6 +9,7 @@ import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution.dart';
+import '../services/fnthink_remote_outcome_words.dart';
 import '../theme/app_colors.dart';
 import '../widgets/history_row_tile.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -315,7 +316,11 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
         if (row.result.isNotEmpty)
           _Note(
             keyName: 'remote-history-result-${row.execId}',
-            text: l10n.remoteHistoryResult(row.result),
+            // T144 片2 格①：这一格是**本机做成了哪一步**，词表唯一作者在那张封闭表上
+            // （词表外的读数原样显示 —— 不拿"已完成"盖住一个读不出来的东西）。
+            text: l10n.remoteHistoryResult(
+              fnthinkRemoteOutcomeText(l10n, row.result),
+            ),
           ),
         if (row.reason.isNotEmpty)
           _Note(

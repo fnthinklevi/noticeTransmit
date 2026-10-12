@@ -10,6 +10,7 @@ import 'fnthink_l2_actions.dart';
 import 'fnthink_l3_settings.dart';
 import 'fnthink_remote_command_handler.dart';
 import 'fnthink_remote_execution.dart';
+import 'fnthink_remote_outcome_words.dart';
 
 /// 远程执行 片3c-3：**执行链编排**（落历史 → 回执 → 延时窗口 → 动手 → 终态回执）。
 ///
@@ -345,7 +346,12 @@ class RemoteCommandRunner extends ChangeNotifier {
       execId,
       result.ok ? RemoteExecutionStates.done : RemoteExecutionStates.failed,
       reason: result.reason,
-      result: result.reason ?? '',
+      // T144 片2 格①：**做成的那一条也要有读数**。以前成功时 `result` 抄的是 `reason`
+      // （而成功时那是 null）⇒ 状态「执行完毕」配上两格空白，"完毕之后本机做了什么"
+      // 一个字都没有；失败时同一个机器词又被抄进两格，界面上两句一模一样。
+      // 两列从此各管一件事：`result` = 本机做成了哪一步（只有成功有值），
+      // `reason` = 为什么没成／为什么被拦。
+      result: result.ok ? result.outcome : '',
     );
   }
 
@@ -355,7 +361,11 @@ class RemoteCommandRunner extends ChangeNotifier {
   ///   不是这里再读一次库、也不是留空：留空等于 `requiresExistingGrantFrom` 那两枚
   ///   **永远**判成 `missing-grant`（判定层已经放行的那一条到动手这一刻又被拦下，
   ///   而界面上只会看到一句"执行失败"）。
-  Future<({bool ok, String? reason})> _dispatch(
+  ///
+  /// 回来的那三元里 `outcome` 只在 `ok` 时有值，词只许出自那张封闭词表
+  /// （`fnthink_remote_outcome_words.dart`）—— 成功那一档的读数是这一片才补上的，
+  /// 这里再凑一句"看起来像结果"的散文就是第二个作者。
+  Future<({bool ok, String? reason, String outcome})> _dispatch(
     FnthinkRemoteExecutionRecord record,
     Set<String> grantedKeys,
   ) async {
@@ -371,22 +381,32 @@ class RemoteCommandRunner extends ChangeNotifier {
           grantedKeys: grantedKeys,
         );
         if (parsed is FnthinkL3Rejected) {
-          return (ok: false, reason: parsed.reason);
+          return (ok: false, reason: parsed.reason, outcome: '');
         }
         final r = await dispatchL3Setting(
           contract,
           l3,
           (parsed as FnthinkL3Ok).setting,
         );
-        return (ok: r.ok, reason: r.reason);
+        return (
+          ok: r.ok,
+          reason: r.reason,
+          outcome: r.ok ? kFnthinkRemoteOutcomeSet : '',
+        );
       }
       final parsed = parseL2Item(contract, record.item);
       if (parsed is FnthinkL2Rejected) {
         // 不在这一档的动作表里：L1 仍可能在 L3 那张设置表上（并集表，见判定层注释）。
         final asL3 = contract.l3Settings[record.item];
-        if (asL3 == null) return (ok: false, reason: parsed.reason);
+        if (asL3 == null) {
+          return (ok: false, reason: parsed.reason, outcome: '');
+        }
         final r = await dispatchL3Setting(contract, l3, asL3);
-        return (ok: r.ok, reason: r.reason);
+        return (
+          ok: r.ok,
+          reason: r.reason,
+          outcome: r.ok ? kFnthinkRemoteOutcomeSet : '',
+        );
       }
       final action = (parsed as FnthinkL2Ok).action;
       // ⚠ 参数取**从 item 里解析出来的那一份**（`action.argument`），
@@ -399,12 +419,24 @@ class RemoteCommandRunner extends ChangeNotifier {
       final payload = r.payload;
       if (r.ok && payload != null) {
         final sent = await sendReport(record.peerAddress, action.name, payload);
-        if (!sent) return (ok: false, reason: 'report-not-sent');
+        if (!sent) {
+          return (ok: false, reason: 'report-not-sent', outcome: '');
+        }
+        // 产出真的到了对面手里 ⇒ 那一格说的就是这件事（不是"本机跑了一下"）。
+        return (
+          ok: true,
+          reason: r.reason,
+          outcome: kFnthinkRemoteOutcomeReported,
+        );
       }
-      return (ok: r.ok, reason: r.reason);
+      return (
+        ok: r.ok,
+        reason: r.reason,
+        outcome: r.ok ? kFnthinkRemoteOutcomePerformed : '',
+      );
     } catch (e) {
       // 一条坏指令不许把整轮收货按停（记成失败，接着走下一条）。
-      return (ok: false, reason: 'threw:${record.item}');
+      return (ok: false, reason: 'threw:${record.item}', outcome: '');
     }
   }
 
