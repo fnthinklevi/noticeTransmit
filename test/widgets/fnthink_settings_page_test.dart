@@ -568,7 +568,9 @@ void main() {
       expect(find.byKey(const ValueKey('fnthink-start-note')), findsNothing);
     });
 
-    testWidgets('T137 验收③：渠道那句「只报自己那侧 + 一键跳」在位', (tester) async {
+    testWidgets('T137 验收③：渠道那句「只报自己那侧 + 一键跳」在位（T149 片2 后只留一行短说）', (
+      tester,
+    ) async {
       stubChannels();
       final h = harness();
       final l10n = await pumpReceive(tester, h);
@@ -578,13 +580,58 @@ void main() {
         reason: '厂商的悬浮/锁屏/声音开关读不回来，我们建渠道那侧的承诺必须自己说',
       );
       expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-channel-disclosure')),
+            )
+            .data,
+        l10n.fnthinkChannelDisclosureShort,
+        reason: '那一格画的是短说 —— key 还在而文字被换掉，就是把披露偷换了',
+      );
+      expect(
         find.text(l10n.fnthinkChannelDisclosure),
-        findsOneWidget,
-        reason: '那一行说的必须是 ARB 里那一句（自己那侧的三档 + 厂商层只能去系统核对）',
+        findsNothing,
+        reason: '维护者 2026-10-12 第 4 条：页面里不许再摊成段说明（长句归问号弹层）',
       );
       final open = find.byKey(const ValueKey('fnthink-open-channel-settings'));
       expect(open, findsOneWidget, reason: '跳系统渠道设置的那一枚按钮要在场');
       expect(find.text(l10n.fnthinkOpenChannelSettings), findsOneWidget);
+    });
+
+    testWidgets('点那枚问号 ⇒ 弹层起得来（定位串没漂）', (tester) async {
+      stubChannels();
+      final h = harness();
+      await pumpReceive(tester, h);
+
+      await tester.tap(
+        find.byKey(const ValueKey('fnthink-channel-disclosure-help')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-channel-disclosure-help')),
+        findsOneWidget,
+        reason: '问号按 key 点得中：helpKey 被改形就是这一条先红，而不是"点了没反应"',
+      );
+    });
+
+    testWidgets('弹层里那三档与厂商层读得到（正文不许被删）', (tester) async {
+      stubChannels();
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+
+      await tester.tap(
+        find.byKey(const ValueKey('fnthink-channel-disclosure-help')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(l10n.fnthinkChannelDisclosure),
+        findsOneWidget,
+        reason:
+            '整段搬丢了就等于"本机按最高档建渠道"这句承诺消失 —— 而页面上看着一切正常。'
+            '这一族的两面都要钉：不许摊在页面上，也不许干脆删掉（T137 验收③的那一半）',
+      );
     });
 
     testWidgets('起不来 ⇒ 开关**留在开**、原话贴在下面（不回弹、不谎称在跑）', (tester) async {

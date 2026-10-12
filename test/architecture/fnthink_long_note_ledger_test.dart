@@ -29,14 +29,14 @@ void main() {
   int cjkLen(String s) => s.runes.where((c) => c > 0x7f).length;
 
   /// 每页**现在**还挂在页面上的长说明段数（2026-10-12 实测）。搬完一页就把那一行改小或删掉 ——
-  /// `remote_history_page.dart` 已在这条上被搬空（本片），所以它不在表里，读到的必须是 0。
+  /// `remote_history_page.dart`（片1）与 `fnthink_receive_page.dart`（片2）已在这条上被搬空，
+  /// 所以它们不在表里，读到的必须是 0。
   const ledger = <String, int>{
     'fnthink_peers_page.dart': 6,
     'fnthink_send_page.dart': 6,
     'fnthink_endpoint_page.dart': 3,
     'fnthink_shortcuts_page.dart': 3,
     'remote_credential_settings_page.dart': 2,
-    'fnthink_receive_page.dart': 1,
   };
 
   Map<String, int> countAll() {
@@ -96,7 +96,14 @@ void main() {
     expect(
       got['remote_history_page.dart'] ?? 0,
       0,
-      reason: '本片刚把它搬到问号弹层里，读到的还是"挂在页面上"就是尺不认得新形状',
+      reason: '片1 刚把它搬到问号弹层里，读到的还是"挂在页面上"就是尺不认得新形状',
+    );
+    expect(
+      got['fnthink_receive_page.dart'] ?? 0,
+      0,
+      reason:
+          '片2 搬的是渠道披露那一段（127 字，本表里最长的一条）——'
+          '同一形状连搬两页都读得出来，这条对照才不是只对着一页写死的',
     );
   });
 

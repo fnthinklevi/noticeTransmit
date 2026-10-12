@@ -4884,6 +4884,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryBoundaryShort => '这一页只记本机这一份';
 
   @override
+  String get fnthinkChannelDisclosureShort => '响不响、震不震、弹不弹，由系统那一侧的渠道决定';
+
+  @override
   String get fnthinkRemoteTitle => '远程控制';
 
   @override

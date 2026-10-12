@@ -521,9 +521,14 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
         // 厂商（MIUI 等）的悬浮/锁屏/声音开关不在任何 APK 可读的 API 里（六厂商官方
         // 口径一致），所以这里没有"读回来告诉你哪一档被关了"的那一半 —— 写得出"我们
         // 建的渠道是什么样"，厂商那几枚只能请用户去系统里亲眼核对，跳转直达那一页。
-        FnthinkNote(
-          keyName: 'fnthink-channel-disclosure',
-          text: l10n.fnthinkChannelDisclosure,
+        // T149 片2：那三档 + 厂商层的**整段**摆在这儿读不动（127 字），挪进问号弹层，
+        // 页面只留一句"由系统那一侧决定"——正文一字没删（维护者 2026-10-12 第 4 条）。
+        HelpNoteRow(
+          noteKey: 'fnthink-channel-disclosure',
+          helpKey: 'fnthink-channel-disclosure-help',
+          text: l10n.fnthinkChannelDisclosureShort,
+          helpTitle: l10n.fnthinkReceive,
+          helpBody: l10n.fnthinkChannelDisclosure,
         ),
         Align(
           alignment: Alignment.centerLeft,

@@ -8845,6 +8845,12 @@ abstract class AppLocalizations {
   /// **'这一页只记本机这一份'**
   String get remoteHistoryBoundaryShort;
 
+  /// No description provided for @fnthinkChannelDisclosureShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'响不响、震不震、弹不弹，由系统那一侧的渠道决定'**
+  String get fnthinkChannelDisclosureShort;
+
   /// No description provided for @fnthinkRemoteTitle.
   ///
   /// In zh, this message translates to:

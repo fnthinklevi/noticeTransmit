@@ -5152,6 +5152,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This page records only this device\'s own copy';
 
   @override
+  String get fnthinkChannelDisclosureShort =>
+      'Sound, vibration and banners are decided by the system-side channel';
+
+  @override
   String get fnthinkRemoteTitle => 'Remote control';
 
   @override
