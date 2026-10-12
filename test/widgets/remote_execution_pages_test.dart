@@ -117,6 +117,8 @@ void main() {
     String direction = kFnthinkRemoteDirectionIn,
     String peerAddress = '8K3FJ6QPTM9WZ4VHNS',
     String source = 'fnthink',
+    String result = '',
+    String reason = '',
   }) => FnthinkRemoteExecutionRecord(
     execId: id,
     direction: direction,
@@ -127,6 +129,8 @@ void main() {
     state: state,
     source: source,
     createdAt: 1700000000000,
+    result: result,
+    reason: reason,
   );
 
   group('发送页：契约读不到就整页只显示那一句', () {
@@ -902,6 +906,46 @@ void main() {
         loadRecords: (_) async => [record('x0000001', state: 'weird-state')],
       );
       expect(find.textContaining('不认得'), findsWidgets);
+    });
+
+    // 裁定 3（2026-10-12）：历史那一行**除了状态还要有结果与理由**。这两条钉的是同一枚形状的两面：
+    // 有就说出、没有就不说 —— 后者防的是把"没有"渲染成一句空话（"理由："），那是界面替本机编的。
+    testWidgets('被拒那一行要把理由说出来（switch-off 这类读数看得见才算"有执行结果"）', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('x0000001', state: 'failed', reason: 'switch-off'),
+        ],
+      );
+      expect(
+        find.byKey(const ValueKey('remote-history-reason-x0000001')),
+        findsOneWidget,
+        reason: '理由不显示 ⇒ 用户只看到"没做成"，而"没做成"与"为什么没做成"是两件事',
+      );
+      expect(find.textContaining('switch-off'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('remote-history-result-x0000001')),
+        findsNothing,
+        reason: 'result 是空串：那一条真没有结果，不许画一句"结果："冒充',
+      );
+    });
+
+    testWidgets('结果与理由各自有空就有：两个都有就两行都在', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('x0000002', state: 'done', result: '已开启', reason: ''),
+        ],
+      );
+      expect(
+        find.byKey(const ValueKey('remote-history-result-x0000002')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('remote-history-reason-x0000002')),
+        findsNothing,
+      );
+      expect(find.textContaining('已开启'), findsOneWidget);
     });
 
     testWidgets('本机触发的���一行没有对端 ⇒ 说清"没有远端发送方"', (tester) async {

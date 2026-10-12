@@ -4788,6 +4788,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String remoteHistoryResult(String result) {
+    return '结果：$result';
+  }
+
+  @override
+  String remoteHistoryReason(String reason) {
+    return '理由：$reason';
+  }
+
+  @override
   String remoteHistoryFromPeer(String peer) {
     return '来自 $peer';
   }

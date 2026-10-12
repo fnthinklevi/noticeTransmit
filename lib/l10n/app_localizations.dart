@@ -8707,6 +8707,18 @@ abstract class AppLocalizations {
   /// **'不认得的执行状态（{state}）'**
   String remoteHistoryStateUnknown(String state);
 
+  /// No description provided for @remoteHistoryResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果：{result}'**
+  String remoteHistoryResult(String result);
+
+  /// No description provided for @remoteHistoryReason.
+  ///
+  /// In zh, this message translates to:
+  /// **'理由：{reason}'**
+  String remoteHistoryReason(String reason);
+
   /// No description provided for @remoteHistoryFromPeer.
   ///
   /// In zh, this message translates to:

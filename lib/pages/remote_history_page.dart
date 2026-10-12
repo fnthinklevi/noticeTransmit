@@ -230,6 +230,22 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage> {
           keyName: 'remote-history-row-${row.execId}',
           text: '${row.level} · ${row.item} · $peer · $state',
         ),
+        // 裁定 3（2026-10-12）：**状态之外还要有结果与理由**。这两格是"有就说、没有就不说"：
+        //   空串在这一层是真的"没有"（`pending` 的那一条还没结果、放行执行成功的那一条没理由），
+        //   把它渲染成"理由："那种空句子，就是让界面替本机编一句话。
+        // ⚠ 理由与结果**原样显示**（`switch-off`／`auth:wrong`／`missing-grant:…` 这些是判定层的词）：
+        //   翻成人话要一张具名词表 + 双向差集守卫（与 `fnthink_remote_action_labels` 同式），
+        //   那是 T144 片2；在这里半翻会长出第二个词表，而"半翻"的表现是有些词翻了、有些没翻。
+        if (row.result.isNotEmpty)
+          _Note(
+            keyName: 'remote-history-result-${row.execId}',
+            text: l10n.remoteHistoryResult(row.result),
+          ),
+        if (row.reason.isNotEmpty)
+          _Note(
+            keyName: 'remote-history-reason-${row.execId}',
+            text: l10n.remoteHistoryReason(row.reason),
+          ),
         // ⚠ 已终态的那一行**不给**这一下：它在界面上会是一个点了没反应的按钮，
         //   而"点了没反应"正是这一格要防的那种形状。
         if (row.unsettled)

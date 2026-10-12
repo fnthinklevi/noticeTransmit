@@ -5049,6 +5049,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String remoteHistoryResult(String result) {
+    return 'Result: $result';
+  }
+
+  @override
+  String remoteHistoryReason(String reason) {
+    return 'Reason: $reason';
+  }
+
+  @override
   String remoteHistoryFromPeer(String peer) {
     return 'From $peer';
   }
