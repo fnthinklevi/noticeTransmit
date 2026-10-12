@@ -252,6 +252,88 @@ void main() {
   });
 
   // ── T90 补册（2026-10-05）：另两族从未被纳入，也从没有守卫 ──────────────
+  // ── T148 片4（差异⑧ 的实话）──────────────────────────────────────────────
+  // 上面那本「裸 TextButton」台账与下面那条「自搭 CupertinoButton 清零」的扫描口径都是
+  // `lib/pages/fnthink_*`（判据原话是"幻念这六张页归零"，不是全库）。⇒ T148 的判据要的是
+  // 「**所有**历史页照推送历史那一形状长」，而两张历史页（转发行 + 远程执行历史）里的动作
+  // 按钮**一枚都不在册**：在那儿新写一枚裸 `TextButton(` 或自搭 `GestureDetector(`，
+  // 不会有任何一条守卫红。这册先把现状钉成数字（只许变薄），下一步换形状时按格往下减。
+  // ⚠ 这本账**不是**"这些形状合法"的背书：它记的是欠账，与 T90 那两本同一条纪律。
+  group('两张历史页里的动作形状（T148 差异⑧ 的台账）', () {
+    // 现测（2026-10-12，剥注释后逐枚数）：每一格都是一笔要还的债，不是合法形状名单。
+    //   · `history_page.dart` 的 4 枚裸 `TextButton(` ＝ 收件详情弹层里的「回复／重发」两枚 +
+    //     筛选面板「重置」+ 批量底栏「取消」；4 枚 `GestureDetector(` ＝ 行内那枚自搭「现在推送」
+    //     蓝底小钮、chip 展开、档位芯片、筛选条清除；7 枚 `IconButton(` ＝ AppBar／搜索后缀／离线横幅
+    //     那一族（T90 片9 之后仍在 Material 侧）。
+    //   · `remote_history_page.dart` 的 2 枚自搭 `CupertinoButton(` ＝ 撤销那一枚与方向芯片。
+    //     注意它**不在**幻念那六张页的口径里（文件名不是 `fnthink_` 前缀），所以「自搭按钮清零」
+    //     那条一直管不到它 —— 这一格就是那条漏口的账面。
+    const kHistoryPages = <String, Map<String, int>>{
+      'lib/pages/history_page.dart': {
+        'TextButton(': 4,
+        'GestureDetector(': 4,
+        'IconButton(': 7,
+      },
+      'lib/pages/remote_history_page.dart': {'CupertinoButton(': 2},
+    };
+
+    final shapeRe = {
+      for (final k in const [
+        'TextButton(',
+        'CupertinoButton(',
+        'GestureDetector(',
+        'IconButton(',
+      ])
+        k: RegExp('(^|[^A-Za-z0-9_])${RegExp.escape(k)}'),
+    };
+
+    Map<String, Map<String, int>> measure() => {
+      for (final p in kHistoryPages.keys)
+        p: {
+          for (final e in shapeRe.entries)
+            if (e.value.allMatches(codeByPath[p] ?? '').isNotEmpty)
+              e.key: e.value.allMatches(codeByPath[p] ?? '').length,
+        },
+    };
+
+    test('两张页都还在扫描口径里（漂了就整册成空转）', () {
+      for (final p in kHistoryPages.keys) {
+        expect(
+          codeByPath.containsKey(p),
+          isTrue,
+          reason: '$p 读不到 ⇒ 下面几条对任何仓库都恒真，这本账是空的',
+        );
+      }
+      final sum = kHistoryPages.values.fold<int>(
+        0,
+        (a, m) => a + m.values.fold<int>(0, (x, y) => x + y),
+      );
+      expect(sum, greaterThan(0), reason: '台账一枚都没登记 ⇒ "不许变多"等于没写（本仓不许空表当守卫）');
+    });
+
+    test('逐页逐形状：枚数与台账相等，账外多一枚就红', () {
+      final got = measure();
+      for (final p in kHistoryPages.keys) {
+        expect(
+          got[p]!.keys.toSet(),
+          kHistoryPages[p]!.keys.toSet(),
+          reason:
+              '$p 里出现了台账之外的动作形状（或账上那一形状已经清零）⇒ '
+              '换了形状要回来记账：实际 $got，台账 ${kHistoryPages[p]}',
+        );
+        for (final e in kHistoryPages[p]!.entries) {
+          expect(
+            got[p]![e.key] ?? 0,
+            e.value,
+            reason:
+                '$p 的 ${e.key} 实际 ${got[p]![e.key] ?? 0} 枚、台账 ${e.value} 枚 ⇒ '
+                '多一枚就是又长出一个动作形状（T148 差异⑧），少一枚就是真换掉了公共件',
+          );
+        }
+      }
+    });
+  });
+
   group('转场与轻提示两族（T90 补册：防变多，不是「要换掉的清单」）', () {
     // ⚠ 这两族**从来没进过台账**：那 27 片换的是对话框 / 列表选择器 / 表单弹层 /
     //   下拉壳，而 `MaterialPageRoute` 与 `showSnackBar` 是另外两族。
@@ -327,6 +409,9 @@ void main() {
             '新写一枚请改走三种合法形状；真换掉一枚就把那一格改小、换到 0 就把这一格删掉',
       );
     });
+
+    // 这里原本只有上面两条：口径是 `lib/pages/fnthink_*`，两张历史页**不在册**。
+    // T148 片4 把口径的事实在下面那册里钉住（见「两张历史页里的动作形状」）。
 
     test('逐文件枚数与台账相等（这本账就是剩余工作量）', () {
       final actual = fnthinkOnly();
