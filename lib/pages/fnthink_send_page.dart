@@ -6,11 +6,13 @@ import 'package:fnthink_push/fnthink_push.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
+import '../models/fnthink_remote_execution_record.dart';
 import '../services/channel_display.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_l2_actions.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_remote_action_labels.dart';
+import '../services/fnthink_remote_out_record.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/fnthink_outcome.dart';
@@ -73,6 +75,7 @@ class FnthinkSendDeps {
     required this.loadPeers,
     required this.send,
     required this.contractOf,
+    required this.saveRemoteExecution,
     this.loadWebhooks,
     this.sendToWebhook,
   });
@@ -91,6 +94,12 @@ class FnthinkSendDeps {
   /// 契约（异步读）。只有指令档需要它 —— 但**进来就读**：档位那一排要当场说得出
   /// "指令档为什么进不去"，等人点下去才发现是另一回事。
   final Future<FnthinkContract> Function() contractOf;
+
+  /// 发起端那一发的留痕写口（T143 片1）。**故意做成必填**：
+  /// 少传就编译不过，而不是让「发」那一档永远空着、等有人问起才发现（此前正是后者 ——
+  /// 这张表的四个生产写入点全是 in 方向，out 一行都没写过）。
+  final Future<void> Function(FnthinkRemoteExecutionRecord record)
+  saveRemoteExecution;
 
   /// 「Webhook 通道」那一组的目标读口（T122）。不传 ⇒ 走生产默认（locator 里那几条通道）。
   /// `null` 读的是"读不出来"，与空名单是两句。
@@ -468,6 +477,23 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       _note = null;
       _sent = false;
     });
+    // T143 片1：按下这一发先在**本机**留一行 out（此前这张表只有 in 方向的写入点，
+    // 于是「发」那一档点进去恒空，而界面上那句"已交出去"是当场说给用户听的）。
+    // ⚠ 写在这一次 send **之前**：这一行要回答的第一件事是"我什么时候按的"，而那一发可能在
+    //   路上停几秒 —— 期间进程被杀，留下的是一条"按下过、结果不明"的账，而不是什么都没有。
+    final openedAt = DateTime.now();
+    final outRow = remoteOutRow(
+      execId: newRemoteExecutionId(
+        'out|$peer|$_level|$_wireItem|$_wireArgument|'
+        '${openedAt.millisecondsSinceEpoch}',
+      ),
+      peer: peer,
+      level: _level,
+      item: _wireItem,
+      argument: _wireArgument,
+      at: openedAt,
+    );
+    await widget.deps.saveRemoteExecution(outRow);
     final result = await widget.deps.send(
       peer: peer,
       // ⚠ 标题留空：指令没有标题/正文这个划分，而空标题在标题信封那边是"不套信封"
@@ -476,8 +502,18 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       title: '',
       text: wire,
     );
-    if (!mounted) return;
     final sent = result.status == FnthinkSendStatus.accepted;
+    // 没交出去 ⇒ 同一行改写成 `failed` + 那枚机器词（`execId` 不变，不留两行）。
+    // 交出去 ⇒ 原样停在 `pending`：对面执没执行是两段回执的事，而载荷里目前没有关联键（片2）。
+    // ⚠ 这次写在 `if (!mounted)` **之前**：用户划走这一页不该让账少一行。
+    await widget.deps.saveRemoteExecution(
+      remoteOutRowAfterSend(
+        outRow,
+        accepted: sent,
+        reason: sent ? '' : (result.reason ?? result.status.name),
+      ),
+    );
+    if (!mounted) return;
     final note = sent
         ? l10n.remoteSendStartedNote
         : l10n.remoteSendFailed(result.reason ?? result.status.name);

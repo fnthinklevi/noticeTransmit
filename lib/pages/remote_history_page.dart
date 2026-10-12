@@ -314,7 +314,10 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
           ),
         // ⚠ 已终态的那一行**不给**这一下：它在界面上会是一个点了没反应的按钮，
         //   而"点了没反应"正是这一格要防的那种形状。
-        if (row.unsettled)
+        // ⚠ **发起端那一行也不给**（T143 片1 带出来的新形状）：out 的 `pending` 说的是
+        //   "我已经交出去了、还没收到对面的回执"，本机手里没有窗口、也没有可撤的东西 ——
+        //   给这一下等于把一条已经上路的东西标成"我收回了"，而对面照不照做没人知道。
+        if (row.unsettled && row.incoming)
           Align(
             alignment: Alignment.centerLeft,
             child: CupertinoButton(

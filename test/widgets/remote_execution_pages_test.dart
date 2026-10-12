@@ -8,6 +8,8 @@ import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
+import 'package:notice_transmit/services/fnthink_remote_execution.dart';
+import 'package:notice_transmit/services/fnthink_remote_out_record.dart';
 import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/pages/remote_history_page.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
@@ -53,7 +55,10 @@ void main() {
       required String text,
     })?
     send,
+    void Function(FnthinkRemoteExecutionRecord record)? onSaved,
+    List<String>? trace,
   }) async {
+    final events = trace ?? <String>[];
     tester.view.physicalSize = const Size(1080, 5400);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -67,15 +72,27 @@ void main() {
           // 发送页停在哪一档）。纯文本那一档的证据在 `fnthink_settings_page_test.dart`。
           initialTier: FnthinkSendTier.command,
           deps: FnthinkSendDeps(
+            // T143 片1：发起端那一发的留痕。要看的是**顺序**（按下先写一行 pending，
+            // send 回来再覆盖同一行），所以这里记两样：写了什么、按什么次序写。
+            saveRemoteExecution: (record) async {
+              events.add('save:${record.state}');
+              onSaved?.call(record);
+            },
             loadPeers: () async => peers ?? const <FnthinkPeer>[],
             send:
-                send ??
                 ({
                   required String peer,
                   required String title,
                   required String text,
-                }) async =>
-                    const FnthinkSendResult(status: FnthinkSendStatus.accepted),
+                }) async {
+                  events.add('send');
+                  if (send != null) {
+                    return send(peer: peer, title: title, text: text);
+                  }
+                  return const FnthinkSendResult(
+                    status: FnthinkSendStatus.accepted,
+                  );
+                },
             contractOf: contractOf ?? () async => contract,
           ),
         ),
@@ -882,6 +899,99 @@ void main() {
     });
   });
 
+  group('发起端那一发送就写一行 out（T143 片1）', () {
+    Future<void> submit(WidgetTester tester) async {
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-listener:start')),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      await _confirmIfPresent(tester);
+    }
+
+    testWidgets('第一写在 send **之前**（按下那一刻账上就有这一条，不是发完才记）', (tester) async {
+      final events = <String>[];
+      final saved = <FnthinkRemoteExecutionRecord>[];
+      await pumpSend(tester, trace: events, onSaved: saved.add);
+      await submit(tester);
+
+      expect(
+        events.first,
+        'save:pending',
+        reason:
+            '写在 send 之后 ⇒ 那一发卡在路上（或这台被杀掉）时，「发」那一档什么都没有，'
+            '而用户确实按下过。第一写要回答的是"我按过"，第二写才是"结果如何"',
+      );
+      expect(events, contains('send'));
+      expect(saved.first.direction, kFnthinkRemoteDirectionOut);
+      expect(saved.first.peerAddress, '8K3FJ6QPTM9WZ4VHNS');
+      expect(saved.first.item, 'listener:start');
+      expect(saved.first.source, kFnthinkRemoteOutSource);
+      expect(
+        events.where((e) => e.startsWith('save:')),
+        hasLength(2),
+        reason: '两写落**同一行**（一次按下 = 一条记录，不是两条）',
+      );
+      expect(saved[1].execId, saved.first.execId);
+    });
+
+    testWidgets('被拒那一发 ⇒ 同一行改写成 failed + 那枚理由', (tester) async {
+      final events = <String>[];
+      final saved = <FnthinkRemoteExecutionRecord>[];
+      await pumpSend(
+        tester,
+        trace: events,
+        onSaved: saved.add,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async => const FnthinkSendResult(
+              status: FnthinkSendStatus.transportError,
+            ),
+      );
+      await submit(tester);
+
+      expect(saved.last.state, RemoteExecutionStates.failed);
+      expect(
+        saved.last.reason,
+        'transportError',
+        reason: '没给那枚机器词时，退到 status.name —— 这一格不许空着说"失败了但不知道为什么"',
+      );
+      expect(saved.last.execId, saved.first.execId);
+      expect(
+        saved.last.unsettled,
+        isFalse,
+        reason: '没发出去就是终态：留一条永远 pending 的行，界面会一直等一个不会来的回执',
+      );
+    });
+
+    testWidgets('发出去那一发**不替对面编终态**：第二写仍是 pending', (tester) async {
+      final saved = <FnthinkRemoteExecutionRecord>[];
+      await pumpSend(tester, onSaved: saved.add);
+      await submit(tester);
+
+      expect(saved, isNotEmpty);
+      expect(
+        saved.last.state,
+        RemoteExecutionStates.pending,
+        reason:
+            'send 只证明交出去了。写成 done 就是本机替对面说话 —— 而回执载荷里'
+            '目前没有关联键（片2），这一行根本不知道自己被谁确认了',
+      );
+    });
+  });
+
   group('历史页：已终态的那一行不给取消按钮', () {
     testWidgets('pending 给取消；done 不给', (tester) async {
       await pumpHistory(
@@ -899,6 +1009,30 @@ void main() {
         find.byKey(const ValueKey('remote-history-cancel-x0000002')),
         findsNothing,
         reason: '已终态的那一行给这一下 = 一个点了没反应的按钮',
+      );
+    });
+
+    testWidgets('发起端那一行（out + pending）也不给取消：本机手里没有可撤的窗口', (tester) async {
+      // T143 片1 带出来的新形状：out 的 `pending` 说的是"已交出去、等对面回执"，
+      // 给这一下等于把一条已经上路的东西标成"我收回了" —— 而对面照不照做没人知道。
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record(
+            'x0000009',
+            state: 'pending',
+            direction: kFnthinkRemoteDirectionOut,
+          ),
+        ],
+      );
+      expect(
+        find.byKey(const ValueKey('remote-history-cancel-x0000009')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('remote-history-row-x0000009')),
+        findsOneWidget,
+        reason: '不给出口的同时，那一行本身要看得见（"发"那一档不再恒空就是本片的目的）',
       );
     });
 

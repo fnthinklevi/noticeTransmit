@@ -79,6 +79,7 @@ void main() {
           prefillBody: prefillBody,
           initialTier: initialTier,
           deps: FnthinkSendDeps(
+            saveRemoteExecution: (_) async {},
             loadPeers: loadPeers ?? () async => const [peer],
             send:
                 ({

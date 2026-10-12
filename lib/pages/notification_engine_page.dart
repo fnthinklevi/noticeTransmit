@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../services/battery_service.dart';
 import '../services/device_state_service.dart';
 import '../services/fnthink_remote_gate.dart';
+import '../services/fnthink_remote_out_record.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
@@ -323,6 +324,7 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
                         .sendNotice(peer: peer, title: title, text: text),
                 contractOf: () =>
                     GetIt.instance<FnthinkContractLoader>().load(),
+                saveRemoteExecution: saveRemoteExecutionRow,
               ),
             ),
           ),

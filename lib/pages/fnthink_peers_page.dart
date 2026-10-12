@@ -18,6 +18,7 @@ import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_remote_action_labels.dart';
+import '../services/fnthink_remote_out_record.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
@@ -1193,6 +1194,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
                   text: text,
                 ),
             contractOf: () async => _deps.contracts.load(),
+            saveRemoteExecution: saveRemoteExecutionRow,
           ),
         ),
       ),

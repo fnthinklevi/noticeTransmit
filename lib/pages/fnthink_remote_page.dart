@@ -10,6 +10,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_remote_gate.dart';
+import '../services/fnthink_remote_out_record.dart';
 import '../services/fnthink_remote_runner.dart';
 import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_settings.dart';
@@ -115,6 +116,7 @@ class _FnthinkRemotePageState extends State<FnthinkRemotePage> {
                   text: text,
                 ),
             contractOf: () async => widget.deps.contracts.load(),
+            saveRemoteExecution: saveRemoteExecutionRow,
           ),
         ),
       ),

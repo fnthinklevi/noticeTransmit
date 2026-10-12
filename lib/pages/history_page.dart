@@ -23,6 +23,7 @@ import '../models/delivery_status.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
+import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
@@ -2209,6 +2210,7 @@ class _HistoryPageState extends State<HistoryPage> {
             send: sendTo,
             contractOf: () async =>
                 GetIt.instance<FnthinkContractLoader>().load(),
+            saveRemoteExecution: saveRemoteExecutionRow,
           ),
         ),
       ),
