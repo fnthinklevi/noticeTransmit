@@ -2812,25 +2812,15 @@ class _HistoryPageState extends State<HistoryPage> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: _clearAllFilters,
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.close,
-                          size: 14,
-                          color: AppColors.blue,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          l10n.clearSearchFilter,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
+                  // T148 差异⑧ 片9：这一枚是**行内文字动作**（清掉筛选），交给那一族唯一的件；
+                  // 原来的 ✕ 图标是装饰（"清除"两个字已经把动作说全了），换件时去掉 ——
+                  // 与批量底栏「取消」同一处理（件没有图标槽，见那一枚的例外说明）。
+                  // ⚠ 字号随件从 12 → 15（行的字号归 `FnthinkInlineAction` 一处管），版式要到设备上核。
+                  FnthinkInlineAction(
+                    key: const ValueKey('history-filter-clear'),
+                    label: l10n.clearSearchFilter,
+                    tone: FnthinkActionTone.neutral,
+                    onPressed: _clearAllFilters,
                   ),
                   const Spacer(),
                   if (_rangeStart != null)

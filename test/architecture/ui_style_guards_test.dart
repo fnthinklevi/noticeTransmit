@@ -264,7 +264,16 @@ void main() {
     //   · `history_page.dart` 裸 `TextButton(` 原 4 枚 ＝ 收件详情弹层「回复／重发」+ 筛选面板
     //     「重置」+ 批量底栏「取消」；**片6 换掉前两枚、片7 换掉「重置」、片8 换掉「取消」** ⇒
     //     **清零，那一列从账上摘掉**（长回来键集不等当场红）。
-    //     4 枚 `GestureDetector(` ＝ 行内那枚自搭「现在推送」蓝底小钮、chip 展开、档位芯片、筛选条清除；
+    //     4 枚 `GestureDetector(` 原是行内那枚自搭「现在推送」蓝底小钮、chip 展开、档位芯片、筛选条清除；
+    //     **片9 换掉「筛选条清除」**（行内文字动作 ⇒ 归件）⇒ 现 3 枚，且这三枚**不是同一族**：
+    //       · 「现在推送」蓝底小钮 = **动作**，登记成因「行内填充式小钮没有对应公共件」的例外
+    //         （`PrimaryActionButton` 是全宽主操作、`FnthinkInlineAction` 无底色 ⇒
+    //          要统一必须先定"行内填充小钮"这个形状，并同批核它的同类，属另一件事）；
+    //       · chip 展开 + 档位芯片 = **chip 族**（行内密度 10px/radius 3 与 13px/radius 8），
+    //         与 `FnthinkChoiceChip`（13px/radius 10 的"一排可选项里的一枚"）不是同一族的密度 ——
+    //         硬并会把行内 chip 放大一圈，那是重设计不是统一。
+    //     ⇒ **差异⑧ 到这一片收口**：这条线只管**动作**；动作四枚已是「三枚走件 + 一枚登记例外」，
+    //       chip 族那两枚留在账上作为**另一笔账**（行内 chip 形状统一），不再算在"动作形状四种"里。
     //     7 枚 `IconButton(` ＝ AppBar／搜索后缀／离线横幅那一族（T90 片9 之后仍在 Material 侧）。
     //     ⚠ 片6 现读又补两列：这一页还有 **1 枚 `ElevatedButton(`（筛选面板「应用」）与
     //     1 枚 `FilledButton.icon(`（批量底栏「重推」）—— 两枚 Material 控件此前不在任何一本账里，
@@ -281,7 +290,7 @@ void main() {
     //     那条一直管不到它 —— 这一格就是那条漏口的账面。
     const kHistoryPages = <String, Map<String, int>>{
       'lib/pages/history_page.dart': {
-        'GestureDetector(': 4,
+        'GestureDetector(': 3,
         'IconButton(': 7,
         'FilledButton.icon(': 1,
       },
@@ -412,6 +421,24 @@ void main() {
         reason:
             'tone 取默认的 action（蓝）⇒ 「只退出批量模式」这一枚看起来像"会改到某一批东西"；'
             '中性色是这一格的语义（差异④ 那条"会让东西从此不可用才配红"在这里不成立）',
+      );
+    });
+
+    test('筛选条那枚「清除」走件（片9：差异⑧ 的动作线在这里收口）', () {
+      final src = codeByPath['lib/pages/history_page.dart']!;
+      expect(
+        RegExp(
+          "FnthinkInlineAction\\(\\s*key: const ValueKey\\('history-filter-clear'\\),",
+        ).hasMatch(src),
+        isTrue,
+        reason:
+            '筛选条那枚「清除」不再由件给出 ⇒ 它又长回"自搭 GestureDetector + ✕ 图标 + 12px 蓝字"'
+            '（行内文字动作那一族的形状）',
+      );
+      expect(
+        RegExp(r"GestureDetector\(\s*onTap: _clearAllFilters").hasMatch(src),
+        isFalse,
+        reason: '同一个动作又被搭了一遍 ⇒ 上面那条正则能过、这一格却在屏上长着第二份',
       );
     });
   });
