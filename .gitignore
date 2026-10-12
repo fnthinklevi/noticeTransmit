@@ -19,6 +19,8 @@ base.md
 NoticeTransmit关键密钥.md
 crash_log.txt
 flutter_complete_tutorial.md
+# 调研厂商文档时抓下来的 SPA 外壳（正文由 JS 现渲染，这份只有骨架），非仓库产物
+hw1.html
 server/node_modules/
 
 outputs/
