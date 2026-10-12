@@ -17,11 +17,16 @@ import 'remote_credential_store.dart';
 /// 执行（MethodChannel）、延时窗口、撤销、两段回执都在**调用方**那一层 —— 这一层不碰它们，
 /// 那样第二个读者就长出来了。
 ///
-/// ## ⚠ 开关关着 ⇒ 回「不是指令」，不是回「拒执行」
-/// 循环那一格挂的 `onCommand`（见 [FnthinkReceiveLoop] 的 ⑥）只决定
-/// "这一条还要不要按通知弹出来"。所以开关关着时它必须回 `RemoteCommandNotEnabled`
-/// —— **照常显示**：那是一条用户看得见的消息。回"拒"的话指令会被吃掉而不显示、
-/// 也不执行、还不留痕，而用户唯一看到的现象是"对方说发了，我这儿什么也没有"。
+/// ## 开关关着 ⇒ 回「拒」（维护者 2026-10-12 裁定 1，推翻下面这句旧设计）
+/// **原句（留着）**：「开关关着时它必须回 `RemoteCommandNotEnabled` —— 照常显示：那是一条用户
+/// 看得见的消息。回"拒"的话指令会被吃掉而不显示、也不执行、还不留痕，而用户唯一看到的现象是
+/// "对方说发了，我这儿什么也没有"。」
+/// 这句的**前提今天不成立**：拒的那一档现在既留痕（进远程执行历史，终态 `failed` + 理由
+/// `switch-off`）又回执（对面那台看得见被拒）。两头都有读数 ⇒ 「吃掉而不显示」不再成立，
+/// 而把一次动作显示成一条消息，正是维护者报的那个故障形状。
+/// 所以这一档从此**并进 [RemoteCommandRejected]**，不保留独立类型：留痕与「该不该发回执」
+/// 的判据本来就在 `source` 上（本机那一路没有对面 ⇒ 契约 `localTriggerReceipt=none` 不回），
+/// 再开一个类型就是让那条判据有两个读者。
 ///
 /// ## item 的判据**分档**（与 T50/T51 同一纪律，不共用一张表）
 /// - L2 → `parseL2Item`；L3 → `parseL3Item`（**只判"认不认得"**）；
@@ -93,8 +98,11 @@ class RemoteCommandRecognizer {
     final grantedKeys = {
       for (final item in grant.items) contract.grantItemBase(item),
     };
-    // ① 开关：关着 ⇒ 当成"不是指令"（照常显示），**不是**拒执行。
-    if (!await settings.enabled) return const RemoteCommandNotEnabled();
+    // ① 开关：关着 ⇒ **拒**（留痕 + 回执，理由 `switch-off`），不再"当不是指令显示掉"。
+    //   维护者 2026-10-12 裁定 1；旧理由与它为什么不成立写在类注释里，留着。
+    if (!await settings.enabled) {
+      return RemoteCommandRejected(command, sender, 'switch-off', source);
+    }
     // ② 来源渠道（契约 remoteExecution.sources；"判不许有的渠道"与 L2/L3 无关）。
     final sources = contract.remoteExecutionSourcesFor(command.level);
     if (!sources.contains(source)) {
@@ -230,7 +238,11 @@ class RemoteCommandRecognizer {
   }
 }
 
-/// 一条收件被判成什么（**四档必须分开**：不是指令 / 开关关着 / 被拒 / 放行）。
+/// 一条收件被判成什么（**三档必须分开**：不是指令 / 被拒 / 放行）。
+///
+/// ⚠ 这里曾经有第四档 `RemoteCommandNotEnabled`（开关关着 ⇒ 照常按通知显示、不留痕、不回执）。
+/// 2026-10-12 裁定 1 把它并进了 [RemoteCommandRejected]（理由 `switch-off`）——
+/// 留着那个类型就是留着第二条"该不该回执"的判据，而那一判只认 `source`。
 sealed class RemoteCommandParse {
   const RemoteCommandParse();
 }
@@ -240,15 +252,7 @@ class RemoteCommandNotACommand extends RemoteCommandParse {
   const RemoteCommandNotACommand();
 }
 
-/// 是指令，但**开关关着** ⇒ 照常按通知显示。
-///
-/// ⚠ 这一档**不是**"拒"：它与 [RemoteCommandRejected] 的处置完全不同（一个显示、一个
-/// 留痕并回执）。合成一句"没执行"的后果是用户看不到那条消息，而对方会一直等回执。
-class RemoteCommandNotEnabled extends RemoteCommandParse {
-  const RemoteCommandNotEnabled();
-}
-
-/// 是指令，被拒（凭据不对 / 来源渠道不对 / item 不认得）—— 执行不发生，
+/// 是指令，被拒（**开关关着** / 凭据不对 / 来源渠道不对 / item 不认得）—— 执行不发生，
 /// 但**要留痕并给对面回一条拒的回执**（对方在等一个答复）。
 class RemoteCommandRejected extends RemoteCommandParse {
   const RemoteCommandRejected(
@@ -261,7 +265,7 @@ class RemoteCommandRejected extends RemoteCommandParse {
   final RemoteCommand command;
   final String sender;
 
-  /// `auth:<reason>` ｜`source-not-allowed:<level>` ｜`item:<reason>`。
+  /// `switch-off` ｜`auth:<reason>` ｜`source-not-allowed:<level>` ｜`item:<reason>`。
   final String reason;
 
   /// 这一条是从哪来的（契约 `remoteExecution.sources` 的那两项之一）。

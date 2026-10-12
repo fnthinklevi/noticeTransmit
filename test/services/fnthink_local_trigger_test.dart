@@ -317,7 +317,7 @@ void main() {
     });
   });
 
-  group('前两档什么都不做', () {
+  group('只有「不是指令」不做事；「开关关着」是拒（维护者 2026-10-12 裁定 1）', () {
     test('正文不是指令 ⇒ 不执行、不留痕', () async {
       final w = await wiring();
       await w.onLocalContent('今天天气不错');
@@ -328,14 +328,53 @@ void main() {
       expect(saved, isEmpty, reason: '通知本身已经显示过了，不该再记一行噪声');
     });
 
-    test('开关关着 ⇒ 不执行、不留痕', () async {
+    test('开关关着 ⇒ 不执行，但**留一行 failed / switch-off**，而本机这一路仍不发回执', () async {
+      // 裁定 1 之前这一条断的是 `saved, isEmpty`（"不留痕"）。今天留痕是要求的：
+      // 对面要收到一句拒（见下面那条幻念推送那一路），本机要有地方查得到"它来过而被开关挡住"。
       final w = await wiring(enabled: false);
       await w.onLocalContent(wire());
       for (final fire in fired) {
         fire();
       }
-      expect(l2.calls, isEmpty);
-      expect(saved, isEmpty);
+      expect(l2.calls, isEmpty, reason: '开关关着绝不执行 —— 这一半没变');
+      final row = saved.single;
+      expect(row.state, RemoteExecutionStates.failed);
+      expect(row.reason, 'switch-off');
+      expect(row.direction, kFnthinkRemoteDirectionIn);
+      expect(row.peerAddress, isEmpty, reason: '这一路没有对面，填了会让历史行显示成"来自某地址"');
+      expect(
+        receipts,
+        isEmpty,
+        reason:
+            '本机触发那一路没有可回的对象（契约 localTriggerReceipt = none）—— '
+            '留痕改了，但"按来源决定回不回"那判据不许跟着改',
+      );
+    });
+
+    test('开关关着 + 幻念推送那一路 ⇒ 对面收到一条 failed 回执（这就是裁定 1 要的"回传拒绝"）', () async {
+      final w = await wiring(enabled: false);
+      final msg = FnthinkInboxMessage(
+        messageId: 'm_00000002',
+        sender: '8K3FJ6QPTM9WZ4VHNS',
+        type: 'notice',
+        item: '',
+        title: '',
+        body: wire(),
+        receivedAt: 1700000000000,
+      );
+      expect(
+        await w.onCommand(msg),
+        isTrue,
+        reason:
+            '回 false = 按普通通知弹出来 —— 那正是"指令被当消息显示掉"的形状；'
+            '开关关着现在是"拒"，不是"没收到"',
+      );
+      expect(saved.single.reason, 'switch-off');
+      expect(
+        receipts.map((e) => (e.$1, e.$2.result, e.$2.state)).toList(),
+        [('8K3FJ6QPTM9WZ4VHNS', 'execution_done', 'failed')],
+        reason: '对面在等一个答复：被拒也要回一段，且终态是 failed 而不是 pending',
+      );
     });
   });
 

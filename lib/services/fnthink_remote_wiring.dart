@@ -52,14 +52,15 @@ class RemoteCommandWiring {
   final Future<void> Function(FnthinkRemoteExecutionRecord record) saveRecord;
 
   /// 收货循环挂的那一格：**回 true = 这是指令，别按通知弹出来**。
+  ///
+  /// ⚠ 只有 `NotACommand` 那一路回 false。开关关着（`switch-off`）在 2026-10-12 裁定 1 之后
+  /// 走的是**拒**那一档 ⇒ 留痕 + 回对面一条 `failed` 回执 + **不按通知弹**：一条远程指令是
+  /// 一次动作，把它显示成一条消息就是把动作冒充成消息（维护者报的那个形状）。
   Future<bool> onCommand(FnthinkInboxMessage message) async {
     final parsed = await recognizer.parse(message);
     switch (parsed) {
       case RemoteCommandNotACommand():
-      case RemoteCommandNotEnabled():
-        // 两种都**照常显示**：前者本来就不是指令；后者是"开关关着"，
-        // 回"拒"的话那条消息会被吃掉且不显示、也不留痕 ——
-        // 用户唯一看到的现象是"对方说发了，我这儿什么也没有"。
+        // 它本来就不是指令 ⇒ 是一条普通消息，照常显示、不进远程历史。
         return false;
       case RemoteCommandRejected():
         await _recordRejected(parsed);
@@ -111,12 +112,14 @@ class RemoteCommandWiring {
   /// 开关、来源渠道、凭据、item 形状这几道判据在这一条路上同样成立，
   /// 重写一遍就等于出现第二个"认不认得这条指令"的读者。
   ///
-  /// ## ⚠ 四档里前两档在这里什么都不做
-  /// [RemoteCommandNotACommand] / [RemoteCommandNotEnabled] 在收件表那一路是"照常显示"，
-  /// 而这一路**已经显示过了**：那条通知本身就在通知栏里，用户看得见。
-  /// 所以直接返回，且**不留痕** —— 留一行"没执行"的记录只会让历史里堆满噪声。
-  /// 被拒那一档仍然留痕（复用 [_recordRejected]）：那里用户看到的是"通知正常、什么也没发生"，
-  /// 没有痕迹就永远查不出原因。
+  /// ## ⚠ 这一路只有「不是指令」那一档什么都不做
+  /// 白名单通知**已经显示过了**（那条通知本身在通知栏里），所以 [RemoteCommandNotACommand]
+  /// 直接返回、**不留痕** —— 留一行"没执行"的记录只会让历史里堆满噪声。
+  /// 拒的那一档（含 `switch-off`）仍然留痕（复用 [_recordRejected]）：那里用户看到的是
+  /// "通知正常、什么也没发生"，没有痕迹就永远查不出原因。
+  /// ⚠ 但**不回执**：这一路没有远端发送方，`remoteExecutionSendsReceipt(contract, source)`
+  /// 按契约 `localTriggerReceipt=none` 判掉 —— 这正是 [RemoteCommandRejected.source]
+  /// 这一格存在的理由（拿 `sender` 当来源会朝一个不存在的地址发回执）。
   ///
   /// ## sender 恒为空串
   /// ⚠ 不是"没有 sender 所以填空"，而是**界面按 `peerAddress.isEmpty` 判**
@@ -141,7 +144,6 @@ class RemoteCommandWiring {
     );
     switch (parsed) {
       case RemoteCommandNotACommand():
-      case RemoteCommandNotEnabled():
         return;
       case RemoteCommandRejected():
         await _recordRejected(parsed);

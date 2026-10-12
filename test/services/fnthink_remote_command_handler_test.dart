@@ -157,13 +157,18 @@ void main() {
     });
   });
 
-  group('开关关着 ⇒ 当成"不是指令"（照常显示，不静默丢弃）', () {
-    test('开关关着 ⇒ RemoteCommandNotEnabled（**不是** Rejected）', () async {
+  group('开关关着 ⇒ 拒（维护者 2026-10-12 裁定 1，推翻"当成不是指令显示掉"）', () {
+    test('开关关着 ⇒ Rejected，理由 switch-off（**不再是** NotEnabled）', () async {
       final r = await recognizer(enabled: false);
       final parsed = await r.parse(msg(wire()));
-      expect(parsed, isA<RemoteCommandNotEnabled>());
-      expect(parsed, isNot(isA<RemoteCommandRejected>()));
-      expect(parsed, isNot(isA<RemoteCommandNotACommand>()));
+      expect(parsed, isA<RemoteCommandRejected>());
+      final rejected = parsed as RemoteCommandRejected;
+      expect(rejected.reason, 'switch-off');
+      expect(
+        rejected.source,
+        isNot(isEmpty),
+        reason: 'source 必须带着：留痕与"该不该回执"都按它判，而这一族的第四档从此并入这一档',
+      );
     });
   });
 
