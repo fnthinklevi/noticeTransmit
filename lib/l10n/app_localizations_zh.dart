@@ -4884,6 +4884,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryBoundaryShort => '这一页只记本机这一份';
 
   @override
+  String get fnthinkShortcutsWhyShort => '对面只能打开你在这里登记过的入口';
+
+  @override
+  String get fnthinkShortcutsEmptyShort => '还没有登记任何入口';
+
+  @override
+  String get remotePeersReadFailedShort => '名单读不出来 —— 这不等于「还没配对过」';
+
+  @override
   String get remoteCredKeyOnceShort => '这一串只出现这一次，现在就得抄走';
 
   @override

@@ -5152,6 +5152,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'This page records only this device\'s own copy';
 
   @override
+  String get fnthinkShortcutsWhyShort =>
+      'The other side can only open entries you registered here';
+
+  @override
+  String get fnthinkShortcutsEmptyShort => 'No entries registered yet';
+
+  @override
+  String get remotePeersReadFailedShort =>
+      'Could not read the peer list - that is not the same as having no peers';
+
+  @override
   String get remoteCredKeyOnceShort => 'Shown once - copy it now';
 
   @override

@@ -8845,6 +8845,24 @@ abstract class AppLocalizations {
   /// **'这一页只记本机这一份'**
   String get remoteHistoryBoundaryShort;
 
+  /// No description provided for @fnthinkShortcutsWhyShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'对面只能打开你在这里登记过的入口'**
+  String get fnthinkShortcutsWhyShort;
+
+  /// No description provided for @fnthinkShortcutsEmptyShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有登记任何入口'**
+  String get fnthinkShortcutsEmptyShort;
+
+  /// No description provided for @remotePeersReadFailedShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'名单读不出来 —— 这不等于「还没配对过」'**
+  String get remotePeersReadFailedShort;
+
   /// No description provided for @remoteCredKeyOnceShort.
   ///
   /// In zh, this message translates to:

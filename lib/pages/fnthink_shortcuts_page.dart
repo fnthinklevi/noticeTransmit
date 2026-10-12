@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/fnthink_shortcut_registry.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_form_dialog.dart';
 
@@ -185,19 +186,31 @@ class _FnthinkShortcutsPageState extends State<FnthinkShortcutsPage> {
           FnthinkCard(
             title: l10n.fnthinkShortcutsTitle,
             children: [
-              FnthinkNote(
-                keyName: 'fnthink-shortcuts-why',
-                text: l10n.fnthinkShortcutsWhy,
+              HelpNoteRow(
+                noteKey: 'fnthink-shortcuts-why',
+                helpKey: 'fnthink-shortcuts-why-help',
+                text: l10n.fnthinkShortcutsWhyShort,
+                helpTitle: l10n.fnthinkShortcutsTitle,
+                // T149 片4：怎么填（名字 + 目标：App 公开的链接 / 包名·类名）那半句
+                // 是**教人做事**的说明，摊在卡片顶上读不动 ⇒ 整段进问号，正文没删。
+                helpBody: l10n.fnthinkShortcutsWhy,
               ),
               if (_error != null)
-                FnthinkNote(
-                  keyName: 'fnthink-shortcuts-error',
-                  text: l10n.remotePeersReadFailed,
+                HelpNoteRow(
+                  noteKey: 'fnthink-shortcuts-error',
+                  helpKey: 'fnthink-shortcuts-error-help',
+                  text: l10n.remotePeersReadFailedShort,
+                  helpTitle: l10n.fnthinkShortcutsTitle,
+                  // 「读不出来」≠「没有」这句要紧的区分留在问号里；页面上那行说的是状态。
+                  helpBody: l10n.remotePeersReadFailed,
                 )
               else if ((_rows ?? const <FnthinkShortcut>[]).isEmpty)
-                FnthinkNote(
-                  keyName: 'fnthink-shortcuts-empty',
-                  text: l10n.fnthinkShortcutsEmpty,
+                HelpNoteRow(
+                  noteKey: 'fnthink-shortcuts-empty',
+                  helpKey: 'fnthink-shortcuts-empty-help',
+                  text: l10n.fnthinkShortcutsEmptyShort,
+                  helpTitle: l10n.fnthinkShortcutsTitle,
+                  helpBody: l10n.fnthinkShortcutsEmpty,
                 )
               else
                 for (final row in _rows!)

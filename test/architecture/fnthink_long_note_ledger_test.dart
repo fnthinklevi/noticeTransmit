@@ -29,14 +29,13 @@ void main() {
   int cjkLen(String s) => s.runes.where((c) => c > 0x7f).length;
 
   /// 每页**现在**还挂在页面上的长说明段数（2026-10-12 实测）。搬完一页就把那一行改小或删掉 ——
-  /// `remote_history_page.dart`（片1）、`fnthink_receive_page.dart`（片2）与
-  /// `remote_credential_settings_page.dart`（片3）已在这条上被搬空，
-  /// 所以它们不在表里，读到的必须是 0。
+  /// `remote_history_page.dart`（片1）、`fnthink_receive_page.dart`（片2）、
+  /// `remote_credential_settings_page.dart`（片3）与 `fnthink_shortcuts_page.dart`（片4）
+  /// 已在这条上被搬空，所以它们不在表里，读到的必须是 0。
   const ledger = <String, int>{
     'fnthink_peers_page.dart': 6,
     'fnthink_send_page.dart': 6,
     'fnthink_endpoint_page.dart': 3,
-    'fnthink_shortcuts_page.dart': 3,
   };
 
   Map<String, int> countAll() {
@@ -111,6 +110,20 @@ void main() {
       reason:
           '片3 一次搬两格（密钥明文那句 68 字 + TOTP 那句 80 字）——'
           '同一页里**两处**装配点都换了形状，只换一处这条就会红',
+    );
+    // ⚠ 逐页那条 `== 0` 的对照**拦不住尺变瞎**（片2 量过：把问号那行误当页面说明块，
+    //   被抬高的是别的页，刚搬干净的两页反而读不到）。真正与"哪一页搬完了"无关的对照
+    //   是**语料规模**：扫到的页面文件数不许掉 —— 读不到文件时上面所有数都是"没看见"，
+    //   而"没看见"与"干净"在断言里同形。
+    final scanned = Directory('$root/lib/pages')
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))
+        .length;
+    expect(
+      scanned,
+      greaterThanOrEqualTo(30),
+      reason: '扫不到页面文件 ⇒ 上面每一条读数都是"没看见"而不是"干净"',
     );
   });
 
