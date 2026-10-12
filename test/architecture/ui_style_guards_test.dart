@@ -262,7 +262,8 @@ void main() {
   group('两张历史页里的动作形状（T148 差异⑧ 的台账）', () {
     // 现测（2026-10-12 片4 立账，剥注释后逐枚数）：每一格都是一笔要还的债，不是合法形状名单。
     //   · `history_page.dart` 裸 `TextButton(` 原 4 枚 ＝ 收件详情弹层「回复／重发」+ 筛选面板
-    //     「重置」+ 批量底栏「取消」；**片6 换掉前两枚、片7 换掉「重置」** ⇒ 现 1 枚。
+    //     「重置」+ 批量底栏「取消」；**片6 换掉前两枚、片7 换掉「重置」、片8 换掉「取消」** ⇒
+    //     **清零，那一列从账上摘掉**（长回来键集不等当场红）。
     //     4 枚 `GestureDetector(` ＝ 行内那枚自搭「现在推送」蓝底小钮、chip 展开、档位芯片、筛选条清除；
     //     7 枚 `IconButton(` ＝ AppBar／搜索后缀／离线横幅那一族（T90 片9 之后仍在 Material 侧）。
     //     ⚠ 片6 现读又补两列：这一页还有 **1 枚 `ElevatedButton(`（筛选面板「应用」）与
@@ -270,12 +271,16 @@ void main() {
     //     连"别变多"都没人管；差异⑧ 说的"四种形状"实measure 出来是**五种**。
     //     ⚠ 片7 换掉「应用」⇒ `ElevatedButton(` **清零**，那一列就此从账上摘掉：本组的键集判据
     //     （实测形状集合 ⇄ 台账键集相等）会在它长回来当场红 ⇒ 摘列不等于放开，是"这一族已经没了"。
+    //     ⚠ 片8 之后 `FilledButton.icon(` **刻意留着、记成已登记的例外**：公共件
+    //     `PrimaryActionButton` 的公开签名只有 label／subtitle／onPressed，**没有图标槽**，而底栏那枚
+    //     "把这 N 条再发一次"的信息量一半在 replay 图标上。给件加图标参数＝新增公共件能力，
+    //     要同批核它 9 个既有调用点的形状一致性；丢图标＝用可读性换账面整齐。两条都比"留着并写明理由"贵。
+    //     **这一格照样受管**：长第二枚 `FilledButton.icon(` 时上面那条枚数判据当场红。
     //   · `remote_history_page.dart` 的 2 枚自搭 `CupertinoButton(` ＝ 撤销那一枚与方向芯片。
     //     注意它**不在**幻念那六张页的口径里（文件名不是 `fnthink_` 前缀），所以「自搭按钮清零」
     //     那条一直管不到它 —— 这一格就是那条漏口的账面。
     const kHistoryPages = <String, Map<String, int>>{
       'lib/pages/history_page.dart': {
-        'TextButton(': 1,
         'GestureDetector(': 4,
         'IconButton(': 7,
         'FilledButton.icon(': 1,
@@ -389,6 +394,24 @@ void main() {
         reason:
             '账上 `ElevatedButton(` 已清零（形状没了就该从账上摘掉）⇒ 这里再出现就是把它长回来了，'
             '而键集判据也会同时红 —— 两条各钉一维：这条钉装配点，那条钉枚数',
+      );
+    });
+
+    test('批量底栏那枚「取消」走件、语义色取中性（片8）', () {
+      final src = codeByPath['lib/pages/history_page.dart']!;
+      expect(
+        RegExp(
+          "FnthinkInlineAction\\(\\s*key: const ValueKey\\('history-batch-cancel'\\),",
+        ).hasMatch(src),
+        isTrue,
+        reason: '底栏那枚「取消」不再由件给出 ⇒ 裸 `TextButton` 那一列清零之后又长回来（键集判据也会红）',
+      );
+      expect(
+        RegExp(r'FnthinkActionTone\.neutral').hasMatch(src),
+        isTrue,
+        reason:
+            'tone 取默认的 action（蓝）⇒ 「只退出批量模式」这一枚看起来像"会改到某一批东西"；'
+            '中性色是这一格的语义（差异④ 那条"会让东西从此不可用才配红"在这里不成立）',
       );
     });
   });

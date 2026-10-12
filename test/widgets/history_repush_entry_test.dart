@@ -6,6 +6,7 @@ import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 import '../test_setup.dart';
 
@@ -174,5 +175,30 @@ void main() {
     expect(boxes[0].value, isTrue, reason: '进入批量时默认选中的正是可再发的那些');
     expect(boxes[1].onChanged, isNull, reason: '只有拦截通道的那条不该被选进重推池');
     expect(boxes[1].value, isFalse);
+  });
+
+  testWidgets('批量底栏「取消」走行内动作件、语义色取中性（T148 片8）', (tester) async {
+    await pumpHistory(tester, [
+      row('n-failed', '取件码', {
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+    ]);
+    await enterBatchMode(tester);
+
+    // ⚠ 先在进入批量之后解 l10n（这一页还在台上），再断言。
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+    final cancel = tester.widget<FnthinkInlineAction>(
+      find.byKey(const ValueKey('history-batch-cancel')),
+    );
+    expect(
+      cancel.label,
+      l10n.cancel,
+      reason: '那枚 key 不再挂在 `FnthinkInlineAction` 上 ⇒ 底栏又长回一枚自己搭的 Material 文字钮',
+    );
+    expect(
+      cancel.tone,
+      FnthinkActionTone.neutral,
+      reason: 'tone 回到默认的 action（蓝）⇒ "只退出不改任何一条"这一枚看起来像会动到东西',
+    );
   });
 }

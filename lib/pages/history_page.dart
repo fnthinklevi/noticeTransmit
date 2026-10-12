@@ -25,7 +25,8 @@ import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
-import '../widgets/fnthink_card.dart' show FnthinkInlineAction;
+import '../widgets/fnthink_card.dart'
+    show FnthinkActionTone, FnthinkInlineAction;
 import '../widgets/primary_action_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
@@ -2560,6 +2561,14 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   /// F2：批量模式底部操作栏（取消 / 补推 N 条）
+  ///
+  /// T148 差异⑧ 第三格（片8）：「取消」走幻念那一族的行内动作件、tone 取中性
+  /// （**这一枚不让人动手做什么，只是退出**），于是底栏只剩「补推」那一枚实心。
+  /// ⚠ 「补推」**刻意留着 Material `FilledButton.icon`**（账面已登记成例外）：公共件
+  /// `PrimaryActionButton` 的公开签名只有 label／subtitle／onPressed，**没有图标槽**；
+  /// 而这枚动作的信息量一半在那个 replay 图标上（"把这 N 条再发一次"，区别于页面里别的实心块）。
+  /// 要么给件加图标参数（那是**新增公共件能力**，会牵动它 9 个既有调用点的形状一致性），
+  /// 要么丢图标 —— 两条都比"把它留在原地并写明理由"贵。账照样数着它：长第二枚仍当场红。
   Widget _buildBatchBar(BuildContext context, AppLocalizations l10n) {
     final count = _batchSelected.length;
     return Container(
@@ -2570,12 +2579,13 @@ class _HistoryPageState extends State<HistoryPage> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: Row(
             children: [
-              TextButton(
+              FnthinkInlineAction(
+                key: const ValueKey('history-batch-cancel'),
+                label: l10n.cancel,
+                // 中性色：它只退出批量模式，不改任何一条的状态（差异④ 那一族
+                // "动作要让某样东西从此不可用才配红"在这里不成立）。
+                tone: FnthinkActionTone.neutral,
                 onPressed: _exitBatchMode,
-                child: Text(
-                  l10n.cancel,
-                  style: TextStyle(color: AppColors.secondaryLabel(context)),
-                ),
               ),
               const Spacer(),
               FilledButton.icon(
