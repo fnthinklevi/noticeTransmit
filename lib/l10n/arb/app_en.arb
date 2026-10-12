@@ -2532,6 +2532,8 @@
   "@remoteHistoryResult": { "placeholders": { "result": { "type": "String" } } },
   "remoteHistoryReason": "Reason: {reason}",
   "@remoteHistoryReason": { "placeholders": { "reason": { "type": "String" } } },
+  "remoteHistoryArgument": "Argument: {argument}",
+  "@remoteHistoryArgument": { "placeholders": { "argument": { "type": "String" } } },
   "remoteHistoryFromPeer": "From {peer}",
   "@remoteHistoryFromPeer": { "placeholders": { "peer": { "type": "String" } } },
   "remoteHistoryToPeer": "To {peer}",

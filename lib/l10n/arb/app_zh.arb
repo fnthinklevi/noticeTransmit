@@ -2553,6 +2553,8 @@
   "@remoteHistoryResult": { "placeholders": { "result": { "type": "String" } } },
   "remoteHistoryReason": "理由：{reason}",
   "@remoteHistoryReason": { "placeholders": { "reason": { "type": "String" } } },
+  "remoteHistoryArgument": "参数：{argument}",
+  "@remoteHistoryArgument": { "placeholders": { "argument": { "type": "String" } } },
   "remoteHistoryFromPeer": "来自 {peer}",
   "@remoteHistoryFromPeer": { "placeholders": { "peer": { "type": "String" } } },
   "remoteHistoryToPeer": "发给 {peer}",

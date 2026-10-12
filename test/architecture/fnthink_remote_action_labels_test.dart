@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,8 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/services/fnthink_l2_actions.dart';
 import 'package:notice_transmit/services/fnthink_l3_settings.dart';
 import 'package:notice_transmit/services/fnthink_remote_action_labels.dart';
+
+import '../support/source_guards.dart';
 
 /// T124 A 片：远程指令那一路"参数由界面生成"的三条同步判据。
 ///
@@ -136,5 +140,41 @@ void main() {
         reason: '$other 不该被认 —— 认了就等于把远程启停开给一族没拍过的通道',
       );
     }
+  });
+
+  String historyPage() => stripComments(
+    File(
+      '${projectRoot()}/lib/pages/remote_history_page.dart',
+    ).readAsStringSync(),
+  );
+
+  test('历史页那一行的**名**走那张表，契约裸名不许出现在插值里（T146 片2）', () {
+    final src = historyPage();
+    expect(
+      src,
+      contains('fnthinkRemoteActionLabel('),
+      reason: '人话的唯一作者是这张表；页面绕过它自己翻译 = 第二套词表（T146 差异③的来路）',
+    );
+    expect(
+      src,
+      isNot(contains('row.item}')),
+      reason:
+          '把 `row.item` 直接插进字符串 ⇒ 画给用户的是契约那个裸名。'
+          '判据打在"插值"上而不是打在某一串具体措辞上：换写法（多拼一段、挪进别的格子）照样拦得住',
+    );
+  });
+
+  test('历史页那一行的**参数**那一格有作者，引导语不许写成页内字面量（T146 片2）', () {
+    final src = historyPage();
+    expect(
+      src,
+      contains('l10n.remoteHistoryArgument('),
+      reason: '参数那一格没有作者 ⇒ `argument` 上了表却没上屏（"开了还是关了"读不出来）',
+    );
+    expect(
+      src,
+      isNot(contains("'参数：")),
+      reason: '那句引导的唯一作者是 ARB；页面里再写一遍就是第二份可以朝不同方向写错的实现',
+    );
   });
 }

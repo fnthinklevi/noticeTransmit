@@ -8773,6 +8773,12 @@ abstract class AppLocalizations {
   /// **'理由：{reason}'**
   String remoteHistoryReason(String reason);
 
+  /// No description provided for @remoteHistoryArgument.
+  ///
+  /// In zh, this message translates to:
+  /// **'参数：{argument}'**
+  String remoteHistoryArgument(String argument);
+
   /// No description provided for @remoteHistoryFromPeer.
   ///
   /// In zh, this message translates to:

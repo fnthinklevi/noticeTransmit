@@ -5103,6 +5103,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String remoteHistoryArgument(String argument) {
+    return 'Argument: $argument';
+  }
+
+  @override
   String remoteHistoryFromPeer(String peer) {
     return 'From $peer';
   }

@@ -4841,6 +4841,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String remoteHistoryArgument(String argument) {
+    return '参数：$argument';
+  }
+
+  @override
   String remoteHistoryFromPeer(String peer) {
     return '来自 $peer';
   }

@@ -7,6 +7,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution.dart';
 import '../theme/app_colors.dart';
 import '../widgets/history_row_tile.dart';
@@ -288,7 +289,16 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
     return HistoryRowTile(
       keyNamespace: 'remote-history',
       identity: row.execId,
-      title: '${row.level} · ${row.item}',
+      // T146 片2：名走那张人话表（唯一作者 = `fnthink_remote_action_labels`），参数自己占一格。
+      // 以前这里直出契约名（`L3 · monitoring`），而 `argument` 那一列**根本没上屏** ——
+      // 于是"这台把对面的总开关开了还是关了"在界面上读不出来（它就是那「名与参数挤一串」的另一半）。
+      // ⚠ 没配人话的项由那张表**原样回契约名**（看得见的缺），页面不替它编一句。
+      title: row.item.isEmpty
+          ? row.level
+          : '${row.level} · ${fnthinkRemoteActionLabel(l10n, row.item)}',
+      subtitle: row.argument.isEmpty
+          ? null
+          : l10n.remoteHistoryArgument(row.argument),
       time: historyRowTime(row.createdAt),
       source: peer,
       status: _stateText(l10n, row),

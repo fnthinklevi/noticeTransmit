@@ -8,6 +8,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
+import 'package:notice_transmit/services/fnthink_remote_action_labels.dart';
 import 'package:notice_transmit/services/fnthink_remote_execution.dart';
 import 'package:notice_transmit/services/fnthink_remote_out_record.dart';
 import 'package:notice_transmit/pages/fnthink_send_page.dart';
@@ -38,6 +39,7 @@ void main() {
   tearDown(() => debugFnthinkConsentSettingsOverride = null);
 
   final contract = FnthinkContract.readFile();
+  final zhL10n = lookupAppLocalizations(const Locale('zh'));
   const peer = FnthinkPeer(
     peerAddress: '8K3FJ6QPTM9WZ4VHNS',
     publicKey: 'pk-AAAA',
@@ -147,13 +149,16 @@ void main() {
     String source = 'fnthink',
     String result = '',
     String reason = '',
+    String level = 'L2',
+    String item = 'listener:start',
+    String argument = '',
   }) => FnthinkRemoteExecutionRecord(
     execId: id,
     direction: direction,
     peerAddress: peerAddress,
-    level: 'L2',
-    item: 'listener:start',
-    argument: '',
+    level: level,
+    item: item,
+    argument: argument,
     state: state,
     source: source,
     createdAt: 1700000000000,
@@ -1070,6 +1075,91 @@ void main() {
         ],
       );
       expect(find.textContaining('没有远端发送方'), findsWidgets);
+    });
+  });
+
+  group('历史页那一行：名走那张人话表，参数自己一格（T146 片2）', () {
+    // 裁定 5 的第②条：「名与参数挤一串」。量出来时它比记的更坏 —— 参数那一列**根本没上屏**：
+    // 一行写着 `L3 · monitoring`，用户看不出这台把对面的总开关开了还是关了。
+    testWidgets('L3 那一条 ⇒ 标题用人话，档位落在参数那一格里', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('e_l3', level: 'L3', item: 'monitoring', argument: 'on'),
+        ],
+      );
+
+      final title = tester
+          .widget<Text>(find.byKey(const ValueKey('remote-history-title-e_l3')))
+          .data!;
+      expect(
+        title,
+        contains(fnthinkRemoteActionLabel(zhL10n, 'monitoring')),
+        reason: '标题不吃那张人话表 ⇒ 画给用户的是契约那个裸名',
+      );
+      expect(
+        title,
+        isNot(contains('monitoring')),
+        reason: '同一格里再出现契约名 = 这一格有两个作者（页面与那张表各翻一半）',
+      );
+      expect(
+        find.text('参数：on'),
+        findsOneWidget,
+        reason: '档位不显示 ⇒ "这台把总开关开了还是关了"在界面上读不出来',
+      );
+    });
+
+    testWidgets('参数为空那一类（`location:get`）⇒ 不画空的那一格', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('e_noarg', level: 'L2', item: 'location:get'),
+        ],
+      );
+
+      expect(
+        find.byKey(const ValueKey('remote-history-subtitle-e_noarg')),
+        findsNothing,
+        reason: '空参数画成「参数：」是一句界面替本机编的话（有就说、没有就不说）',
+      );
+    });
+
+    testWidgets('L1 那一条没有 item ⇒ 标题只剩级别，不带那枚悬空的分隔符', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [record('e_l1', level: 'L1', item: '')],
+      );
+
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('remote-history-title-e_l1')),
+            )
+            .data,
+        'L1',
+        reason: '`L1 · ` 那种尾巴是拼串漏了判空，读起来像"级别后面还有个名字没显示出来"',
+      );
+    });
+
+    testWidgets('没配人话的那一项 ⇒ 原样回契约名（看得见的缺，不编一句）', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('e_new', level: 'L2', item: 'brand-new:thing'),
+        ],
+      );
+
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('remote-history-title-e_new')),
+            )
+            .data,
+        'L2 · brand-new:thing',
+        reason:
+            '回退形状变了 ⇒ "没配就看得见"这条一起失效；'
+            '这里要的是**裸名**，不是把未知项说成某个已知的动作',
+      );
     });
   });
 
