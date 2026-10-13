@@ -46,6 +46,7 @@ void main() {
     final src = page();
     final out =
         <String, List<({String icon, String color, String titleKey})>>{};
+
     /// ⚠ `\s*` 不是装饰：T146 片4 之后调用点被 `dart format` 折成多行
     ///   （`_buildSectionHeader(\n  l10n.appearance,\n  keyName: ...)`），
     ///   按"同一行"写的字面正则会静默只切出 1 段 —— 而"段数==5"那条会红在**解析器**身上，

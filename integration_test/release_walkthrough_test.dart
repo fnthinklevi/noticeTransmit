@@ -635,14 +635,27 @@ void main() {
                   '少一段与三段都在，用户看到的是同一句"这就是全部"',
             );
             // 判据③：段标题**不带数字**（第四种计数会让人以为全部档另有一本账）。
-            // ⚠ 那一枚 key 挂在 Padding 上而不是 Text 上（与 T84 的 widget 用例同一处坑），
-            //    所以这里必须往下找一个 Text 读文字，直接 `widget<Text>(header)` 会当场 cast 炸。
-            final title = tester
-                .widgetList<Text>(
-                  find.descendant(of: header, matching: find.byType(Text)),
-                )
-                .map((t) => t.data ?? '')
-                .join();
+            // ⚠ 那一枚 key 以前挂在外层 `Padding` 上、T146 片4 之后挂在**画出来的那一格**上，
+            //   所以这里必须走 `_keyedTitle`（两种宿主都读）并**先断非空**：
+            //   只按 descendant 读会拼出恒空串，而"不许有数字"对空串恒真 ⇒ 闸门绿着什么都没量到。
+            final title = _keyedTitle(tester, header);
+            expect(
+              title,
+              isNotEmpty,
+              reason:
+                  '「$kind」那一段的标题读出来是空的 ⇒ 要么那一格被搬走了，'
+                  '要么下面那句"不许有数字"正在对空串恒真（那是假绿，不是通过）',
+            );
+            expect(
+              find.ancestor(
+                of: header,
+                matching: find.byType(FnthinkRowLabel),
+              ),
+              findsOneWidget,
+              reason:
+                  '那一格还在、画它的却不是组标题那枚公共件 ⇒ 这一族又长出第二个作者，'
+                  '字号与字重各漂各的（T146 片4 治的就是这件事）',
+            );
             expect(
               RegExp(r'\d').hasMatch(title),
               isFalse,
@@ -2760,6 +2773,23 @@ Finder _appBarText(String label) => find.descendant(
 /// 不限定的 `find.byIcon(Icons.add)` / `find.text('保存')` 会命中别的气泡。
 Finder _in(Type page, Finder f) =>
     find.descendant(of: find.byType(page), matching: f);
+
+/// 按 key 读出"那一格画出来的文字"。⚠ **两把宿主都要读**：那枚 `ValueKey` 可能挂在**容器**上，
+/// 也可能挂在**画出来的 `Text` 自己身上** —— T146 片4 把组标题交给公共件 `FnthinkRowLabel`
+/// 之后就是后者（key 从外层 Padding 挪到了那一格上，字符串逐字没动）。
+/// 只按 `find.descendant` 读的话，key 落在 `Text` 上时 descendant 集合是**空的**、拼出来恒为 `''`，
+/// 而"标题里不许有数字"这类判据对空串恒真 ⇒ 闸门绿着什么都没量到（本仓记过的那类假绿形状）。
+/// 所以调用方必须再断一句非空：这把尺读不到字的时候要喊出来，不许替它说"读到了，没数字"。
+String _keyedTitle(WidgetTester t, Finder keyed) {
+  final onCell = t.widgetList<Text>(keyed).map((w) => w.data ?? '').join();
+  final underCell = t
+      .widgetList<Text>(
+        find.descendant(of: keyed, matching: find.byType(Text)),
+      )
+      .map((w) => w.data ?? '')
+      .join();
+  return onCell + underCell;
+}
 
 /// Webhook 详情页里输入框的顺序是「名称 → URL →（密钥/模板，随通道类型的描述符能力位变化）」，
 /// 按下标取会随类型漂移；URL 输入框在**为空时**必定显示占位文案，
