@@ -74,6 +74,10 @@ void main() {
           onClearToday: () async => 0,
           onClearLastN: (_) async => 0,
           onPushNow: (_) async {},
+          // 与 `history_row_tile_adoption_test` 同一条理由：详情弹层起来之前要先查送达日志，
+          // 真库读口在 widget 测试里永远等不到。注入了它，下面"批量档点行**没**开详情"
+          // 才读作"那一格被禁用了"，而不是"这一页的点行本来就打不开东西"。
+          deliveryLogsLoader: (_) async => [],
         ),
       ),
     );
@@ -199,6 +203,60 @@ void main() {
       cancel.tone,
       FnthinkActionTone.neutral,
       reason: 'tone 回到默认的 action（蓝）⇒ "只退出不改任何一条"这一枚看起来像会动到东西',
+    );
+  });
+
+  // ── T148 差异⑤：同一行在批量档里的两格语义（F2 的页面级证据）──────────────
+  //
+  // ⚠ 正面对照不在这两条里，而在 `history_row_tile_adoption_test`：非批量档点行出详情、
+  //   长按出动作菜单。那两条绿着，这里的"点行没开详情、长按没弹菜单"才读作**禁用了**
+  //   而不是**这两格从来就不通**。
+  testWidgets('批量档里点行 = 切换选中，不打开详情', (tester) async {
+    await pumpHistory(tester, [
+      row('n-failed', '取件码', {
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+    ]);
+    await enterBatchMode(tester);
+
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+    expect(
+      tester.widgetList<Checkbox>(find.byType(Checkbox)).single.value,
+      isTrue,
+      reason: '前置：进入批量时那条可再发的默认是选中的（否则下面"点一下变不选中"推不出东西）',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('history-row-n-failed')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widgetList<Checkbox>(find.byType(Checkbox)).single.value,
+      isFalse,
+      reason: '批量档点行必须真的动到"选中"这一格：只改样式不动状态，用户以为取消了勾选',
+    );
+    expect(
+      find.text(l10n.detailInfo),
+      findsNothing,
+      reason: '勾选的时候点开详情＝在另一层里办另一件事：那一层没有"这条选没选"的读数',
+    );
+  });
+
+  testWidgets('批量档里长按这一行不出动作菜单（长按那一格禁用）', (tester) async {
+    await pumpHistory(tester, [
+      row('n-failed', '取件码', {
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+    ]);
+    await enterBatchMode(tester);
+
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+    await tester.longPress(find.byKey(const ValueKey('history-row-n-failed')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(l10n.historyActionBlockApp),
+      findsNothing,
+      reason: '留着长按菜单就是一边勾选一边弹屏蔽项：屏蔽掉的应用与选中的那几条对不上号',
     );
   });
 }

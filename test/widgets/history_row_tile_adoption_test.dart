@@ -80,6 +80,10 @@ void main() {
           onClearToday: () async => 0,
           onClearLastN: (_) async => 0,
           onPushNow: (_) async {},
+          // 详情弹层起来**之前**要先查那本送达日志：真库读口在 flutter_test 绑定下要向平台通道
+          // 要库路径、桩答 null 就永远等不到（实测：点行之后弹层根本不起，与页面逻辑无关）。
+          // 没有这一枚替身，"点行通向详情"这一格就只能靠注释说。
+          deliveryLogsLoader: (_) async => [],
         ),
       ),
     );
@@ -287,6 +291,29 @@ void main() {
       reason:
           '这一族此前不标，于是同一屏里"webhook 标了、幻念没标"看起来像随机丢；'
           '换壳时它从散文里挪进 badge 口，挪丢了就没人知道',
+    );
+  });
+
+  // ── 差异⑤ 的正面对照：同一行的两格，各自点开的是自己那一层 ────────────────
+  //
+  // 长按→动作菜单那一格上面已经钉过；这里补的是**点行**那一格。两层的措辞只在标题上有交集：
+  // 详情有「详细信息／送达记录」，长按层只有那两枚屏蔽项（全称「屏蔽该应用的通知」，
+  // 详情里那两枚是简称）。断在成对上，才分得开"点行开错了层"与"点行没开"。
+  testWidgets('点转发行出的是详情，不是长按那一层', (tester) async {
+    await pumpHistory(tester, oneRecord());
+
+    await tester.tap(find.byKey(const ValueKey('history-row-n-adopt')));
+    await tester.pumpAndSettle();
+
+    final l10n = zh(tester);
+    expect(find.text(l10n.detailInfo), findsOneWidget);
+    expect(find.text(l10n.deliveryLogTitle), findsOneWidget);
+    expect(
+      find.text(l10n.historyActionBlockApp),
+      findsNothing,
+      reason:
+          '点行若接成了长按那一层，用户点开一条记录看到的是两枚屏蔽项 —— '
+          '而"这条到底发到了哪、为什么没到"读不到',
     );
   });
 }

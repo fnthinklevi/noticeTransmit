@@ -108,6 +108,14 @@ class HistoryPage extends StatefulWidget {
   /// 同一条注入优先的理由。
   final Future<List<FnthinkPeer>> Function()? inboxListPeers;
 
+  /// 详情弹层里那本「送达记录」的读口（`webhook_delivery_log` 按这条记录查）。
+  /// 默认走真库，测试注入替身 —— 与 `inboxLoader` 同一条理由：真库读口在 flutter_test 绑定下
+  /// 要向平台通道要数据库路径，桩答 null 就**永远等不到**（实测弹层根本起不来）。
+  /// ⚠ 这一格不只是为了测试：它是差异⑤（可点与长按语义）里"点行通向哪"那一格
+  ///   唯一能在页面级证明的入口 —— 读口没有缝，那一格就只能靠注释说。
+  final Future<List<Map<String, dynamic>>> Function(String notificationId)?
+  deliveryLogsLoader;
+
   /// 打开时停在哪一档。首页那张「幻念收件」卡靠它把人**直接放到收件档**：
   /// 这一档是数据源切换而不是筛选条件，进来还要再手动切一次的话，"原来还有第二个抽屉"这件事
   /// 就藏在一次不显眼的点击里了。其余入口（推送历史卡）留默认值 'forwarded'。
@@ -135,6 +143,7 @@ class HistoryPage extends StatefulWidget {
     this.inboxFindPeer,
     this.inboxSendTo,
     this.inboxListPeers,
+    this.deliveryLogsLoader,
     this.initialDirection = 'forwarded',
     this.focusMessageId,
   });
@@ -2283,8 +2292,10 @@ class _HistoryPageState extends State<HistoryPage> {
         : l10n.notificationDetail;
     // Q2：送达日志（webhook_delivery_log）随详情一并查出，DB 异常静默降级
     List<Map<String, dynamic>> deliveryLogs = [];
+    final loadLogs =
+        widget.deliveryLogsLoader ?? _dbHelper.getDeliveryLogsByNotification;
     try {
-      deliveryLogs = await _dbHelper.getDeliveryLogsByNotification(record.id);
+      deliveryLogs = await loadLogs(record.id);
     } catch (_) {}
     if (!mounted) return;
 
