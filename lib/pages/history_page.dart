@@ -26,7 +26,7 @@ import '../widgets/card_action_sheet.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
 import '../widgets/fnthink_card.dart'
-    show FnthinkActionTone, FnthinkInlineAction;
+    show FnthinkActionTone, FnthinkInlineAction, FnthinkRowLabel;
 import '../widgets/primary_action_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
@@ -2065,17 +2065,13 @@ class _HistoryPageState extends State<HistoryPage> {
 
   /// 分组标题。**刻意不带数字**：判据③要的正是"全部档不新增第四种计数"。
   Widget _allSectionHeader(String kind, String title) {
+    // 组标题走公共件 `FnthinkRowLabel`（T146 片4）：画法（13px/w600/次要字色）与另外几张清单页同源，
+    // 这一页只交出「段与段之间的那点留白」。
+    // ⚠ key 逐字没动（`history-all-header-<kind>`），只是从外层 Padding 挪到了画出来的那一格上 ——
+    //   用例与闸门 4.2 仍按同一串定位，命中的从"那一行的容器"变成"那一行的文字"。
     return Padding(
-      key: ValueKey<String>('history-all-header-$kind'),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.secondaryLabel(context),
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: FnthinkRowLabel(keyName: 'history-all-header-$kind', label: title),
     );
   }
 

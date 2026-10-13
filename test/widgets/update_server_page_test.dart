@@ -6,6 +6,7 @@ import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/update_server_regions.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 「更新服务器」选择页（T95 片3）。
@@ -304,6 +305,28 @@ void main() {
       tester.widget<Text>(status(UpdateServerRegion.international)).data,
       contains('403'),
     );
+  });
+
+  testWidgets('两枚组标题由公共件画出来（key 逐字在册，T146 片4）', (tester) async {
+    await open(tester);
+    for (final key in [
+      'update-server-section-mode',
+      'update-server-section-list',
+    ]) {
+      final cell = find.byKey(ValueKey(key));
+      expect(
+        cell,
+        findsOneWidget,
+        reason: '组标题那一格的 key 读不到 ⇒ 页面又自己搭了一份壳，key 跟着措辞漂',
+      );
+      expect(
+        find.ancestor(of: cell, matching: find.byType(FnthinkRowLabel)),
+        findsOneWidget,
+        reason:
+            'key 还在、画的却不是 `FnthinkRowLabel` ⇒ 这一族的画法又长出第二个作者'
+            '（这一页以前那枚是 12px/w600，别的页是 13px/w600 —— 差的那 1px 就是各漂各的起点）',
+      );
+    }
   });
 
   testWidgets('成段说明只在问号弹层里（页面摆短说，全文点出来）', (tester) async {

@@ -13,6 +13,7 @@ import '../models/email_channel.dart';
 import '../models/fnthink_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_visuals.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/ios_option_picker.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'backup_restore_page.dart';
@@ -130,7 +131,10 @@ class MorePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          _buildSectionHeader(l10n.appearance, context),
+          _buildSectionHeader(
+            l10n.appearance,
+            keyName: 'more-section-appearance',
+          ),
           _buildGroup([
             _buildThemeTile(context),
             _buildDivider(context),
@@ -139,7 +143,10 @@ class MorePage extends StatelessWidget {
             const IconPickerTile(),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader(l10n.pushChannels, context),
+          _buildSectionHeader(
+            l10n.pushChannels,
+            keyName: 'more-section-push-channels',
+          ),
           _buildGroup([
             _buildNavTile(
               icon: Icons.link,
@@ -184,7 +191,10 @@ class MorePage extends StatelessWidget {
             ),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader(l10n.filterRules, context),
+          _buildSectionHeader(
+            l10n.filterRules,
+            keyName: 'more-section-filter-rules',
+          ),
           _buildGroup([
             _buildNavTile(
               icon: Icons.app_blocking,
@@ -219,7 +229,7 @@ class MorePage extends StatelessWidget {
             ),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader(l10n.device, context),
+          _buildSectionHeader(l10n.device, keyName: 'more-section-device'),
           _buildGroup([
             _buildNavTile(
               icon: Icons.smartphone,
@@ -276,7 +286,10 @@ class MorePage extends StatelessWidget {
             ),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader(l10n.aboutUpdate, context),
+          _buildSectionHeader(
+            l10n.aboutUpdate,
+            keyName: 'more-section-about-update',
+          ),
           _buildGroup([
             _buildNavTile(
               icon: Icons.update,
@@ -394,17 +407,14 @@ class MorePage extends StatelessWidget {
     } catch (_) {}
   }
 
-  Widget _buildSectionHeader(String title, BuildContext context) {
+  /// 组标题走公共件 `FnthinkRowLabel`（T146 片4）：这张页只交出**它在自己版面里的留白**（12px 起），
+  /// 画法（13/w600/次要字色）与另外三张清单页同源 —— 以前这里是与另一页**逐字相同**的一把抄本，
+  /// 两把之间只差一个字号重量（w500 对 w600）：同一件事在两处各漂各的，正是 T146 要治的那一半。
+  /// ⚠ 旧的 `BuildContext context` 形参一并去掉：公共件自己解上下文，留着就是死参数。
+  Widget _buildSectionHeader(String title, {required String keyName}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: AppColors.secondaryLabel(context),
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: FnthinkRowLabel(keyName: keyName, label: title),
     );
   }
 

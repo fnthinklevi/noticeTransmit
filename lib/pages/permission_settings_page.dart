@@ -6,6 +6,7 @@ import '../services/fnthink_l3_grants.dart';
 import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/pull_to_refresh_list.dart';
+import '../widgets/fnthink_card.dart';
 
 class PermissionSettingsPage extends StatefulWidget {
   final bool notificationListenerGranted;
@@ -206,7 +207,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
         onRefresh: _refreshBoth,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          _buildSectionHeader(l10n.essentialPerms, context),
+          _buildSectionHeader(
+            l10n.essentialPerms,
+            keyName: 'permission-section-essential-perms',
+          ),
           _buildGroup([
             _buildPermissionTile(
               icon: Icons.notifications_active,
@@ -253,10 +257,16 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               _isVivo ||
               _isSamsung ||
               _isStockAndroid) ...[
-            _buildSectionHeader(l10n.keepAliveGuideTitle, context),
+            _buildSectionHeader(
+              l10n.keepAliveGuideTitle,
+              keyName: 'permission-section-keep-alive-guide',
+            ),
             _buildKeepAliveGuideCard(context),
             const SizedBox(height: 24),
-            _buildSectionHeader(l10n.vendorBgSettings, context),
+            _buildSectionHeader(
+              l10n.vendorBgSettings,
+              keyName: 'permission-section-vendor-bg-settings',
+            ),
             _buildGroup([
               if (_isXiaomi)
                 _buildPermissionTile(
@@ -331,7 +341,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
             ], context),
             const SizedBox(height: 24),
           ],
-          _buildSectionHeader(l10n.optionalPerms, context),
+          _buildSectionHeader(
+            l10n.optionalPerms,
+            keyName: 'permission-section-optional-perms',
+          ),
           _buildGroup([
             _buildExactAlarmTile(context),
             _buildDivider(context),
@@ -409,7 +422,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
             ),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader(l10n.l3SettingsSectionTitle, context),
+          _buildSectionHeader(
+            l10n.l3SettingsSectionTitle,
+            keyName: 'permission-section-l3-settings',
+          ),
           _buildL3Group(context),
           const SizedBox(height: 8),
           Padding(
@@ -667,17 +683,14 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     return null;
   }
 
-  Widget _buildSectionHeader(String title, BuildContext context) {
+  /// 组标题走公共件 `FnthinkRowLabel`（T146 片4）：这张页只交出**它在自己版面里的留白**（12px 起），
+  /// 画法（13/w600/次要字色）与另外三张清单页同源 —— 以前这里是与另一页**逐字相同**的一把抄本，
+  /// 两把之间只差一个字号重量（w500 对 w600）：同一件事在两处各漂各的，正是 T146 要治的那一半。
+  /// ⚠ 旧的 `BuildContext context` 形参一并去掉：公共件自己解上下文，留着就是死参数。
+  Widget _buildSectionHeader(String title, {required String keyName}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: AppColors.secondaryLabel(context),
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: FnthinkRowLabel(keyName: keyName, label: title),
     );
   }
 

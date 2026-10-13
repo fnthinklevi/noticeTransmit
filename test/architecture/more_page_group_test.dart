@@ -46,7 +46,11 @@ void main() {
     final src = page();
     final out =
         <String, List<({String icon, String color, String titleKey})>>{};
-    final headerRe = RegExp(r'_buildSectionHeader\(l10n\.(\w+)');
+    /// ⚠ `\s*` 不是装饰：T146 片4 之后调用点被 `dart format` 折成多行
+    ///   （`_buildSectionHeader(\n  l10n.appearance,\n  keyName: ...)`），
+    ///   按"同一行"写的字面正则会静默只切出 1 段 —— 而"段数==5"那条会红在**解析器**身上，
+    ///   看起来像分组被人动过（本仓的"提取式一收窄就恒不匹配"同族）。
+    final headerRe = RegExp(r'_buildSectionHeader\(\s*l10n\.(\w+)');
     final heads = headerRe.allMatches(src).toList();
     for (var i = 0; i < heads.length; i++) {
       final from = heads[i].start;

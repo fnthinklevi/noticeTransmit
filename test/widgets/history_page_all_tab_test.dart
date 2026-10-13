@@ -9,6 +9,7 @@ import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 import '../test_setup.dart';
 
@@ -185,6 +186,16 @@ void main() {
         find.byKey(const ValueKey('history-all-header-sent')),
         findsOneWidget,
       );
+      // T146 片4：这三段标题的**画法**也归到公共件上了（以前这一页自己搭了一枚同样 13px/w600 的壳，
+      // 与「更多」页那枚只差一个 key 挂在哪儿）。key 字符串逐字没动，只是挪到了画出来的那一格上。
+      for (final kind in ['forwarded', 'inbox', 'sent']) {
+        final cell = find.byKey(ValueKey('history-all-header-$kind'));
+        expect(
+          find.ancestor(of: cell, matching: find.byType(FnthinkRowLabel)),
+          findsOneWidget,
+          reason: '那一格还在、画的却不是 `FnthinkRowLabel` ⇒ 组标题这一族又长出第二个作者',
+        );
+      }
     });
 
     testWidgets('未读点只画在收件那一行；转发与发出两类根本没有这个入口（判据②）', (tester) async {
@@ -225,15 +236,23 @@ void main() {
         reason: 'AppBar 那个数只能还是转发那张表的条数（与各档同一口径）',
       );
       // 段标题就是方向名本身：一旦写成「收件（幻念） 1」这种形状，就是长出了第四种计数
-      String headerOf(String kind) => tester
-          .widgetList<Text>(
-            find.descendant(
-              of: find.byKey(ValueKey('history-all-header-$kind')),
-              matching: find.byType(Text),
-            ),
-          )
-          .map((w) => w.data ?? '')
-          .join();
+      // ⚠ T146 片4 之后 key 挂在**画出来的那一格**（Text）上，以前挂在外层容器上 ——
+      //   两种形状都要读得到：只按 descendant 读，换件之后就变成恒空的"读到空字符串"。
+      String headerOf(String kind) {
+        final keyed = find.byKey(ValueKey('history-all-header-$kind'));
+        final onCell = tester
+            .widgetList<Text>(keyed)
+            .map((w) => w.data ?? '')
+            .join();
+        final underCell = tester
+            .widgetList<Text>(
+              find.descendant(of: keyed, matching: find.byType(Text)),
+            )
+            .map((w) => w.data ?? '')
+            .join();
+        return onCell + underCell;
+      }
+
       expect(
         headerOf('inbox'),
         t.fnthinkDirInbox,

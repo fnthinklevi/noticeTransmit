@@ -11,6 +11,7 @@ import '../services/update_server_probe.dart';
 import '../services/update_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 
 /// 「更新服务器」选择页（T95 片3）。
@@ -158,7 +159,10 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
               ),
             ),
           const SizedBox(height: 16),
-          _sectionHeader(l10n.updateServerModeSection, context),
+          _sectionHeader(
+            l10n.updateServerModeSection,
+            keyName: 'update-server-section-mode',
+          ),
           _modeTile(
             keyName: 'update-server-mode-auto',
             title: l10n.updateServerModeAuto,
@@ -172,7 +176,10 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
             onTap: _busy ? null : () => _pin(_currentOrFallback()),
           ),
           const SizedBox(height: 16),
-          _sectionHeader(l10n.updateServerListSection, context),
+          _sectionHeader(
+            l10n.updateServerListSection,
+            keyName: 'update-server-section-list',
+          ),
           for (final region in UpdateServerRegion.ordered)
             _regionTile(l10n, region),
           const SizedBox(height: 8),
@@ -219,17 +226,11 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
     return probes.values.every((p) => !p.reachable);
   }
 
-  Widget _sectionHeader(String text, BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: AppColors.secondaryLabel(context),
-      ),
-    ),
-  );
+  /// 组标题走公共件 `FnthinkRowLabel`（T146 片4）：这一页以前自己搭了一枚 12px/w600 的壳，
+  /// 与另外几页的 13px/w600 只差 1px —— 那 1px 就是"同一件事在两处各漂各的"长出来的地方。
+  /// ⚠ 旧的 `BuildContext context` 形参一并去掉：公共件自己解上下文。
+  Widget _sectionHeader(String text, {required String keyName}) =>
+      FnthinkRowLabel(keyName: keyName, label: text);
 
   Widget _modeTile({
     required String keyName,

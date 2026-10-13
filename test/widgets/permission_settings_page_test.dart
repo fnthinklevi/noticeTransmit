@@ -10,6 +10,7 @@ import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/permission_service.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 /// 权限设置页此前**没有任何**自动化契约 —— "点这一行到底发生了什么"全靠读代码。
 /// 维护者 1.5.76 反馈 #3 改的就是这一行的行为，所以先把行为钉住：
@@ -96,6 +97,31 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
     GetIt.instance.reset();
+  });
+
+  testWidgets('五张组标题都由公共件画出来（key 逐字在册，T146 片4）', (tester) async {
+    // 这一页以前自己搭了一枚 13px/w500 的组标题壳（与「更多」页那枚逐字相同），
+    // 而幻念那三张清单页走的是 13px/w600 的公共件 —— 同一个角色两把尺，谁也不会发现自己漂了。
+    await pumpPage(tester, appListState: 'granted');
+    for (final key in [
+      'permission-section-essential-perms',
+      'permission-section-keep-alive-guide',
+      'permission-section-vendor-bg-settings',
+      'permission-section-optional-perms',
+      'permission-section-l3-settings',
+    ]) {
+      final cell = find.byKey(ValueKey(key));
+      expect(
+        cell,
+        findsOneWidget,
+        reason: '组标题那一格的 key 读不到 ⇒ 页面又自己搭了一份壳，key 跟着措辞漂',
+      );
+      expect(
+        find.ancestor(of: cell, matching: find.byType(FnthinkRowLabel)),
+        findsOneWidget,
+        reason: 'key 还在、画的却不是 `FnthinkRowLabel` ⇒ 这一族又长出第二个作者',
+      );
+    }
   });
 
   group('应用列表权限那一行（1.5.76 反馈 #3）', () {
