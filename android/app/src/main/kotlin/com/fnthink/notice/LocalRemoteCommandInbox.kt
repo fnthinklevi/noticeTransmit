@@ -59,7 +59,16 @@ object LocalRemoteCommandInbox {
     /** 攒着等 Dart 来取的条数上限。满了丢**最老**的 —— 丢最老的那条最可能已过期。 */
     private const val MAX_PENDING = 8
 
-    data class Item(val body: String, val atMs: Long)
+    /**
+     * [pkg]：这一条是从**哪个应用**的通知里读出来的（T145 ③）。
+     *
+     * ⚠ 它**只搭这一发便车，不在这里判**：「哪些应用的通知才允许触发」与那颗开关
+     *   都判在 Dart 侧（`RemoteCommandRecognizer.judge`），原生不读那几个 prefs 键 ——
+     *   否则那颗开关的默认值就住两处·跨两种语言，而那一族在本仓砸过脚。
+     *   判不了也不在这里补一刀：这一层的职责是"把正文与它的来源交出去"，
+     *   认不认得是判定层的事（与前缀那一格同一分工）。
+     */
+    data class Item(val body: String, val pkg: String, val atMs: Long)
 
     private val queue = ArrayDeque<Item>()
     private var channel: MethodChannel? = null
@@ -70,14 +79,20 @@ object LocalRemoteCommandInbox {
     }
 
     /**
-     * 白名单命中后把正文交出来。回 true = 这一条被收下了（**不是**"这是一条指令"——
+     * 白名单命中后把正文（连同它的**来源包名**）交出来。回 true = 这一条被收下了（**不是**"这是一条指令"——
      * 拆信封、判级别、判 item 全在 Dart 侧那一层，不重写）。
      *
      * ⚠ 前缀判定**收在这里**而不是调用方：`NotificationMonitorService` 那一格只管
      * "白名单命中了，把正文交出去"，认不认得由这一个类说了算 ⇒ `FRX1:` 这个字面量
      * 在原生侧只有这一处。
+     * ⚠ [packageName] 来自 `StatusBarNotification`（系统给的，不是通知正文里自称的），
+     *   而 Dart 侧那一道「哪些应用才允许」只认它 ⇒ 这一格不许由调用方随手填字符串。
      */
-    fun offer(content: String?, nowMs: Long = System.currentTimeMillis()): Boolean {
+    fun offer(
+        content: String?,
+        packageName: String?,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Boolean {
         val body = content?.trim().orEmpty()
         if (!body.startsWith(PREFIX)) return false
         var dropped = false
@@ -86,7 +101,9 @@ object LocalRemoteCommandInbox {
                 queue.removeFirst()
                 dropped = true
             }
-            queue.addLast(Item(body, nowMs))
+            queue.addLast(
+                Item(body, packageName?.trim().orEmpty(), nowMs),
+            )
         }
         if (dropped) Log.w(TAG, "local trigger inbox full, dropped the oldest")
         pingDart()

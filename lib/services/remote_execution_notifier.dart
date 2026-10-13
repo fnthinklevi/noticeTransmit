@@ -96,13 +96,33 @@ class RemoteExecutionNotifier {
   ///
   /// ⚠ **一次只取一条**（原生那一侧是 FIFO 队列）。调用方要循环取到 null 为止，
   ///   别指望一次调用把攒着的清空。
-  Future<String?> takeLocalCommand() async {
+  ///
+  /// 返回值带**来源包名**（T145 ③）：「哪些应用的通知才允许触发」这一判只在 Dart 那侧做
+  /// （那颗开关的默认值因此只住一处），而包名只有原生知道 ⇒ 它必须在这一发上搭车。
+  /// ⚠ 形状不认识（不是 Map / `body` 不是字符串）一律当"没有"：这一路多执行一条
+  ///   是替用户动一次手，少执行一条他会再发一遍 —— 与 [takeCancelled] 那两个方向同族。
+  Future<FnthinkLocalCommand?> takeLocalCommand() async {
     try {
-      return await _channel.invokeMethod<String>(
+      final raw = await _channel.invokeMethod<Map<Object?, Object?>>(
         'fnthinkRemoteExecTakeLocalCommand',
       );
+      if (raw == null) return null;
+      final body = raw['body'];
+      if (body is! String) return null;
+      final pkg = raw['package'];
+      return FnthinkLocalCommand(body: body, package: pkg is String ? pkg : '');
     } catch (e) {
       return null;
     }
   }
+}
+
+/// 原生交上来的那一条本机指令：正文 + 它是**从哪个应用**的通知里读出来的。
+class FnthinkLocalCommand {
+  const FnthinkLocalCommand({required this.body, required this.package});
+
+  final String body;
+
+  /// 空串 = 原生没带上包名。判定那侧按"不许"处理（fail-closed），不当"未知所以放行"。
+  final String package;
 }

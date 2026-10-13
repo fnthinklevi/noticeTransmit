@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -116,16 +117,18 @@ class _NoopL3 implements FnthinkL3Executor {
 /// 原生那一格的替身：拿一条少一条；`localInbox` 就是"原生那边攒着的"。
 class _FakeNotifier implements RemoteExecutionNotifier {
   final List<String> localInbox = [];
+  String localPackage = _localPkg;
   final List<String> localTaken = [];
   final List<String> shown = [];
   final Set<String> cancelledOutOfBand = {};
 
   @override
-  Future<String?> takeLocalCommand() async {
+  Future<FnthinkLocalCommand?> takeLocalCommand() async {
     if (localInbox.isEmpty) return null;
     final body = localInbox.removeAt(0);
     localTaken.add(body);
-    return body;
+    // T145 ③：原生那一发现在把**来源包名**一起交上来，替身照形状带上。
+    return FnthinkLocalCommand(body: body, package: localPackage);
   }
 
   @override
@@ -148,6 +151,16 @@ class _FakeNotifier implements RemoteExecutionNotifier {
   @override
   Future<void> forget(String execId) async {}
 }
+
+/// 本机通知那一路的替身包名（T145：这一路的「哪些应用才允许」只认它）。
+const _localPkg = 'com.example.trigger';
+
+/// 走「本机通知触发」那一路（T145 起这一发要带来源包名，测试里缺省用 [_localPkg]）。
+Future<void> local(
+  RemoteCommandWiring w,
+  String content, {
+  String pkg = _localPkg,
+}) => w.onLocalContent(content, sourcePackage: pkg);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -172,9 +185,14 @@ void main() {
   });
 
   Future<RemoteCommandWiring> wiring({bool enabled = true}) async {
-    SharedPreferences.setMockInitialValues(
-      enabled ? {FnthinkRemoteSettings.keyEnabled: true} : <String, Object>{},
-    );
+    SharedPreferences.setMockInitialValues({
+      if (enabled) FnthinkRemoteSettings.keyEnabled: true,
+      // T145：本机通知那一路的两道闸在这里**默认给过**（开关开着 + 允许 [_localPkg]），
+      // 好让本组其余用例判的还是它们各自那一格。要测这两道闸的用例在 recognizer()
+      // 之后重设一次 mock 即可 —— FnthinkRemoteSettings 每次读都现取。
+      FnthinkRemoteSettings.keyLocalTriggerEnabled: true,
+      FnthinkRemoteSettings.keyLocalTriggerPackages: jsonEncode([_localPkg]),
+    });
     final settings = FnthinkRemoteSettings(contract: contract);
     final store = RemoteCredentialStore(
       contract: contract,
@@ -238,7 +256,7 @@ void main() {
   group('这一路只走得到 L1', () {
     test('L1 白名单指令 ⇒ 真的执行', () async {
       final w = await wiring();
-      await w.onLocalContent(wire());
+      await local(w, wire());
       for (final fire in fired) {
         fire();
       }
@@ -249,7 +267,7 @@ void main() {
       // ⚠ 这一条是"无凭据入口"的核心收窄：sources.L2 只有 fnthink。
       //   没有它，一条白名单通知就能免凭据执行任意 L2 动作。
       final w = await wiring();
-      await w.onLocalContent(wire(level: 'L2'));
+      await local(w, wire(level: 'L2'));
       for (final fire in fired) {
         fire();
       }
@@ -259,7 +277,8 @@ void main() {
 
     test('载荷写 L3 ⇒ 拒（且带凭据也不行）', () async {
       final w = await wiring();
-      await w.onLocalContent(
+      await local(
+        w,
         wire(level: 'L3', item: 'monitoring', key: 'a-very-long-key'),
       );
       for (final fire in fired) {
@@ -271,7 +290,7 @@ void main() {
 
     test('L1 里认不出的 item ⇒ 拒，不许"认不出就跳过"', () async {
       final w = await wiring();
-      await w.onLocalContent(wire(item: 'self:destruct'));
+      await local(w, wire(item: 'self:destruct'));
       for (final fire in fired) {
         fire();
       }
@@ -283,7 +302,7 @@ void main() {
   group('被拒的那一档：留痕、不回执', () {
     test('留一行，来源是本机触发且 peerAddress 为空', () async {
       final w = await wiring();
-      await w.onLocalContent(wire(level: 'L2'));
+      await local(w, wire(level: 'L2'));
       final row = saved.single;
       expect(row.source, localSource);
       // ⚠ 历史页按 peerAddress.isEmpty 判「本机应用的通知触发的」，
@@ -294,7 +313,7 @@ void main() {
 
     test('不发回执（这一路上没有任何人可以回）', () async {
       final w = await wiring();
-      await w.onLocalContent(wire(level: 'L2'));
+      await local(w, wire(level: 'L2'));
       expect(receipts, isEmpty, reason: '契约 localTriggerReceipt = none');
     });
 
@@ -320,7 +339,7 @@ void main() {
   group('只有「不是指令」不做事；「开关关着」是拒（维护者 2026-10-12 裁定 1）', () {
     test('正文不是指令 ⇒ 不执行、不留痕', () async {
       final w = await wiring();
-      await w.onLocalContent('今天天气不错');
+      await local(w, '今天天气不错');
       for (final fire in fired) {
         fire();
       }
@@ -332,7 +351,7 @@ void main() {
       // 裁定 1 之前这一条断的是 `saved, isEmpty`（"不留痕"）。今天留痕是要求的：
       // 对面要收到一句拒（见下面那条幻念推送那一路），本机要有地方查得到"它来过而被开关挡住"。
       final w = await wiring(enabled: false);
-      await w.onLocalContent(wire());
+      await local(w, wire());
       for (final fire in fired) {
         fire();
       }

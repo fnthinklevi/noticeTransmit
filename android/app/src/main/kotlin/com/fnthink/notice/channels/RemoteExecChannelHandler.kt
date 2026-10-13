@@ -73,7 +73,15 @@ internal class RemoteExecChannelHandler(activity: MainActivity) : ChannelHandler
             //   而分开是因为 `take()` 在过期丢弃时也要让调用方知道"我刚丢了几条"。
             "fnthinkRemoteExecTakeLocalCommand" -> {
                 val item = LocalRemoteCommandInbox.take()
-                result.success(item?.body)
+                // T145 ③：包名随正文一起交出去 ——「哪些应用的通知才允许触发」这一判只在 Dart 侧
+                //   做（那颗开关的默认值因此只住一处），而包名只有原生知道。
+                // ⚠ null = 现在没有；Map{body, package} = 有。Dart 侧认不出这个形状一律当"没有"
+                //   （少执行一次是用户能重试的那一侧，多执行一次是替他动一次手）。
+                result.success(
+                    item?.let {
+                        mapOf("body" to it.body, "package" to it.pkg)
+                    },
+                )
             }
 
             else -> return false

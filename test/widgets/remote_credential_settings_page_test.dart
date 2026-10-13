@@ -65,11 +65,12 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     bool enabled = true,
+    Map<String, Object> initialPrefs = const {},
     FnthinkContractUnavailable? failWith,
   }) async {
     // ⚠ 不给 prefs 打桩的话 `SharedPreferences.getInstance` 抛，而那一页的 `_load`
     //   整块不画 —— 症状是「页面空的」，很容易被误读成"这一格不存在"。
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues(initialPrefs);
     final storage = _MemStorage();
     final settings = FnthinkRemoteSettings(contract: contract);
     final store = RemoteCredentialStore(contract: contract, storage: storage);
@@ -94,6 +95,77 @@ void main() {
     await tester.pumpAndSettle();
     return Future.value();
   }
+
+  // T145 片1（维护者 2026-10-12 裁定 4）：这一路新加的两格 —— 那颗开关 + 可触发的应用。
+  // ⚠ 这一组钉的是**界面上看得见的那两件事**（默认关 / 空清单等于都不触发），
+  //   判定本身在 `fnthink_local_trigger_gates_test.dart` 那一组。
+  testWidgets('本机通知触发默认关，而且那句「任何通知正文都不会被执行」画出来了', (tester) async {
+    await pump(tester, enabled: true);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+
+    expect(
+      find.byKey(const ValueKey('remote-exec-local-trigger-switch')),
+      findsOneWidget,
+      reason: '这一路今天的实际语义是"一直开着"，那颗开关必须看得见、点得动',
+    );
+    expect(
+      find.text(l10n.remoteExecLocalTriggerOff),
+      findsOneWidget,
+      reason: '默认值要能读出来：画成"已开启"是把没做过的事说成做过了',
+    );
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getBool(FnthinkRemoteSettings.keyLocalTriggerEnabled),
+      isNull,
+      reason: '没点过就不该有值 —— 写了 false 会让"从没选过"与"明确关掉"分不开',
+    );
+  });
+
+  testWidgets('点开那颗开关 ⇒ 落盘 true，那句换成「已开启」；应用那一行照旧可点', (tester) async {
+    await pump(tester, enabled: true);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('remote-exec-local-trigger-switch')),
+    );
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(FnthinkRemoteSettings.keyLocalTriggerEnabled), isTrue);
+    expect(find.text(l10n.remoteExecLocalTriggerOn), findsOneWidget);
+    // ⚠ 没开也点得进那份清单（T109 同一条纪律）：入口只在开着时才给点，
+    //   用户要配就得先来开 —— 那是把一次设置拆成两次往返。
+    expect(
+      find.byKey(const ValueKey('remote-exec-local-trigger-apps')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('空清单那一句必须说「哪一条都不会触发」，不许读成"不限"', (tester) async {
+    await pump(tester, enabled: true);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+    // 开着开关 + 一个应用都没选：这一路是 fail-closed 的（与转发面"空集=不限"相反）。
+    await tester.tap(
+      find.byKey(const ValueKey('remote-exec-local-trigger-switch')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.remoteExecLocalTriggerAllowNone),
+      findsOneWidget,
+      reason: '不说这一句，用户看到的就是"我开了怎么没用"而查不出原因',
+    );
+    expect(
+      find.text(l10n.remoteExecLocalTriggerAllowCount(0)),
+      findsNothing,
+      reason: '"允许 0 个"与"都不触发"是两件事，画成前者就是替本机编一句话',
+    );
+  });
 
   testWidgets('远程执行那一行的「为什么」收进了问号：短说在界面上，点开一字不少', (tester) async {
     await pump(tester, enabled: true);

@@ -607,7 +607,10 @@ class NotificationMonitorService : NotificationListenerService() {
                         //   备注标签，读它等于"标题里有没有『[白名单]』三个字"。
                         if (decision !is RuleEngine.Decision.Block &&
                             filterResult.source == FilterSource.WHITELIST &&
-                            LocalRemoteCommandInbox.offer(info.content)
+                            LocalRemoteCommandInbox.offer(
+                                info.content,
+                                info.packageName,
+                            )
                         ) {
                             DiagLog.w(TAG, "Local remote command offered from ${info.appName}")
                         }

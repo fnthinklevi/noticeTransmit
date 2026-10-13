@@ -4596,6 +4596,46 @@ class AppLocalizationsEn extends AppLocalizations {
       'On but no credential set ⇒ nothing at the high-risk level (L3) can get in.';
 
   @override
+  String get remoteExecLocalTriggerSection => 'Local notification trigger';
+
+  @override
+  String get remoteExecLocalTriggerShort =>
+      'Let a command line inside a selected app notification run on this device';
+
+  @override
+  String get remoteExecLocalTriggerWhyTitle =>
+      'What the local notification trigger path is';
+
+  @override
+  String get remoteExecLocalTriggerWhy =>
+      'This path carries no credential: it reads the body of a notification, so any app that can write text into its own notification is a potential command source. While it is on, a notification from one of the apps below that matches a whitelist keyword and starts with the command envelope will be executed (L1 only). Off by default; turning it off does not affect commands from paired devices over Fnthink Push. Note this app list is separate from the forwarding list: one decides whose notification may act on this device, the other decides whose notifications get pushed out.';
+
+  @override
+  String get remoteExecLocalTriggerOn =>
+      'On: still only the selected apps, with a keyword hit, can trigger';
+
+  @override
+  String get remoteExecLocalTriggerOff =>
+      'Off: no notification body will be executed';
+
+  @override
+  String get remoteExecLocalTriggerApps => 'Apps that may trigger';
+
+  @override
+  String get remoteExecLocalTriggerAllowNone =>
+      '0 apps allowed ⇒ no notification can trigger anything';
+
+  @override
+  String remoteExecLocalTriggerAllowCount(int count) {
+    return '$count app(s) allowed';
+  }
+
+  @override
+  String remoteExecLocalTriggerBlockCount(int count) {
+    return 'Every app except $count can trigger';
+  }
+
+  @override
   String get remoteExecOpenSettings => 'Remote execution settings';
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
+import 'app_filter_page.dart';
 
 /// 远程执行的**凭据设置页**（片3b-2）。
 ///
@@ -81,6 +83,13 @@ class _RemoteCredentialSettingsPageState
   RemoteCredentialState? _state;
   FnthinkRemoteDelaySetting? _delay;
 
+  /// 「本机通知触发」那两格（T145，维护者 2026-10-12 裁定 4）：开关 + 可触发的应用清单。
+  ///
+  /// ⚠ 这一页**只画它、不判它**：判据在 `RemoteCommandRecognizer.judge` 那一处，
+  ///   这里读的是同一个 `FnthinkRemoteSettings` 的读口。页面自己再判一次就是第二个读者。
+  bool _localTrigger = false;
+  FnthinkLocalTriggerFilter? _localTriggerFilter;
+
   /// 刚生成的那一把 / 那一枚。**只活在这个字段里**（见类注释那三件明文）。
   RemoteCredentialIssue? _freshKey;
   RemoteTotpIssue? _freshTotp;
@@ -136,6 +145,8 @@ class _RemoteCredentialSettingsPageState
     final values = await Future.wait<Object>([
       settings.enabled,
       settings.effectiveDelaySeconds(),
+      settings.localTriggerEnabled,
+      settings.localTriggerFilter(),
     ]);
     if (!mounted) return;
     final state = await store.state(
@@ -144,6 +155,8 @@ class _RemoteCredentialSettingsPageState
     );
     if (!mounted) return;
     setState(() {
+      _localTrigger = values[2] as bool;
+      _localTriggerFilter = values[3] as FnthinkLocalTriggerFilter;
       _state = state;
       // 重读之后**旧的那份明文不再显示**：用户已经抄走（或没抄走），而留着它
       // 等于给一个"这是刚才那把"的假保证。
@@ -340,6 +353,8 @@ class _RemoteCredentialSettingsPageState
           else ...[
             _buildSwitchCard(l10n),
             const SizedBox(height: 12),
+            _buildLocalTriggerCard(l10n),
+            const SizedBox(height: 12),
             _buildDelayCard(l10n),
             const SizedBox(height: 12),
             _buildKeyCard(l10n),
@@ -352,6 +367,109 @@ class _RemoteCredentialSettingsPageState
           ],
         ],
       ),
+    );
+  }
+
+  /// 「本机通知触发」那颗开关（T145，维护者 2026-10-12 裁定 4 的第一颗）。
+  Future<void> _toggleLocalTrigger(bool value) async {
+    final settings = _settings;
+    if (settings == null) return;
+    _busy = true;
+    await settings.setLocalTriggerEnabled(value);
+    if (!mounted) return;
+    setState(() {
+      _localTrigger = value;
+      _busy = false;
+    });
+  }
+
+  /// 「可触发的应用」那一格：**页复用、表不复用**。
+  ///
+  /// ⚠ 写进 `FnthinkRemoteSettings` 自己的三份键，不碰 `enabled_packages` ——
+  ///   那一份的语义是「要转发的应用」，往它上面挂这一判，等于用户收窄
+  ///   「谁的通知能动这台设备」时顺手改了推送名单（一次操作改两件事）。
+  Future<void> _openLocalTriggerApps() async {
+    final settings = _settings;
+    if (settings == null) return;
+    final current = _localTriggerFilter ?? await settings.localTriggerFilter();
+    if (!mounted) return;
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      CupertinoPageRoute<Map<String, dynamic>>(
+        builder: (_) => AppFilterPage(
+          installedApps: const [],
+          initialMode: current.mode,
+          enabledPackages: current.packages.toList(),
+        ),
+      ),
+    );
+    if (result == null) return;
+    final mode = result['mode'] as String? ?? 'allow';
+    final packages = List<String>.from(result['packages'] ?? const []);
+    await settings.setLocalTriggerFilter(mode: mode, packages: packages);
+    if (!mounted) return;
+    // ⚠ 回读走**同一个解析器**：直接拿 result 拼一份界面值，就把"写进去的形状"
+    //   与"判定读出来的形状"分成两套 —— 而这两套必须逐字同形。
+    setState(() {
+      _localTriggerFilter = parseLocalTriggerFilter(
+        mode: mode,
+        rawPackages: jsonEncode(packages),
+      );
+    });
+  }
+
+  Widget _buildLocalTriggerCard(AppLocalizations l10n) {
+    final filter = _localTriggerFilter;
+    if (filter == null) return const SizedBox.shrink();
+    final count = filter.packages.length;
+    final blocking = filter.mode == 'block';
+    return _Card(
+      title: l10n.remoteExecLocalTriggerSection,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.remoteExecLocalTriggerShort,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+            HelpNoteButton(
+              keyName: 'remote-exec-local-trigger-help',
+              title: l10n.remoteExecLocalTriggerWhyTitle,
+              body: l10n.remoteExecLocalTriggerWhy,
+            ),
+            CupertinoSwitch(
+              key: const ValueKey('remote-exec-local-trigger-switch'),
+              value: _localTrigger,
+              onChanged: _busy ? null : _toggleLocalTrigger,
+            ),
+          ],
+        ),
+        FnthinkNote(
+          keyName: 'remote-exec-local-trigger-state',
+          text: _localTrigger
+              ? l10n.remoteExecLocalTriggerOn
+              : l10n.remoteExecLocalTriggerOff,
+        ),
+        FnthinkInlineAction(
+          key: const ValueKey('remote-exec-local-trigger-apps'),
+          label: l10n.remoteExecLocalTriggerApps,
+          onPressed: _busy ? null : _openLocalTriggerApps,
+        ),
+        // ⚠ 空清单那一句**必须画出来**：这一路的「允许 0 个」是真的都不许（fail-closed），
+        //   不说它，用户看到的就是「我开了怎么没用」而查不出原因。
+        FnthinkNote(
+          keyName: 'remote-exec-local-trigger-count',
+          text: blocking
+              ? l10n.remoteExecLocalTriggerBlockCount(count)
+              : count == 0
+              ? l10n.remoteExecLocalTriggerAllowNone
+              : l10n.remoteExecLocalTriggerAllowCount(count),
+        ),
+      ],
     );
   }
 

@@ -7951,6 +7951,66 @@ abstract class AppLocalizations {
   /// **'开了但一把凭据都没有 ⇒ 高风险（L3）那条一条都进不来。'**
   String get remoteExecNeedsCredential;
 
+  /// No description provided for @remoteExecLocalTriggerSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机通知触发'**
+  String get remoteExecLocalTriggerSection;
+
+  /// No description provided for @remoteExecLocalTriggerShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'让选中应用的通知正文里那条指令在本机执行'**
+  String get remoteExecLocalTriggerShort;
+
+  /// No description provided for @remoteExecLocalTriggerWhyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机通知触发这一路是什么'**
+  String get remoteExecLocalTriggerWhyTitle;
+
+  /// No description provided for @remoteExecLocalTriggerWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一路不带凭据：它读的是通知栏里那条正文，所以任何能把文字写进自己通知的应用都是潜在的指令源。开着它，来自下面选中的应用、且命中白名单关键词的那些通知，正文若以指令信封开头就会被执行（只到 L1）。默认关；关掉它不影响配对设备从幻念推送那一路发来的指令。⚠ 这里的「可触发的应用」与「要转发的应用」是两份清单：一份管谁的通知能动这台设备，一份管谁的通知要推出去。'**
+  String get remoteExecLocalTriggerWhy;
+
+  /// No description provided for @remoteExecLocalTriggerOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'已开启：仍只有选中的应用、且命中关键词的通知才可能触发'**
+  String get remoteExecLocalTriggerOn;
+
+  /// No description provided for @remoteExecLocalTriggerOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关闭：任何通知正文都不会被执行'**
+  String get remoteExecLocalTriggerOff;
+
+  /// No description provided for @remoteExecLocalTriggerApps.
+  ///
+  /// In zh, this message translates to:
+  /// **'可触发的应用'**
+  String get remoteExecLocalTriggerApps;
+
+  /// No description provided for @remoteExecLocalTriggerAllowNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许 0 个应用 ⇒ 哪一条通知都不会触发'**
+  String get remoteExecLocalTriggerAllowNone;
+
+  /// No description provided for @remoteExecLocalTriggerAllowCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许 {count} 个应用'**
+  String remoteExecLocalTriggerAllowCount(int count);
+
+  /// No description provided for @remoteExecLocalTriggerBlockCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'除 {count} 个应用之外都可触发'**
+  String remoteExecLocalTriggerBlockCount(int count);
+
   /// No description provided for @remoteExecOpenSettings.
   ///
   /// In zh, this message translates to:

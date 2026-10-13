@@ -77,6 +77,10 @@ class RemoteCommandRecognizer {
     return judge(
       command: command,
       sender: message.sender,
+      // 对端那一路**没有**"来源应用包名"这一说（指令是从幻念推送那条渠道进来的，不是从
+      // 某条本机通知来的），传空串是把"这一维不适用"写在调用点上：本机那一路的两道闸
+      // 按 `source` 分岔，不会读到这里；而留成缺省参数会让本机那一路忘了传也编译得过。
+      sourcePackage: '',
       // 名单读不出来（库坏了、契约没装载）⇒ **让这一发抛出去**，不在这里咽成缺省档：
       // 抛出后收货循环那一格按"不是指令"处理（照常显示、不执行、不留痕），
       // 而咽成缺省档会把"读不到"与"这一台确实没被勾过"混成同一件事。
@@ -85,10 +89,15 @@ class RemoteCommandRecognizer {
   }
 
   /// 判定一条**已经拆出来**的指令（白名单那一路复用这一份，不重写判定）。
+  ///
+  /// [sourcePackage]：本机通知那一路的**来源包名**（原生随正文一起交上来的那一格，T145 ③）。
+  /// ⚠ 必填、对端那一路传空串：这一路的「哪些应用才允许」只认包名，而包名只有原生知道。
+  /// 做成可省的隐式依赖，等于那颗应用清单可以静默不生效（与 `grantForSender` 同一条纪律）。
   Future<RemoteCommandParse> judge({
     required RemoteCommand command,
     required String sender,
     required FnthinkGrant grant,
+    required String sourcePackage,
     String source = 'fnthink',
   }) async {
     // ⚠ 这一份是**名字**的集合，不是整串的集合：L3 的词表与"先有授权才谈得上翻"那两格
@@ -112,6 +121,36 @@ class RemoteCommandRecognizer {
         'source-not-allowed:${command.level}',
         source,
       );
+    }
+    // ②b 本机通知那一路**自己**的两道闸（T145，维护者 2026-10-12 裁定 4）：
+    //   那颗开关（默认关）与那份「哪些应用的通知才允许」。
+    // ⚠ 只作用于 `source == localTriggerSource` 这一路 —— 对端那一路的收窄是名单那一行
+    //   （第四道），两者不共用判据；把这一道也压到对端头上，等于让"第三方 app 能不能
+    //   用通知触发"顺手管住了配对设备，而那是两件事。
+    // ⚠ 两道都判在 Dart、都由 `FnthinkRemoteSettings` 一个作者读：原生那侧不读这三个
+    //   prefs 键 ⇒ 默认值只住一处（守卫钉着）。
+    // ⚠ 排在凭据**之前**：这两道答的是"这一路开不开、这个应用配不配"，与凭据无关，
+    //   而理由串要能指到用户刚点的那一格（排在后面会让"没开"显示成"凭据不对"）。
+    if (source == contract.remoteExecutionLocalTriggerSource) {
+      if (!await settings.localTriggerEnabled) {
+        return RemoteCommandRejected(
+          command,
+          sender,
+          'local-trigger-off',
+          source,
+        );
+      }
+      if (!localTriggerAllows(
+        await settings.localTriggerFilter(),
+        sourcePackage,
+      )) {
+        return RemoteCommandRejected(
+          command,
+          sender,
+          'app-not-allowed',
+          source,
+        );
+      }
     }
     // ③ 凭据（L2 可选 / L3 必填，契约 auth）。
     final auth = await checkRemoteExecutionAuth(

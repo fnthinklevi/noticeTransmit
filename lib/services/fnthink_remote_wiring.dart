@@ -126,12 +126,20 @@ class RemoteCommandWiring {
   /// （`remote_history_page.dart`）⇒ 填一个本机包名会让历史行显示成"来自 com.xxx"，
   /// 把一台本机应用说成对面设备。留痕也不该记通知来源包名：执行留痕回答的是
   /// "谁让这台设备做了什么"（契约 `execution.fieldsWhy`），而本机这一路没有"谁"。
-  Future<void> onLocalContent(String content) async {
+  ///
+  /// ## 但 [sourcePackage] 要传进判定
+  /// 它是「哪些应用的通知才允许触发」那一档唯一的输入（T145 ③）。⚠ 它**只当判据输入**，
+  /// 不落进留痕的 sender、不进回执 —— 上面那一格的说法照旧成立。
+  Future<void> onLocalContent(
+    String content, {
+    required String sourcePackage,
+  }) async {
     final command = RemoteCommandEnvelope.decode(content);
     if (command == null) return;
     final parsed = await recognizer.judge(
       command: command,
       sender: '',
+      sourcePackage: sourcePackage,
       source: contract.remoteExecutionLocalTriggerSource,
       // ⚠ **缺省档，不是"全给"**：这一路没有远端发送方，名单里那一行无从查起，而
       //   「本机白名单触发」**不等于**「本机用户勾过这一项」—— L3 的逐条勾选是那台设备上
@@ -163,10 +171,10 @@ class RemoteCommandWiring {
   Future<int> drainLocalCommands({int maxDrains = 16}) async {
     var taken = 0;
     for (var i = 0; i < maxDrains; i++) {
-      final body = await notifier.takeLocalCommand();
-      if (body == null || body.isEmpty) break;
+      final item = await notifier.takeLocalCommand();
+      if (item == null || item.body.isEmpty) break;
       taken++;
-      await onLocalContent(body);
+      await onLocalContent(item.body, sourcePackage: item.package);
     }
     return taken;
   }

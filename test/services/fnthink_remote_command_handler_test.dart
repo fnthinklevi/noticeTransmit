@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,6 +51,9 @@ class _MemStorage implements SecureStorageService {
 ///  ② 凭据错 / 渠道不对 / item 不认得 ⇒ 那一档**拒**，而 L2 不带凭据放行；
 ///  ③ item **分档判**：L2 走动作表、L3 走设置表、L1 走两者并集（不共用一张表）；
 ///  ④ 来源渠道按**契约那一档**判（`remoteExecutionSourcesFor`），不写死。
+/// 本机通知那一路的替身包名（T145：这一路的「哪些应用才允许」只认它）。
+const _localPkg = 'com.example.trigger';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -78,9 +82,14 @@ void main() {
     bool enabled = true,
     Future<FnthinkGrant> Function(String peer)? grants,
   }) async {
-    SharedPreferences.setMockInitialValues(
-      enabled ? {FnthinkRemoteSettings.keyEnabled: true} : <String, Object>{},
-    );
+    SharedPreferences.setMockInitialValues({
+      if (enabled) FnthinkRemoteSettings.keyEnabled: true,
+      // T145：本机通知那一路的两道闸在这里**默认给过**（开关开着 + 允许 [_localPkg]），
+      // 好让本组其余用例判的还是它们各自那一格。要测这两道闸的用例在 recognizer()
+      // 之后重设一次 mock 即可 —— FnthinkRemoteSettings 每次读都现取。
+      FnthinkRemoteSettings.keyLocalTriggerEnabled: true,
+      FnthinkRemoteSettings.keyLocalTriggerPackages: jsonEncode([_localPkg]),
+    });
     settings = FnthinkRemoteSettings(contract: contract);
     store = RemoteCredentialStore(
       contract: contract,
@@ -236,6 +245,7 @@ void main() {
       final parsed = await r.judge(
         command: RemoteCommandEnvelope.decode(wire(level: 'L1'))!,
         sender: '',
+        sourcePackage: _localPkg,
         source: 'localNotificationWhitelist',
         grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
       );
@@ -247,11 +257,103 @@ void main() {
       final parsed = await r.judge(
         command: RemoteCommandEnvelope.decode(wire(level: 'L2'))!,
         sender: '',
+        sourcePackage: _localPkg,
         source: 'localNotificationWhitelist',
         grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
       );
       expect(parsed, isA<RemoteCommandRejected>());
       expect((parsed as RemoteCommandRejected).reason, 'source-not-allowed:L2');
+    });
+  });
+
+  group('本机通知那一路的两道闸（T145 片1）', () {
+    // 这一组判的是「这一路开不开 + 这个应用配不配」，与判定层其余四道无关。
+    // ⚠ mock 必须在 recognizer() **之后**设：recognizer() 自己会打一遍 prefs 桩，
+    //   在它之前设的值会被盖掉（而症状只是"这一条怎么照旧放行"）。
+    Future<RemoteCommandParse> run(
+      RemoteCommandRecognizer r, {
+      String pkg = _localPkg,
+    }) => r.judge(
+      command: RemoteCommandEnvelope.decode(wire(level: 'L1'))!,
+      sender: '',
+      sourcePackage: pkg,
+      source: 'localNotificationWhitelist',
+      grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
+    );
+
+    void prefs({
+      bool local = true,
+      String mode = 'allow',
+      List<String> packages = const [_localPkg],
+    }) {
+      SharedPreferences.setMockInitialValues({
+        FnthinkRemoteSettings.keyEnabled: true,
+        FnthinkRemoteSettings.keyLocalTriggerEnabled: local,
+        FnthinkRemoteSettings.keyLocalTriggerMode: mode,
+        FnthinkRemoteSettings.keyLocalTriggerPackages: jsonEncode(packages),
+      });
+    }
+
+    test('那颗开关关着 ⇒ 拒，理由 local-trigger-off（默认值就是这一档）', () async {
+      final r = await recognizer();
+      prefs(local: false);
+      final parsed = await run(r);
+      expect(parsed, isA<RemoteCommandRejected>());
+      expect((parsed as RemoteCommandRejected).reason, 'local-trigger-off');
+    });
+
+    test('开着，但这一条来自没被选中的应用 ⇒ app-not-allowed', () async {
+      final r = await recognizer();
+      prefs();
+      final parsed = await run(r, pkg: 'com.vendor.other');
+      expect(parsed, isA<RemoteCommandRejected>());
+      expect((parsed as RemoteCommandRejected).reason, 'app-not-allowed');
+    });
+
+    test('开着但一份清单都没配 ⇒ 谁都不许（这一路的空集与转发面那条相反）', () async {
+      final r = await recognizer();
+      prefs(packages: const []);
+      expect(
+        (await run(r) as RemoteCommandRejected).reason,
+        'app-not-allowed',
+        reason: '多执行一次是替用户动一次手；空清单读成"不限"就是把没勾过的事做掉',
+      );
+    });
+
+    test('block 档：清单里的不许、其余的都许（模式真生效，不是只存着）', () async {
+      final r = await recognizer();
+      prefs(mode: 'block', packages: const ['com.vendor.other']);
+      expect(await run(r), isA<RemoteCommandAccepted>());
+      expect(
+        await run(r, pkg: 'com.vendor.other'),
+        isA<RemoteCommandRejected>(),
+      );
+    });
+
+    test('拿不到包名 ⇒ 不许，不许当"未知所以放行"', () async {
+      final r = await recognizer();
+      prefs();
+      expect(
+        (await run(r, pkg: '') as RemoteCommandRejected).reason,
+        'app-not-allowed',
+      );
+    });
+
+    test('边界：对端那一路不吃这两道（本机开关关着，配对设备照旧）', () async {
+      // ⚠ 这一条是这片的地界：新闸只管「第三方 app 用通知触发」。把它压到对端头上，
+      //   等于用户在一次「关掉通知触发」里顺手把配好的设备也停了 —— 那件事他没做过。
+      final r = await recognizer();
+      prefs(local: false, packages: const []);
+      final parsed = await r.judge(
+        command: RemoteCommandEnvelope.decode(wire(level: 'L1'))!,
+        sender: 'PEER1',
+        sourcePackage: '',
+        grant: FnthinkGrant(
+          maxLevel: contract.capabilityLevels.last,
+          items: grantEverythingExceptArguments(contract),
+        ),
+      );
+      expect(parsed, isA<RemoteCommandAccepted>());
     });
   });
 
@@ -417,6 +519,7 @@ void main() {
       final parsed = await r.judge(
         command: RemoteCommandEnvelope.decode(wire(level: 'L1'))!,
         sender: '',
+        sourcePackage: _localPkg,
         source: contract.remoteExecutionLocalTriggerSource,
         grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
       );

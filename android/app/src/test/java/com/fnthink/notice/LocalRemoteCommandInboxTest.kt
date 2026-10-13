@@ -30,8 +30,11 @@ class LocalRemoteCommandInboxTest {
         while (LocalRemoteCommandInbox.take(t0) != null) { /* drain */ }
     }
 
-    private fun offer(body: String, at: Long = t0) =
-        LocalRemoteCommandInbox.offer(body, at)
+    private fun offer(
+        body: String,
+        at: Long = t0,
+        pkg: String = "com.example.trigger",
+    ) = LocalRemoteCommandInbox.offer(body, pkg, at)
 
     @Test
     fun offer_prefixAtStart_accepted() {
@@ -56,6 +59,25 @@ class LocalRemoteCommandInboxTest {
     fun offer_otherPrefix_rejected() {
         // 回执信封 `FRR1:` 刻意与指令不同前缀；把它放进来是为了钉住"这两个不能混"。
         assertFalse(offer("FRR1:delivered L1 listener:stop"))
+    }
+
+    @Test
+    fun take_carriesSourcePackage() {
+        // T145 ③：「哪些应用的通知才允许触发」那一判只在 Dart 侧做，而它唯一的输入就是包名
+        //   ⇒ 包名必须随正文一起交出去。丢了它的后果不是"少一道闸"，而是那一判
+        //   fail-closed 成"谁都不许"——界面开着、实际什么都不触发，且没人知道为什么。
+        offer("FRX1:L1 listener:start", pkg = "com.vendor.automation")
+        val got = LocalRemoteCommandInbox.take(t0 + 1)
+        assertEquals("com.vendor.automation", got?.pkg)
+        assertEquals("FRX1:L1 listener:start", got?.body)
+    }
+
+    @Test
+    fun offer_nullPackage_staysEmpty_notGuessed() {
+        // ⚠ 空串**不是**"未知所以放行"：判定那侧读成"不许"。在这里替它编一个包名出来，
+        //   等于让那一判拿到假输入——比丢数据更坏。
+        LocalRemoteCommandInbox.offer("FRX1:L1 listener:start", null, t0)
+        assertEquals("", LocalRemoteCommandInbox.take(t0 + 1)?.pkg)
     }
 
     @Test

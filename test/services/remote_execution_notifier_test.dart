@@ -105,16 +105,21 @@ class _FakeNotifier implements RemoteExecutionNotifier {
 
   /// 白名单那一路：原生那边攒着的（拿一条少一条）。
   final List<String> localInbox = [];
+  String localPackage = _localPkg;
   final List<String> localTaken = [];
 
   @override
-  Future<String?> takeLocalCommand() async {
+  Future<FnthinkLocalCommand?> takeLocalCommand() async {
     if (localInbox.isEmpty) return null;
     final body = localInbox.removeAt(0);
     localTaken.add(body);
-    return body;
+    // T145 ③：原生那一发现在把**来源包名**一起交上来，替身照形状带上。
+    return FnthinkLocalCommand(body: body, package: localPackage);
   }
 }
+
+/// 本机通知那一路的替身包名（T145：这一路的「哪些应用才允许」只认它）。
+const _localPkg = 'com.example.trigger';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
