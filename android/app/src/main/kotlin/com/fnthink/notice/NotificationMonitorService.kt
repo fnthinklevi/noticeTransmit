@@ -639,7 +639,12 @@ class NotificationMonitorService : NotificationListenerService() {
                             is RuleEngine.Decision.Delay -> {
                                 // 立即写入历史（pending 状态），到点后补推 webhook
                                 webhookSender.sendBroadcast(info)
-                                delayedPushManager.enqueue(info, decision.fireAt)
+                                // T150 片2：上限挤出来的那几条**不是垃圾**，它们同样是"还没发的通知"。
+                                // 旧写法在写盘时把它们筛掉（静默丢），于是那一行永远停在「发送中」；
+                                // 现在交回这里，走与到点同一条推送路径（回执会自己把它推离 pending）。
+                                for (spilled in delayedPushManager.enqueue(info, decision.fireAt)) {
+                                    dispatchToChannels(spilled, alsoBroadcastRecord = false)
+                                }
                                 DiagLog.w(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName}")
                             }
                             is RuleEngine.Decision.Merge -> {
@@ -652,14 +657,32 @@ class NotificationMonitorService : NotificationListenerService() {
                                 // 不能在 MergePushManager 内部自行推送：那里处于 @Synchronized
                                 // 临界区且是每条通知的热路径，网络 IO 会长时间占用对象锁
                                 // （阻塞前台通知刷新）并有跨线程死锁风险。
-                                val flushGroups = mergePushManager.append(
+                                val appendResult = mergePushManager.append(
                                     info,
                                     decision.windowMs,
                                     decision.maxItems,
                                     decision.groupByTitle,
                                 )
-                                for (group in flushGroups) {
+                                for (group in appendResult.toFlush) {
                                     flushMergedGroup(group)
+                                }
+                                // T150 片2：被摘出聚合的那条成员**不会随聚合发出去**，所以它也有一个
+                                // 送达说法要拿 —— 旧写法让它带着初值 `pending` 留在历史里，界面上
+                                // 一直说「发送中」。报 failed 而不是 intercepted：这不是"规则说不发"，
+                                // 用户仍该能手动补这一条（intercepted 会被重推资格筛掉，等于替他把门关死）。
+                                for (member in appendResult.droppedMembers) {
+                                    DeliveryNotifier.notify(
+                                        this@NotificationMonitorService,
+                                        member.id,
+                                        "MERGE",
+                                        WebhookResponseParser.ParseResult(
+                                            WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                                            0,
+                                            I18n.mergeMemberDroppedReason(),
+                                            false,
+                                        ),
+                                    )
+                                    DiagLog.w(TAG, "聚合成员被摘出，已回传未送达: ${member.appName}")
                                 }
                                 updateForegroundNotification()
                                 DiagLog.w(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")

@@ -62,6 +62,41 @@ import java.util.Locale
  *
  * 队列项：{"key": "pkg", "windowEnd": 毫秒, "items": [{NotificationInfo}...]}
  */
+
+/**
+ * 聚合队列的纯算术（无 Android 依赖，JVM 可测）。
+ */
+object MergePushLogic {
+    /**
+     * 往组里追加一条成员；成员数已达 [max] 时先摘掉**最旧**那条（index 0）再追加，
+     * 并把被摘掉的那条作为 `dropped` 交回调用方。
+     *
+     * ⚠ 摘出来的不是垃圾：它早就在历史里占了一行、送达列停在 `pending`，而它从此不会随
+     * 聚合发出去 —— 调用方必须给它一个送达说法（T150 片2）。留在管理器里"悄悄少一行"，
+     * 界面上读起来就是"这条正在发"。
+     *
+     * ⚠ 为什么不顺手把它单独推出去：聚合的语义是"这一组发一条"，为一条成员破例单发
+     * 会改产品的发送次数口径（用户设的是聚合，看到的却是 N+1 发）。报失败并把理由说清，
+     * 让用户自己决定要不要手动补那一发。
+     */
+    fun appendMember(
+        items: JSONArray,
+        fresh: JSONObject,
+        max: Int,
+    ): Pair<JSONArray, JSONObject?> {
+        val next = JSONArray()
+        var dropped: JSONObject? = null
+        if (max > 0 && items.length() >= max) {
+            dropped = items.optJSONObject(0)
+            for (i in 1 until items.length()) next.put(items.getJSONObject(i))
+        } else {
+            for (i in 0 until items.length()) next.put(items.getJSONObject(i))
+        }
+        next.put(fresh)
+        return next to dropped
+    }
+}
+
 class MergePushManager(private val context: Context) {
     companion object {
         private const val TAG = "MergePushManager"
@@ -75,6 +110,19 @@ class MergePushManager(private val context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+
+    /**
+     * `append` 的回执：两件事都必须由调用方在**锁外**做（约束见类注释与
+     * `MergePushLockContractTest`：`@Synchronized` 临界区内不得做网络 IO，也不发广播）。
+     *
+     * @param toFlush 需要立即推送的组（队列超限移出的最早那组 / 达到 maxItems 的当前组）
+     * @param droppedMembers 因成员数达上限被摘出聚合的**通知**：它们不会随聚合发出去，
+     *   调用方要逐条给一个送达说法，不然那一行永远停在「发送中」（T150 片2）。
+     */
+    data class AppendResult(
+        val toFlush: List<MergeGroup>,
+        val droppedMembers: List<NotificationInfo>,
+    )
 
     /** 单条成员在聚合推送里的展示行 */
     data class MergeItem(val info: NotificationInfo)
@@ -170,8 +218,9 @@ class MergePushManager(private val context: Context) {
      * @param groupByTitle F3 按会话分组：true 时组 key = "包名|标题"
      *                     （同应用不同联系人分开聚合）；false = 按应用聚合（默认）
      *
-     * @return 需要**立即推送**的聚合组：① 队列超限时移出的最旧组；
-     *         ② 达到 maxItems 提前触发的当前组；无则空列表
+     * @return [AppendResult]：① 需要**立即推送**的组（队列超限时移出的最早那组 /
+     *         达到 maxItems 提前触发的当前组）；② 因成员达上限被摘出聚合的那几条 ——
+     *         两者都必须在锁外消化，第二条尤其不许放过：它是"这条永远停在发送中"的来源。
      */
     @Synchronized
     fun append(
@@ -179,7 +228,7 @@ class MergePushManager(private val context: Context) {
         windowMs: Long,
         maxItems: Int = 0,
         groupByTitle: Boolean = false,
-    ): List<MergeGroup> {
+    ): AppendResult {
         val queue = readQueue()
         val now = System.currentTimeMillis()
         // F3 按会话分组：key = 包名|标题（标题为空时退化为按应用聚合）
@@ -196,27 +245,34 @@ class MergePushManager(private val context: Context) {
             it.optString("key", "") == key && it.optLong("windowEnd", 0L) > now
         }
         val toFlush = ArrayList<MergeGroup>(1)
+        val dropped = ArrayList<NotificationInfo>(1)
         if (existing != null) {
             // ⚠ 追加语义：窗口结束点不延长（固定窗口）。成员异常时 items 仍有
-            // MAX_ITEMS_PER_GROUP 上限防 SP 无限膨胀（超限丢弃最旧的成员行）。
+            // MAX_ITEMS_PER_GROUP 上限防 SP 无限膨胀 —— 超限摘掉的那条**交回调用方给说法**，
+            // 不在这里悄悄少一行（T150 片2，见 [MergePushLogic.appendMember]）。
             val items = existing.optJSONArray("items") ?: JSONArray()
-            if (items.length() >= MAX_ITEMS_PER_GROUP) {
-                // 移除最旧一条（index 0）再追加
-                val trimmed = JSONArray()
-                for (i in 1 until items.length()) trimmed.put(items.getJSONObject(i))
-                trimmed.put(info.toJson())
-                existing.put("items", trimmed)
-            } else {
-                items.put(info.toJson())
-                existing.put("items", items)
+            val (next, droppedJson) = MergePushLogic.appendMember(
+                items,
+                info.toJson(),
+                MAX_ITEMS_PER_GROUP,
+            )
+            existing.put("items", next)
+            if (droppedJson != null) {
+                try {
+                    dropped.add(NotificationInfo.fromJson(droppedJson))
+                } catch (e: Exception) {
+                    // 摘出来的成员连载荷都解析不了 ⇒ 记录 id 都取不出，给不了送达说法。
+                    // 如实喊出来，不假装这一格已覆盖。
+                    Log.e(TAG, "被摘出的聚合成员解析失败，无法回传送达状态: ${e.message}")
+                }
             }
             DiagLog.w(TAG, "聚合追加: $key, 窗口至 ${existing.optLong("windowEnd", 0L)}")
             // F3 满 N 条提前触发：达到上限则把该组移出队列，交由调用方在锁外立即推送
             // （不能留在队列——否则闹钟到点会二次推送同一组）
-            if (maxItems > 0 && items.length() >= maxItems) {
+            if (maxItems > 0 && next.length() >= maxItems) {
                 queue.remove(existing)
                 groupFromJson(existing)?.let { toFlush.add(it) }
-                DiagLog.w(TAG, "聚合组达上限提前触发: $key (${items.length()} 条 ≥ $maxItems)")
+                DiagLog.w(TAG, "聚合组达上限提前触发: $key (${next.length()} 条 ≥ $maxItems)")
             }
         } else {
             val windowEnd = now + windowMs
@@ -239,7 +295,7 @@ class MergePushManager(private val context: Context) {
         }
         writeQueue(queue)
         scheduleNext()
-        return toFlush
+        return AppendResult(toFlush, dropped)
     }
 
     /** 取出全部已到期的聚合组；返回空列表表示无可推送组 */

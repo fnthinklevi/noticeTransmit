@@ -251,8 +251,9 @@ class MergeFailureContractTest {
 
     @Test
     fun flushGroupsArePushedNotDropped() {
-        // F3 起 append 返回值语义扩展为「需立即推送的组」：① 队列超限移出的最旧组；
-        // ② 达到 maxItems 提前触发的当前组。两者都必须被调用方真正推送，不得丢弃。
+        // F3 起 append 的回执有两堆：① 需立即推送的组（队列超限移出的最早那组 /
+        // 达到 maxItems 的当前组）；② 因成员达上限被摘出聚合的通知（T150 片2）。
+        // 两者都必须被调用方消化，一条都不许丢。
         val body = functionBody(mergeManager, "fun append(")
         assertTrue(
             "待推送组必须返回给调用方（超限组 / F3 达标提前触发组），不能丢弃",
@@ -263,14 +264,24 @@ class MergeFailureContractTest {
         assertTrue(
             "Service 必须调用 append 并推送返回的组",
             service.contains("mergePushManager.append(") &&
-                Regex("""for \(\w+ in flushGroups\)""").containsMatchIn(service) &&
+                Regex("""for \(\w+ in appendResult\.toFlush\)""").containsMatchIn(service) &&
                 service.contains("flushMergedGroup(")
+        )
+        // T150 片2：摘出来的成员同样要有归宿 —— 不写送达说法就是让它永远「发送中」
+        assertTrue(
+            "append 必须把被摘出的成员交回去（MergePushLogic.appendMember 的 dropped）",
+            body.contains("MergePushLogic.appendMember") &&
+                body.contains("AppendResult(toFlush, dropped)")
+        )
+        assertTrue(
+            "Service 必须逐条给被摘出的成员回传送达状态（报 failed，让用户还能手推）",
+            Regex("""for \(\w+ in appendResult\.droppedMembers\)""").containsMatchIn(service) &&
+                service.contains("mergeMemberDroppedReason()")
         )
         // F3：达到 maxItems 的组必须移出队列（否则闹钟到点会对同一组二次推送）
         assertTrue(
             "达到 maxItems 的组必须移出队列并加入返回值",
-            body.contains("maxItems > 0 && items.length() >= maxItems") &&
-                body.contains("queue.remove(existing)")
+            body.contains("maxItems > 0 &&") && body.contains("queue.remove(existing)")
         )
     }
 
@@ -287,11 +298,22 @@ class MergeFailureContractTest {
 
     @Test
     fun itemCapKeepsFreshest_notOldest() {
-        // 组内成员上限：必须丢弃**最旧**的，保留最新的（旧信息价值低）
-        val body = functionBody(mergeManager, "fun append(")
+        // 组内成员上限：摘掉**最旧**那条（index 0）、保留最新的（旧信息价值低）。
+        // T150 片2 起这一步住在纯函数 `MergePushLogic.appendMember` 里（JVM 可直接测行为），
+        // 这里钉的是"append 走的是它"，行为本身由 `MergePushMemberCapTest` 逐条断言。
+        val logic = functionBody(mergeManager, "fun appendMember(")
         assertTrue(
             "组内超限应移除 index 0（最旧）后追加最新",
-            body.contains("1 until items.length()")
+            logic.contains("1 until items.length()")
+        )
+        assertTrue(
+            "被摘掉的那条必须交回调用方（返回 dropped），不许在管理器里一丢了之",
+            logic.contains("dropped = items.optJSONObject(0)") && logic.contains("return next to dropped")
+        )
+        val body = functionBody(mergeManager, "fun append(")
+        assertTrue(
+            "append 必须走那一份纯算术，不在自己体内再抄第二份",
+            body.contains("MergePushLogic.appendMember(") && !body.contains("1 until items.length()")
         )
     }
 

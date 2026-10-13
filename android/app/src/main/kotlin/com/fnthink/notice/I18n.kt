@@ -366,6 +366,17 @@ object I18n {
     fun mergeDeliveredLabel(): String = if (isEn) "Delivered as merged push" else "已合并推送"
 
     /**
+     * 成员被摘出聚合组时的送达文案（MERGE 伪通道，failed）。
+     *
+     * 为什么是 failed 而不是 intercepted：摘出这一条不是"规则决定这条不发"，
+     * 而是**这一组装不下了**——通知已经进了历史、内容还在，用户手动「现在推送」应当推得动；
+     * intercepted 会把它划进"不该重推"那一族（`RepushScope` 按状态筛），等于替用户把门关上。
+     */
+    fun mergeMemberDroppedReason(): String =
+        if (isEn) "Not pushed: it was dropped from the merged group (group full)"
+        else "未随聚合发出：这一组成员已达上限，这条被摘出该组"
+
+    /**
      * 通知处理失败时的降级历史（提取/过滤/分发任一步抛异常）。
      * 此前只写 logcat，release 下用户完全无感 —— 该通知既不入历史也不推送，内容静默消失。
      * 正文刻意不含通知内容与异常堆栈（隐私：日志脱敏同样适用于历史）。

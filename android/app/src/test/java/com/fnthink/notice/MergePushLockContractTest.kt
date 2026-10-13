@@ -142,10 +142,11 @@ class MergePushLockContractTest {
         val append = bodies.firstOrNull { it.first == "append" }
             ?: error("未找到 append 方法（签名可能已变，需更新本测试）")
 
-        // append 必须返回超限组，交由调用方在锁外推送
+        // append 必须把"要在锁外消化的两件事"都交回调用方：待推送的组 + 被摘出的成员
+        // （T150 片2：后者同样要有送达说法，留在锁内或一丢了之都是把它判成"正在发"）
         assertTrue(
-            "append 应返回 List<MergeGroup>（超限组交由调用方在锁外推送）",
-            source.contains("fun append(") && source.contains("): List<MergeGroup>")
+            "append 应返回 AppendResult（toFlush 组 + droppedMembers，均交由调用方在锁外处理）",
+            source.contains("fun append(") && source.contains("): AppendResult")
         )
         // 且其临界区内不得做推送
         assertFalse(
