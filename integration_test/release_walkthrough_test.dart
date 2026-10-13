@@ -499,7 +499,7 @@ void main() {
       },
     );
     await _verdict(tester, gateFailures, '闸门 1/4');
-  }, timeout: const Timeout(_caseABudget));
+  }, timeout: Timeout(gateCaseBudgetFor(_caseABudget)));
 
   testWidgets(
     '闸门 2/4 三族通道 CRUD：webhook 两页形状 / 邮件 / 自建应用',
@@ -1161,7 +1161,7 @@ void main() {
       );
       await _verdict(tester, gateFailures, '闸门 2/4');
     },
-    timeout: const Timeout(_caseBBudget),
+    timeout: Timeout(gateCaseBudgetFor(_caseBBudget)),
   );
 
   testWidgets(
@@ -2067,7 +2067,7 @@ void main() {
       // 3/4 是节数最多的一条（15 节），但每节都是"进一页、点两下"的量级；拆之前整轮
       // 实测 8:42（第 15 轮），各条用例占多少要等拆完的第一轮闸门日志才量得出来。
     },
-    timeout: const Timeout(_caseCBudget),
+    timeout: Timeout(gateCaseBudgetFor(_caseCBudget)),
   );
 
   testWidgets(
@@ -2323,7 +2323,7 @@ void main() {
       //（㊼ 当年从 18 放宽到 30 的理由是"超时红会被误读成功能回归"，节内预算出现后不再成立
       // —— 现在报出来的已经是"哪一节没跑完"）。
     },
-    timeout: const Timeout(_caseDBudget),
+    timeout: Timeout(gateCaseBudgetFor(_caseDBudget)),
   );
 }
 
@@ -2716,14 +2716,18 @@ Future<void> _tap(
   // （"Hit test ... outside the bounds"），所以靠 try/catch 兜底永远不会触发 ⇒
   // 点击静默丢失（第 16 轮 5.10/5.12/7/8 全是这一个原因）。
   try {
+    _lastAction = 'tap「$why」·ensureVisible';
     await t.ensureVisible(f.first);
   } catch (_) {}
+  _lastAction = 'tap「$why」·pump';
   await t.pump(const Duration(milliseconds: 120));
   await _must(t, f.evaluate().isNotEmpty, '可见化后 $why', f);
+  _lastAction = 'tap「$why」·tap';
   await _withMissNet(t, why, () => t.tap(f.first));
   // `settleSeconds: 0` 是给"要点名提示/SnackBar 那一闪"的步骤用的：`_settle` 按**墙钟**循环、
   // 每圈泵 100ms **假时钟**，机器越快假时间跑得越多，而 SnackBar 的寿命是按假时钟计的 2 秒。
   // 在 tap 之后再等 1 秒就等于把提示自己等到消失（CI run 37599710957 的 5.3 正是这样红的）。
+  _lastAction = 'tap「$why」·settle';
   await _settle(t, seconds: settleSeconds);
 }
 
@@ -2844,6 +2848,26 @@ const int _stepBudgetOverrideSec = int.fromEnvironment('GATE_STEP_BUDGET_SEC');
 const Duration _stepBudgetEffective = _stepBudgetOverrideSec > 0
     ? Duration(seconds: _stepBudgetOverrideSec)
     : _stepBudget;
+
+/// 用例级预算的**自洽钳**：谁先说话是契约，不是巧合的延长线。
+///
+/// 2026-10-13 实测踩到的正是这条：为排查 2/4 的挂住把 `GATE_STEP_BUDGET_SEC` 放到 420，
+/// 而用例预算仍是 6 分钟（360s）⇒ 先 firing 的是**测试级硬超时**，日志里只剩
+/// `TimeoutException after 0:06:00`，既没有 `GATE-STEP-FAIL` 也没有「最后动作」——
+/// 放大旋钮反而把这一发本来要拿的读数吞掉了（"那一节到底是慢还是真挂"问不出来了）。
+/// 所以旋钮一动，用例预算必须跟着让：细的那一层永远比粗的那一层先到期。
+/// ⚠ 只动 dart-define 时脚本的 `GATE_CASE_TIMEOUT`（单次调用回退上限）也要跟着放大，
+///   否则钳好的两层会被外层 `timeout` 一刀掐掉。默认（不设旋钮）时**逐字返回 base** ⇒
+///   CI 与既有那条四分不等式一字不改。
+Duration gateCaseBudgetFor(
+  Duration base, {
+  int overrideSec = _stepBudgetOverrideSec,
+}) {
+  if (overrideSec <= 0) return base;
+  final step = Duration(seconds: overrideSec);
+  if (base > step) return base;
+  return step + const Duration(minutes: 2);
+}
 
 /// 「最后动作」路标：挂住时日志里自带定位，不必再加探针。
 /// （2026-10-12 夜实测：为了钉住"到底卡在哪一句"，我给 5.4a 与 `_type` 各插过一轮临时探针；
