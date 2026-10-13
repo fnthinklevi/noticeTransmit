@@ -291,13 +291,18 @@ void main() {
     //     ⚠ 片11 换掉「撤销」（它是**对这一行做一次动作**，与名单页／端点页／收件详情同一族）
     //     ⇒ 2 → **1**；剩那一枚是**方向芯片**（收/发/全部三档切换），属 chip 族那笔另立的账，
     //     不在"动作形状"这一列里 —— 拿它去凑"动作清零"会把两种不同的事混成一件。
+    //     ⚠ 片12 把这一页的**方向条**也换进公共件 `FnthinkChoiceChip` ⇒ `CupertinoButton(`
+    //     1 → **0**，那一列就此从账上摘掉（键集判据会在它长回来当场红 —— 摘列不是放开）。
+    //     ⚠ 那一格清零之后**页路径仍留在册里**：这是那条漏口的账面，不是"这页已合规"的背书 ——
+    //     它管的是"这一页别再长出自搭动作/芯片"。折叠那枚（`history-chip-fold-*`，10px/radius 3）
+    //     **刻意没并**：它不是"可选项里的一枚"，是"还有 N 条"的展开提示，硬并会把行内放大一圈。
     const kHistoryPages = <String, Map<String, int>>{
       'lib/pages/history_page.dart': {
         'GestureDetector(': 3,
         'IconButton(': 7,
         'FilledButton.icon(': 1,
       },
-      'lib/pages/remote_history_page.dart': {'CupertinoButton(': 1},
+      'lib/pages/remote_history_page.dart': <String, int>{},
     };
 
     final shapeRe = {
@@ -474,6 +479,76 @@ void main() {
             '这一枚取**缺省的 action（蓝）**：统一形状那一片不该顺手改用户看到的颜色。'
             '红那一档在这套件上是"吊销一项长期存在的东西"（名单页那枚撤销＝断掉配对关系），'
             '而这里撤回的是一条还在窗口里的指令 —— 画红会把"取消一次动作"说成"销毁一条记录"。',
+      );
+    });
+
+    test('方向条走公共件 `FnthinkChoiceChip`（片12：行内 chip 那笔账的第一格）', () {
+      final src = codeByPath['lib/pages/remote_history_page.dart']!;
+      for (final key in const ['in', 'out', 'all']) {
+        expect(
+          RegExp(
+            "FnthinkChoiceChip\\(\\s*keyName: 'remote-history-dir-$key'",
+          ).hasMatch(src),
+          isTrue,
+          reason:
+              'remote-history-dir-$key 不再由 `FnthinkChoiceChip` 给出 ⇒ 这一族又回到页面自己搭，'
+              '而公共件那两档（选中描边+底色／忙时置灰）就是它存在的理由',
+        );
+      }
+      expect(
+        RegExp(r'_DirectionChip\(').hasMatch(src),
+        isFalse,
+        reason: '同一个方向条被搭了两遍（件在、私有壳也在）⇒ 用量判据看不出，这一条才看得出',
+      );
+      expect(
+        RegExp(r'active:').hasMatch(src),
+        isFalse,
+        reason: '公共件那一格叫 `selected`；这里再出现 `active:` 说明还留着旧签名的一处调用',
+      );
+    });
+
+    test('私有 chip 那一族只剩一个作者（全族扫描再对差集，片12）', () {
+      // 判据**不写"不许出现 `_DirectionChip`"那种字面口径** —— 换名 `_MyChip` 就绕过，
+      // 而那正是这一族会漂的方式（T100 片5 的 `_Note` 同一条纪律）。
+      expect(
+        privateChipClasses(codeByPath.values),
+        isEmpty,
+        reason:
+            '${privateChipClasses(codeByPath.values)} —— 页里又长出私有的 chip 壳 ⇒ '
+            '「一排可选项里的一枚」有第二份画法：选中态怎么表达（底色？描边？只有字重？）'
+            '会各写各的，而"只有字重差"那一档的病是**用户在屏上读不出自己选上了没有**'
+            '（T108 片② 在发送页实测过那一发）',
+      );
+    });
+
+    test('那把全族扫描的尺认得合成样本（防上一条退化成"一枚都没认出来＝恒绿"）', () {
+      const sample = '''
+class _MyChip extends StatelessWidget {
+  const _MyChip({required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) => Text(label);
+}
+
+class FnthinkChoiceChip extends StatelessWidget {
+  const FnthinkChoiceChip({required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) => Text(label);
+}
+''';
+      expect(
+        privateChipClasses([sample]),
+        ['_MyChip'],
+        reason: '私有 chip 壳都抓不到 ⇒ 全族扫描那条绿只说明"正则没匹配到任何东西"',
+      );
+      // 反向：全是公共件时不许红（否则这条守卫拦的是不存在的事）。
+      expect(
+        privateChipClasses([
+          sample.replaceAll('class _MyChip', 'class FnthinkOtherChip'),
+        ]),
+        isEmpty,
+        reason: '公共件被当成抄本 ⇒ 这本账红得没有信息量',
       );
     });
   });
@@ -1525,3 +1600,17 @@ List<File> _dartFilesIn(String root, String dir) => Directory('$root/$dir')
 /// 相对仓库根、正斜杠的路径（Windows 下 listSync 给反斜杠，登记表按正斜杠写）。
 String _relative(String root, String path) =>
     path.substring(root.length + 1).replaceAll(r'\', '/');
+
+/// 全族扫描：给定若干**剥注释后**的库文件源码，返回页里私有的 chip 壳类名。
+///
+/// 判据刻意不是"不许出现 `_DirectionChip`"那种字面口径 —— 换一个名字（`_HistoryDirChip`）
+/// 就绕过，而那正是这一族会漂的方式（T100 片5 的 `_Note` 同一条纪律）。
+/// 认法＝`class <名以 Chip 结尾> extends StatelessWidget` 且**名以下划线开头**（公共件不带下划线，
+/// 因此 `FnthinkChoiceChip` 这类唯一作者不会被抓进来）。
+List<String> privateChipClasses(Iterable<String> sources) => [
+  for (final src in sources)
+    for (final m in RegExp(
+      r'class\s+(_[A-Za-z0-9_]*Chip)\s+extends\s+StatelessWidget',
+    ).allMatches(src))
+      m.group(1)!,
+]..sort();

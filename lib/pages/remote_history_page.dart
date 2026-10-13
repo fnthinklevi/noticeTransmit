@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 
@@ -212,28 +211,28 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Row(
               children: [
-                _DirectionChip(
+                FnthinkChoiceChip(
                   keyName: 'remote-history-dir-in',
                   label: l10n.remoteHistoryIn,
-                  active: _direction == kFnthinkRemoteDirectionIn,
+                  selected: _direction == kFnthinkRemoteDirectionIn,
                   onTap: _busy
                       ? null
                       : () => _switchDirection(kFnthinkRemoteDirectionIn),
                 ),
                 const SizedBox(width: 8),
-                _DirectionChip(
+                FnthinkChoiceChip(
                   keyName: 'remote-history-dir-out',
                   label: l10n.remoteHistoryOut,
-                  active: _direction == kFnthinkRemoteDirectionOut,
+                  selected: _direction == kFnthinkRemoteDirectionOut,
                   onTap: _busy
                       ? null
                       : () => _switchDirection(kFnthinkRemoteDirectionOut),
                 ),
                 const SizedBox(width: 8),
-                _DirectionChip(
+                FnthinkChoiceChip(
                   keyName: 'remote-history-dir-all',
                   label: l10n.remoteHistoryAll,
-                  active: _direction == null,
+                  selected: _direction == null,
                   onTap: _busy ? null : () => _switchDirection(null),
                 ),
               ],
@@ -399,38 +398,12 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
   }
 }
 
-class _DirectionChip extends StatelessWidget {
-  const _DirectionChip({
-    required this.keyName,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String keyName;
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      key: ValueKey(keyName),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      onPressed: onTap,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-          color: active
-              ? AppColors.primaryLabel(context)
-              : AppColors.secondaryLabel(context),
-        ),
-      ),
-    );
-  }
-}
+// （T148 片12）这一页原来在这里私有地搭了一枚 `_DirectionChip`：13px、`CupertinoButton`、
+// 选中态**只有字重与字色差**（无底色无边框）。同一件事——「一排可选项里的一枚」——在幻念那几张
+// 页早就有公共件 `FnthinkChoiceChip`（13px + 选中描边与底色 + 忙时置灰）。
+// ⚠ 这不只是"两处各搭各的迟早不一样"：只有字重差的那一枚，**用户在屏上读不出自己选上了没有**
+//   （发送页那三排在 T108 片② 就是同一个病，那边当场修）。换件之后方向条多了描边与底色 ——
+//   视觉变强是这一片要的效果，不是回归；键名 `remote-history-dir-in/out/all` 逐字没动。
 
 // （T100 片5）这一页原来在这里抄了一枚私有 `_Note`：padding、12px、height 1.4、
 // secondaryLabel 四个值与公共件 `FnthinkNote` 逐字相同 —— 小字说明那一族从此只有一个作者。

@@ -1039,6 +1039,38 @@ void main() {
       );
     });
 
+    testWidgets('方向条那三枚由 `FnthinkChoiceChip` 画出（片12：行内 chip 那笔账）', (
+      tester,
+    ) async {
+      // 这一页原来私有搭了一枚 `_DirectionChip`，选中态**只有字重与字色差** —— 那种形状的病不是
+      // "两处不统一"，而是**用户在屏上读不出自己选上了没有**（T108 片② 在发送页三排上实测过）。
+      // 这里钉的是件不是 key：key 逐字没动，换成自搭壳它照样找得到。
+      await pumpHistory(tester, loadRecords: (_) async => const []);
+      for (final key in const [
+        'remote-history-dir-in',
+        'remote-history-dir-out',
+        'remote-history-dir-all',
+      ]) {
+        expect(
+          find.ancestor(
+            of: find.byKey(ValueKey(key)),
+            matching: find.byType(FnthinkChoiceChip),
+          ),
+          findsOneWidget,
+          reason: '$key 还在、画的却不是公共件 ⇒ 「一排可选项里的一枚」又长出第二个作者',
+        );
+      }
+      // 三档互斥：恰好一枚选中（零枚＝屏幕不说现在在哪一档；两枚＝互斥被破）
+      expect(
+        tester
+            .widgetList<FnthinkChoiceChip>(find.byType(FnthinkChoiceChip))
+            .where((w) => w.selected)
+            .length,
+        1,
+        reason: '方向条的选中态必须恰好一枚',
+      );
+    });
+
     testWidgets('发起端那一行（out + pending）也不给取消：本机手里没有可撤的窗口', (tester) async {
       // T143 片1 带出来的新形状：out 的 `pending` 说的是"已交出去、等对面回执"，
       // 给这一下等于把一条已经上路的东西标成"我收回了" —— 而对面照不照做没人知道。
