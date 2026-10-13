@@ -2371,6 +2371,7 @@ Future<void> _waitUntil(
   String what, {
   int seconds = 25,
 }) async {
+  _lastAction = 'wait「$what」';
   final end = DateTime.now().add(Duration(seconds: seconds));
   while (DateTime.now().isBefore(end)) {
     await t.pump(const Duration(milliseconds: 200));
@@ -2385,6 +2386,7 @@ Future<void> _waitUntil(
 /// 从树上最后一个 Scrollable 反向试：后压入的路由在 widget 树里更靠后，最可能是当前页。
 Future<bool> _scrollUntil(WidgetTester t, Finder f) async {
   if (f.evaluate().isNotEmpty) return true;
+  _lastAction = 'scroll 找 $f';
   // ⚠ 必须按**下标**重新解析 Scrollable：一次 drag 之后 widget 实例会被重建，
   // 拿 find.byWidget(旧实例) 去 drag 会立刻 "matched 0 widgets" ⇒ 一次也滚不动，
   // 表现成"下面几行的入口找不到"（5.10/5.11/8 三节同一个假原因就是这么来的）。
@@ -2690,6 +2692,7 @@ Future<void> _tap(
   String why, {
   int settleSeconds = 1,
 }) async {
+  _lastAction = 'tap「$why」';
   await _scrollUntil(t, f);
   await _must(t, f.evaluate().isNotEmpty, '可点控件 $why', f);
   // ⚠ 用"树上第一个匹配"，不要把控件钉成实例：`const Icon(...)` 会被规范化，
@@ -2712,6 +2715,7 @@ Future<void> _tap(
 }
 
 Future<void> _type(WidgetTester t, Finder f, String text, String why) async {
+  _lastAction = 'type「$why」';
   await _scrollUntil(t, f);
   await _must(t, f.evaluate().isNotEmpty, '输入框 $why', f);
   try {
@@ -2799,6 +2803,23 @@ Future<void> _fillWebhookUrl(WidgetTester t, String url) async {
 /// 这正是把 24 节拆成四条独立用例的理由：跨用例不共用手势队列，一次挂住只作废它自己那条。
 /// 3 分钟按最重的 5.1（webhook 建两条改一条删两条）实测约 40 秒的十倍给。
 const _stepBudget = Duration(minutes: 3);
+
+/// 慢机放大旋钮（2026-10-12 夜加）：默认 **不设** ⇒ CI 与既有契约一字不改。
+/// 用途：本机（swiftshader 软渲染）实测一整条用例的健康运行就已 5:13——贴着 6 分钟的用例预算，
+/// 于是"某一节挂 3 分钟"必然先撞用例预算、连该节的 FAIL 都来不及打（2/4 的 4.3 就是这么死的）。
+/// 慢机上排查时用 `flutter test --dart-define=GATE_STEP_BUDGET_SEC=300 …` 放大节预算。
+/// ⚠ 这是**排查旋钮**，不是发版口径：`_case<X>Budget`/`GATE_CASE_TIMEOUT`/CI job 那条四分不等式
+/// 仍然按默认值算（守卫 `release_gate_emulator_test.dart` 钉默认值 + 钉 CI 里没人设它）。
+const int _stepBudgetOverrideSec = int.fromEnvironment('GATE_STEP_BUDGET_SEC');
+const Duration _stepBudgetEffective = _stepBudgetOverrideSec > 0
+    ? Duration(seconds: _stepBudgetOverrideSec)
+    : _stepBudget;
+
+/// 「最后动作」路标：挂住时日志里自带定位，不必再加探针。
+/// （2026-10-12 夜实测：为了钉住"到底卡在哪一句"，我给 5.4a 与 `_type` 各插过一轮临时探针；
+///  这层就是那次经验的固化 —— `_tap`/`_type`/`_waitUntil`/`_scrollUntil` 每次进门先写它，
+///  超时消息与 FAIL 行都带上。）
+String _lastAction = '(还没开始)';
 
 /// 用例级超时。口径（"谁先说话"是契约而不是巧合，钉在
 /// `test/architecture/release_gate_emulator_test.dart` 里）：
@@ -2974,15 +2995,25 @@ Future<void> _step(
     return;
   }
   debugPrint('GATE-STEP-BEGIN ▸ $name');
+  final watch = Stopwatch()..start();
   try {
     await body().timeout(
-      _stepBudget,
-      onTimeout: () =>
-          throw TimeoutException('本节在 $_stepBudget 内没跑完 ⇒ 挂住，不是断言失败'),
+      _stepBudgetEffective,
+      onTimeout: () => throw TimeoutException(
+        '本节在 $_stepBudgetEffective 内没跑完 ⇒ 挂住，不是断言失败；'
+        '最后动作：$_lastAction',
+      ),
     );
+    watch.stop();
+    // 每节的实际耗时进日志（2026-10-12 夜加）：它让"这台机还剩多少余量"可算 ——
+    // 本机一整条用例健康运行 5:13、贴着 6 分钟的用例预算，就是这么量出来的。
+    debugPrint('GATE-STEP-DONE ▸ $name ${watch.elapsedMilliseconds}ms');
   } catch (e) {
+    watch.stop();
     failures[name] = e.toString().split('\n').first;
-    debugPrint('GATE-STEP-FAIL ▸ $name ▸ $e');
+    debugPrint(
+      'GATE-STEP-FAIL ▸ $name （本节已跑 ${watch.elapsedMilliseconds}ms）▸ $e',
+    );
   }
   await _backToHomeQuietly(t);
 }

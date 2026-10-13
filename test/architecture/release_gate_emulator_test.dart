@@ -1118,6 +1118,33 @@ void main() {
         contains('_stepBudget'),
         reason: '预算必须是同一个常量；别处再写一个数字就是两份口径，改一处漏一处',
       );
+      // 2026-10-12 夜补：挂住要**自带定位**，而且慢机要有放大器 —— 三条各钉一维。
+      expect(
+        helper,
+        contains('GATE-STEP-DONE'),
+        reason:
+            '每节耗时不进日志 ⇒ "这台机健康跑完要多久、还剩多少余量"算不出来；'
+            '本机实测一整条用例健康运行 5:13、贴着 6 分钟用例预算，就是这么量出来的（base 208）',
+      );
+      expect(
+        helper,
+        contains('_lastAction'),
+        reason:
+            '超时消息不带"最后动作" ⇒ 每次挂住都要另插一轮探针才知道卡在哪一句'
+            '（2026-10-12 夜为此插过两轮，`_tap`/`_type`/`_waitUntil`/`_scrollUntil` 各写过一次）',
+      );
+      expect(
+        walkSrc(),
+        contains('GATE_STEP_BUDGET_SEC'),
+        reason: '慢机放大旋钮没了 ⇒ 本机（swiftshader）贴着用例预算时没有任何排查手段',
+      );
+      for (final sh in const ['.github/scripts/release_emulator.sh']) {
+        expect(
+          File('$root/$sh').readAsStringSync().contains('GATE_STEP_BUDGET_SEC'),
+          isFalse,
+          reason: '发版脚本不许设这个旋钮 ⇒ 它是排查用的，默认口径（3 分钟）必须原样带进发版闸门',
+        );
+      }
       final tryAt = helper.indexOf('try {');
       final toAt = helper.indexOf('.timeout(');
       final catchAt = helper.indexOf('} catch');
