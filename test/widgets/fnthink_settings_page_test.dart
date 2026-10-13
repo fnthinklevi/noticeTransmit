@@ -28,6 +28,7 @@ import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
 import 'package:notice_transmit/services/fnthink_grant_items.dart';
+import 'package:notice_transmit/services/fnthink_remote_action_categories.dart';
 import 'package:notice_transmit/services/fnthink_pair_link.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
@@ -2007,6 +2008,85 @@ void main() {
       );
       // 画了这张表本身不许替用户答复：一条请求都没发出去，才是"等用户点"。
       expect(ctx.h.confirmAsked(), isEmpty);
+    });
+
+    // ── T146 片2 格④：那 18 行按主题分栏（裁定 5「当前过于杂乱」的最后一格）──
+    testWidgets('同意屏那一格每一栏都有标题，标题是那张表给的人话，一项不丢', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L2')]);
+      final rows = pairItemRows(contract);
+      final groups = fnthinkRemoteItemGroups(rows, (row) => row.base);
+      expect(
+        groups.map((g) => g.slug).toList(),
+        kFnthinkRemoteCategoryOrder,
+        reason: '这一档画的是全量 ⇒ 五栏都该出现；少一栏就是这一栏的行没画',
+      );
+      var drawn = 0;
+      for (final group in groups) {
+        drawn += group.items.length;
+        final heading = find.byKey(
+          ValueKey('fnthink-pair-items-group-pr_9-${group.slug}'),
+        );
+        expect(heading, findsOneWidget, reason: '这一组没有标题：${group.slug}');
+        expect(
+          tester.widget<Text>(heading).data,
+          fnthinkRemoteCategoryTitle(ctx.l10n, group.slug),
+          reason:
+              '标题必须来自那张表 + ARB。页面自己拼一句，两张清单页就会对同一个动作'
+              '给出两种说法（发送页那一档吃的就是同一份）',
+        );
+      }
+      expect(drawn, rows.length, reason: '分栏只改"画在哪一栏底下"：项数少了不是分类，是替用户裁了清单');
+    });
+
+    testWidgets('每一栏的头一行画在本栏标题之下、下一栏标题之上（分栏在屏上是真的）', (tester) async {
+      stubChannels();
+      await openWith(tester, requests: [request('L2')]);
+      final groups = fnthinkRemoteItemGroups(
+        pairItemRows(contract),
+        (row) => row.base,
+      );
+      for (var i = 0; i < groups.length; i++) {
+        final headingY = tester
+            .getTopLeft(
+              find.byKey(
+                ValueKey('fnthink-pair-items-group-pr_9-${groups[i].slug}'),
+              ),
+            )
+            .dy;
+        final firstRowY = tester
+            .getTopLeft(
+              find.byKey(
+                ValueKey(
+                  'fnthink-pair-item-pr_9-${groups[i].items.first.base}',
+                ),
+              ),
+            )
+            .dy;
+        expect(
+          firstRowY,
+          greaterThan(headingY),
+          reason: '${groups[i].slug} 那一栏的头一行在它自己的标题上面 ⇒ 归组在界面上没生效',
+        );
+        if (i + 1 < groups.length) {
+          final nextY = tester
+              .getTopLeft(
+                find.byKey(
+                  ValueKey(
+                    'fnthink-pair-items-group-pr_9-${groups[i + 1].slug}',
+                  ),
+                ),
+              )
+              .dy;
+          expect(
+            firstRowY,
+            lessThan(nextY),
+            reason:
+                '${groups[i].items.first.base} 被画到了下一栏底下 —— 栏内顺序漂了，'
+                '用户按栏找东西就会找空（分栏的"看得见"就没了）',
+          );
+        }
+      }
     });
 
     testWidgets('勾两项再同意 ⇒ 被签的载荷带的就是这两项（顺序与去重交给服务端）', (tester) async {

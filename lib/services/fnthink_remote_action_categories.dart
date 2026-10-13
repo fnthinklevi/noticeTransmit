@@ -84,20 +84,44 @@ String fnthinkRemoteCategoryTitle(AppLocalizations l10n, String slug) {
 /// 返回的 slug 顺序 = [kFnthinkRemoteCategoryOrder]，未分类排最后；
 /// 空组**不出现**（画一排只有标题没有 chip 的栏，读起来像"这一档没东西"）。
 List<FnthinkRemoteActionGroup> fnthinkRemoteActionGroups(List<String> actions) {
-  final bySlug = <String, List<String>>{};
-  for (final action in actions) {
+  return [
+    for (final entry in _byCategoryInOrder(actions, (a) => a).entries)
+      FnthinkRemoteActionGroup(slug: entry.key, actions: entry.value),
+  ];
+}
+
+/// 同一件事的另一种行本体：发送页分的是动作名，同意屏分的是派生出来的行
+/// （每行还带着"要哪种参数"）。**归组与排序没有第二份实现** —— 这里只是把行换成本体。
+List<FnthinkRemoteItemGroup<T>> fnthinkRemoteItemGroups<T>(
+  Iterable<T> items,
+  String Function(T item) actionOf,
+) {
+  return [
+    for (final entry in _byCategoryInOrder(items, actionOf).entries)
+      FnthinkRemoteItemGroup<T>(slug: entry.key, items: entry.value),
+  ];
+}
+
+/// 分栏的唯一一处做法：按主题分堆 → 按 [kFnthinkRemoteCategoryOrder] 排 → 未分类垫底 → 空组不出现。
+///
+/// 两张清单页（发送页那一档的 chip、同意屏那一格的勾逐项）**共用这一把尺**：各自排一次
+/// 就会长出第二把序，而第二把序的表现是"同一份清单在两张页上顺序不一样"—— 用户读成
+/// "这页少了几项"，实际只是画的位置不同（T146 格④ 量的正是这一族）。
+Map<String, List<T>> _byCategoryInOrder<T>(
+  Iterable<T> items,
+  String Function(T item) actionOf,
+) {
+  final bySlug = <String, List<T>>{};
+  for (final item in items) {
     bySlug
-        .putIfAbsent(fnthinkRemoteActionCategory(action), () => [])
-        .add(action);
+        .putIfAbsent(fnthinkRemoteActionCategory(actionOf(item)), () => [])
+        .add(item);
   }
   final ordered = <String>[
     ...kFnthinkRemoteCategoryOrder.where((s) => bySlug.containsKey(s)),
     ...bySlug.keys.where((s) => !kFnthinkRemoteCategoryOrder.contains(s)),
   ];
-  return [
-    for (final slug in ordered)
-      FnthinkRemoteActionGroup(slug: slug, actions: bySlug[slug]!),
-  ];
+  return {for (final slug in ordered) slug: bySlug[slug]!};
 }
 
 /// 一栏：标题由 `slug` 决定，chip 由 `actions` 决定。
@@ -106,4 +130,12 @@ class FnthinkRemoteActionGroup {
 
   final String slug;
   final List<String> actions;
+}
+
+/// 一栏的行本体（同意屏那一档画的是"勾逐项"那种行，不是裸动作名）。
+class FnthinkRemoteItemGroup<T> {
+  const FnthinkRemoteItemGroup({required this.slug, required this.items});
+
+  final String slug;
+  final List<T> items;
 }

@@ -872,13 +872,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           // T146（裁定 5「当前过于杂乱」）：18 枚平铺的清单按主题分栏。
           // ⚠ 分栏只改"画在哪一栏底下"：chip 的 key 里仍是契约那个动作名，
           //   按 key 点 chip 的六处用例与闸门的路线一个字都不动。
+          //   组标题走 `FnthinkRowLabel`（同意屏那一格的分组标题同一枚件）—— 早前这里用
+          //   `FnthinkNote`（12px 正文小字）当标题，两张清单页就会被读出两种层级。
           for (final group in fnthinkRemoteActionGroups(actions)) ...[
-            FnthinkNote(
+            FnthinkRowLabel(
               keyName:
                   'remote-send-action-group-${group.slug.isEmpty ? 'uncategorized' : group.slug}',
-              text: fnthinkRemoteCategoryTitle(l10n, group.slug),
+              label: fnthinkRemoteCategoryTitle(l10n, group.slug),
             ),
-            const SizedBox(height: 6),
             Wrap(
               spacing: 8,
               runSpacing: 8,

@@ -17,6 +17,7 @@ import '../services/fnthink_pair_items.dart';
 import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_remote_action_categories.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../theme/app_colors.dart';
@@ -639,8 +640,22 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
         keyName: 'fnthink-pair-items-title-${request.requestId}',
         text: l10n.fnthinkPairItemsTitle,
       ),
-      for (final row in _pairRows)
-        ..._pairOneRow(l10n, contract, request, row, checked),
+      // T146 片2 格④（裁定 5「当前过于杂乱」的最后一格）：18 行一维平铺按主题分栏。
+      // ⚠ 分栏只改"画在哪一栏底下"：勾逐项的 key 仍是 `fnthink-pair-item-<reqId>-<契约名>`，
+      //   那批按 key 勾／断言的用例与闸门的路线一个字都不动。归组与排序走那张表的
+      //   唯一作者（`fnthinkRemoteItemGroups`），页面不自己排第二把序。
+      for (final group in fnthinkRemoteItemGroups(
+        _pairRows,
+        (row) => row.base,
+      )) ...[
+        FnthinkRowLabel(
+          keyName:
+              'fnthink-pair-items-group-${request.requestId}-${group.slug.isEmpty ? 'uncategorized' : group.slug}',
+          label: fnthinkRemoteCategoryTitle(l10n, group.slug),
+        ),
+        for (final row in group.items)
+          ..._pairOneRow(l10n, contract, request, row, checked),
+      ],
       HelpNoteRow(
         noteKey: 'fnthink-pair-items-note-${request.requestId}',
         helpKey: 'fnthink-pair-items-note-${request.requestId}-help',
