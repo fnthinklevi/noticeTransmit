@@ -11,6 +11,7 @@ import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution.dart';
 import '../services/fnthink_remote_outcome_words.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/history_row_tile.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -252,15 +253,21 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
   List<Widget> _body(AppLocalizations l10n) {
     final rows = _rows;
     if (_error != null) {
-      return [_Note(keyName: 'remote-history-error', text: _error!)];
+      return [FnthinkNote(keyName: 'remote-history-error', text: _error!)];
     }
     if (rows == null) {
-      return [_Note(keyName: 'remote-history-pending', text: l10n.unknown)];
+      return [
+        FnthinkNote(keyName: 'remote-history-pending', text: l10n.unknown),
+      ];
     }
     if (rows.isEmpty) {
       return [
-        _Note(keyName: 'remote-history-empty', text: l10n.remoteHistoryEmpty),
-        if (_note != null) _Note(keyName: 'remote-history-note', text: _note!),
+        FnthinkNote(
+          keyName: 'remote-history-empty',
+          text: l10n.remoteHistoryEmpty,
+        ),
+        if (_note != null)
+          FnthinkNote(keyName: 'remote-history-note', text: _note!),
         HelpNoteRow(
           noteKey: 'remote-history-boundary',
           helpKey: 'remote-history-boundary-help',
@@ -273,7 +280,8 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
     return [
       // ⚠ 结论**留在页面上**而不是弹个 toast：用户回头再看一次才能确认"删掉了"，
       //   而这一格记的是"发生过什么"，一次性的提示等于没记。
-      if (_note != null) _Note(keyName: 'remote-history-note', text: _note!),
+      if (_note != null)
+        FnthinkNote(keyName: 'remote-history-note', text: _note!),
       for (final row in rows) _row(l10n, row),
       // T149 片1：那句边界不再摊在页尾 —— 收成一行短说 + 问号（维护者 2026-10-12 第 4 条
       // 把 T90 的"两种去处"收窄成一处：长说明只进右上问号弹层）。**正文没删**，只是挪了位置。
@@ -323,7 +331,7 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
         // ⚠ 走通用件的 `lines` 而不是 `statusMessage`：那一格画的是**状态的原话**（一行、两行封顶），
         //   而结果与理由要各留自己的 key 与整句措辞，用户要能分别长按不到、复制得到。
         if (row.result.isNotEmpty)
-          _Note(
+          FnthinkNote(
             keyName: 'remote-history-result-${row.execId}',
             // T144 片2 格①：这一格是**本机做成了哪一步**，词表唯一作者在那张封闭表上
             // （词表外的读数原样显示 —— 不拿"已完成"盖住一个读不出来的东西）。
@@ -332,7 +340,7 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
             ),
           ),
         if (row.reason.isNotEmpty)
-          _Note(
+          FnthinkNote(
             keyName: 'remote-history-reason-${row.execId}',
             text: l10n.remoteHistoryReason(row.reason),
           ),
@@ -417,25 +425,5 @@ class _DirectionChip extends StatelessWidget {
   }
 }
 
-class _Note extends StatelessWidget {
-  const _Note({required this.keyName, required this.text});
-
-  final String keyName;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Text(
-        text,
-        key: ValueKey(keyName),
-        style: TextStyle(
-          fontSize: 12,
-          height: 1.4,
-          color: AppColors.secondaryLabel(context),
-        ),
-      ),
-    );
-  }
-}
+// （T100 片5）这一页原来在这里抄了一枚私有 `_Note`：padding、12px、height 1.4、
+// secondaryLabel 四个值与公共件 `FnthinkNote` 逐字相同 —— 小字说明那一族从此只有一个作者。

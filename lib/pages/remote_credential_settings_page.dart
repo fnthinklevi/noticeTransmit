@@ -12,6 +12,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_remote_settings.dart';
 import '../services/remote_credential_store.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
@@ -330,7 +331,7 @@ class _RemoteCredentialSettingsPageState
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           if (_contractError != null)
-            _Note(
+            FnthinkNote(
               keyName: 'remote-cred-contract-error',
               text: l10n.fnthinkContractUnavailable(_contractError!),
             )
@@ -346,7 +347,7 @@ class _RemoteCredentialSettingsPageState
             _buildTotpCard(l10n),
             if (_note != null) ...[
               const SizedBox(height: 12),
-              _Note(keyName: 'remote-cred-note', text: _note!),
+              FnthinkNote(keyName: 'remote-cred-note', text: _note!),
             ],
           ],
         ],
@@ -384,7 +385,7 @@ class _RemoteCredentialSettingsPageState
             ),
           ],
         ),
-        _Note(
+        FnthinkNote(
           keyName: 'remote-exec-switch-state',
           text: state.enabled
               ? l10n.remoteExecEnabledOn
@@ -393,7 +394,7 @@ class _RemoteCredentialSettingsPageState
         // ⚠ 这一行不是提醒，是**L3 一条都进不来**这件事的事实：契约 l3Requires=true。
         //   不说它的后果是用户开完开关去发一条，然后不知道为什么被拒。
         if (state.l3Unreachable)
-          _Note(
+          FnthinkNote(
             keyName: 'remote-exec-needs-credential',
             text: l10n.remoteExecNeedsCredential,
           ),
@@ -407,7 +408,7 @@ class _RemoteCredentialSettingsPageState
     return _Card(
       title: l10n.remoteExecDelayTitle,
       children: [
-        _Note(
+        FnthinkNote(
           keyName: 'remote-exec-delay-value',
           text: delay.chosen == null
               ? l10n.remoteExecDelayUsingDefault(delay.effective)
@@ -423,12 +424,12 @@ class _RemoteCredentialSettingsPageState
           divisions: delay.range.max - delay.range.min,
           onChanged: _busy ? null : (v) => _saveDelay(v.round()),
         ),
-        _Note(
+        FnthinkNote(
           keyName: 'remote-exec-delay-range',
           text: l10n.remoteExecDelayRange(delay.range.min, delay.range.max),
         ),
         if (delay.problem != null)
-          _Note(
+          FnthinkNote(
             keyName: 'remote-exec-delay-problem',
             text: l10n.remoteExecDelayInvalid(delay.problem!),
           ),
@@ -462,7 +463,7 @@ class _RemoteCredentialSettingsPageState
         // ⚠ 三档分开：**没设** / **设了且有指纹（显示打点的那一格）** /
         //   **设了但没有指纹**（存量设备：指纹是后加的那一项）。第三档写成
         //   "已设一把"是**假承诺** —— 它让人以为看得见是哪一把。
-        _Note(
+        FnthinkNote(
           keyName: 'remote-cred-key-state',
           text: !state.hasKey
               ? l10n.remoteCredKeyNone
@@ -536,18 +537,18 @@ class _RemoteCredentialSettingsPageState
       title: l10n.remoteCredTotpSection,
       children: [
         if (state.problem != null)
-          _Note(
+          FnthinkNote(
             keyName: 'remote-cred-problem',
             text: l10n.remoteCredProblem(state.problem!),
           ),
-        _Note(
+        FnthinkNote(
           keyName: 'remote-cred-totp-state',
           text: state.hasTotp
               ? l10n.remoteCredTotpSet
               : l10n.remoteCredTotpNone,
         ),
         if (fresh != null) ...[
-          _Note(
+          FnthinkNote(
             keyName: 'remote-cred-totp-link-label',
             text: l10n.remoteCredTotpLink,
           ),
@@ -585,7 +586,7 @@ class _RemoteCredentialSettingsPageState
               child: Text(l10n.fnthinkCopy),
             ),
           ),
-          _Note(
+          FnthinkNote(
             keyName: 'remote-cred-totp-secret-label',
             text: l10n.remoteCredTotpSecret,
           ),
@@ -676,29 +677,6 @@ class _Card extends StatelessWidget {
           const SizedBox(height: 10),
           ...children,
         ],
-      ),
-    );
-  }
-}
-
-class _Note extends StatelessWidget {
-  const _Note({required this.keyName, required this.text});
-
-  final String keyName;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Text(
-        text,
-        key: ValueKey(keyName),
-        style: TextStyle(
-          fontSize: 12,
-          height: 1.4,
-          color: AppColors.secondaryLabel(context),
-        ),
       ),
     );
   }

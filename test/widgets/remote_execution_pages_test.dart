@@ -14,6 +14,7 @@ import 'package:notice_transmit/services/fnthink_remote_out_record.dart';
 import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/pages/remote_history_page.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 /// 远程执行 片3b-2 的**页面**契约（发送页 + 历史页）。
 ///
@@ -853,6 +854,20 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('remote-history-empty')), findsNothing);
+    });
+
+    testWidgets('那一格小字是公共件画的（T100 片5：页面不再自搭壳）', (tester) async {
+      await pumpHistory(tester, loadRecords: (_) async => const []);
+      // key 逐字没动（`remote-history-empty` 还是那枚 Text 的 key）⇒ 上面那两条定位一条都不欠；
+      // 这一条钉的是**画法**：把壳换回页面自搭的 Text，key 还在、字号与行距就开始各漂各的。
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('remote-history-empty')),
+          matching: find.byType(FnthinkNote),
+        ),
+        findsOneWidget,
+        reason: '那格小字不再由 `FnthinkNote` 画 ⇒ 这一族在这张页上又长出第二个作者',
+      );
     });
 
     testWidgets('三档方向：收/发/全部各读各的', (tester) async {
