@@ -1005,6 +1005,40 @@ void main() {
       );
     });
 
+    testWidgets('「撤销」那一枚由行内动作件画出（片11：钉的是件不是 key）', (tester) async {
+      // key 字符串逐字没动，所以"找不到"不是这一条要防的事 —— 这一条防的是
+      // **key 还在、画的却不是公共件**：那样字号与语义色又回到页面自己挑，
+      // 而这一族的形状统一（T148 差异⑧）就只在台账上成立、在屏上不成立。
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [record('x0000001', state: 'pending')],
+      );
+      final cancel = find.byKey(
+        const ValueKey('remote-history-cancel-x0000001'),
+      );
+      // ⚠ `matchRoot: true` 不是随手加的：`FnthinkInlineAction` 收的是 `super.key`
+      //   （键**就是**那枚件），而 `find.ancestor` 默认把根排除 ⇒ 不加就是恒空的 0。
+      //   同页另一枚 `FnthinkNote` 恰好相反（键挂在那枚 `Text` 上）—— 一件两种定位法，
+      //   判据要跟着件住哪儿走，别拿同一写法断两枚（片7 记过同族那次红）。
+      expect(
+        find.ancestor(
+          of: cancel,
+          matching: find.byType(FnthinkInlineAction),
+          matchRoot: true,
+        ),
+        findsOneWidget,
+        reason: '那一格还在、画的却不是 `FnthinkInlineAction` ⇒ 行内动作这一族又长出第二个作者',
+      );
+      // 件里那枚 `Text` 必须还是词条本身（换件不许顺手换词；断在词条上而不是某串措辞）
+      expect(
+        find.descendant(
+          of: cancel,
+          matching: find.text(zhL10n.remoteHistoryCancel),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('发起端那一行（out + pending）也不给取消：本机手里没有可撤的窗口', (tester) async {
       // T143 片1 带出来的新形状：out 的 `pending` 说的是"已交出去、等对面回执"，
       // 给这一下等于把一条已经上路的东西标成"我收回了" —— 而对面照不照做没人知道。

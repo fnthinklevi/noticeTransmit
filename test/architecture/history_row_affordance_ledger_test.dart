@@ -263,8 +263,11 @@ const List<RowAffordance> kRowAffordanceLedger = [
     tapWhat: '不给：这一页没有详情层，时间／来源／状态／结果／理由全摊在这一行上',
     longPressRow: false,
     longPressWhat: '不给：这一类行没有"就地处置"可给（撤销是对那一次执行的，不是对这条记录的）',
-    inlineProbe: 'CupertinoButton(',
-    inlineWhat: '行内「取消」一枚，只给 in + unsettled 那几条（发起端 out 不给）',
+    inlineProbe: 'FnthinkInlineAction(',
+    inlineWhat:
+        '行内「取消」一枚，只给 in + unsettled 那几条（发起端 out 不给）；'
+        '片11 起这枚走公共件 `FnthinkInlineAction`（探针跟着换 —— 探针记的是"行上有动作件"这件事，'
+        '不是某一枚壳的写法），键名 `remote-history-cancel-<execId>` 逐字没动',
     gap:
         '点行与长按两格为空是**设计**（没有可打开的东西＝不发明动作）；'
         '它靠行内动作那一格保证"要办事时办事有着落"。',

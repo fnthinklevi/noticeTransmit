@@ -288,13 +288,16 @@ void main() {
     //   · `remote_history_page.dart` 的 2 枚自搭 `CupertinoButton(` ＝ 撤销那一枚与方向芯片。
     //     注意它**不在**幻念那六张页的口径里（文件名不是 `fnthink_` 前缀），所以「自搭按钮清零」
     //     那条一直管不到它 —— 这一格就是那条漏口的账面。
+    //     ⚠ 片11 换掉「撤销」（它是**对这一行做一次动作**，与名单页／端点页／收件详情同一族）
+    //     ⇒ 2 → **1**；剩那一枚是**方向芯片**（收/发/全部三档切换），属 chip 族那笔另立的账，
+    //     不在"动作形状"这一列里 —— 拿它去凑"动作清零"会把两种不同的事混成一件。
     const kHistoryPages = <String, Map<String, int>>{
       'lib/pages/history_page.dart': {
         'GestureDetector(': 3,
         'IconButton(': 7,
         'FilledButton.icon(': 1,
       },
-      'lib/pages/remote_history_page.dart': {'CupertinoButton(': 2},
+      'lib/pages/remote_history_page.dart': {'CupertinoButton(': 1},
     };
 
     final shapeRe = {
@@ -439,6 +442,38 @@ void main() {
         RegExp(r"GestureDetector\(\s*onTap: _clearAllFilters").hasMatch(src),
         isFalse,
         reason: '同一个动作又被搭了一遍 ⇒ 上面那条正则能过、这一格却在屏上长着第二份',
+      );
+    });
+
+    test('远程执行历史那页的「撤销」走行内动作件（片11a）', () {
+      final src = codeByPath['lib/pages/remote_history_page.dart']!;
+      expect(
+        RegExp(
+          r"FnthinkInlineAction\(\s*key: ValueKey\('remote-history-cancel-\$\{row\.execId\}'\),",
+        ).hasMatch(src),
+        isTrue,
+        reason:
+            '「撤销」不再由 `FnthinkInlineAction` 给出 ⇒ 这一页又回到页面自挑字号与颜色'
+            '（台账那一列 2→1 的读数也就是它长回来的）',
+      );
+      expect(
+        RegExp(
+          r"CupertinoButton\(\s*key: ValueKey\('remote-history-cancel-",
+        ).hasMatch(src),
+        isFalse,
+        reason: '同一个动作被搭了两遍（件在、自搭壳也在）⇒ 键集判据看不出，这一条才看得出',
+      );
+    });
+
+    test('那一枚的 tone 不许被换成 destructive（片11b：换件不改配色）', () {
+      final src = codeByPath['lib/pages/remote_history_page.dart']!;
+      expect(
+        RegExp(r'FnthinkActionTone\.destructive').hasMatch(src),
+        isFalse,
+        reason:
+            '这一枚取**缺省的 action（蓝）**：统一形状那一片不该顺手改用户看到的颜色。'
+            '红那一档在这套件上是"吊销一项长期存在的东西"（名单页那枚撤销＝断掉配对关系），'
+            '而这里撤回的是一条还在窗口里的指令 —— 画红会把"取消一次动作"说成"销毁一条记录"。',
       );
     });
   });

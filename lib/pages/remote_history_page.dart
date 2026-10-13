@@ -352,10 +352,17 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
         if (row.unsettled && row.incoming)
           Align(
             alignment: Alignment.centerLeft,
-            child: CupertinoButton(
+            // T148 片11（差异⑧ 在 remote 这一页的那一格）：这一枚以前是页面自搭的
+            // `CupertinoButton` —— 字号、上下留白、禁用色都由页面挑，而同一件事
+            // （对这一行做一次动作）在名单页／端点页／收件详情早就是 `FnthinkInlineAction`。
+            // ⚠ tone 取**缺省的 action（蓝）**，不是 destructive：红那一档在这套件上是
+            //   "吊销一项长期存在的东西"（名单页那枚撤销＝断掉配对关系），而这一枚只是撤回
+            //   一条还在窗口里的指令；画红会把"取消一次动作"说成"销毁一条记录"。
+            //   换件的同时颜色一字没变 —— 这一片统一的是形状，不是配色。
+            child: FnthinkInlineAction(
               key: ValueKey('remote-history-cancel-${row.execId}'),
+              label: l10n.remoteHistoryCancel,
               onPressed: _busy ? null : () => _cancel(row),
-              child: Text(l10n.remoteHistoryCancel),
             ),
           ),
       ],
