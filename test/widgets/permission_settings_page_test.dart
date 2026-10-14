@@ -167,6 +167,35 @@ void main() {
       expect(find.text('还没给这台设备授权'), findsNWidgets(contract.l3Settings.length));
     });
 
+    testWidgets('契约新增一项而这一页还没配词条 ⇒ 那一行照画，标题就是那枚裸 key', (tester) async {
+      await pumpPage(
+        tester,
+        appListState: 'unknown',
+        l3Loader: () async => const [
+          FnthinkL3GrantRow(
+            key: 'brand_new_setting',
+            mode: 'grant',
+            native: 'getBrandNewSetting',
+            state: FnthinkL3GrantState.missing,
+          ),
+        ],
+      );
+
+      // 这一条钉的是**回退形状**，不是"这页配齐了"：少一行是静默的（用户以为这台没这项要管），
+      // 退成裸 key 才是"这一项还没配人话"的可见缺。配套的架构守卫同时把这件事报成红
+      // （`test/architecture/fnthink_l3_item_words_scope_test.dart` ①），两处一起改才收得住。
+      expect(
+        find.text('brand_new_setting'),
+        findsOneWidget,
+        reason: '回退形状变了（编一句、或者干脆不画那一行）⇒ 上面那条守卫红得没道理，两处一起失效',
+      );
+      expect(
+        find.text('通知转发监听'),
+        findsNothing,
+        reason: '只剩这一行时别把已配项的名字串进来（"少画一行"会被读成"这页在说另一项"）',
+      );
+    });
+
     testWidgets('读不到的一项说的是"读不到"，不是"已开启"也不是"还没给"', (tester) async {
       await pumpPage(
         tester,

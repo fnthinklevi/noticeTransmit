@@ -495,6 +495,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
   ///
   /// ⚠ 契约加了一项而这里没接 ⇒ **把 key 原样显示**，而不是让那一行消失：
   /// 少一行是静默的，多一个看得见的生词不是。
+  /// ⚠ **这一张表与 `fnthink_remote_action_labels` 是两张，不许合**（T146 片6 现读）：
+  ///   同一枚 `monitoring` 在那边叫「开／关**对面的**通知转发总开关」——答的是"这条指令会对对面做什么"；
+  ///   在这一页只许叫「通知转发监听」——答的是"**这台**有没有这项授权"。
+  ///   合表的后果是让权限页替用户说一句他沒做的事（"去开对面的开关"出现在"这台给了没有"那一行上）。
+  ///   钉这一维的守卫是 `test/architecture/fnthink_l3_item_words_scope_test.dart`（串台与覆盖各一条）。
   String _l3ItemTitle(AppLocalizations l10n, String key) => switch (key) {
     'notification' => l10n.notifAccessPerm,
     'exact_alarm' => l10n.exactAlarmTitle,
