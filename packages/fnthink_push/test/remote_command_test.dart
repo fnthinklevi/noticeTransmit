@@ -252,6 +252,92 @@ void main() {
     });
   });
 
+  group('关联键 exec（T143 片2：回执要认领得回发起端那一行）', () {
+    // 键名从契约现取，不写死字面量：写死的话契约改键名那天这里会**绿着**失效，
+    // 而失效的表现是"回执回来了、发起端一行都没更新"（没有报错）。
+    final keyName = FnthinkContract.readFile().remoteExecutionCorrelationKey;
+
+    Map<Object?, Object?> payload(String wire, String prefix) =>
+        jsonDecode(wire.substring(prefix.length)) as Map;
+
+    test('指令带 exec ⇒ 拆回来逐字相等；没带 ⇒ 空串，且载荷里根本没那一格', () {
+      final back = RemoteCommandEnvelope.decode(
+        RemoteCommandEnvelope.encode(
+          level: 'L1',
+          item: 'listener:start',
+          exec: 'RX-0001',
+        ),
+      )!;
+      expect(back.exec, 'RX-0001');
+
+      final bare = RemoteCommandEnvelope.encode(
+        level: 'L1',
+        item: 'listener:start',
+        exec: '',
+      );
+      expect(
+        payload(bare, RemoteCommandEnvelope.prefix).containsKey(keyName),
+        isFalse,
+        reason: '空串与不传必须是同一件事：不留"有键而值为空"那第二种形状',
+      );
+      expect(RemoteCommandEnvelope.decode(bare)!.exec, isEmpty);
+    });
+
+    test('回执带 exec ⇒ 逐字相等；旧版对端那条（没带）拆成空串而不是抛', () {
+      final back = RemoteReceiptEnvelope.decode(
+        RemoteReceiptEnvelope.encode(
+          result: 'execution_done',
+          level: 'L2',
+          item: 'listener:start',
+          state: 'done',
+          exec: 'RX-0002',
+        ),
+      )!;
+      expect(back.exec, 'RX-0002');
+
+      final legacy = RemoteReceiptEnvelope.encode(
+        result: 'executing',
+        level: 'L2',
+        item: 'listener:start',
+      );
+      expect(
+        payload(legacy, RemoteReceiptEnvelope.prefix).containsKey(keyName),
+        isFalse,
+      );
+      expect(RemoteReceiptEnvelope.decode(legacy)!.exec, isEmpty);
+    });
+
+    test('抄回纪律：指令里那枚原样进回执，回来还是同一枚（发起端据此认领）', () {
+      final command = RemoteCommandEnvelope.decode(
+        RemoteCommandEnvelope.encode(
+          level: 'L3',
+          item: 'autostart',
+          argument: 'on',
+          exec: 'RX-0003',
+        ),
+      )!;
+      final wire = RemoteReceiptEnvelope.encode(
+        result: 'executing',
+        level: command.level,
+        item: command.item,
+        argument: command.argument,
+        exec: command.exec,
+      );
+      expect(RemoteReceiptEnvelope.decode(wire)!.exec, command.exec);
+    });
+
+    test('exec 类型不对（数字 / null / 对象）⇒ 退成空串，不抛', () {
+      for (final bad in const ['123', 'null', '{}']) {
+        final back = RemoteReceiptEnvelope.decode(
+          '${RemoteReceiptEnvelope.prefix}'
+          '{"result":"executing","level":"L2","item":"x","$keyName":$bad}',
+        );
+        expect(back, isNotNull);
+        expect(back!.exec, isEmpty, reason: '坏值按"没带"处理，交给发起端不认领');
+      }
+    });
+  });
+
   group('三个前缀互不串', () {
     test('指令前缀与回执前缀不同', () {
       expect(

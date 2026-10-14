@@ -173,6 +173,9 @@ class RemoteCommandRunner extends ChangeNotifier {
       seconds: seconds,
       startedAt: startedAt,
       grantedKeys: accepted.grantedKeys,
+      // 发起端那枚关联键（T143 片2）：两段回执都靠它才对回**它那一行**。
+      // 本机自己触发那一路没有它（对面不存在），旧版发起端也没带 ⇒ 空串。
+      exec: command.exec,
     );
     await saveRecord(record);
     // ① 第一段回执：**收到就发**，不等窗口。
@@ -488,6 +491,7 @@ class RemoteCommandRunner extends ChangeNotifier {
       item: f.record.item,
       argument: f.record.argument,
       state: state,
+      exec: f.exec,
     );
     if (receipt == null) return;
     final sent = await sendReceipt(f.record.peerAddress, receipt);
@@ -558,6 +562,7 @@ class _InFlight {
     required this.seconds,
     required this.startedAt,
     required this.grantedKeys,
+    this.exec = '',
   });
 
   /// 这一条现在的样子（**迁一次改一次** —— 见 `_execute` 里那格：漏改的后果是
@@ -577,6 +582,10 @@ class _InFlight {
   /// ⚠ 它跟着这一条**进工作集**而不是到点再查一次库：用户在窗口里改了名单那一行的话，
   ///   这一发已经放行的是**那一刻**的授权，而"到点前一刻被改掉的清单"该影响的是下一条。
   final Set<String> grantedKeys;
+
+  /// 发起端随指令带过来的那枚关联键（`kFnthinkRemoteCorrelationKey`）。空串 = 对面没带
+  /// （旧版发起端，或本机自己触发那一路）。回执只**原样抄回**，本机不解释它的含义。
+  final String exec;
 
   /// 已经动手了（`pending → executing` 走完）⇒ 撤销入口不再受理。
   bool started = false;

@@ -6,6 +6,7 @@ import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_remote_command_handler.dart';
 import 'fnthink_remote_execution.dart';
+import 'fnthink_remote_out_record.dart';
 import 'fnthink_remote_runner.dart';
 import 'remote_execution_notifier.dart';
 
@@ -28,6 +29,12 @@ import 'remote_execution_notifier.dart';
 /// ## 白名单那一路不回执
 /// 判据是 [remoteExecutionSendsReceipt] 按 `source` 判 —— 那正是
 /// `RemoteCommandRejected.source` 存在的理由。
+///
+/// ## 回执也是"不是消息"（T143 片2）
+/// 对面回给我的 `FRR1:` 那一条走的是**同一条收件路**（线上它就是一条 L1 通知），
+/// 所以认领它的位置只能在 [onCommand] 里、在判定"要不要弹出来"那一格之前。
+/// ⚠ 这一段与指令那一段**共用前缀纪律但不同前缀**（`FRX1:` / `FRR1:`）：
+/// 少了这一格，回执会被当成一条消息弹出来，而本机那一行永远停在"待执行"。
 class RemoteCommandWiring {
   const RemoteCommandWiring({
     required this.contract,
@@ -35,6 +42,7 @@ class RemoteCommandWiring {
     required this.runner,
     required this.notifier,
     required this.saveRecord,
+    required this.loadRecord,
   });
 
   final FnthinkContract contract;
@@ -51,12 +59,25 @@ class RemoteCommandWiring {
   /// 落一行历史（拒的那一档也要落，见类注释）。
   final Future<void> Function(FnthinkRemoteExecutionRecord record) saveRecord;
 
+  /// 按关联键读发起端那一行（T143 片2 认领回执）。
+  ///
+  /// ⚠ 同样必填、不给默认值：这一格漏接时**症状比缺 `notifier` 更隐蔽** ——
+  ///   回执照常被吃掉（不弹成通知）、对面也一切正常，只有本机那一行停在"待执行"，
+  ///   而界面那句"已交出去"读起来完全没错。
+  final Future<FnthinkRemoteExecutionRecord?> Function(String execId)
+  loadRecord;
+
   /// 收货循环挂的那一格：**回 true = 这是指令，别按通知弹出来**。
   ///
   /// ⚠ 只有 `NotACommand` 那一路回 false。开关关着（`switch-off`）在 2026-10-12 裁定 1 之后
   /// 走的是**拒**那一档 ⇒ 留痕 + 回对面一条 `failed` 回执 + **不按通知弹**：一条远程指令是
   /// 一次动作，把它显示成一条消息就是把动作冒充成消息（维护者报的那个形状）。
   Future<bool> onCommand(FnthinkInboxMessage message) async {
+    // 先认回执（T143 片2）：它是一条**答复**，既不是消息也不是一条要执行的指令。
+    // ⚠ 必须排在 [RemoteCommandRecognizer.parse] **之前**：`FRR1:` 拆不进指令信封（前缀不同），
+    //   排在后面会走 `NotACommand` 那一档被当普通通知弹出来。
+    final receipt = RemoteReceiptEnvelope.decode(message.body);
+    if (receipt != null) return _claimReceipt(receipt);
     final parsed = await recognizer.parse(message);
     switch (parsed) {
       case RemoteCommandNotACommand():
@@ -69,6 +90,22 @@ class RemoteCommandWiring {
         await runner.run(parsed);
         return true;
     }
+  }
+
+  /// 认领一段回执 ⇒ 更新本机那一行（out 方向）。**恒回 true**（不弹成通知）。
+  ///
+  /// ⚠ 认领不上也回 true：一段回执不是一条消息，"我这台没这一行"（重启前发的、
+  ///   或这台根本只收不发）不是把它显示出来的理由 —— 显示出来反而让用户以为对面来了一条话。
+  /// 「能不能认领、动哪一格」的判据只住在 [remoteOutRowForReceipt]，这里不做第二次判断。
+  Future<bool> _claimReceipt(RemoteReceipt receipt) async {
+    final moved = remoteOutRowForReceipt(
+      contract: contract,
+      receipt: receipt,
+      row: await loadRecord(receipt.exec),
+    );
+    if (moved == null) return true;
+    await saveRecord(moved);
+    return true;
   }
 
   Future<void> _recordRejected(RemoteCommandRejected rejected) async {
@@ -99,6 +136,8 @@ class RemoteCommandWiring {
       item: record.item,
       argument: record.argument,
       state: RemoteExecutionStates.failed,
+      // 被拒的那一发也要带回关联键：对面那一行否则同样停在 pending，而它**已经知道**没成。
+      exec: rejected.command.exec,
     );
     if (receipt == null) return;
     await runner.replyReceipt(rejected.sender, receipt);

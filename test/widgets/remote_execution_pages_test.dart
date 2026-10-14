@@ -937,6 +937,34 @@ void main() {
       expect(saved[1].execId, saved.first.execId);
     });
 
+    testWidgets('载荷里那枚关联键 = 落库那一行的主键（同一枚，不是两枚）', (tester) async {
+      // T143 片2 的同源性：对面把它原样抄进两段回执，本机才认得回**哪一发**。
+      // 铸造两次（哪怕只差一毫秒）⇒ 回执回来永远对不上，而界面上那句"已交出去"没错。
+      String? sent;
+      final saved = <FnthinkRemoteExecutionRecord>[];
+      await pumpSend(
+        tester,
+        onSaved: saved.add,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent = text;
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await submit(tester);
+
+      final env = RemoteCommandEnvelope.decode(sent ?? '');
+      expect(env, isNotNull);
+      expect(env!.exec, isNotEmpty, reason: '不带关联键 ⇒ 对面回执照发，而本机那一行恒停在"待执行"');
+      expect(env.exec, saved.first.execId);
+    });
+
     testWidgets('被拒那一发 ⇒ 同一行改写成 failed + 那枚理由', (tester) async {
       final events = <String>[];
       final saved = <FnthinkRemoteExecutionRecord>[];

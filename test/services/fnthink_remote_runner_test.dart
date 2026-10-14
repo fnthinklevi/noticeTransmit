@@ -213,9 +213,10 @@ void main() {
     String level = 'L2',
     String item = 'listener:start',
     String source = 'fnthink',
+    String exec = '',
     Set<String> grantedKeys = const <String>{},
   }) => RemoteCommandAccepted(
-    command: RemoteCommand(level: level, item: item),
+    command: RemoteCommand(level: level, item: item, exec: exec),
     sender: '8K3FJ6QPTM9WZ4VHNS',
     source: source,
     credential: '',
@@ -237,6 +238,20 @@ void main() {
       ], reason: '同一行先 pending 后 done，exec_id 相同（靠覆盖写回）');
       expect(saved[0].execId, saved[1].execId);
       expect(r.unsettledCount, 0);
+    });
+
+    test('两段回执都原样带回指令里那枚关联键（对面据此认领它自己那一行）', () async {
+      // T143 片2：`level/item/argument` 那三项对**连发两次同一条指令**是分不出来的，
+      // 而分不出时的错认领会造出一条假回执。对面唯一的依据就是这一枚。
+      windowSeconds = 0;
+      final r = runner();
+      await r.run(accepted(exec: 'RX-9'));
+      expect(receipts, hasLength(2));
+      expect(receipts.map((x) => x.exec), ['RX-9', 'RX-9']);
+      // 旧版发起端没带那一格 ⇒ 回执也不凭空编一枚（对面那一行留在 pending，与加键前相同）。
+      final r2 = runner();
+      await r2.run(accepted());
+      expect(receipts.last.exec, isEmpty);
     });
 
     test('第一段回执**收到就发**，不等窗口走完', () async {

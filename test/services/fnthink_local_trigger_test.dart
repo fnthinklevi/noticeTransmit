@@ -237,6 +237,9 @@ void main() {
       ),
       runner: runner,
       notifier: notifier,
+      // 本组不认领回执（那一族在 `fnthink_remote_wiring_receipt_test.dart`），
+      // 但要**真的给一个读口**：留空 ⇒ 编译期就断，而这正是这一格该有的下场。
+      loadRecord: (execId) async => null,
       saveRecord: (r) async => saved.add(r),
     );
   }

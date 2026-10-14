@@ -511,6 +511,9 @@
         "finished": "execution_done"
       },
       "receiptsWhy": "两段回执走**回发给发送方的消息**（不是 ack）：收到即回 receipts.started，执行完回 receipts.finished 并带结果。⚠ 把回执塞进 ack 的后果是 at-least-once 重投与「执行中」互相污染（重投会再 ack 一次）；ack 只回答「我收到了这条投递」，回执回答「我把这件事做到哪了」",
+      "correlationKey": "exec",
+      "correlationKeyWhy": "指令与回执之间那枚**关联键**的键名（发起端铸造，值＝它自己那条 out 方向执行记录的主键；对端只原样抄回，不解释它）。为什么要在契约里声明这一个字符串：认领那一步住在发起端、拼载荷住在 `packages/fnthink_push`，两边各写一份字面量就是两个作者 —— 改一处忘另一处的表现是「回执回来了但一行都没更新」，而那看起来只是「对面还没做完」。`test/architecture/remote_correlation_key_test.dart` 钉两侧不分家。⚠ 这一格装在**已签的 body 里**（`FRX1:` / `FRR1:` 载荷），不在 `canonicalOrder` 也不在任何 `clientEvents.*.fields` ⇒ 服务端与验签都不感知它；旧版对端不认识 ⇒ 回执不带，发起端那一行继续 pending（与加键前逐字相同，不是猜错一条）。",
+      "correlationKeyFallback": "回执里没有 correlationKey 时，发起端**不猜**：那一行留在 pending（旧版对端）。按 (peer,level,item,argument) 配最老那条未终结行的歧义版已被否掉——同一条指令连发两次时分不出哪一发被确认，错认领会把另一行标成已回执（造出一条假回执）",
       "localTriggerReceipt": "none",
       "localTriggerSource": "localNotificationWhitelist",
       "localTriggerSourceWhy": "「哪一条来源不回执」必须能读到，否则代码只有两条路：写死那个字符串（第二份字面量，改了来源名这一处不回执逻辑静默失配），或者按「这个来源在 sources 里吗」来判（而 sources.L1 恰好**包含**它，于是本机那一路被判成有远端发送方，回执发到一个不存在的地址）。这一条只回答是谁，回不回是 localTriggerReceipt 那一条 —— 两者分开，加第三条渠道时不必回来看这一段。validate 钉住它必须在 sources.L1 里：写一个不在词表里的来源名，这一条会**永远不成立**（判据绿着，而那一路照发回执）",

@@ -387,6 +387,9 @@ void setupLocator() {
       //   而留痕是执行链的每一格都要走的 ⇒ 每一次远程执行都失败。
       saveRecord: (record) =>
           DatabaseHelper().saveRemoteExecutionRecord(record),
+      // 认领回执的读口（T143 片2）。⚠ 与上面同一张表、同一个 DatabaseHelper：
+      //   另起一份读法会让"这一行现在什么状态"有两个来源。
+      loadRecord: (execId) => DatabaseHelper().remoteExecutionRecord(execId),
     ),
   );
 }

@@ -883,6 +883,27 @@ class FnthinkContract {
     return value;
   }
 
+  /// 指令与回执之间那枚**关联键**的键名（契约 `remoteExecution.correlationKey`，T143 片2）。
+  ///
+  /// 代码里的作者是 `remote_command.dart` 的 `kFnthinkRemoteCorrelationKey`，这一格是协议
+  /// 向读它的人（对端、服务端、文档）声明的同一份字符串。两份分家时**没有症状**
+  /// （回执照发、发起端一行都不更新），所以由
+  /// `test/architecture/remote_correlation_key_test.dart` 钉住。
+  String get remoteExecutionCorrelationKey {
+    final value = str(const [
+      'capabilities',
+      'remoteExecution',
+      'correlationKey',
+    ]);
+    if (value == null || value.isEmpty) {
+      throw StateError(
+        '契约缺 capabilities.remoteExecution.correlationKey（不补默认值：'
+        '补上之后两侧各写一份键名，而分家时没有任何症状）',
+      );
+    }
+    return value;
+  }
+
   /// 熔断阈值：一分钟内连续失败多少次就把档位降回去（契约 `capabilities.l3.circuitBreaker`）。
   int get l3CircuitBreakerFailuresPerMinute {
     final path = [

@@ -1,5 +1,17 @@
 import 'dart:convert';
 
+/// 指令与回执之间那枚**关联键**的键名（T143 片2；唯一作者）。
+///
+/// 值由**发起端**铸造并等于它自己那条 out 方向执行记录的主键 —— 对端只负责原样抄进回执，
+/// 不需要理解它。契约 `capabilities.remoteExecution.correlationKey` 声明的就是这一个字符串
+/// （`test/architecture/remote_correlation_key_test.dart` 钉两侧不分家）。
+///
+/// ⚠ 为什么它是**协议变更**而不是加个字段：它改的是「一条已签 body 里装什么」。签名规范
+/// （`canonicalOrder`）没动 ⇒ 服务端与两端对**已发消息**的验签结论不变；动的是 body 内的结构，
+/// 所以旧版对端只是"不认识这一格"：**它回出的回执不带 `exec`，发起端因此认领不到、那一行继续
+/// 停在 `pending` —— 与升级前逐字相同**。fail-safe 的方向是"回到今天的样子"，不是"猜错一条"。
+const kFnthinkRemoteCorrelationKey = 'exec';
+
 /// 一条远程指令的**载荷**（远程执行 片3b-2）。
 ///
 /// ⚠ **为什么它住在包里、而不在 `lib/services/`**：它决定"一段 body 怎么拼"，
@@ -32,11 +44,15 @@ class RemoteCommandEnvelope {
     String argument = '',
     String? key,
     String? totpCode,
+    String exec = '',
   }) {
     final payload = <String, Object?>{
       'level': level,
       'item': item,
       if (argument.isNotEmpty) 'argument': argument,
+      // 关联键（T143 片2）：发起端自己那条 out 执行记录的主键，对端只原样抄进回执。
+      // 空串 ⇒ 不带键（与"这条本来没有 argument"同一规矩：不留第二种形状）。
+      if (exec.isNotEmpty) kFnthinkRemoteCorrelationKey: exec,
       // ⚠ 凭据**只在指令里出现**，不进签名之外的任何地方（不进 title、不进日志、
       // 不进回执）。契约 `execution.forbiddenFields` 的同一份黑名单管的是留痕，
       // 这里管的是**线上载荷**：凭据随指令走密文正文这一层是协议的一部分，
@@ -67,12 +83,15 @@ class RemoteCommandEnvelope {
     final argument = parsed['argument'];
     final key = parsed['key'];
     final totp = parsed['totp'];
+    final exec = parsed[kFnthinkRemoteCorrelationKey];
     return RemoteCommand(
       level: level,
       item: item,
       argument: argument is String ? argument : '',
       key: key is String && key.isNotEmpty ? key : null,
       totpCode: totp is String && totp.isNotEmpty ? totp : null,
+      // 旧版发起端不带这一格 ⇒ 这里读到空串，回执也就无从带回去（见文件头那段的兼容口径）。
+      exec: exec is String ? exec : '',
     );
   }
 }
@@ -85,6 +104,7 @@ class RemoteCommand {
     this.argument = '',
     this.key,
     this.totpCode,
+    this.exec = '',
   });
 
   final String level;
@@ -92,6 +112,9 @@ class RemoteCommand {
   final String argument;
   final String? key;
   final String? totpCode;
+
+  /// 发起端那条 out 执行记录的主键（[kFnthinkRemoteCorrelationKey]）。空串 = 对面是旧版、没带。
+  final String exec;
 
   bool get hasCredential =>
       (key?.isNotEmpty ?? false) || (totpCode?.isNotEmpty ?? false);
@@ -114,12 +137,16 @@ class RemoteCommand {
 /// 指令（`FRX1:`）只在 `fnthink` 那一条渠道上出现，带凭据、来自对面；
 /// 回执（`FRR1:`）是本机**执行完之后**回给那个发送方的，不带凭据（对面已经证明过自己了，
 /// 而回执里再回一份凭据等于把它抄进第三处存储）。两条路的 `level`/`item`/`argument`
-/// 逐字相同，**这正是对面能把一条回执对回一条指令的依据**。
+/// 逐字相同 —— 那以前是对面**唯一**能把一条回执对回一条指令的依据，今天退成"对面是旧版时"
+/// 的兜底；新版按 [kFnthinkRemoteCorrelationKey] 精确对回它自己那一行。
 ///
-/// ⚠ **故意不带执行 id**：协议形状一改，两端对**任何一条已发消息**的解读都可能变，
-/// 而这一批的指令形状（[RemoteCommandEnvelope]）已经发出去了。发送方是串行的，
-/// 「回执对回自己发过的哪一条」由它自己按 `level+item+argument` 配最老那条未终结的发件记录——
-/// 那是**发送侧**的一条规则，不该由协议来承担。
+/// ⚠ **带 [kFnthinkRemoteCorrelationKey]（T143 片2）**：以前这一段刻意不带执行 id，理由是
+/// 「协议形状一改，两端对任何一条已发消息的解读都可能变」，而发送方是串行的、可以自己按
+/// `level+item+argument` 配最老那条未终结的发件记录。那句理由今天被现读推翻了一半：
+/// **同一条指令连发两次时，"哪一发被确认了"在线上根本分辨不出** —— 那是发送侧规则也补不了的
+/// 歧义，而错认领会把另一行标成"已回执"（造出一条假回执）。彻底解法只有加关联键。
+/// 兼容方向写在文件头那段里：旧版对端不认识这一格 ⇒ 回执不带 ⇒ 发起端那一行继续 `pending`，
+/// 与升级前逐字相同（不是猜错一条）。
 class RemoteReceiptEnvelope {
   const RemoteReceiptEnvelope._();
 
@@ -143,6 +170,7 @@ class RemoteReceiptEnvelope {
     required String item,
     String argument = '',
     String? state,
+    String exec = '',
   }) {
     final payload = <String, Object?>{
       'result': result,
@@ -150,6 +178,8 @@ class RemoteReceiptEnvelope {
       'item': item,
       if (argument.isNotEmpty) 'argument': argument,
       if (state != null && state.isNotEmpty) 'state': state,
+      // 原样抄回指令里那一格（发起端用它精确认领自己那一行）。空串 ⇒ 不带键。
+      if (exec.isNotEmpty) kFnthinkRemoteCorrelationKey: exec,
     };
     return prefix + jsonEncode(payload);
   }
@@ -174,12 +204,14 @@ class RemoteReceiptEnvelope {
     if (item is! String || item.isEmpty) return null;
     final argument = parsed['argument'];
     final state = parsed['state'];
+    final exec = parsed[kFnthinkRemoteCorrelationKey];
     return RemoteReceipt(
       result: result,
       level: level,
       item: item,
       argument: argument is String ? argument : '',
       state: state is String && state.isNotEmpty ? state : null,
+      exec: exec is String ? exec : '',
     );
   }
 }
@@ -192,6 +224,7 @@ class RemoteReceipt {
     required this.item,
     this.argument = '',
     this.state,
+    this.exec = '',
   });
 
   /// 契约 `capabilities.remoteExecution.receipts` 里那一个词：
@@ -205,11 +238,16 @@ class RemoteReceipt {
   /// 终态（`done` / `failed` / `cancelled`）。**只有第二段回执带**。
   final String? state;
 
+  /// 指令里那枚关联键（[kFnthinkRemoteCorrelationKey]）原样抄回。空串 = 对面没带
+  /// （旧版发起端，或这一条本来就不是被执行的那一发）。
+  final String exec;
+
   bool get isFinished => state != null;
 
   @override
   String toString() =>
       'RemoteReceipt($result $level $item'
       '${argument.isEmpty ? '' : '/$argument'}'
-      '${state == null ? '' : ' → $state'})';
+      '${state == null ? '' : ' → $state'}'
+      '${exec.isEmpty ? '' : ' #$exec'})';
 }

@@ -465,12 +465,21 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       confirmText: l10n.remoteSendSubmit,
     );
     if (!ok || !mounted) return;
+    // T143 片1+2：**先定这一行的主键，再拼载荷** —— 那枚主键同时是指令里的关联键
+    // （`kFnthinkRemoteCorrelationKey`），对面把它原样抄进两段回执，本机才认得回哪一行。
+    // ⚠ 次序是硬要求：先 encode 后造行的话，载荷里没有键，回执回来只能停在 pending。
+    final openedAt = DateTime.now();
+    final execId = newRemoteExecutionId(
+      'out|$peer|$_level|$_wireItem|$_wireArgument|'
+      '${openedAt.millisecondsSinceEpoch}',
+    );
     final wire = RemoteCommandEnvelope.encode(
       level: _level,
       item: _wireItem,
       argument: _wireArgument,
       key: _key.text.trim(),
       totpCode: _totp.text.trim(),
+      exec: execId,
     );
     setState(() {
       _busy = true;
@@ -478,16 +487,12 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       _note = null;
       _sent = false;
     });
-    // T143 片1：按下这一发先在**本机**留一行 out（此前这张表只有 in 方向的写入点，
+    // 按下这一发先在**本机**留一行 out（此前这张表只有 in 方向的写入点，
     // 于是「发」那一档点进去恒空，而界面上那句"已交出去"是当场说给用户听的）。
     // ⚠ 写在这一次 send **之前**：这一行要回答的第一件事是"我什么时候按的"，而那一发可能在
     //   路上停几秒 —— 期间进程被杀，留下的是一条"按下过、结果不明"的账，而不是什么都没有。
-    final openedAt = DateTime.now();
     final outRow = remoteOutRow(
-      execId: newRemoteExecutionId(
-        'out|$peer|$_level|$_wireItem|$_wireArgument|'
-        '${openedAt.millisecondsSinceEpoch}',
-      ),
+      execId: execId,
       peer: peer,
       level: _level,
       item: _wireItem,
@@ -505,7 +510,8 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     );
     final sent = result.status == FnthinkSendStatus.accepted;
     // 没交出去 ⇒ 同一行改写成 `failed` + 那枚机器词（`execId` 不变，不留两行）。
-    // 交出去 ⇒ 原样停在 `pending`：对面执没执行是两段回执的事，而载荷里目前没有关联键（片2）。
+    // 交出去 ⇒ 原样停在 `pending`：对面执没执行是两段回执的事，
+    // 而回执什么时候回来、回不回都改不了这一格已经定下来的事实（我按下了）。
     // ⚠ 这次写在 `if (!mounted)` **之前**：用户划走这一页不该让账少一行。
     await widget.deps.saveRemoteExecution(
       remoteOutRowAfterSend(

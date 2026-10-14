@@ -11,8 +11,9 @@ import 'package:notice_transmit/services/fnthink_remote_out_record.dart';
 /// ② 词表 —— `source` 必须是契约那两枚之一（本仓反复砸过的"自己造一个词"）；
 /// ③ **覆盖同一行**：一次按下两写（按下 + send 结论），主键不许变，
 ///    否则历史里会出现"同一发既 pending 又 failed"两行，而那是两次按下；
-/// ④ 不许提前说做完了：send  accepted 只等于"交出去了"，对面执没执行是回执的事，
-///    而载荷里目前没有关联键（片2）。
+/// ④ 不许提前说做完了：send accepted 只等于"交出去了"，对面执没执行是**回执**的事，
+///    而回执什么时候到、到不到都改不了这一层写下的那一格（片2 之后它会被
+///    `remoteOutRowForReceipt` 认领更新，那是另一格作者）。
 void main() {
   final contract = FnthinkContract.readFile();
   final at = DateTime.utc(2026, 10, 12, 9, 7, 30);
@@ -108,6 +109,155 @@ void main() {
               '这些对"这条指令后来怎么了"毫无用处，进来就等于给每个能读本机库的人发钥匙',
         );
       }
+    });
+  });
+
+  group('回执认领发起端那一行（T143 片2，唯一作者 remoteOutRowForReceipt）', () {
+    FnthinkRemoteExecutionRecord outRow(String state) =>
+        FnthinkRemoteExecutionRecord(
+          execId: 'RX-1',
+          direction: kFnthinkRemoteDirectionOut,
+          peerAddress: 'peer-a',
+          level: 'L2',
+          item: 'listener:start',
+          argument: 'webhook_acme',
+          state: state,
+          source: 'fnthink',
+          createdAt: 1700000000000,
+          reason: 'network',
+        );
+    FnthinkRemoteExecutionRecord inRow() => const FnthinkRemoteExecutionRecord(
+      execId: 'RX-1',
+      direction: kFnthinkRemoteDirectionIn,
+      peerAddress: 'peer-a',
+      level: 'L2',
+      item: 'listener:start',
+      argument: '',
+      state: RemoteExecutionStates.executing,
+      source: 'fnthink',
+      createdAt: 1700000000000,
+    );
+    RemoteReceipt receipt(String? state, {String exec = 'RX-1'}) =>
+        RemoteReceipt(
+          result: state == null
+              ? remoteExecutionStartedReceipt(contract)
+              : remoteExecutionFinishedReceipt(contract),
+          level: 'L2',
+          item: 'listener:start',
+          argument: 'webhook_acme',
+          state: state,
+          exec: exec,
+        );
+
+    test('pending 直接收到终态 ⇒ 合成那两步合法迁移（不让那一行停在"待执行"）', () {
+      final moved = remoteOutRowForReceipt(
+        contract: contract,
+        receipt: receipt(RemoteExecutionStates.done),
+        row: outRow(RemoteExecutionStates.pending),
+      );
+      expect(moved!.state, RemoteExecutionStates.done);
+      expect(
+        moved.result,
+        remoteExecutionFinishedReceipt(contract),
+        reason: '界面读的是 result 那一格',
+      );
+    });
+
+    test('没带关联键 ⇒ null（不猜：按 level/item/argument 配最老那条未终结行是歧义版）', () {
+      expect(
+        remoteOutRowForReceipt(
+          contract: contract,
+          receipt: receipt(RemoteExecutionStates.done, exec: ''),
+          row: outRow(RemoteExecutionStates.pending),
+        ),
+        isNull,
+      );
+    });
+
+    test('没有那一行 / 那一行是 in 方向 ⇒ null（外部回执不许插手本机执行链）', () {
+      expect(
+        remoteOutRowForReceipt(
+          contract: contract,
+          receipt: receipt(RemoteExecutionStates.done),
+        ),
+        isNull,
+      );
+      expect(
+        remoteOutRowForReceipt(
+          contract: contract,
+          receipt: receipt(RemoteExecutionStates.done),
+          row: inRow(),
+        ),
+        isNull,
+      );
+    });
+
+    test('第一段 ⇒ 只走一步到 executing；重复的第一段 ⇒ null（不再改）', () {
+      expect(
+        remoteOutRowForReceipt(
+          contract: contract,
+          receipt: receipt(null),
+          row: outRow(RemoteExecutionStates.pending),
+        )!.state,
+        RemoteExecutionStates.executing,
+      );
+      expect(
+        remoteOutRowForReceipt(
+          contract: contract,
+          receipt: receipt(null),
+          row: outRow(RemoteExecutionStates.executing),
+        ),
+        isNull,
+      );
+    });
+
+    test('已经到终态的那一行收到迟到的回执 ⇒ null（终态不可逆，状态机两次都不认）', () {
+      for (final state in const [
+        RemoteExecutionStates.done,
+        RemoteExecutionStates.failed,
+        RemoteExecutionStates.cancelled,
+      ]) {
+        expect(
+          remoteOutRowForReceipt(
+            contract: contract,
+            receipt: receipt(RemoteExecutionStates.failed),
+            row: outRow(state),
+          ),
+          isNull,
+          reason: '$state 是终态：一条迟到的 failed 不该把它改写',
+        );
+      }
+    });
+
+    test('回执里那枚 state 不在词表 ⇒ null（不落回第一段编一个状态）', () {
+      expect(
+        remoteOutRowForReceipt(
+          contract: contract,
+          receipt: receipt('whatever'),
+          row: outRow(RemoteExecutionStates.pending),
+        ),
+        isNull,
+      );
+    });
+
+    test('只动 state 与 result，其余逐字留原样（那一行是"我按下的那一发"）', () {
+      final at = outRow(RemoteExecutionStates.pending);
+      final moved = remoteOutRowForReceipt(
+        contract: contract,
+        receipt: receipt(RemoteExecutionStates.cancelled),
+        row: at,
+      )!;
+      expect(moved.execId, at.execId);
+      expect(moved.direction, at.direction);
+      expect(moved.peerAddress, at.peerAddress);
+      expect(moved.level, at.level);
+      expect(moved.item, at.item);
+      expect(moved.argument, at.argument);
+      expect(moved.source, at.source);
+      expect(moved.createdAt, at.createdAt);
+      // send 没交出去时那枚理由（`network`）要留着：回执说的是对面那一段，
+      // 而"我这一发在路上停过"是另一件事，抹掉它等于把账改轻。
+      expect(moved.reason, at.reason);
     });
   });
 }

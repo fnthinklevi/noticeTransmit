@@ -242,6 +242,7 @@ RemoteReceipt? remoteExecutionReceiptFor({
   required String item,
   required String argument,
   required String state,
+  String exec = '',
 }) {
   if (!contract.remoteExecutionStates.contains(state)) return null;
   final finished = <String>{
@@ -258,6 +259,8 @@ RemoteReceipt? remoteExecutionReceiptFor({
     item: item,
     argument: argument,
     state: isFinished ? state : null,
+    // 对面发指令时带过来的那格，原样抄回（空串 = 旧版发起端，没有这一格）。
+    exec: exec,
   );
 }
 
