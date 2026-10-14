@@ -2370,10 +2370,29 @@ class _StubUpdateService extends UpdateService {
 // 集成测试跑在真机上：异步（DB/原生往返/30s 定时器）不与帧同步，所以一律
 // 「pump + 真实等待」轮询，不用 pumpAndSettle（有周期定时器时它永不收敛）。
 
+/// 等帧轮询。**每 25 圈打一行心跳**（≈ 4 秒一行），因为这一圈循环本身可能就是死的地方：
+///
+/// LIVE binding 下 `await t.pump()` 要等**真帧交付**才返回 ⇒ 上面那句"墙钟有界"只在
+/// 循环还能回到循环头时成立。2026-10-14 那两轮我把"有界"读成"不会卡"，正是这样把
+/// 嫌疑从 `settle` 身上错误排除的（`·settle` 那条路标当时就该信）。
+/// 心跳把两种死法分开：**圈数一路涨到上千** ⇒ 帧在交付、但应用侧有人一直要下一帧（活锁）；
+/// **圈数停住不动** ⇒ `pump` 本身没回来，问题在引擎/vsync 那一侧，与我们代码无关。
+/// 打点里带上探针两个数，是因为"排帧没停"与"帧不回来"在同一条超时消息里长得一模一样。
 Future<void> _settle(WidgetTester t, {int seconds = 1}) async {
   final end = DateTime.now().add(Duration(seconds: seconds));
+  final began = DateTime.now();
+  var spins = 0;
   while (DateTime.now().isBefore(end)) {
     await t.pump(const Duration(milliseconds: 100));
+    if (++spins % 25 == 0) {
+      final scheduler = WidgetsBinding.instance;
+      debugPrint(
+        'GATE-SETTLE ▸ 第 $spins 圈 +'
+        '${DateTime.now().difference(began).inMilliseconds}ms '
+        'transient=${scheduler.transientCallbackCount} '
+        'scheduled=${scheduler.hasScheduledFrame} ▸ $_lastAction',
+      );
+    }
     await Future<void>.delayed(const Duration(milliseconds: 60));
   }
 }
