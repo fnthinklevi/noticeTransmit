@@ -298,7 +298,9 @@ void main() {
     //     **刻意没并**：它不是"可选项里的一枚"，是"还有 N 条"的展开提示，硬并会把行内放大一圈。
     const kHistoryPages = <String, Map<String, int>>{
       'lib/pages/history_page.dart': {
-        'GestureDetector(': 3,
+        // T148 片13（2026-10-14）：那 13 枚筛选芯片换进公共件 `FnthinkChoiceChip` ⇒ 3 → 2。
+        //   摘掉的那一枚是 `_filterChip` 自搭壳里的 `GestureDetector(`（现在那枚方法只转发）。
+        'GestureDetector(': 2,
         'IconButton(': 7,
         'FilledButton.icon(': 1,
       },

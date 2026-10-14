@@ -166,7 +166,10 @@ void main() {
       for (final kind in ['forwarded', 'received', 'sent', 'all']) {
         expect(
           src,
-          contains("ValueKey('direction-chip-$kind')"),
+          // 钉**那枚抓手存在且拼法如此**，不钉它裹在哪种写法里：T148 片13 之前是
+          // `ValueKey('direction-chip-…')`（自搭壳上的 key），之后是公共件的 `keyName: 'direction-chip-…'`。
+          // 按字面抄本钉会在这种"同一件事换个宿主"的改动上假红（本仓砸过：钉结构不钉写法）。
+          contains("'direction-chip-$kind'"),
           reason: '缺档位芯片的 key ⇒ 测试与闸门只能按文本点，而全部档里那枚文本会有三处命中',
         );
       }

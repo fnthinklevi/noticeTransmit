@@ -26,7 +26,11 @@ import '../widgets/card_action_sheet.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
 import '../widgets/fnthink_card.dart'
-    show FnthinkActionTone, FnthinkInlineAction, FnthinkRowLabel;
+    show
+        FnthinkActionTone,
+        FnthinkChoiceChip,
+        FnthinkInlineAction,
+        FnthinkRowLabel;
 import '../widgets/primary_action_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
@@ -1059,34 +1063,24 @@ class _HistoryPageState extends State<HistoryPage> {
       a.month == b.month &&
       a.day == b.day;
 
+  /// 「一排可选项里的一枚」在这一页的唯一装配点：形状由公共件 `FnthinkChoiceChip` 说了算。
+  ///
+  /// ⚠ 这一枚**只做转发**，不是壳：函数体里不许再出现 `GestureDetector`／`Container`／`BoxDecoration`
+  /// （守卫钉这一条）。留装配点而不是逐处展开的理由：这一页有 13 枚，展开会把同一件事写在 13 个位置，
+  /// 而「这一族的字号/圆角/描边只有一个作者」正是 T100 立起来的那条判据。
+  /// ⚠ [keyName] **必填、不给默认值**：这一页「转发」两个字在全部档里会出现三次（档位芯片、段标题、
+  ///   行首来源标识），按文本点会点错一个；抓手缺失时新加一枚会当场编译不过，而不是「用例莫名其妙地红」。
   Widget _filterChip(
     String label,
-    bool active,
+    bool selected,
     VoidCallback onTap, {
-    Key? key,
+    required String keyName,
   }) {
-    // key 是给测试与闸门用的抓手：「转发」这两个字在全部档里会出现三次
-    // （档位芯片、段标题、行首来源标识），按文本点会点错一个，而点错的下一幕是"用例莫名其妙地红"。
-    return GestureDetector(
-      key: key,
+    return FnthinkChoiceChip(
+      keyName: keyName,
+      label: label,
+      selected: selected,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active ? AppColors.blue.withValues(alpha: 0.12) : null,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: active ? AppColors.blue : AppColors.separator(context),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: active ? AppColors.blue : AppColors.primaryLabel(context),
-          ),
-        ),
-      ),
     );
   }
 
@@ -1125,6 +1119,7 @@ class _HistoryPageState extends State<HistoryPage> {
         runSpacing: 8,
         children: [
           _filterChip(
+            keyName: 'history-filter-time-all',
             l10n.filterTimeAll,
             start == null,
             () => setSheet(() {
@@ -1133,6 +1128,7 @@ class _HistoryPageState extends State<HistoryPage> {
             }),
           ),
           _filterChip(
+            keyName: 'history-filter-time-today',
             l10n.filterToday,
             _sameDay(start, today0) && _sameDay(end, today0),
             () => setSheet(() {
@@ -1141,6 +1137,7 @@ class _HistoryPageState extends State<HistoryPage> {
             }),
           ),
           _filterChip(
+            keyName: 'history-filter-time-yesterday',
             l10n.filterYesterday,
             _sameDay(start, yesterday0) && _sameDay(end, yesterday0),
             () => setSheet(() {
@@ -1149,6 +1146,7 @@ class _HistoryPageState extends State<HistoryPage> {
             }),
           ),
           _filterChip(
+            keyName: 'history-filter-time-7d',
             l10n.filterLast7Days,
             is7,
             () => setSheet(() {
@@ -1157,6 +1155,7 @@ class _HistoryPageState extends State<HistoryPage> {
             }),
           ),
           _filterChip(
+            keyName: 'history-filter-time-30d',
             l10n.filterLast30Days,
             is30,
             () => setSheet(() {
@@ -1164,24 +1163,29 @@ class _HistoryPageState extends State<HistoryPage> {
               end = today0;
             }),
           ),
-          _filterChip(l10n.filterCustomRange, isCustom, () async {
-            // 用页面 context 打开日期选择器（面板 builder 内的 sheetContext
-            // 不在 timeChips 闭包作用域内）
-            final picked = await showDateRangePicker(
-              context: context,
-              firstDate: DateTime(2020),
-              lastDate: today0.add(const Duration(days: 1)),
-              initialDateRange: (start != null && end != null)
-                  ? DateTimeRange(start: start!, end: end!)
-                  : null,
-            );
-            if (picked != null) {
-              setSheet(() {
-                start = picked.start;
-                end = picked.end;
-              });
-            }
-          }),
+          _filterChip(
+            keyName: 'history-filter-time-custom',
+            l10n.filterCustomRange,
+            isCustom,
+            () async {
+              // 用页面 context 打开日期选择器（面板 builder 内的 sheetContext
+              // 不在 timeChips 闭包作用域内）
+              final picked = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2020),
+                lastDate: today0.add(const Duration(days: 1)),
+                initialDateRange: (start != null && end != null)
+                    ? DateTimeRange(start: start!, end: end!)
+                    : null,
+              );
+              if (picked != null) {
+                setSheet(() {
+                  start = picked.start;
+                  end = picked.end;
+                });
+              }
+            },
+          ),
         ],
       );
     }
@@ -1192,6 +1196,7 @@ class _HistoryPageState extends State<HistoryPage> {
         runSpacing: 8,
         children: [
           _filterChip(
+            keyName: 'history-filter-delivery-all',
             l10n.deliveryAll,
             delivery == deliveryFilterAll,
             () => setSheet(() => delivery = deliveryFilterAll),
@@ -1201,11 +1206,13 @@ class _HistoryPageState extends State<HistoryPage> {
           //   原先这一档叫「仅失败」却认三种状态 —— 名字与口径不符，
           //   "筛得出、选不中"那类自相矛盾就是这么长出来的。
           _filterChip(
+            keyName: 'history-filter-delivery-delivered',
             l10n.deliveryDeliveredOnly,
             delivery == deliveryFilterDelivered,
             () => setSheet(() => delivery = deliveryFilterDelivered),
           ),
           _filterChip(
+            keyName: 'history-filter-delivery-not-delivered',
             l10n.deliveryNotDeliveredOnly,
             delivery == deliveryFilterNotDelivered,
             () => setSheet(() => delivery = deliveryFilterNotDelivered),
@@ -1842,21 +1849,21 @@ class _HistoryPageState extends State<HistoryPage> {
             l10n.fnthinkDirForwarded,
             _direction == 'forwarded',
             () => _setDirection('forwarded'),
-            key: const ValueKey('direction-chip-forwarded'),
+            keyName: 'direction-chip-forwarded',
           ),
           const SizedBox(width: 8),
           _filterChip(
             l10n.fnthinkDirInbox,
             _direction == 'received',
             () => _setDirection('received'),
-            key: const ValueKey('direction-chip-received'),
+            keyName: 'direction-chip-received',
           ),
           const SizedBox(width: 8),
           _filterChip(
             l10n.fnthinkDirSent,
             _direction == 'sent',
             () => _setDirection('sent'),
-            key: const ValueKey('direction-chip-sent'),
+            keyName: 'direction-chip-sent',
           ),
           const SizedBox(width: 8),
           // T84：一次同看三张账。每行仍带来源标识，未读数与各档口径一个都不改。
@@ -1864,7 +1871,7 @@ class _HistoryPageState extends State<HistoryPage> {
             l10n.fnthinkDirAll,
             _direction == 'all',
             () => _setDirection('all'),
-            key: const ValueKey('direction-chip-all'),
+            keyName: 'direction-chip-all',
           ),
         ],
       ),
