@@ -249,6 +249,81 @@ class FnthinkInlineAction extends StatelessWidget {
   }
 }
 
+/// 实心（填充）动作那一档：按内容宽度、可带图标、可置灰（T148 片15）。
+///
+/// 为什么不复用 `PrimaryActionButton` 再给它补一个图标槽（那正是片8 留在账面上的原路）：
+/// 那一件是**一页一枚的全宽主操作**（`width: double.infinity`），而这两枚都不是 ——
+/// 行内那枚贴在 10px 的通道 chip 旁边，底栏那枚与「取消」共用一行。给全宽件加参数要同批
+/// 核它 9 个既有调用点的形状一致性；丢图标是拿可读性换账面整齐。两条都比新开一件贵，
+/// 所以钉成两件并互相划界：这一件不许长成全宽，那一件不许长出图标槽（`ui_style_guards` 两条）。
+///
+/// `onPressed` 传 null = **置灰留着**，不藏起来（藏掉之后用户读到的是"这里没这个功能"），
+/// 与 [FnthinkInlineAction] 同一语义。
+///
+/// `compact` 的两档尺寸各自来自一处实测（行内 11px／radius 6 · 底栏 15px／radius 10）：
+/// 行内那一档必须用 compact —— 常规档会把刚在片1〜3 统一过的行高顶起来。
+class FnthinkFilledAction extends StatelessWidget {
+  const FnthinkFilledAction({
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.compact = false,
+    super.key,
+  });
+
+  final String label;
+
+  /// null = 此刻做不了（还没勾选、前置没开）：画成灰的，不是不画。
+  final VoidCallback? onPressed;
+
+  /// 留空 = 纯文字实心钮。「把这 N 条再发一次」这类动作有一半信息量在图标上。
+  final IconData? icon;
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = onPressed == null
+        ? AppColors.tertiaryLabel(context)
+        : Colors.white;
+    return CupertinoButton(
+      onPressed: onPressed,
+      // 留白在这层定：交给 CupertinoButton 的默认 padding，"按内容宽"这件事会在下一张页重商量一遍。
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 16,
+          vertical: compact ? 4 : 10,
+        ),
+        decoration: BoxDecoration(
+          color: onPressed == null
+              ? AppColors.separator(context)
+              : AppColors.blue,
+          borderRadius: BorderRadius.circular(compact ? 6 : 10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: compact ? 11 : 18, color: foreground),
+              SizedBox(width: compact ? 3 : 8),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: compact ? 11 : 15,
+                fontWeight: FontWeight.w600,
+                color: foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// 形状①「行」的**唯一装配点**（T100 片2）：整行可点 · 左图标块 · 标题（＋可选一句副标题）· 右箭头。
 ///
 /// 为什么收成一件而不是各页各搭：§1 把这一族合法形状定成三种（行／弹层里的动作行／主操作填充），

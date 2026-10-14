@@ -31,6 +31,8 @@ void main() {
   }
 
   /// 可点形状：手势、点击回调、按钮件、可点的公共件。
+  /// ⚠ 片15 起了新的一枚可点件（`FnthinkFilledAction`）就必须同批进这一串 ——
+  ///   否则"把状态标记包进新件"这种坏法正好绕过 ②（本仓量过的"尺窄于被量之物"）。
   const tappableShapes = [
     'GestureDetector(',
     'InkWell(',
@@ -40,6 +42,7 @@ void main() {
     'TextButton(',
     'FnthinkInlineAction(',
     'FnthinkChoiceChip(',
+    'FnthinkFilledAction(',
   ];
 
   test('① 折叠那一枚走公共件，且不再留自搭壳那身外衣', () {
@@ -101,7 +104,9 @@ void main() {
     expect(
       src.contains("'history-push-now-"),
       isTrue,
-      reason: '行内那枚登记例外的 key 也在册（闸门与用例都按它点，不按文案 —— 它在每行都长一样）',
+      reason:
+          '行内那枚实心小钮的 key 也在册（闸门与用例都按它点，不按文案 —— 它在每行都长一样）。'
+          '片15 把它换进了 `FnthinkFilledAction`，key 字符串逐字没动：改名＝作废按 key 定位的用例，那不是统一',
     );
   });
 

@@ -296,17 +296,23 @@ void main() {
     //     ⚠ 那一格清零之后**页路径仍留在册里**：这是那条漏口的账面，不是"这页已合规"的背书 ——
     //     它管的是"这一页别再长出自搭动作/芯片"。折叠那枚（`history-chip-fold-*`，10px/radius 3）
     //     **刻意没并**：它不是"可选项里的一枚"，是"还有 N 条"的展开提示，硬并会把行内放大一圈。
+    //   · T148 片15（2026-10-14）：这一页那两枚**实心动作**（行内「现在推送」自搭 `GestureDetector`
+    //     ＋底栏那枚 Material `FilledButton.icon`「补推」）一起归进新公共件 `FnthinkFilledAction`
+    //     ⇒ `GestureDetector(` 1 → **0**、`FilledButton.icon(` 1 → **0**，两列都从账上摘掉。
+    //     ⚠ 摘掉的是"这两族在这一页不再存在"，不是"这两族合法了"：`IconButton(` 那 7 枚仍是账
+    //     （AppBar／搜索后缀／离线横幅那一族，T90 侧的债），而新增的边界由下面那两条钉 ——
+    //     件不许长成全宽（那是 `PrimaryActionButton` 的活），全宽件不许长出图标槽（那才是片8 原路）。
     const kHistoryPages = <String, Map<String, int>>{
       'lib/pages/history_page.dart': {
         // T148 片13（2026-10-14）：那 13 枚筛选芯片换进公共件 `FnthinkChoiceChip` ⇒ 3 → 2。
         //   摘掉的那一枚是 `_filterChip` 自搭壳里的 `GestureDetector(`（现在那枚方法只转发）。
         // T148 片14（2026-10-14）：折叠那枚「还有 N 条／收起」归 `FnthinkInlineAction` ⇒ 2 → 1。
         //   ⚠ 它以前**冒充状态标记**（同行 chip 那身 10px/radius 3 的外衣），而它有 `onTap` ——
-        //   屏上读不出点得动，与 T108 片②、片12 量到的是同一个病。剩这一枚是登记过的例外
-        //   （「现在推送」蓝底小钮 = 行内填充式小钮，公共件里没有这一档，要统一得先定那个形状）。
-        'GestureDetector(': 1,
+        //   屏上读不出点得动，与 T108 片②、片12 量到的是同一个病。
+        // T148 片15（2026-10-14）：「现在推送」归 `FnthinkFilledAction` ⇒ 1 → **0**，那一列摘掉。
+        //   剩这一列是 AppBar／搜索后缀／离线横幅那 7 枚 `IconButton(`：那是图标按钮族，
+        //   与"行内那枚实心小钮"不同一层（尺寸、命中区、禁用态都不一样），别顺手一起搬。
         'IconButton(': 7,
-        'FilledButton.icon(': 1,
       },
       'lib/pages/remote_history_page.dart': <String, int>{},
     };
@@ -555,6 +561,88 @@ class FnthinkChoiceChip extends StatelessWidget {
         ]),
         isEmpty,
         reason: '公共件被当成抄本 ⇒ 这本账红得没有信息量',
+      );
+    });
+
+    /// 从 `class X` 取到下一个顶层 `class` 之前 —— 件的边界要按**类体**读。
+    /// ⚠ 不用整文件搜：`fnthink_card.dart` 里 `FnthinkEntryRow` 就写着 `double.infinity`
+    ///   的邻居形状，全文件搜会把两件事混成一件（本仓量过的"尺口径宽于被量之物"）。
+    String classBody(String src, String className) {
+      final start = src.indexOf('class $className');
+      expect(
+        start,
+        greaterThan(-1),
+        reason: '$className 不在那一份文件里了 ⇒ 下面几条断言全是空的（绿的没内容）',
+      );
+      final end = src.indexOf('\nclass ', start + className.length);
+      return src.substring(start, end < 0 ? src.length : end);
+    }
+
+    test('两枚实心动作都由 `FnthinkFilledAction` 给出（片15：差异⑧ 最后两格收口）', () {
+      final src = codeByPath['lib/pages/history_page.dart']!;
+      expect(
+        RegExp(
+          r"FnthinkFilledAction\(\s*key: ValueKey\('history-push-now-",
+        ).hasMatch(src),
+        isTrue,
+        reason:
+            '行内那枚「现在推送」不再由件给出 ⇒ 台账那一列（`GestureDetector(`）只看得见"多了一枚形状"，'
+            '看不见"这一枚的形状由谁定"；换件的意义正在这一步',
+      );
+      expect(
+        RegExp(
+          r"FnthinkFilledAction\(\s*key: const ValueKey\('history-batch-push'\),",
+        ).hasMatch(src),
+        isTrue,
+        reason:
+            '底栏那枚「补推」不再由件给出 ⇒ Material `FilledButton.icon` 长回来，'
+            '它的禁用态、圆角、图标尺寸都由 Material 定，而不是由这一族定',
+      );
+      expect(
+        RegExp(r'FnthinkFilledAction\(').allMatches(src).length,
+        2,
+        reason:
+            '这一页今天恰好两处调用点（行内 + 底栏）。第三处出现时要么改这条并写明它为什么同档，'
+            '要么用现成的另一件 —— 与上面那两条枚数判据同一条纪律：账与代码一致',
+      );
+    });
+
+    test('实心小钮不许长成"全宽主操作"（片15：两件分工的前一半）', () {
+      final filled = classBody(
+        codeByPath['lib/widgets/fnthink_card.dart']!,
+        'FnthinkFilledAction',
+      );
+      expect(
+        filled.contains('CupertinoButton('),
+        isTrue,
+        reason: '这一件没在画东西 ⇒ 下面那条"不含 double.infinity"是空断言（绿的没内容）',
+      );
+      expect(
+        filled.contains('double.infinity'),
+        isFalse,
+        reason:
+            '它一占满宽就和 `PrimaryActionButton` 是同一件事两个作者 —— '
+            '而"一页最多一枚主操作"那条判据靠的就是这两件事分得开',
+      );
+    });
+
+    test('全宽主操作今天不带图标（片15：后一半 —— 别把新形状并回老件）', () {
+      final primary = classBody(
+        codeByPath['lib/widgets/primary_action_button.dart']!,
+        'PrimaryActionButton',
+      );
+      expect(
+        primary.contains('label'),
+        isTrue,
+        reason: '那件读不到了 ⇒ 上面/下面这些断言全是空的（文件漂了要喊）',
+      );
+      expect(
+        RegExp(r'IconData|\bicon\b').hasMatch(primary),
+        isFalse,
+        reason:
+            '给全宽件加图标槽＝片8 那条原路，而它 9 个调用点一个都不带图标；这个需求已由 '
+            '`FnthinkFilledAction` 接住。这条钉的是"今天不需要"：'
+            '将来真要一枚全宽带图标的主操作，改它的人得先说清那一枚归哪一件',
       );
     });
   });

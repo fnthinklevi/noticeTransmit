@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -257,6 +258,126 @@ void main() {
       find.text(l10n.historyActionBlockApp),
       findsNothing,
       reason: '留着长按菜单就是一边勾选一边弹屏蔽项：屏蔽掉的应用与选中的那几条对不上号',
+    );
+  });
+
+  // ── T148 片15：实心小动作那一档有了唯一作者（差异⑧ 最后两枚登记例外收口）──────
+  //
+  // ⚠ 两处都按**件**断，不按颜色断：底色/字号/圆角从此由件给，页面里再没有一份可比。
+  //   键的宿主是件本身（`FnthinkFilledAction` 收 `super.key`），与同页 `FnthinkNote`
+  //   （键挂在内部那枚 Text）相反 ⇒ `find.ancestor` 要带 `matchRoot: true`。
+  testWidgets('「现在推送」由实心小动作件给出，且取行内那一档（片15）', (tester) async {
+    await pumpHistory(tester, [
+      row('n-failed', '取件码', {
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+    ]);
+
+    final push = tester.widget<FnthinkFilledAction>(
+      find.ancestor(
+        of: find.byKey(pushNowKey('n-failed')),
+        matching: find.byType(FnthinkFilledAction),
+        matchRoot: true,
+      ),
+    );
+    expect(
+      push.compact,
+      isTrue,
+      reason:
+          '行内那一枚必须取 compact：常规档（15px／竖 10）会把片1〜3 刚统一过的行高顶起来，'
+          '而这一行的邻居是 10px 的通道 chip —— 动作件把状态件挤变形，就是"统一"办成了反方向',
+    );
+    expect(
+      push.icon,
+      Icons.send,
+      reason: '图标由调用方给、形状由件给：丢了它等于用可读性换账面整齐（片8 当初拒绝的那条）',
+    );
+  });
+
+  testWidgets('底栏那枚「补推」由件画出，且真的画出了可点的宿主（片15）', (tester) async {
+    await pumpHistory(tester, [
+      row('n-failed', '取件码', {
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+    ]);
+    await enterBatchMode(tester);
+
+    final batch = find.ancestor(
+      of: find.byKey(const ValueKey('history-batch-push')),
+      matching: find.byType(FnthinkFilledAction),
+      matchRoot: true,
+    );
+    expect(
+      batch,
+      findsOneWidget,
+      reason: '底栏那一枚不再由 `FnthinkFilledAction` 给出 ⇒ 这一页自己那份实心形状又长回来了',
+    );
+    // ⚠ 这一条钉的是**还在画东西**：件即使 build 成一个空盒子，上面那条按 widget 类型的
+    //   查找照样过（节点在树上），只有"有没有可点宿主"这一条看得出。
+    expect(
+      find.descendant(of: batch, matching: find.byType(CupertinoButton)),
+      findsOneWidget,
+      reason: '置灰≠消失：把整枚不画了，用户读到的是"选了却没地方按"',
+    );
+    expect(
+      tester.widget<FnthinkFilledAction>(batch).icon,
+      Icons.replay,
+      reason: '「把这 N 条再发一次」有一半信息量在这个图标上（片8 拒绝丢图标的那条理由）',
+    );
+  });
+
+  testWidgets('一条都没勾选时底栏那一枚点不动，勾选着时点得动（片15）', (tester) async {
+    await pumpHistory(tester, [
+      row('n-failed', '取件码', {
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+    ]);
+    await enterBatchMode(tester);
+
+    final batch = find.ancestor(
+      of: find.byKey(const ValueKey('history-batch-push')),
+      matching: find.byType(FnthinkFilledAction),
+      matchRoot: true,
+    );
+    expect(
+      tester.widget<FnthinkFilledAction>(batch).onPressed,
+      isNotNull,
+      reason: '前置：进入批量时那条可再发的默认选中 ⇒ 此刻这一枚必须点得动，否则批量没有出口',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('history-row-n-failed')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<FnthinkFilledAction>(batch).onPressed,
+      isNull,
+      reason: '一条都没勾选还点得动 ⇒ 点了就是"补推 0 条"，随后那句结论就成了凭空报功',
+    );
+  });
+
+  testWidgets('没勾选时那一枚还在屏上、只是灰的（置灰不是消失，片15）', (tester) async {
+    await pumpHistory(tester, [
+      row('n-failed', '取件码', {
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+    ]);
+    await enterBatchMode(tester);
+    await tester.tap(find.byKey(const ValueKey('history-row-n-failed')));
+    await tester.pumpAndSettle();
+
+    final batch = find.ancestor(
+      of: find.byKey(const ValueKey('history-batch-push')),
+      matching: find.byType(FnthinkFilledAction),
+      matchRoot: true,
+    );
+    // ⚠ 这一条查的是**还在画**：件就算在不可用时直接返回空盒子，按 widget 类型的查找照样过
+    //   （节点在树上）——只有"画出了可点宿主"这一条看得出它是不是消失了。
+    expect(
+      find.descendant(of: batch, matching: find.byType(CupertinoButton)),
+      findsOneWidget,
+      reason:
+          '不可用 ⇒ 置灰留着。整枚不画，用户读到的是"我勾选了却没地方按"，'
+          '而下一次勾选他又得重新找这一枚在哪',
     );
   });
 }

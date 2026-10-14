@@ -29,6 +29,7 @@ import '../widgets/fnthink_card.dart'
     show
         FnthinkActionTone,
         FnthinkChoiceChip,
+        FnthinkFilledAction,
         FnthinkInlineAction,
         FnthinkRowLabel;
 import '../widgets/primary_action_button.dart';
@@ -960,36 +961,21 @@ class _HistoryPageState extends State<HistoryPage> {
     return Tooltip(message: message, child: chip);
   }
 
-  /// 「现在推送」小按钮：iOS 风格圆角蓝底，手动补推这一条里那些**可以再发一次**的通道。
+  /// 「现在推送」小按钮：手动补推这一条里那些**可以再发一次**的通道。
   ///
-  /// ⚠ 带 `ValueKey('history-push-now-<记录 id>')`：闸门与用例按 key 点，不按文案 ——
+  /// T148 片15 起走 `FnthinkFilledAction`。它此前是页面自搭的 `GestureDetector` + 蓝底
+  /// `Container`，账面记成"行内填充式小钮没有公共件"的例外 —— 例外的代价不是那几行壳子，
+  /// 是这一枚的字号／留白／圆角由页面挑，而同一种动作在幻念那几张页早有唯一作者。
+  ///
+  /// ⚠ key 字符串逐字没动（`history-push-now-<记录 id>`）：闸门与用例按 key 点，不按文案 ——
   /// 这一枚在每一行都长一个样，`find.text(pushNow)` 在多行列表里必然抓到多枚。
   Widget _buildPushNowButton(NotificationRecord record, AppLocalizations l10n) {
-    return GestureDetector(
+    return FnthinkFilledAction(
       key: ValueKey('history-push-now-${record.id}'),
-      onTap: () => widget.onPushNow!(record),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppColors.blue,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.send, size: 11, color: Colors.white),
-            const SizedBox(width: 3),
-            Text(
-              l10n.pushNow,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
+      compact: true,
+      icon: Icons.send,
+      label: l10n.pushNow,
+      onPressed: () => widget.onPushNow!(record),
     );
   }
 
@@ -2576,11 +2562,11 @@ class _HistoryPageState extends State<HistoryPage> {
   ///
   /// T148 差异⑧ 第三格（片8）：「取消」走幻念那一族的行内动作件、tone 取中性
   /// （**这一枚不让人动手做什么，只是退出**），于是底栏只剩「补推」那一枚实心。
-  /// ⚠ 「补推」**刻意留着 Material `FilledButton.icon`**（账面已登记成例外）：公共件
-  /// `PrimaryActionButton` 的公开签名只有 label／subtitle／onPressed，**没有图标槽**；
-  /// 而这枚动作的信息量一半在那个 replay 图标上（"把这 N 条再发一次"，区别于页面里别的实心块）。
-  /// 要么给件加图标参数（那是**新增公共件能力**，会牵动它 9 个既有调用点的形状一致性），
-  /// 要么丢图标 —— 两条都比"把它留在原地并写明理由"贵。账照样数着它：长第二枚仍当场红。
+  /// ⚠ 「补推」这一枚 T148 片15 起走 `FnthinkFilledAction`（差异⑧ 从片8 挂在账上的那枚
+  /// Material 例外就此收掉）。当时留着的理由是"公共件没有图标槽"，而那条前提选错了对象：
+  /// `PrimaryActionButton` 是**一页一枚的全宽主操作**，底栏这一行左边还有「取消」，本来就不该用它 ——
+  /// 缺的是"按内容宽 + 带图标 + 能置灰"这一档，不是给全宽件加参数去牵动它 9 个调用点。
+  /// 图标留着：「把这 N 条再发一次」有一半信息量在那个 replay 上。
   Widget _buildBatchBar(BuildContext context, AppLocalizations l10n) {
     final count = _batchSelected.length;
     return Container(
@@ -2600,16 +2586,12 @@ class _HistoryPageState extends State<HistoryPage> {
                 onPressed: _exitBatchMode,
               ),
               const Spacer(),
-              FilledButton.icon(
+              FnthinkFilledAction(
+                key: const ValueKey('history-batch-push'),
+                icon: Icons.replay,
+                label: l10n.batchPushAction(count),
+                // 一条都没勾选：置灰留着，不藏起来（藏掉用户读到的是"选了却没地方按"）。
                 onPressed: count == 0 ? null : _runBatchPush,
-                icon: const Icon(Icons.replay, size: 18),
-                label: Text(l10n.batchPushAction(count)),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.blue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
               ),
             ],
           ),
