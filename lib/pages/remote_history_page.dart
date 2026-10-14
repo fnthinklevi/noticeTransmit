@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/fnthink_remote_reason_words.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_remote_action_labels.dart';
@@ -324,9 +325,10 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
         // 裁定 3（2026-10-12）：**状态之外还要有结果与理由**。这两格是"有就说、没有就不说"：
         //   空串在这一层是真的"没有"（`pending` 的那一条还没结果、放行执行成功的那一条没理由），
         //   把它渲染成"理由："那种空句子，就是让界面替本机编一句话。
-        // ⚠ 理由与结果**原样显示**（`switch-off`／`auth:wrong`／`missing-grant:…` 这些是判定层的词）：
-        //   翻成人话要一张具名词表 + 双向差集守卫（与 `fnthink_remote_action_labels` 同式），
-        //   那是 T144 片2；在这里半翻会长出第二个词表，而"半翻"的表现是有些词翻了、有些没翻。
+        // ⚠ 两格都**过表**（T144 片2 已落）：结果走 `fnthinkRemoteOutcomeText`、理由走
+        //   `remoteReasonText`；两张表都是各自那一族的唯一作者，词表外的**原样带出**（不编）。
+        //   在页面里半翻会长出第二个词表，而"半翻"的表现是有些词翻了、有些没翻 ——
+        //   用户分不清哪句是系统的结论、哪句是没翻译的原始码。
         // ⚠ 走通用件的 `lines` 而不是 `statusMessage`：那一格画的是**状态的原话**（一行、两行封顶），
         //   而结果与理由要各留自己的 key 与整句措辞，用户要能分别长按不到、复制得到。
         if (row.result.isNotEmpty)
@@ -341,7 +343,10 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
         if (row.reason.isNotEmpty)
           FnthinkNote(
             keyName: 'remote-history-reason-${row.execId}',
-            text: l10n.remoteHistoryReason(row.reason),
+            // 理由由词表那枚唯一作者翻成人话；词表外的**原样带出**（不编）。
+            // ⚠ 不许退回 `row.reason`：那会让屏上同时出现人话与机器词，
+            //   而用户分不清哪句是系统的结论（roadmap T144 那句「半翻比不翻更坏」）。
+            text: l10n.remoteHistoryReason(remoteReasonText(row.reason, l10n)),
           ),
         // ⚠ 已终态的那一行**不给**这一下：它在界面上会是一个点了没反应的按钮，
         //   而"点了没反应"正是这一格要防的那种形状。

@@ -8875,6 +8875,270 @@ abstract class AppLocalizations {
   /// **'本机应用的通知触发的（没有远端发送方）'**
   String get remoteHistoryLocalTrigger;
 
+  /// No description provided for @remoteReasonSwitchOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程执行总开关关着'**
+  String get remoteReasonSwitchOff;
+
+  /// No description provided for @remoteReasonLocalTriggerOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机通知触发那颗开关关着'**
+  String get remoteReasonLocalTriggerOff;
+
+  /// No description provided for @remoteReasonAppNotAllowed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条通知来自没被允许触发的那类应用'**
+  String get remoteReasonAppNotAllowed;
+
+  /// No description provided for @remoteReasonMissingItem.
+  ///
+  /// In zh, this message translates to:
+  /// **'指令没带要做的那一项'**
+  String get remoteReasonMissingItem;
+
+  /// No description provided for @remoteReasonConfirmRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一项要求本机当场确认一次'**
+  String get remoteReasonConfirmRequired;
+
+  /// No description provided for @remoteReasonNotGranted.
+  ///
+  /// In zh, this message translates to:
+  /// **'对端没被授权做这一项：{x}'**
+  String remoteReasonNotGranted(String x);
+
+  /// No description provided for @remoteReasonMissingGrant.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一项要先在本机开着：{x}'**
+  String remoteReasonMissingGrant(String x);
+
+  /// No description provided for @remoteReasonUnknownAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'认不出这个动作：{x}'**
+  String remoteReasonUnknownAction(String x);
+
+  /// No description provided for @remoteReasonUnknownSetting.
+  ///
+  /// In zh, this message translates to:
+  /// **'认不出这项设置：{x}'**
+  String remoteReasonUnknownSetting(String x);
+
+  /// No description provided for @remoteReasonUnknownItem.
+  ///
+  /// In zh, this message translates to:
+  /// **'授权清单里有一项认不出：{x}'**
+  String remoteReasonUnknownItem(String x);
+
+  /// No description provided for @remoteReasonUnknownCeiling.
+  ///
+  /// In zh, this message translates to:
+  /// **'对端那一行的档位天花板认不出：{x}'**
+  String remoteReasonUnknownCeiling(String x);
+
+  /// No description provided for @remoteReasonLevel.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一档超出对端被授予的范围：{x}'**
+  String remoteReasonLevel(String x);
+
+  /// No description provided for @remoteReasonSourceNotAllowed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一档不许从这个来源进来：{x}'**
+  String remoteReasonSourceNotAllowed(String x);
+
+  /// No description provided for @remoteReasonAuthWrong.
+  ///
+  /// In zh, this message translates to:
+  /// **'凭据不对'**
+  String get remoteReasonAuthWrong;
+
+  /// No description provided for @remoteReasonAuthMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一档必须带凭据，而这条没带'**
+  String get remoteReasonAuthMissing;
+
+  /// No description provided for @remoteReasonAuthMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'用的凭据方式协议里没有'**
+  String get remoteReasonAuthMode;
+
+  /// No description provided for @remoteReasonTerminalState.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条已经走到终态，状态不再改它'**
+  String get remoteReasonTerminalState;
+
+  /// No description provided for @remoteReasonIllegalMove.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态机被要求走一步不允许的转换'**
+  String get remoteReasonIllegalMove;
+
+  /// No description provided for @remoteReasonInterrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一轮被打断（应用被重启过）'**
+  String get remoteReasonInterrupted;
+
+  /// No description provided for @remoteReasonCancelledByUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'你在撤销窗口里撤掉了它'**
+  String get remoteReasonCancelledByUser;
+
+  /// No description provided for @remoteReasonCancelledStatusBar.
+  ///
+  /// In zh, this message translates to:
+  /// **'你在状态栏上撤掉了它'**
+  String get remoteReasonCancelledStatusBar;
+
+  /// No description provided for @remoteReasonReportNotSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果报告没发出去'**
+  String get remoteReasonReportNotSent;
+
+  /// No description provided for @remoteReasonReportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'报告这一发没做成'**
+  String get remoteReasonReportFailed;
+
+  /// No description provided for @remoteReasonSmsFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'短信检索没做成'**
+  String get remoteReasonSmsFailed;
+
+  /// No description provided for @remoteReasonCallsFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'通话记录检索没做成'**
+  String get remoteReasonCallsFailed;
+
+  /// No description provided for @remoteReasonLocationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'定位没拿到'**
+  String get remoteReasonLocationFailed;
+
+  /// No description provided for @remoteReasonCameraFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'拍照没成功'**
+  String get remoteReasonCameraFailed;
+
+  /// No description provided for @remoteReasonContactsFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'联系人检索没做成'**
+  String get remoteReasonContactsFailed;
+
+  /// No description provided for @remoteReasonDeviceStateRefused.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备状态推送被拒'**
+  String get remoteReasonDeviceStateRefused;
+
+  /// No description provided for @remoteReasonAlertRefused.
+  ///
+  /// In zh, this message translates to:
+  /// **'响铃被拒'**
+  String get remoteReasonAlertRefused;
+
+  /// No description provided for @remoteReasonUnmappedAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个动作还没有执行器：{x}'**
+  String remoteReasonUnmappedAction(String x);
+
+  /// No description provided for @remoteReasonListenerStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听没开起来'**
+  String get remoteReasonListenerStart;
+
+  /// No description provided for @remoteReasonListenerStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听没停下来'**
+  String get remoteReasonListenerStop;
+
+  /// No description provided for @remoteReasonNotApplied.
+  ///
+  /// In zh, this message translates to:
+  /// **'这项设置没有真的改变：{x}'**
+  String remoteReasonNotApplied(String x);
+
+  /// No description provided for @remoteReasonThrew.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行时抛了异常：{x}'**
+  String remoteReasonThrew(String x);
+
+  /// No description provided for @remoteReasonBadArgumentKind.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个动作不接受这一类参数：{x}'**
+  String remoteReasonBadArgumentKind(String x);
+
+  /// No description provided for @remoteReasonBadChannelArgument.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道那一段参数不对：{x}'**
+  String remoteReasonBadChannelArgument(String x);
+
+  /// No description provided for @remoteReasonBadKeyword.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词那一项不成形：{x}'**
+  String remoteReasonBadKeyword(String x);
+
+  /// No description provided for @remoteReasonBadReportCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'报告条数不成形：{x}'**
+  String remoteReasonBadReportCount(String x);
+
+  /// No description provided for @remoteReasonMissingArgument.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一项要带参数：{x}'**
+  String remoteReasonMissingArgument(String x);
+
+  /// No description provided for @remoteReasonNoSuchChannel.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有这条通道：{x}'**
+  String remoteReasonNoSuchChannel(String x);
+
+  /// No description provided for @remoteReasonUnexpectedArgument.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个动作不接受参数：{x}'**
+  String remoteReasonUnexpectedArgument(String x);
+
+  /// No description provided for @remoteReasonUnknownTargetWord.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标那一段认不出：{x}'**
+  String remoteReasonUnknownTargetWord(String x);
+
+  /// No description provided for @remoteReasonUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'（没有更多原因可读：{x}）'**
+  String remoteReasonUnknown(String x);
+
   /// No description provided for @remoteHistoryCancel.
   ///
   /// In zh, this message translates to:

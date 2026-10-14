@@ -80,15 +80,33 @@ void main() {
     );
   });
 
-  test('② 那两枚理由串由判定层的唯一作者造（页面不许自己造第二个）', () {
+  test('② 那两枚理由串：造它的位置只有一处，翻它的位置也只有一处', () {
+    // 钉的是**角色**，不是"字面量全库只许出现一次"：T144 片2 之后那张人话表必须按 key 引用这两枚，
+    // 把表也算成"第二个作者"，就是让守卫去挡正确做法（本仓砸过的"钉写法不钉结构"）。
+    // 两头的坏形状各自有牙：多出第三处字面量 ⇒ 差集对不上；表里漏了这一枚 ⇒ 屏上落机器词。
+    const producer = 'services/fnthink_remote_command_handler.dart';
+    const reader = 'services/fnthink_remote_reason_words.dart';
     for (final reason in kTriggerReasons) {
-      final where = filesWith("'$reason'");
       expect(
-        where,
-        {'services/fnthink_remote_command_handler.dart'},
+        filesWith("'$reason'"),
+        {producer, reader},
         reason:
-            '$reason 出现在 $where —— 同一个理由两个作者，'
-            'T144 片2 那张人话词表（按具名词表 + 双向差集钉）就对不上',
+            '$reason 的字面量应当只有两处：判定层**造**这条拒绝、人话表**翻**它。'
+            '多一处 = 第三个作者；表那一处没了 = 这一枚在屏上是机器词',
+      );
+      final produced = stripComments(librarySource(root, 'lib/$producer'));
+      expect(
+        RegExp(
+          "RemoteCommandRejected\\([\\s\\S]{0,120}?'$reason'",
+        ).hasMatch(produced),
+        isTrue,
+        reason: '$reason 不在"造拒绝"那一段里 ⇒ 它变成页面自己造的第二个理由',
+      );
+      final table = stripComments(librarySource(root, 'lib/$reader'));
+      expect(
+        RegExp("'$reason':\\s*\\(l\\)").hasMatch(table),
+        isTrue,
+        reason: '表里那一枚不是表项形状 ⇒ 翻译那一路其实没接上（引用只写在注释里）',
       );
     }
   });
@@ -159,6 +177,35 @@ void main() {
       ).firstMatch(defaulted)!.group(1)!.contains('packageName: String? ='),
       isTrue,
       reason: '④ 的坏形状认不出来 ⇒ 那条守卫拦的是不存在的事',
+    );
+
+    // ② 的两把尺：「造拒绝」那一段 + 词表项的形状。各给一正一反，
+    // 反例是"字面量在场但角色不对"—— 那正是 ② 要放走/拦住的分界。
+    final rejects = RegExp(
+      "RemoteCommandRejected\\([\\s\\S]{0,120}?'switch-off'",
+    );
+    expect(
+      rejects.hasMatch(
+        "return RemoteCommandRejected(\n  command,\n  sender,\n  'switch-off',\n  source,\n);",
+      ),
+      isTrue,
+      reason: '多行形状认不出来 ⇒ ② 的"造拒绝"那一判恒红，把正确写法也挡了',
+    );
+    expect(
+      rejects.hasMatch("final reason = 'switch-off';\n  save(reason);"),
+      isFalse,
+      reason: '随便一处引用也算"造拒绝" ⇒ 页面自己造第二个理由时 ② 不会红',
+    );
+    final tableEntry = RegExp("'switch-off':\\s*\\(l\\)");
+    expect(
+      tableEntry.hasMatch("  'switch-off': (l) => l.remoteReasonSwitchOff,"),
+      isTrue,
+      reason: '表项形状认不出来 ⇒ "翻译那一路其实没接上"这一判恒红',
+    );
+    expect(
+      tableEntry.hasMatch("  const switchOff = 'switch-off';"),
+      isFalse,
+      reason: '裸常量也算表项 ⇒ 词表没这一枚时 ② 也照样绿',
     );
   });
 }

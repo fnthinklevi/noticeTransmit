@@ -5173,6 +5173,192 @@ class AppLocalizationsEn extends AppLocalizations {
       'Triggered by this device\'s own app notification (no remote sender)';
 
   @override
+  String get remoteReasonSwitchOff =>
+      'The remote-execution master switch is off';
+
+  @override
+  String get remoteReasonLocalTriggerOff =>
+      'Local notification triggering is switched off';
+
+  @override
+  String get remoteReasonAppNotAllowed =>
+      'This notification came from an app not allowed to trigger';
+
+  @override
+  String get remoteReasonMissingItem => 'The command carried no item';
+
+  @override
+  String get remoteReasonConfirmRequired =>
+      'This item must be confirmed on the device itself';
+
+  @override
+  String remoteReasonNotGranted(String x) {
+    return 'The peer is not granted this item: $x';
+  }
+
+  @override
+  String remoteReasonMissingGrant(String x) {
+    return 'This must already be on locally first: $x';
+  }
+
+  @override
+  String remoteReasonUnknownAction(String x) {
+    return 'Unknown action: $x';
+  }
+
+  @override
+  String remoteReasonUnknownSetting(String x) {
+    return 'Unknown setting: $x';
+  }
+
+  @override
+  String remoteReasonUnknownItem(String x) {
+    return 'The grant list holds an item we cannot match: $x';
+  }
+
+  @override
+  String remoteReasonUnknownCeiling(String x) {
+    return 'The peer\'s level ceiling cannot be matched: $x';
+  }
+
+  @override
+  String remoteReasonLevel(String x) {
+    return 'This level is above what the peer was granted: $x';
+  }
+
+  @override
+  String remoteReasonSourceNotAllowed(String x) {
+    return 'This level may not arrive from this source: $x';
+  }
+
+  @override
+  String get remoteReasonAuthWrong => 'The credential did not match';
+
+  @override
+  String get remoteReasonAuthMissing =>
+      'This level requires a credential and none was carried';
+
+  @override
+  String get remoteReasonAuthMode =>
+      'The credential mode is not in the protocol';
+
+  @override
+  String get remoteReasonTerminalState =>
+      'This one already reached a terminal state';
+
+  @override
+  String get remoteReasonIllegalMove =>
+      'The state machine was asked to take a forbidden step';
+
+  @override
+  String get remoteReasonInterrupted =>
+      'This round was interrupted (the app restarted)';
+
+  @override
+  String get remoteReasonCancelledByUser =>
+      'You cancelled it inside the undo window';
+
+  @override
+  String get remoteReasonCancelledStatusBar =>
+      'You cancelled it from the status bar';
+
+  @override
+  String get remoteReasonReportNotSent => 'The result report was not sent';
+
+  @override
+  String get remoteReasonReportFailed => 'That report attempt failed';
+
+  @override
+  String get remoteReasonSmsFailed => 'The SMS search did not go through';
+
+  @override
+  String get remoteReasonCallsFailed =>
+      'The call-log search did not go through';
+
+  @override
+  String get remoteReasonLocationFailed => 'No location came back';
+
+  @override
+  String get remoteReasonCameraFailed => 'The camera did not produce a shot';
+
+  @override
+  String get remoteReasonContactsFailed =>
+      'The contact search did not go through';
+
+  @override
+  String get remoteReasonDeviceStateRefused =>
+      'The device-state push was refused';
+
+  @override
+  String get remoteReasonAlertRefused => 'The alert ring was refused';
+
+  @override
+  String remoteReasonUnmappedAction(String x) {
+    return 'This action has no executor yet: $x';
+  }
+
+  @override
+  String get remoteReasonListenerStart => 'The listener did not start';
+
+  @override
+  String get remoteReasonListenerStop => 'The listener did not stop';
+
+  @override
+  String remoteReasonNotApplied(String x) {
+    return 'This setting did not actually change: $x';
+  }
+
+  @override
+  String remoteReasonThrew(String x) {
+    return 'Executing threw: $x';
+  }
+
+  @override
+  String remoteReasonBadArgumentKind(String x) {
+    return 'This action takes no argument of that kind: $x';
+  }
+
+  @override
+  String remoteReasonBadChannelArgument(String x) {
+    return 'The channel argument is malformed: $x';
+  }
+
+  @override
+  String remoteReasonBadKeyword(String x) {
+    return 'The keyword argument is malformed: $x';
+  }
+
+  @override
+  String remoteReasonBadReportCount(String x) {
+    return 'The report count is malformed: $x';
+  }
+
+  @override
+  String remoteReasonMissingArgument(String x) {
+    return 'This item needs an argument: $x';
+  }
+
+  @override
+  String remoteReasonNoSuchChannel(String x) {
+    return 'No such channel: $x';
+  }
+
+  @override
+  String remoteReasonUnexpectedArgument(String x) {
+    return 'This action takes no argument: $x';
+  }
+
+  @override
+  String remoteReasonUnknownTargetWord(String x) {
+    return 'The target cannot be matched: $x';
+  }
+
+  @override
+  String remoteReasonUnknown(String x) {
+    return '(no further reason available: $x)';
+  }
+
+  @override
   String get remoteHistoryCancel => 'Cancel this one';
 
   @override

@@ -4903,6 +4903,178 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryLocalTrigger => '本机应用的通知触发的（没有远端发送方）';
 
   @override
+  String get remoteReasonSwitchOff => '远程执行总开关关着';
+
+  @override
+  String get remoteReasonLocalTriggerOff => '本机通知触发那颗开关关着';
+
+  @override
+  String get remoteReasonAppNotAllowed => '这条通知来自没被允许触发的那类应用';
+
+  @override
+  String get remoteReasonMissingItem => '指令没带要做的那一项';
+
+  @override
+  String get remoteReasonConfirmRequired => '这一项要求本机当场确认一次';
+
+  @override
+  String remoteReasonNotGranted(String x) {
+    return '对端没被授权做这一项：$x';
+  }
+
+  @override
+  String remoteReasonMissingGrant(String x) {
+    return '这一项要先在本机开着：$x';
+  }
+
+  @override
+  String remoteReasonUnknownAction(String x) {
+    return '认不出这个动作：$x';
+  }
+
+  @override
+  String remoteReasonUnknownSetting(String x) {
+    return '认不出这项设置：$x';
+  }
+
+  @override
+  String remoteReasonUnknownItem(String x) {
+    return '授权清单里有一项认不出：$x';
+  }
+
+  @override
+  String remoteReasonUnknownCeiling(String x) {
+    return '对端那一行的档位天花板认不出：$x';
+  }
+
+  @override
+  String remoteReasonLevel(String x) {
+    return '这一档超出对端被授予的范围：$x';
+  }
+
+  @override
+  String remoteReasonSourceNotAllowed(String x) {
+    return '这一档不许从这个来源进来：$x';
+  }
+
+  @override
+  String get remoteReasonAuthWrong => '凭据不对';
+
+  @override
+  String get remoteReasonAuthMissing => '这一档必须带凭据，而这条没带';
+
+  @override
+  String get remoteReasonAuthMode => '用的凭据方式协议里没有';
+
+  @override
+  String get remoteReasonTerminalState => '这条已经走到终态，状态不再改它';
+
+  @override
+  String get remoteReasonIllegalMove => '状态机被要求走一步不允许的转换';
+
+  @override
+  String get remoteReasonInterrupted => '这一轮被打断（应用被重启过）';
+
+  @override
+  String get remoteReasonCancelledByUser => '你在撤销窗口里撤掉了它';
+
+  @override
+  String get remoteReasonCancelledStatusBar => '你在状态栏上撤掉了它';
+
+  @override
+  String get remoteReasonReportNotSent => '结果报告没发出去';
+
+  @override
+  String get remoteReasonReportFailed => '报告这一发没做成';
+
+  @override
+  String get remoteReasonSmsFailed => '短信检索没做成';
+
+  @override
+  String get remoteReasonCallsFailed => '通话记录检索没做成';
+
+  @override
+  String get remoteReasonLocationFailed => '定位没拿到';
+
+  @override
+  String get remoteReasonCameraFailed => '拍照没成功';
+
+  @override
+  String get remoteReasonContactsFailed => '联系人检索没做成';
+
+  @override
+  String get remoteReasonDeviceStateRefused => '设备状态推送被拒';
+
+  @override
+  String get remoteReasonAlertRefused => '响铃被拒';
+
+  @override
+  String remoteReasonUnmappedAction(String x) {
+    return '这个动作还没有执行器：$x';
+  }
+
+  @override
+  String get remoteReasonListenerStart => '监听没开起来';
+
+  @override
+  String get remoteReasonListenerStop => '监听没停下来';
+
+  @override
+  String remoteReasonNotApplied(String x) {
+    return '这项设置没有真的改变：$x';
+  }
+
+  @override
+  String remoteReasonThrew(String x) {
+    return '执行时抛了异常：$x';
+  }
+
+  @override
+  String remoteReasonBadArgumentKind(String x) {
+    return '这个动作不接受这一类参数：$x';
+  }
+
+  @override
+  String remoteReasonBadChannelArgument(String x) {
+    return '通道那一段参数不对：$x';
+  }
+
+  @override
+  String remoteReasonBadKeyword(String x) {
+    return '关键词那一项不成形：$x';
+  }
+
+  @override
+  String remoteReasonBadReportCount(String x) {
+    return '报告条数不成形：$x';
+  }
+
+  @override
+  String remoteReasonMissingArgument(String x) {
+    return '这一项要带参数：$x';
+  }
+
+  @override
+  String remoteReasonNoSuchChannel(String x) {
+    return '没有这条通道：$x';
+  }
+
+  @override
+  String remoteReasonUnexpectedArgument(String x) {
+    return '这个动作不接受参数：$x';
+  }
+
+  @override
+  String remoteReasonUnknownTargetWord(String x) {
+    return '目标那一段认不出：$x';
+  }
+
+  @override
+  String remoteReasonUnknown(String x) {
+    return '（没有更多原因可读：$x）';
+  }
+
+  @override
   String get remoteHistoryCancel => '取消这一条';
 
   @override

@@ -1117,7 +1117,16 @@ void main() {
         findsOneWidget,
         reason: '理由不显示 ⇒ 用户只看到"没做成"，而"没做成"与"为什么没做成"是两件事',
       );
-      expect(find.textContaining('switch-off'), findsOneWidget);
+      // 片2：那一格吃的是人话表，不再念裸码。
+      expect(
+        find.text(zhL10n.remoteHistoryReason(zhL10n.remoteReasonSwitchOff)),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('switch-off'),
+        findsNothing,
+        reason: '屏上还留着机器词 ⇒ 这张表被绕开，人话与裸码混排（半翻比不翻更坏）',
+      );
       expect(
         find.byKey(const ValueKey('remote-history-result-x0000001')),
         findsNothing,
@@ -1289,8 +1298,84 @@ void main() {
         reason: '两格写同一串时，"结果"与"为什么没成"在界面上塌成同一句话',
       );
       expect(
-        find.text(zhL10n.remoteHistoryReason('switch-off')),
+        find.text(zhL10n.remoteHistoryReason(zhL10n.remoteReasonSwitchOff)),
         findsOneWidget,
+      );
+    });
+  });
+
+  group('历史页：理由那一格吃整张人话表（T144 片2 格②）', () {
+    // 这一族的裁定是「一次收全族」：有些翻了有些没翻 ⇒ 用户分不清哪句是系统的结论。
+    // 下面三条各钉一档口径（整串词／前缀族／词表外），合成一条就看不出少了一档。
+    testWidgets('前缀族那一档：话是人话，尾巴原样带出', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record(
+            'e_family',
+            state: 'failed',
+            reason: 'missing-grant:monitoring',
+          ),
+        ],
+      );
+
+      final shown = tester
+          .widget<Text>(
+            find.byKey(const ValueKey('remote-history-reason-e_family')),
+          )
+          .data!;
+      expect(
+        shown,
+        zhL10n.remoteHistoryReason(
+          zhL10n.remoteReasonMissingGrant('monitoring'),
+        ),
+        reason: '尾巴（那一项的名字）被吃掉 ⇒ "缺哪一项的授权"读不出来',
+      );
+      expect(shown, isNot(contains('missing-grant')), reason: '族名直出 = 这一档还在半翻');
+    });
+
+    testWidgets('词表外那一档：原样显示，不替本机编一句', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('e_new', state: 'failed', reason: 'brand-new-token'),
+        ],
+      );
+
+      expect(
+        find.text(zhL10n.remoteHistoryReason('brand-new-token')),
+        findsOneWidget,
+        reason: '把认不出的码翻成一句已知的话 ⇒ 界面替本机编了一个它没给的原因',
+      );
+    });
+
+    testWidgets('`item:` 那层包装剥掉，但屏上不许留下包装串', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record(
+            'e_wrap',
+            state: 'failed',
+            reason: 'item:unknown-setting:monitoring',
+          ),
+        ],
+      );
+
+      final shown = tester
+          .widget<Text>(
+            find.byKey(const ValueKey('remote-history-reason-e_wrap')),
+          )
+          .data!;
+      expect(
+        shown,
+        zhL10n.remoteHistoryReason(
+          zhL10n.remoteReasonUnknownSetting('monitoring'),
+        ),
+      );
+      expect(
+        shown,
+        isNot(contains('item:')),
+        reason: '包装前缀漏在屏上 = 剥包装那一档只在表里做了，页面上还是半翻',
       );
     });
   });
