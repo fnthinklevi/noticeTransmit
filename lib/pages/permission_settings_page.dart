@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
@@ -76,9 +75,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
   final PermissionService _permissionService =
       GetIt.instance<PermissionService>();
 
-  // B1 精确闹钟开关状态 + 系统授权状态（Android 12+）
-  bool _exactAlarmEnabled = false;
-  bool _canScheduleExactAlarms = false;
+  /// B1 精确闹钟：这一行**只画系统授权**（T140 走 (c) 之后这一族只剩一枚真值）。
+  bool _exactAlarmGranted = false;
 
   /// L3 那一格**这一次**读回来的那几行（空 = 还没读回来，见 `_buildL3Group`）。
   ///
@@ -111,30 +109,14 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     await _loadL3GrantRows();
   }
 
+  /// 再取一次精确闹钟的**系统授权**。
+  ///
+  /// ⚠ 这里读的与原生排闹钟时读的是同一枚（`canScheduleExactAlarms` ⇒ 原生 `ExactAlarmPolicy`），
+  /// 页面上不再有第二份"要不要用精确闹钟"的偏好 —— 那一枚开关正是 T140 走 (c) 删掉的东西。
   Future<void> _loadExactAlarmState() async {
-    final enabled = await _permissionService.isExactAlarmEnabled();
-    final canSchedule = await _permissionService.canScheduleExactAlarms();
+    final granted = await _permissionService.canScheduleExactAlarms();
     if (!mounted) return;
-    setState(() {
-      _exactAlarmEnabled = enabled;
-      _canScheduleExactAlarms = canSchedule;
-    });
-  }
-
-  /// 切换精确闹钟开关：开启时若系统未授权，先引导授权再落盘
-  Future<void> _onToggleExactAlarm(bool value) async {
-    if (value && !_canScheduleExactAlarms) {
-      await _permissionService.requestExactAlarmPermission();
-      final canSchedule = await _permissionService.canScheduleExactAlarms();
-      if (!canSchedule) {
-        // 用户未授权：不强制开启，提示后保持关闭（原生端未授权时自动降级非精确闹钟）
-        if (!mounted) return;
-        setState(() => _exactAlarmEnabled = false);
-        return;
-      }
-    }
-    await _permissionService.setExactAlarmEnabled(value);
-    if (mounted) setState(() => _exactAlarmEnabled = value);
+    setState(() => _exactAlarmGranted = granted);
   }
 
   @override
@@ -147,11 +129,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
       await _permissionService.checkAllPermissions();
-      // 从系统授权页返回后刷新精确闹钟授权状态
+      // 从系统授权页返回后刷新精确闹钟那一行（现在它画的就是一枚真值：系统授权）
       await _loadExactAlarmState();
       // ⚠ L3 那一格必须跟着重取：它说的是"此刻这台设备的授权"，而用户正是去系统里
-      //   改完才回来的。不重取的表现不是崩，是**同一页上两行自相矛盾** ——
-      //   B1 那一格（自读那一份）说"已授权"，这一格还停在进页那一刻说"还没给"。
+      //   改完才回来的。不重取的表现不是崩，是**那一行把用户刚做完的事抹掉** ——
+      //   已经授权了，行上还写着"还没给这台设备授权"，用户只能退出重进来确认。
       await _loadL3GrantRows();
       if (mounted) setState(() {});
     }
@@ -541,57 +523,30 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     _ => null,
   };
 
-  /// B1 精确闹钟开关（iOS 风格行 + Switch）
+  /// B1 精确闹钟那一行：**状态 + 一键跳**，右侧那枚写偏好的开关已删（T140 走 (c)）。
+  ///
+  /// 为什么这一行必须换形状：以前它右侧是一枚写进 Flutter 偏好的开关（默认关），副标题报的
+  /// 却是系统授权 —— 开关关掉时「已授权」与「到点晚几分钟」同时成立，两句各自都不算假、
+  /// 合起来是一句假话（而契约对常态收取承诺的是 5–60 秒）。
+  /// 现在画出去的布尔与原生排闹钟时读的是**同一枚**（原生同一个表达式，见 `ExactAlarmPolicy`）。
+  ///
+  /// ⚠ 与下面 L3 那一格里同名的一行**不是重复**（T146 片6 那条纪律：主语不同不许合表）：
+  ///   这一行答的是"本机的延迟/定时推送准不准点"，那一行答的是"对端能不能请求这一项"。
   Widget _buildExactAlarmTile(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final subtitle = _canScheduleExactAlarms
-        ? l10n.exactAlarmGranted
-        : l10n.exactAlarmNeedGrant;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: _exactAlarmEnabled
-                  ? AppColors.green
-                  : const Color(0xFFFF9500),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.alarm, size: 18, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.exactAlarmTitle,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$subtitle · ${l10n.exactAlarmDesc}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          CupertinoSwitch(
-            value: _exactAlarmEnabled,
-            onChanged: _onToggleExactAlarm,
-            activeTrackColor: AppColors.green,
-          ),
-        ],
-      ),
+    return _buildPermissionTile(
+      icon: Icons.alarm,
+      title: l10n.exactAlarmTitle,
+      subtitle:
+          '${_exactAlarmGranted ? l10n.exactAlarmGranted : l10n.exactAlarmNeedGrant}'
+          ' · ${l10n.exactAlarmDesc}',
+      isOn: _exactAlarmGranted,
+      // 已授权 ⇒ 不给"重复申请"留口子（与 L3 那几行同一条规矩）
+      onTap: _exactAlarmGranted
+          ? null
+          : () => _permissionService.requestExactAlarmPermission(),
+      isWarning: true,
+      context: context,
     );
   }
 

@@ -138,7 +138,6 @@ void main() {
       'canQueryAllPackages': true,
       'isIgnoringBatteryOptimizations': true,
       'canScheduleExactAlarms': true,
-      'isExactAlarmEnabled': true,
       'isServiceRunning': false,
       'getEnabledPackages': <String>[],
       'getBlacklistKeywords': <String>[],

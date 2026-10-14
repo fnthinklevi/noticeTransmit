@@ -119,10 +119,16 @@ void main() {
     // 123 → 124（T137 验收③）：`openInboxChannelSettings` —— 收件渠道**自己的**系统设置页。
     // 厂商的悬浮/锁屏/声音开关不在 AOSP 可读范围里（六厂商官方口径一致），
     // 界面只能"报自己那侧 + 一键跳"，没有"读回来"的那一半。
-    test('原生方法总数 == 124（防止分支被静默删除/新增未登记）', () {
+    // 124 → 122（T140 走 (c)）：**删掉** `isExactAlarmEnabled` / `setExactAlarmEnabled` ——
+    // 精确闹钟只剩系统授权一枚真值，那一族 App 内开关（写 Flutter 偏好、默认关）整条拆掉。
+    // 留下的那两发是 `canScheduleExactAlarms`（读授权）与 `requestExactAlarmPermission`（跳系统页）；
+    // 判定本体在 `ExactAlarmPolicy`，界面画的与原生排闹钟读的是同一个表达式。
+    // ⚠ 这两发**必须一起删**：只删原生那一侧，Dart 的 invokeMethod 会被自己的 try/catch
+    //   吞成 false（`查询精确闹钟开关失败`），权限页那一格从此恒显"关着"，而全场仍然绿。
+    test('原生方法总数 == 122（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        124,
+        122,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -137,7 +143,9 @@ void main() {
         // T55：提升/悬浮通知那一族 +3；T124 片C-1：通话记录那两发（读权限 + 申请）+2；
         // 片C-2：定位那两发（FINE||COARSE 的读权限 + 一次'精确／大致'申请）+2。
         // T137 验收③：收件渠道的系统设置跳转那一发。30 → 31。
-        'PermissionChannelHandler': 31,
+        // 31 → 29（T140 走 (c)）：**删掉**精确闹钟那枚 App 内开关的两发（读/写），
+        // 这一域只剩 `canScheduleExactAlarms`（读授权）与 `requestExactAlarmPermission`（跳系统页）。
+        'PermissionChannelHandler': 29,
         // 首页第三态那两发挂在这一域（读推送开关 + 恢复推送）。15 → 17。
         'DeviceChannelHandler': 17,
         'FileChannelHandler': 12,

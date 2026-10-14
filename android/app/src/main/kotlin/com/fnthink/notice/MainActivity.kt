@@ -1575,19 +1575,13 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /** Android 12+ 是否已授权精确闹钟；12 以下系统无此概念，恒为 true */
-    internal fun canScheduleExactAlarms(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                val am = getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return false
-                am.canScheduleExactAlarms()
-            } catch (e: Exception) {
-                false
-            }
-        } else {
-            true
-        }
-    }
+    /**
+     * Android 12+ 是否已授权精确闹钟；12 以下系统无此概念，恒为 true。
+     *
+     * ⚠ 判定本身住在 [ExactAlarmPolicy]（T140 走 (c) 之后那一枚唯一作者）：这里只是通道侧的转交。
+     * 界面报的那一份与排闹钟时读的那一份**必须是同一个表达式**，否则又是两句话。
+     */
+    internal fun canScheduleExactAlarms(): Boolean = ExactAlarmPolicy.allowed(this)
 
     /**
      * 引导用户授权精确闹钟（B1）。

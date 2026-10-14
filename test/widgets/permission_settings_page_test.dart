@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fnthink_push/fnthink_push.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -23,6 +24,10 @@ void main() {
   late int appListTaps;
   late int notifListenerTaps;
 
+  /// 页面（含它背后的 `PermissionService`）实际打到原生的那一发发方法名。
+  /// 精确闹钟那一族撤掉 App 内开关之后，"点这一行绝不写偏好"这一句只能靠它来观察。
+  late List<String> channelCalls;
+
   Future<void> pumpPage(
     WidgetTester tester, {
     required String appListState,
@@ -31,10 +36,15 @@ void main() {
     // 「回前台要重算」那两条要自己控制取数节奏（改一份可变的 readers、数被取了几次），
     // 所以取数这件事留一个口子；不传就用下面那份默认读法（与真机同源：都走 collectL3GrantRows）。
     Future<List<FnthinkL3GrantRow>> Function()? l3Loader,
+    // 系统对精确闹钟的授权读数（T140 走 (c) 之后这一族唯一的真值）。
+    bool exactAlarmGranted = false,
   }) async {
+    channelCalls = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
+          channelCalls.add(call.method);
           if (call.method == 'getAppListPermissionState') return appListState;
+          if (call.method == 'canScheduleExactAlarms') return exactAlarmGranted;
           // 其余都是布尔读数：回 false 即可（回 String 会让服务的 try/catch 吞掉整批赋值）
           return false;
         });
@@ -387,6 +397,81 @@ void main() {
         reason: '读到之后那一格必须自己长出来，不需要用户退出重进',
       );
       expect(find.text('自启动（按厂商）'), findsOneWidget);
+    });
+  });
+
+  group('精确闹钟那一行（T140 走 (c)：只剩系统授权一枚真值）', () {
+    // 这一族以前右侧是一枚写 Flutter 偏好的开关（默认关），副标题报的却是系统授权。
+    // 后果不是崩，是**同一行上两句假话的合取**：写着「已授权」，而排闹钟的代码看的是那枚关着的开关
+    // ⇒ 到点晚几分钟（契约对常态收取承诺 5–60 秒）。维护者裁定删开关，所以这里钉的是新形状。
+    final tile = find
+        .ancestor(
+          of: find.text('精确闹钟（准时推送）').first,
+          matching: find.byType(InkWell),
+        )
+        .first;
+
+    testWidgets('未授权：那一行说「点击授权」，点一下就去系统里给', (tester) async {
+      await pumpPage(tester, appListState: 'granted');
+
+      expect(
+        find.textContaining('点击授权'),
+        findsOneWidget,
+        reason: '没给的时候要说"点这下去给"，而不是含糊的"未开启"',
+      );
+      expect(
+        tester.widget<InkWell>(tile).onTap,
+        isNotNull,
+        reason: '还没给 ⇒ 这一行的全部意义就是把人送到系统那一屏，它必须可点',
+      );
+
+      channelCalls.clear();
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      expect(
+        channelCalls,
+        contains('requestExactAlarmPermission'),
+        reason: '这一行的语义就是"去系统里给"，点一次就该走一次',
+      );
+      expect(
+        channelCalls.any((m) => m.contains('ExactAlarmEnabled')),
+        isFalse,
+        reason: '点一下绝不写偏好 —— 写了就是那一枚开关换了个入口长回来',
+      );
+    });
+
+    testWidgets('整页一枚 CupertinoSwitch 都没有（开关那一族不许在这一页复活）', (tester) async {
+      await pumpPage(tester, appListState: 'granted');
+
+      // 这一页历史上只有精确闹钟那一枚开关；换成"状态 + 一键跳"之后整页应当一枚都不剩。
+      // 断整页而不是断那一行：下次有人往别的行塞开关，这一条会一起报出来。
+      expect(
+        find.byType(CupertinoSwitch),
+        findsNothing,
+        reason: '权限引导页只报授权、只跳系统，不持有第二份配置',
+      );
+    });
+
+    testWidgets('已授权：说的是"已授权"，且不给"重复申请"留口子', (tester) async {
+      // ⚠ 这一发只把**通道侧那枚授权**改成 true，L3 那几行仍走注入的 readers（默认全 false）：
+      //   生产上两行同源（都读 `canScheduleExactAlarms`），这里分开注入是为了只动一个旋钮。
+      await pumpPage(tester, appListState: 'granted', exactAlarmGranted: true);
+
+      expect(
+        find.textContaining('已授权 · '),
+        findsOneWidget,
+        reason: '这一行画的那一枚，与原生排闹钟读的那一枚同源 ⇒ 「已授权」这句第一次等于「到点真的准」',
+      );
+      expect(
+        tester.widget<InkWell>(tile).onTap,
+        isNull,
+        reason: '已经给了还让点，就是在催用户重复申请（与 L3 那几行同一条规矩）',
+      );
+
+      channelCalls.clear();
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      expect(channelCalls, isEmpty, reason: '已授权状态下这一行不该打任何原生');
     });
   });
 }

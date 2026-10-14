@@ -156,17 +156,12 @@ class PermissionService {
   Future<void> requestVivoBackground() =>
       _requestPermission('requestVivoBackground');
 
-  /// B1 精确闹钟：查询开关状态 / 系统授权状态 / 切换开关 / 引导授权
-  Future<bool> isExactAlarmEnabled() async {
-    try {
-      return await _channel.invokeMethod('isExactAlarmEnabled') as bool? ??
-          false;
-    } catch (e) {
-      debugPrint('查询精确闹钟开关失败: $e');
-      return false;
-    }
-  }
-
+  /// B1 精确闹钟：**只剩系统授权这一枚真值**（T140 走 (c)）。
+  ///
+  /// 曾经这里有三枚方法：`isExactAlarmEnabled`（读 App 内那枚开关）、`setExactAlarmEnabled`
+  /// （写它）与 `canScheduleExactAlarms`（读系统授权）。前两个已随开关一起删掉 ——
+  /// 两枚开关并存时界面报的是授权、排闹钟读的是偏好，"已授权"与"到点晚几分钟"会同时成立。
+  /// 钉这一维不许长回来：`test/architecture/exact_alarm_single_source_test.dart`。
   Future<bool> canScheduleExactAlarms() async {
     try {
       return await _channel.invokeMethod('canScheduleExactAlarms') as bool? ??
@@ -174,14 +169,6 @@ class PermissionService {
     } catch (e) {
       debugPrint('查询精确闹钟授权失败: $e');
       return false;
-    }
-  }
-
-  Future<void> setExactAlarmEnabled(bool enabled) async {
-    try {
-      await _channel.invokeMethod('setExactAlarmEnabled', {'enabled': enabled});
-    } catch (e) {
-      debugPrint('切换精确闹钟失败: $e');
     }
   }
 

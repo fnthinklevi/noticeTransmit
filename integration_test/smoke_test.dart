@@ -72,7 +72,6 @@ void main() {
       'getAppListPermissionState': 'granted',
       'isIgnoringBatteryOptimizations': true,
       'canScheduleExactAlarms': true,
-      'isExactAlarmEnabled': false,
       'isServiceRunning': false,
       'getEnabledPackages': <String>[],
       'getBlacklistKeywords': <String>[],

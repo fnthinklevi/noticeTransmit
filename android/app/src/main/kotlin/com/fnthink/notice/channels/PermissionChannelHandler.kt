@@ -89,18 +89,9 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 activity.requestQueryAllPackagesPermission()
                 result.success(true)
             }
-            "isExactAlarmEnabled" -> {
-                result.success(
-                    activity.prefs.getBoolean("flutter.exact_alarm_enabled", false)
-                )
-            }
-            "setExactAlarmEnabled" -> {
-                val enabled = call.argument<Boolean>("enabled") ?: false
-                activity.prefs.edit().putBoolean("flutter.exact_alarm_enabled", enabled).apply()
-                // 通知服务重新加载配置并重排延迟推送闹钟（切换精确/非精确模式）
-                activity.notifyServiceConfigChanged()
-                result.success(true)
-            }
+            // T140 走 (c)：精确闹钟只剩一枚真值 = 系统授权。
+            // 那一枚 App 内开关的两个通道方法（读/写）已一起删除，Dart 侧同步不再有调用点；
+            // 不许"只删一侧"——那会让 Dart 的 invokeMethod 打到 no-method 上被 try/catch 吞成 false。
             "canScheduleExactAlarms" -> {
                 result.success(activity.canScheduleExactAlarms())
             }

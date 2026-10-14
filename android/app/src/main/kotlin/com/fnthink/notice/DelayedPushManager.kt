@@ -15,7 +15,8 @@ import org.json.JSONObject
  * 到点后由 AlarmManager（setAndAllowWhileIdle，Doze 下也可触发）广播 ACTION_PUSH_DUE，
  * 由 NotificationMonitorService 注册的接收器统一取出并推送。
  * 注：深度 Doze 下非精确闹钟只在维护窗口投递（约 9~15 分钟一次），到点可能有分钟级延迟；
- * 精确闹钟 setExactAndAllowWhileIdle 在 Android 12+ 需 SCHEDULE_EXACT_ALARM 权限、14+ 默认拒绝，故采用非精确闹钟。
+ * 系统已授权精确闹钟时走 setExactAndAllowWhileIdle（准点），未授权才降级 ——
+ * 判定只有一个作者 [ExactAlarmPolicy]，App 内不再有第二枚开关（T140 走 (c)）。
  *
  * 队列项：{"key": "pkg:id:postTime", "fireAt": 毫秒时间戳, "info": {NotificationInfo JSON}}
  */
@@ -136,10 +137,11 @@ class DelayedPushManager(private val context: Context) {
             val intent = Intent(ACTION_PUSH_DUE).apply { setPackage(context.packageName) }
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             val pi = PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
-            // 精确闹钟开关（设置页可配）：开启且系统已授权 → setExactAndAllowWhileIdle，
-            // 到点分秒不差（Doze 下也准点）；否则退回 setAndAllowWhileIdle（深度 Doze 下分钟级延迟）。
-            // Android 14+ SCHEDULE_EXACT_ALARM 默认拒绝，未授权时 setExact 会抛 SecurityException → 降级。
-            if (isExactAlarmEnabled()) {
+            // 精确与否只由系统授权决定（T140 走 (c)：App 内那枚开关已删，见 [ExactAlarmPolicy]）。
+            // 已授权 → setExactAndAllowWhileIdle，到点分秒不差（Doze 下也准点）；
+            // 未授权 → setAndAllowWhileIdle（深度 Doze 下分钟级延迟）。
+            // 那一枚 SecurityException 兜底留着：授权状态可能在排程这一刻刚被用户在系统里收回。
+            if (ExactAlarmPolicy.allowed(context)) {
                 try {
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
                     Log.d(TAG, "延迟推送精确闹钟已排程 fireAt=$fireAt")
@@ -152,16 +154,6 @@ class DelayedPushManager(private val context: Context) {
             Log.d(TAG, "延迟推送闹钟已排程 fireAt=$fireAt")
         } catch (e: Exception) {
             Log.e(TAG, "延迟推送闹钟排程失败", e)
-        }
-    }
-
-    /** 精确闹钟开关（设置页写入 FlutterSharedPreferences 的 flutter.exact_alarm_enabled） */
-    private fun isExactAlarmEnabled(): Boolean {
-        return try {
-            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            prefs.getBoolean("flutter.exact_alarm_enabled", false)
-        } catch (e: Exception) {
-            false
         }
     }
 

@@ -89,9 +89,10 @@ class FnthinkPresenceAlarm(private val context: Context) {
         try {
             val pi = pendingIntent()
             prefs.edit().putLong(KEY_CADENCE, delaySeconds).apply()
-            // 与延迟推送那一条同一套降级：精确闹钟未授权时退到 setAndAllowWhileIdle（Doze 下分钟级偏晚），
+            // 与延迟推送同一条降级：未授权时退到 setAndAllowWhileIdle（Doze 下分钟级偏晚），
             // 而不是抛出去 —— "收货晚一点"与"收货从此停掉"是两个后果，前者用户可以接受。
-            if (exactAllowed()) {
+            // 判定本身只有一个作者 [ExactAlarmPolicy]（T140 走 (c)：这里不读 App 内开关）。
+            if (ExactAlarmPolicy.allowed(context)) {
                 try {
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
                     markArmed(fireAt)
@@ -133,15 +134,6 @@ class FnthinkPresenceAlarm(private val context: Context) {
 
     private fun flutterPrefs() =
         context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-
-    /** 精确闹钟开关（设置页写入 `flutter.exact_alarm_enabled`）—— 与延迟推送同一份读法。 */
-    private fun exactAllowed(): Boolean {
-        return try {
-            flutterPrefs().getBoolean("flutter.exact_alarm_enabled", false)
-        } catch (e: Exception) {
-            false
-        }
-    }
 
     /**
      * Dart 侧那份收货总开关（`FnthinkSettings.keyReceiveEnabled`，落盘带 `flutter.` 前缀）。

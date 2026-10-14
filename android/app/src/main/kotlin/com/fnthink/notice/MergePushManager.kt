@@ -407,8 +407,9 @@ class MergePushManager(private val context: Context) {
             val intent = Intent(ACTION_MERGE_DUE).apply { setPackage(context.packageName) }
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             val pi = PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
-            // 精确闹钟策略与 DelayedPushManager 一致（共享 flutter.exact_alarm_enabled 开关）
-            if (isExactAlarmEnabled()) {
+            // 精确与否的判定与延迟推送同源（同一个 [ExactAlarmPolicy]）：
+            // T140 走 (c) 之后 App 内那枚设置页开关已删，系统授权是唯一的真值
+            if (ExactAlarmPolicy.allowed(context)) {
                 try {
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
                     Log.d(TAG, "聚合推送精确闹钟已排程 fireAt=$fireAt")
@@ -421,16 +422,6 @@ class MergePushManager(private val context: Context) {
             Log.d(TAG, "聚合推送闹钟已排程 fireAt=$fireAt")
         } catch (e: Exception) {
             Log.e(TAG, "聚合推送闹钟排程失败", e)
-        }
-    }
-
-    /** 精确闹钟开关（与 DelayedPushManager 共用同一 Flutter 设置项） */
-    private fun isExactAlarmEnabled(): Boolean {
-        return try {
-            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            prefs.getBoolean("flutter.exact_alarm_enabled", false)
-        } catch (e: Exception) {
-            false
         }
     }
 
