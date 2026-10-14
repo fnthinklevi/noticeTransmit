@@ -19,7 +19,7 @@ import '../support/source_guards.dart';
 /// （进已签信封 ⇒ 改所有事件的签名形状、旧客户端全要升级；放顶层不带签 ⇒ **能伪造 true**，
 /// 比没有这个字段更坏），所以本守卫钉的是**现状**，不是便利。
 ///
-/// 钉三件事，每件都是不同主语（不是同一件事的两半），外加一条反向自检：
+/// 钉六件事，每件都是不同主语（不是同一件事的两半），外加两条反向自检：
 ///  ① 服务端源码**读不到**它 —— 契约那句"零命中"的本体。
 ///  ② 契约确实把 scope 声明成 `localOnly` —— 防"把声明删了就等于没约束"。
 ///  ③ 它不在已签信封的 canonical key 名单里 —— 堵掉契约里那条 ① 号出路。
@@ -27,6 +27,9 @@ import '../support/source_guards.dart';
 ///     `packages/fnthink_push/lib/src/contract.dart` 都是**从契约读** `canonicalOrder`
 ///     的，所以再补一条"Dart 侧也没写死"就是把同一个声明量第二遍。
 ///  ④ 反向自检：扫描管线**真的扫到了**服务端代码（防路径写错时"零命中"变成空集全绿）。
+///  ⑤ 客户端也**没把它发出去** —— 契约 `neverIn` 里那格 `serverRequestBody` 的另一半主语
+///     （①—④ 只管"对面不消费"，"这边不发"此前没有任何东西钉着）。
+///  ⑥ 反向自检：⑤ 那把尺真的够得着请求体的装配点（同 ④ 那条纪律的另一侧）。
 void main() {
   final root = projectRoot();
   final serverDir = Directory('$root/server');
@@ -131,6 +134,71 @@ void main() {
         rels.where((r) => r.startsWith('server/lib/fnthink/')),
         isNotEmpty,
         reason: '没扫到 server/lib/fnthink/ ⇒ 扫描范围写错了，① 的结论不算数。',
+      );
+    });
+
+    // 下面两条是**另一个主语**：①—④ 说的是"服务端不消费它"，这两条说的是
+    // 契约 `identity.identityKey.neverIn` 里那一格 `serverRequestBody` ——
+    // "不发出去"这件事此前没有任何东西钉着，而它才是那条声明的另一半。
+    // 口径为什么停在 `packages/fnthink_push/lib/src/`：这一层是**请求体的唯一装配者**
+    // （信封在 `receive_kernel.dart` 里拼），而 `lib/services/` 那一侧本来就该出现这个词
+    // —— 它是这个布尔值的**来源**（从原生读出来给本机页面显示），不是出口。
+    // 把它一起扫进去只会得到一条永远红的判据，那种尺没人会去修。
+    final kernelDir = Directory('$root/packages/fnthink_push/lib/src');
+
+    List<String> kernelHits(String token, {bool strip = true}) {
+      final hits = <String>[];
+      for (final f in kernelDir.listSync(recursive: true).whereType<File>()) {
+        if (!f.path.endsWith('.dart')) continue;
+        final raw = f.readAsStringSync();
+        final text = strip ? stripComments(raw) : raw;
+        final rel = f.path.replaceAll('\\', '/').substring(root.length + 1);
+        final lines = text.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          if (lines[i].contains(token)) hits.add('$rel:${i + 1}');
+        }
+      }
+      return hits;
+    }
+
+    test('⑤ 客户端那一发没把它写进请求体（neverIn 的 serverRequestBody）', () {
+      // **两种落笔形状都要零命中**：map 键 `'keystoreBacked': …` 与具名实参 `keystoreBacked: …`。
+      // ⚠ 别把它并成一条 `keystoreBacked:` —— 反证 K5 实测：植入写的是
+      //   `'keystoreBacked': false,`，引号夹在词与冒号之间，单一条 needle 抓不到 ⇒
+      //   判据**当场假绿**（那次红的是尺，不是代码）。两条各一主语形状，各报各的命中位置。
+      final mapKey = kernelHits("'keystoreBacked':");
+      final namedArg = kernelHits('keystoreBacked:');
+      expect(
+        mapKey,
+        isEmpty,
+        reason:
+            '请求体里以键的形式出现了 keystoreBacked ⇒ 契约 identity.identityKey.neverIn '
+            '的 serverRequestBody 那一格被违反。命中位置：$mapKey',
+      );
+      expect(
+        namedArg,
+        isEmpty,
+        reason:
+            '同上（具名实参那一形）。为什么不能"发一下也无妨"：这个布尔值不在 canonicalOrder 里，'
+            '发出去就是**不带签的自述**，对端拿它做放行判断＝任何人都可以自称 '
+            'keystoreBacked=true（见本文件上方 ③ 与那条出路②的代价）。命中位置：$namedArg',
+      );
+    });
+
+    test('⑥ 反向自检：这条尺真的看得见请求体的装配点（防空集假绿）', () {
+      expect(
+        kernelDir.existsSync(),
+        isTrue,
+        reason: 'packages/fnthink_push/lib/src/ 不在 ⇒ ⑤ 的"零命中"是空集给的',
+      );
+      // 探针取**同一个装配点上一定存在**的那个键名：register 信封里的 publicKey。
+      // 它按原文（不剥注释）扫 —— 本条只问"这把尺够得着那一行吗"，不问语义。
+      expect(
+        kernelHits("'publicKey':", strip: false),
+        isNotEmpty,
+        reason:
+            '扫不到 publicKey 这个键 ⇒ 扫描目录/形状写错了，'
+            '⑤ 的零命中不能算结论（与 ④ 同一条纪律的另一侧）。',
       );
     });
   });
