@@ -52,7 +52,12 @@ void main() {
       'content': 'A-1-2345',
       'appName': '驿站',
       'packageName': 'com.example.station',
-      'postTime': 1758768000000,
+      // ⚠ 这里的戳必须**按本地时区造**，不能写裸毫秒数。`historyRowTime` 用
+      // `DateTime.fromMillisecondsSinceEpoch`（本地解释），而期望值 `'09-25 10:40'`
+      // 是本地读数：写死 1758768000000 只在 +08 的机器上等于 10:40，CI 的 runner 是
+      // UTC ⇒ 那一格画成 `09-25 02:40`，本机绿而 CI 红（2026-10-14 实测：TZ=UTC 可复现）。
+      // 同仓 `history_row_tile_test.dart` 里那支笔自己的用例用的就是这个造法。
+      'postTime': DateTime(2025, 9, 25, 10, 40).millisecondsSinceEpoch,
       'time': '2026-10-10 10:00',
       'type': 'normal',
       'deviceName': '测试机',
