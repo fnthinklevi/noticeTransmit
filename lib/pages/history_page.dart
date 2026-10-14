@@ -940,7 +940,11 @@ class _HistoryPageState extends State<HistoryPage> {
     return Tooltip(message: message, child: chip);
   }
 
-  /// 「现在推送」小按钮：手动补推这一条里那些**可以再发一次**的通道。
+  /// 行内那一枚出口：**每一条转发行都有**（T133 片9 走 (b)），说的话按这一条此刻的事实分两种。
+  ///
+  /// 文案与范围**同源** —— 两边都取 `repush_eligibility.dart` 的 [repushIntentOf]：
+  /// 还有没发出去的那几族 ⇒「现在推送」（只补那几族）；整条没有送达记录 ⇒「现在推送」
+  /// （按当前启用通道发一次）；每一族都有了终态或还在途 ⇒「再发一次」（收件端会多收一条）。
   ///
   /// T148 片15 起走 `FnthinkFilledAction`。它此前是页面自搭的 `GestureDetector` + 蓝底
   /// `Container`，账面记成"行内填充式小钮没有公共件"的例外 —— 例外的代价不是那几行壳子，
@@ -949,11 +953,12 @@ class _HistoryPageState extends State<HistoryPage> {
   /// ⚠ key 字符串逐字没动（`history-push-now-<记录 id>`）：闸门与用例按 key 点，不按文案 ——
   /// 这一枚在每一行都长一个样，`find.text(pushNow)` 在多行列表里必然抓到多枚。
   Widget _buildPushNowButton(NotificationRecord record, AppLocalizations l10n) {
+    final again = repushIntentOf(record.deliveryStatus) == RepushIntent.again;
     return FnthinkFilledAction(
       key: ValueKey('history-push-now-${record.id}'),
       compact: true,
-      icon: Icons.send,
-      label: l10n.pushNow,
+      icon: again ? Icons.replay : Icons.send,
+      label: again ? l10n.pushAgain : l10n.pushNow,
       onPressed: () => widget.onPushNow!(record),
     );
   }
@@ -2464,9 +2469,9 @@ class _HistoryPageState extends State<HistoryPage> {
     final rows = record.channels.isNotEmpty
         ? record.channels
         : record.deliveryStatus.keys.toList();
-    // 有没有还能再发一次的通道（T133 片1：以前只认 `paused` ⇒ 一条真失败的记录
-    // 在单条这一层没有任何出口，只能去开批量模式）
-    final canRepush = recordNeedsRepush(record.deliveryStatus);
+    // 行内出口不再有条件（T133 片9 走 (b)）：每一条转发行都给，说的话由 `repushIntentOf` 挑。
+    // 以前那句 `recordNeedsRepush(...)` 当闸门 ⇒ 一条已全送出的记录在单条这一层没有任何入口，
+    // 用户要"就再发一次"只能去开批量模式，而批量那一档仍按"补缺"选人（选不中它）。
     final item = HistoryRowTile(
       keyNamespace: 'history',
       identity: record.id,
@@ -2507,10 +2512,9 @@ class _HistoryPageState extends State<HistoryPage> {
               color: AppColors.secondaryLabel(context),
             ),
           ),
-        // 还能再发一次的那几条：给单条出口（T133 片1 之前只在"暂停"时出现 ⇒
-        // 一条真失败的记录只能去开批量模式才能重推）
-        if (rows.isNotEmpty && canRepush && widget.onPushNow != null)
-          _buildPushNowButton(record, l10n),
+        // 每一条转发行都有这一枚（T133 片9 走 (b)）：口径由文案说清楚，判据住在作者那一处，
+        // 页面不再自己比状态字面量决定"这条给不给出口"。
+        if (widget.onPushNow != null) _buildPushNowButton(record, l10n),
       ],
     );
 

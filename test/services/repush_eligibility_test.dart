@@ -128,4 +128,93 @@ void main() {
       expect(recordNeedsRepush(d), isFalse);
     });
   });
+
+  // ── T133 片9（走 (b)：每一条转发行都有出口）─────────────────────────
+  //
+  // 这一族钉的是**口径**：行内那一枚现在每行都画，于是「这一发到底动哪几族」整个落在
+  // 文案与范围这一对上。两者都由 repushIntentOf / repushScopeKeys 给 —— 用例把三档
+  // 各自的（文案档，范围）成对钉住，任何一档漂开都会红在这里。
+  group('单条出口的三档口径（T133 片9 走 (b)）', () {
+    test('有没发出去的那几族 ⇒ missing 档，范围就是那几把（成功的不进）', () {
+      final d = delivery({
+        'chan:wecom': {'status': 'success'},
+        'chan:email': {'status': 'failed', 'message': 'HTTP 502'},
+        'chan:dingtalk': {'status': 'paused', 'message': '转发已暂停'},
+      });
+      expect(repushIntentOf(d), RepushIntent.missing);
+      expect(repushScopeKeys(d), ['chan:email', 'chan:dingtalk']);
+    });
+
+    test('整条没有送达记录 ⇒ unsent 档，范围＝不限定（null，不是空集）', () {
+      expect(repushIntentOf(const {}), RepushIntent.unsent);
+      expect(
+        repushScopeKeys(const {}),
+        isNull,
+        reason:
+            '这一档欠的是「当前启用通道各一发」。表达成空集合，service 那一头读成「谁都不发」，'
+            '按下去什么都不会发生；表达成「全部键」又无从取 —— 这条没有键。',
+      );
+    });
+
+    test('全成功 ⇒ again 档，范围＝这条快照里的全部键（含已成功的）', () {
+      final d = delivery({
+        'chan:wecom': {'status': 'success'},
+        'chan:email': {'status': 'success'},
+      });
+      expect(repushIntentOf(d), RepushIntent.again);
+      expect(repushScopeKeys(d), ['chan:wecom', 'chan:email']);
+    });
+
+    test('还在途的也算 again 档：点它就是主动再发一次，界面说的话得与之相配', () {
+      final d = delivery({
+        'chan:email': {'status': 'sending', 'message': ''},
+      });
+      expect(repushIntentOf(d), RepushIntent.again);
+      expect(repushScopeKeys(d), ['chan:email']);
+    });
+
+    test('只有被规则拦下的那条也算 again 档：用户当场按下去＝显式推翻那条过滤', () {
+      final d = delivery({
+        'chan:sms': {'status': 'intercepted', 'message': '黑名单'},
+      });
+      expect(
+        repushIntentOf(d),
+        RepushIntent.again,
+        reason: '批量池不收它（那是「给一批补缺」），单条这一枚收 —— 两格语义本来就不同，不是自相矛盾',
+      );
+      expect(repushScopeKeys(d), ['chan:sms']);
+    });
+
+    test('异形条目不当成「有没发出去的」，也不抛异常', () {
+      final dirty = delivery({
+        'chan:a': 'failed', // 老脏数据：值不是 Map
+        'chan:b': {'status': 'success'},
+      });
+      expect(repushIntentOf(dirty), RepushIntent.again);
+      expect(repushScopeKeys(dirty), ['chan:a', 'chan:b']);
+    });
+
+    test('值域封闭 + missing 永远优先（先补缺，再谈重发）', () {
+      expect(
+        RepushIntent.values.toSet(),
+        {RepushIntent.missing, RepushIntent.unsent, RepushIntent.again},
+        reason: '多加一档就必须同时给界面一句文案与一个范围，否则它会落到 switch 的默认分支上',
+      );
+      final mixed = delivery({
+        'chan:wecom': {'status': 'success'},
+        'chan:email': {'status': 'failed'},
+      });
+      expect(repushIntentOf(mixed), RepushIntent.missing);
+    });
+
+    test('这一问不改写「这条送达了吗」：again 档那条仍然算已送达', () {
+      // 片9 让每行都有出口，正是这两问最容易被人重新混成一格的时刻。
+      final d = delivery({
+        'chan:wecom': {'status': 'success'},
+      });
+      expect(repushIntentOf(d), RepushIntent.again);
+      expect(matchDeliveryFilter(d, deliveryFilterDelivered), isTrue);
+      expect(matchDeliveryFilter(d, deliveryFilterNotDelivered), isFalse);
+    });
+  });
 }

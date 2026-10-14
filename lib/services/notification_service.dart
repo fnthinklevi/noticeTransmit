@@ -558,8 +558,9 @@ class NotificationService {
   /// 用于历史记录中"用户暂停推送"状态下未实际发送的消息。
   ///
   /// ⚠ [onlyDeliveryKeys] 决定**这一发的范围**（T133 片4），三档各有各的读者：
-  /// - `null` = 全部启用通道整表重建（`_buildInitialDeliveries`）。给"刚落库就要发出去"
-  ///   那一条用（[pushSynthesizedRecord]）：它欠的是全部通道各一发，没有"哪一族失败"可言。
+  /// - `null` = 全部启用通道整表重建（`_buildInitialDeliveries`）。给"欠的就是全部通道各一发"那
+  ///   两条用（[pushSynthesizedRecord] 刚落库就要发出去；[repushRecord] 的"这条整条没送达记录"
+  ///   那一档）：它们没有"哪一族失败了"可言。
   /// - 非空 = 只把列出来的那几位置为待发，**其余通道的送达状态原样保留**，原生同范围扇出。
   ///   给历史记录的「重推」用（[repushRecord]）：一条只有钉钉失败、邮件成功的通知，点一下
   ///   不该把邮件再发一遍 —— 收件端多出的是重复消息，不是补发。
@@ -606,21 +607,27 @@ class NotificationService {
     }
   }
 
-  /// 重推「这一条里可再发的那几族」（T133 片4）。
+  /// 历史行那一枚出口的实际一发（T133 片4 定范围、片9 给每一行都开口）。
   ///
-  /// 判据来自唯一作者 [repushableChannels]（`repush_eligibility.dart`）：只认 `failed`/`paused`
-  /// 那一档 —— 被拦截的（那是用户自己定的过滤规则）、已成功的、还在途的，都不在这一发里。
+  /// 范围与文案**同源**：都出自 `repush_eligibility.dart` 的 [repushScopeKeys]（内部按
+  /// [repushIntentOf] 分三档）—— 页面只负责把这一枚钮画出来，它不重算"该发哪几族"。
   ///
   /// ⚠ 再与**当前启用通道**取交集：判据看的是这条记录历史上的那一格，而原生只会给现在配置着的
   ///   通道回执。把"已经删掉的钉钉"放进范围，表现就是那一格被抹成 pending 后永远停在那里
   ///   （没有人会回执它）—— 那比留着"失败"更误导人。交集为空时 [pushRecordNow] 什么都不做。
   Future<void> repushRecord(NotificationRecord record) async {
-    final wanted = repushableChannels(record.deliveryStatus);
-    if (wanted.isEmpty) return;
+    final keys = repushScopeKeys(record.deliveryStatus);
+    if (keys == null) {
+      // 「这条整条没送达记录」那一档：它欠的是当前启用通道各一发，正是"不限定"。
+      await pushRecordNow(record);
+      return;
+    }
+    // 空集合 = 谁都不发（不能读成"不限定"，那会把全部通道重发一遍）。
+    if (keys.isEmpty) return;
     final active = _getActiveChannels();
     await pushRecordNow(
       record,
-      onlyDeliveryKeys: wanted.where(active.contains).toList(),
+      onlyDeliveryKeys: keys.where(active.contains).toList(),
     );
   }
 

@@ -48,7 +48,11 @@ void main() {
                 (e) =>
                     e.value.contains('channelNeedsRepush') ||
                     e.value.contains('recordNeedsRepush') ||
-                    e.value.contains('repushableChannels'),
+                    e.value.contains('repushableChannels') ||
+                    // 片9 新增的两位：口径（文案那一头）与范围（递给原生那一头）。
+                    // 扫词必须连它们一起扫，否则"页面自己拼一份范围"这种漂开法看不见。
+                    e.value.contains('repushIntentOf') ||
+                    e.value.contains('repushScopeKeys'),
               )
               .map((e) => e.key)
               .toList()
@@ -62,9 +66,27 @@ void main() {
           'services/repush_eligibility.dart',
         ],
         reason:
-            '重推判据的读者集合变了。它今天是历史页（批量池 / 勾选框 / 单条出口）'
+            '重推判据的读者集合变了。它今天是历史页（批量池 / 勾选框 / 单条出口那一枚的文案）'
             '加 service（补推范围）两处。\n'
             '若确实要新增读者，把它登记进本清单；若是绕过作者自己拼状态，改回调用判据。',
+      );
+    });
+
+    test('单条出口的文案与范围**同源**：页面只认 repushIntentOf，不自己挑字面量', () {
+      // 片9 走 (b) 之后每一行都有出口，于是"这一枚说的到底是哪件事"全靠文案承担。
+      // 漂开法只有一种：页面按自己的判据选词、service 按作者的判据定范围 ⇒
+      // 写着「现在推送」的那一枚其实把成功的通道也重发了一遍（这条不会崩，只会多发消息）。
+      final page = libCode['pages/history_page.dart']!;
+      expect(
+        page.contains('repushIntentOf('),
+        isTrue,
+        reason: '那一枚的文案不再走作者 ⇒ 页面重新长出了第二套判据',
+      );
+      final service = libCode['services/notification_service.dart']!;
+      expect(
+        service.contains('repushScopeKeys('),
+        isTrue,
+        reason: '范围不在 service 里走同一位作者 ⇒ 文案与范围可以各说一套',
       );
     });
 

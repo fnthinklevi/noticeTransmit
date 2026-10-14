@@ -11,12 +11,16 @@ import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 import '../test_setup.dart';
 
-/// T133 片1：单条「现在推送」那一枚与批量勾选框，都只认 `repush_eligibility.dart` 那一位作者。
+/// T133 片1 起、片9（走 (b)）改口的页面级证据：单条那一枚出口**每行都给**，
+/// 而它说的话按 `repush_eligibility.dart` 的三档口径分两种。
 ///
-/// 这一页级用例盯的是三件事，缺一不可：
-/// 1. 入口**出现**的条件 —— 改之前只有 `paused` 才出现，一条真失败的记录在单条这一层没有出口；
-/// 2. 入口**不出现**的条件 —— 全部成功、或被用户自己的规则拦下的（那些不该替他推翻）；
-/// 3. 批量模式下默认选中的，正是"可再发"的那几条（勾选框与池子同一个作者）。
+/// 这一页级用例盯的是四件事，缺一不可：
+/// 1. 出口**每行都在** —— 片9 之前只有"还有可再发通道"的行才有，一条已全送出的记录
+///    在单条这一层没有任何入口（想"就再发一次"只能去开批量模式，而批量按"补缺"选人）；
+/// 2. **文案与范围同源** —— 补缺那几族写「现在推送」，整条再来一遍写「再发一次」；
+///    两档共用一句话，就是让一枚钮藏两种后果；
+/// 3. 批量池**仍**按"补缺"选行（拦截／全成功的那些选不中）—— 这一格与 2 不是同一件事；
+/// 4. 没有送达记录那条也有出口（它欠的是当前启用通道各一发）。
 ///
 /// 按钮按 `ValueKey('history-push-now-<id>')` 找，不按文案：这一枚每行长得一样。
 void main() {
@@ -94,6 +98,15 @@ void main() {
 
   Key pushNowKey(String id) => ValueKey('history-push-now-$id');
 
+  /// 这一行的行内出口写的是什么话（**按件取，不按 `find.text`**：多行同屏时文案会撞车）。
+  String labelOf(WidgetTester tester, String id) {
+    final w = tester.widget<FnthinkFilledAction>(find.byKey(pushNowKey(id)));
+    return w.label;
+  }
+
+  String labelAgain(WidgetTester tester) =>
+      AppLocalizations.of(tester.element(find.byType(HistoryPage))).pushAgain;
+
   testWidgets('有一条通道失败 ⇒ 这一行给单条出口（改之前只有 paused 才给）', (tester) async {
     await pumpHistory(tester, [
       row('n-failed', '取件码', {
@@ -138,17 +151,24 @@ void main() {
     expect(find.byKey(pushNowKey('n-paused')), findsOneWidget);
   });
 
-  testWidgets('被用户自己的规则拦下的那条不给出口 —— 重推不是替他推翻过滤', (tester) async {
+  testWidgets('片9 走 (b)：被规则拦下的那条**也有**出口，说的是「再发一次」', (tester) async {
     await pumpHistory(tester, [
       row('n-blocked', '取件码', {
         'chan:sms': {'status': 'intercepted', 'message': '黑名单'},
       }),
     ]);
 
-    expect(find.byKey(pushNowKey('n-blocked')), findsNothing);
+    expect(find.byKey(pushNowKey('n-blocked')), findsOneWidget);
+    expect(
+      labelOf(tester, 'n-blocked'),
+      labelAgain(tester),
+      reason:
+          '批量池仍不收它（那是"给一批补缺"）；对着**这一条**按一下是用户的显式动作，'
+          '而文案必须说清这一发会真的发出去',
+    );
   });
 
-  testWidgets('全部成功 / 还在途的都不给出口', (tester) async {
+  testWidgets('片9 走 (b)：全成功／还在途的两行都有出口，且都不叫「现在推送」', (tester) async {
     await pumpHistory(tester, [
       row('n-ok', '取件码', {
         'chan:dingtalk': {'status': 'success', 'message': 'ok'},
@@ -158,8 +178,78 @@ void main() {
       }),
     ]);
 
-    expect(find.byKey(pushNowKey('n-ok')), findsNothing);
-    expect(find.byKey(pushNowKey('n-sending')), findsNothing);
+    final again = labelAgain(tester);
+    expect(labelOf(tester, 'n-ok'), again);
+    expect(labelOf(tester, 'n-sending'), again);
+    expect(
+      find.text(
+        AppLocalizations.of(tester.element(find.byType(HistoryPage))).pushNow,
+      ),
+      findsNothing,
+      reason: '两行都改成「再发一次」之后，页面上不该再有哪一行写着「现在推送」',
+    );
+  });
+
+  testWidgets('一枚钮两种口径必须靠文案分开：补缺那行仍写「现在推送」', (tester) async {
+    await pumpHistory(tester, [
+      row('n-mixed', '取件码', {
+        'chan:dingtalk': {'status': 'success', 'message': 'ok'},
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+      row('n-ok', '取件码2', {
+        'chan:dingtalk': {'status': 'success', 'message': 'ok'},
+      }),
+    ]);
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+
+    expect(
+      labelOf(tester, 'n-mixed'),
+      l10n.pushNow,
+      reason: '还有没发出去的那几族 ⇒ 这一枚动的是那几族，与另一行的"整条再来一遍"不是一件事',
+    );
+    expect(labelOf(tester, 'n-ok'), l10n.pushAgain);
+    // 图标跟着文案走：把两档都画成 send，一眼看不出这一按会不会多收一条。
+    expect(
+      tester
+          .widget<FnthinkFilledAction>(find.byKey(pushNowKey('n-mixed')))
+          .icon,
+      Icons.send,
+    );
+    expect(
+      tester.widget<FnthinkFilledAction>(find.byKey(pushNowKey('n-ok'))).icon,
+      Icons.replay,
+    );
+  });
+
+  testWidgets('整条没有送达记录那一行也有出口（它欠的是全部启用通道各一发）', (tester) async {
+    await pumpHistory(tester, [row('n-empty', '取件码', {})]);
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+
+    expect(find.byKey(pushNowKey('n-empty')), findsOneWidget);
+    expect(labelOf(tester, 'n-empty'), l10n.pushNow);
+  });
+
+  testWidgets('每一条转发行都有出口：四种形状摆在同一屏，四枚都在', (tester) async {
+    await pumpHistory(tester, [
+      row('r-1', '取件码', {
+        'chan:email': {'status': 'failed', 'message': '超时'},
+      }),
+      row('r-2', '取件码', {
+        'chan:email': {'status': 'success', 'message': 'ok'},
+      }),
+      row('r-3', '取件码', {
+        'chan:email': {'status': 'sending', 'message': ''},
+      }),
+      row('r-4', '取件码', {}),
+    ]);
+
+    for (final id in ['r-1', 'r-2', 'r-3', 'r-4']) {
+      expect(
+        find.byKey(pushNowKey(id)),
+        findsOneWidget,
+        reason: '这一行的行内出口不见了 ⇒ 页面又拿判据当闸门（(a) 那一档的形状）',
+      );
+    }
   });
 
   testWidgets('批量模式默认只选中可再发的那几条，其余勾选框是死的', (tester) async {

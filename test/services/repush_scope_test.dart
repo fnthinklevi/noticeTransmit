@@ -23,8 +23,11 @@ import '../test_setup.dart';
 /// 1. 递给原生的范围 = 判据认的那几族（且传的是 **slug**，不是 `chan:` 键本身）；
 /// 2. **不在范围里的通道状态原样保留** —— 整表重建会把已送达的那格抹成「发送中」并停在那里
 ///    （这一轮没人给它回执），比留着"失败"更误导人；
-/// 3. 没有可再发的通道 ⇒ 一次原生调用都不发（空集 ≠ 不限定）；
-/// 4. `onlyDeliveryKeys` 缺省仍是整表重建（`pushSynthesizedRecord` 那条"刚落库就要发全部"要用）；
+/// 3. 片9（走 (b)：每行都有出口）之后，"没有可再发的通道"不再是"不发"的理由 —— 它换成了
+///    另两档：全成功／在途／被拦下的那些按「再发一次」发**这条快照里的全部键**（仍带键，
+///    不是缺键），整条没记录的那些才走缺省。空集合＝谁都不发这一条**依然成立**，
+///    它现在守的是"算出了键但一个都不在启用清单里"那一格（第 5 条用例）。
+/// 4. `onlyDeliveryKeys` 缺省仍是整表重建（`pushSynthesizedRecord` 与"整条没记录"那一档要用）；
 /// 5. 判据认它、但它现在已不在启用清单里（通道被删了）⇒ 不重发，也不被抹成「发送中」。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -163,7 +166,7 @@ void main() {
       expect(saved['chan:dingtalk']['status'], 'pending');
     });
 
-    test('没有可再发的通道 ⇒ 一次原生调用都不发（空集 ≠ 不限定）', () async {
+    test('全成功那条：片9 起它走「再发一次」，范围＝这条快照里的全部通道', () async {
       await twoChannels();
       final service = NotificationService();
       service.addRecord(rec());
@@ -173,19 +176,76 @@ void main() {
 
       await service.repushRecord(service.records.first);
 
+      final args = pushedSlugsArg();
       expect(
-        calls.where((c) => c.method == 'pushRecordNow'),
-        isEmpty,
+        (args['onlySlugs'] as List).cast<String>().toSet(),
+        {'dingtalk', 'generic'},
         reason:
-            '把空范围读成"不限定"，点一次"重推"就会把全部通道重发一遍 —— '
-            '这正是片4 要修的那一句',
+            '这一档说的是"整条再发一遍"，所以范围是**这条快照里的那几族**，'
+            '必须带键而不是缺键 —— 缺键那一路读的是"当前启用通道"，'
+            '用户后来新加的通道会被这一发顺带捎上，那不是他按的东西。',
       );
       expect(
         service.records.first.deliveryStatus.values
             .map((v) => v['status'])
             .toList(),
-        ['success', 'success'],
-        reason: '不发 = 这一条一个字都不该动；抹成 pending 会让"没重推"看起来像"正在推"',
+        ['pending', 'pending'],
+        reason: '按下去就是新的一轮：留着 success 会让界面说"没动过"，而原生正要发',
+      );
+    });
+
+    test('整条没有送达记录 ⇒ 缺省（不限定）那一发，欠的是当前启用通道各一发', () async {
+      await twoChannels();
+      final service = NotificationService();
+      // 「仅记录不推送」／规则 `Record` 那一档的形状：这条从来没有送达格。
+      final record = NotificationRecord.fromMap({
+        ...rec(),
+        'id': 'n_never_1',
+        'channels': <String>[],
+        'deliveryStatus': <String, dynamic>{},
+      });
+
+      await service.repushRecord(record);
+
+      final args = pushedSlugsArg();
+      expect(
+        args.containsKey('onlySlugs'),
+        isFalse,
+        reason:
+            '空快照算不出键。把"算不出"读成空集合＝"谁都不发"，那一枚按下去什么都不会发生 —— '
+            '而这一条确实欠着全部通道各一发，缺键才是那句真话。',
+      );
+      expect(
+        (args['record'] as Map)['id'],
+        'n_never_1',
+        reason: '递给原生的必须是这一条本身（它不在内存列表里，走的是 F2 那条按记录直发的路）',
+      );
+    });
+
+    test('被规则拦下的那条：单条这一枚按 again 档把它一起发（用户当场推翻那条过滤）', () async {
+      await twoChannels();
+      final service = NotificationService();
+      // ⚠ 不能拿 `updateDelivery(..., 'INTERCEPTED')` 造这一格 —— 那一发的归一化里没有
+      // INTERCEPTED 这一档（只认 SUCCESS／PAUSED，其余落 failed），造出来的是"失败"不是"被拦"。
+      // 真机上的 intercepted 由原生伪通道回传（`applyDelivery` 里 `kBlockedChannelKey` 那一支）。
+      final record = NotificationRecord.fromMap({
+        ...rec(),
+        'id': 'n_blocked_1',
+        'channels': ['chan:dingtalk', 'chan:generic'],
+        'deliveryStatus': <String, dynamic>{
+          'chan:dingtalk': {'status': 'success', 'message': 'ok'},
+          'chan:generic': {'status': 'intercepted', 'message': '黑名单'},
+        },
+      });
+
+      await service.repushRecord(record);
+
+      expect(
+        (pushedSlugsArg()['onlySlugs'] as List).cast<String>().toSet(),
+        {'dingtalk', 'generic'},
+        reason:
+            '批量池不收 intercepted（那是"给一批补缺"，判据见 repush_eligibility）；'
+            '而对着**这一条**按一下是显式动作，范围就是这条快照的那几族。',
       );
     });
 

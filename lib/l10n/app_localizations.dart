@@ -3572,6 +3572,12 @@ abstract class AppLocalizations {
   /// **'现在推送'**
   String get pushNow;
 
+  /// No description provided for @pushAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'再发一次'**
+  String get pushAgain;
+
   /// No description provided for @privacyOverviewTitle.
   ///
   /// In zh, this message translates to:

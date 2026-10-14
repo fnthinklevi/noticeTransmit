@@ -1941,6 +1941,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pushNow => 'Push Now';
 
   @override
+  String get pushAgain => 'Send Again';
+
+  @override
   String get privacyOverviewTitle => 'Privacy Policy Overview';
 
   @override

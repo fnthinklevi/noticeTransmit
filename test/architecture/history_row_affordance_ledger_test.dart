@@ -236,7 +236,9 @@ const List<RowAffordance> kRowAffordanceLedger = [
     longPressRow: true,
     longPressWhat: '出就地动作菜单（屏蔽该应用／屏蔽该内容）；批量档禁用',
     inlineProbe: '_buildPushNowButton(record, l10n)',
-    inlineWhat: '行内「现在推送」，只给还有可再发通道的那几条',
+    inlineWhat:
+        '行内出口每行都给（T133 片9 走 (b)）；说的话按 `repushIntentOf` 分两种 —— '
+        '还有没发出去的那几条「现在推送」（只补那几族），已经发出去的「再发一次」（收件端会多收一条）',
     gap: '三格齐 —— 这一类是差异⑤ 的基座；下面两类照不照它对齐，账上各写各的。',
   ),
   RowAffordance(

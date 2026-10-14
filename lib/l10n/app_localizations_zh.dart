@@ -1867,6 +1867,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pushNow => '现在推送';
 
   @override
+  String get pushAgain => '再发一次';
+
+  @override
   String get privacyOverviewTitle => '隐私政策概述';
 
   @override
