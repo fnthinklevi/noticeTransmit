@@ -3094,6 +3094,15 @@ Future<void> _step(
         // 挂住那一刻先打一帧状态再抛：这是本轮唯一能拿到"谁在排帧"的时机 ——
         // body 还卡在那句 await 上，而它的调用栈我们拿不到（ isolate 级 TimeoutException）。
         _frameProbe('节挂住：$name');
+        // 探针只数得出**数量**，认不出那枚 Ticker 属于哪个 widget ⇒ 再补一份当场的应用树
+        //（`debugDumpApp` 打的是 widget 树，过渡中的路由/弹层会以它自己的类型出现在树上）。
+        // 包 try：树在坏状态下 dump 本身也可能抛，那时宁可有读数没 dump，也不能把
+        // 那条已经点名的 TimeoutException 换成一条无意义的第二异常。
+        try {
+          debugDumpApp();
+        } catch (e) {
+          debugPrint('GATE-DUMP-FAIL ▸ $name ▸ $e');
+        }
         throw TimeoutException(
           '本节在 $_stepBudgetEffective 内没跑完 ⇒ 挂住，不是断言失败；'
           '最后动作：$_lastAction',
