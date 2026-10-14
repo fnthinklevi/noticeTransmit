@@ -31,7 +31,10 @@ import '../widgets/fnthink_card.dart'
         FnthinkChoiceChip,
         FnthinkFilledAction,
         FnthinkInlineAction,
-        FnthinkRowLabel;
+        FnthinkMarkRole,
+        FnthinkRowLabel,
+        FnthinkStatusMark,
+        FnthinkSubMark;
 import '../widgets/primary_action_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
@@ -891,48 +894,20 @@ class _HistoryPageState extends State<HistoryPage> {
     AppLocalizations l10n, {
     bool viaBackup = false,
   }) {
-    final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        color: chipColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            channelTypeDisplayName(channel),
-            style: TextStyle(fontSize: 10, color: chipColor),
-          ),
-          if (viaBackup) ...[
-            const SizedBox(width: 3),
-            Text(
-              l10n.deliveryViaBackupTag,
-              style: const TextStyle(fontSize: 9, color: AppColors.orange),
-            ),
-          ],
-          if (status.isNotEmpty) ...[
-            const SizedBox(width: 3),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: deliveryStatusColor(context, status),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 2),
-            Text(
-              deliveryStatusText(l10n, status),
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
-                color: deliveryStatusColor(context, status),
-              ),
-            ),
-          ],
-        ],
-      ),
+    final submarks = <FnthinkSubMark>[
+      if (viaBackup)
+        FnthinkSubMark.text(l10n.deliveryViaBackupTag, AppColors.orange),
+      if (status.isNotEmpty)
+        FnthinkSubMark.dot(
+          deliveryStatusText(l10n, status),
+          deliveryStatusColor(context, status),
+        ),
+    ];
+    final chip = FnthinkStatusMark(
+      role: FnthinkMarkRole.channel,
+      label: channelTypeDisplayName(channel),
+      color: chipColor,
+      submarks: submarks,
     );
     // 推送失败/被拦截：原因内联显示在 chip 下方（长按 chip 仍可查看完整信息）。
     // 拦截原因由原生生成，如"黑名单（命中: xxx）"/"应用过滤"
@@ -987,21 +962,15 @@ class _HistoryPageState extends State<HistoryPage> {
   ///
   /// 形状只有一份，词由调用方给 —— T148 片3 把收件行的「备用」也接进来时，
   /// 它和「高优」是同一格事实（这条有什么额外要标的），不是两种控件。
+  ///
+  /// 片16 起这枚方法**只转发**给 `FnthinkStatusMark`（attribute 档）：以前这里是一份
+  /// 自搭 `Container` + `BoxDecoration`，与通道 chip 的壳、通道状态页的 `_RoleBadge`
+  /// 各自长一套 padding／圆角／淡底 α，下一枚徽标就会从这三份里挑一份抄。
   Widget _tagBadge(BuildContext context, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
+    return FnthinkStatusMark(
+      role: FnthinkMarkRole.attribute,
+      label: label,
+      color: color,
     );
   }
 

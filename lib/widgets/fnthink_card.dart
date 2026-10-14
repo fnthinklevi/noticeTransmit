@@ -324,6 +324,153 @@ class FnthinkFilledAction extends StatelessWidget {
   }
 }
 
+/// 行内那一枚**不可点**的状态标记（T148 片16 的唯一作者）。
+///
+/// 这一族此前有三份各自长法：`history_page._tagBadge`（10px／radius 4／w600／无描边）、
+/// 通道 chip 的壳（10px／radius 3／normal／淡底 0.12，里面再抄一份 9px 次级字与 6px 圆点）、
+/// `channel_status_page._RoleBadge`（11px／radius 4／**带描边**）。留着的钱不是"丑"，是
+/// **下一枚徽标又会从这三份里挑一份抄**，而私有的 `_RoleBadge` 那种壳连"别变多"都没人管
+/// （全族扫描那把尺当时只认名以 `Chip` 结尾的类）。
+///
+/// 三档按**主语**分，不按参数自由配 —— 这是这一片要你点头的那件事的落地：
+/// - [FnthinkMarkRole.attribute]：「这一条有什么额外要标的」（高优／备用）；
+/// - [FnthinkMarkRole.channel]：「这一条走了哪条通道」，可挂 [submarks]（次级字与状态圆点）；
+/// - [FnthinkMarkRole.tier]：「这一项处在哪一档」（主／备／未设置／不参与）。
+/// ⚠ **描边只给 tier 档**：另两档是附注，画上线等于在说"这是一个可对照的档位"，而它不是；
+///   反过来 tier 档去掉描边，"主"与"未设置"就只剩颜色差 —— 那是 T108 片② 与本仓片12 各量过一次的病
+///   （只有颜色差 ⇒ 读不出这一项到底在哪一档）。
+///
+/// ⚠ 这一枚**没有 `onTap`，也不该加**：它是读数不是入口（片14 那条族规矩：同一行里"能点的那一枚"
+///   与"只是状态的标记"不许互换形状）。要动作走 [FnthinkInlineAction]／[FnthinkFilledAction]。
+enum FnthinkMarkRole { attribute, channel, tier }
+
+/// 徽标里那句**次级字**（「备用」这种附注、或「成功／失败／发送中」这种状态读数）。
+///
+/// 两个构造子按"有没有圆点"分，而不是给个布尔让人乱配：带点的那一枚是状态读数，
+/// 今天就是 w500（它要回答"这条发出去没有"，弱化它等于把失败说轻）；不带点的是附注。
+class FnthinkSubMark {
+  const FnthinkSubMark.text(this.label, this.color) : dotColor = null;
+
+  const FnthinkSubMark.dot(this.label, Color markColor)
+    : dotColor = markColor,
+      color = markColor;
+
+  final String label;
+  final Color color;
+
+  /// 非 null ⇒ 前面画一枚实心圆点（这一枚取 w500）。
+  final Color? dotColor;
+}
+
+class FnthinkStatusMark extends StatelessWidget {
+  const FnthinkStatusMark({
+    required this.role,
+    required this.label,
+    required this.color,
+    this.submarks = const <FnthinkSubMark>[],
+    this.filled = true,
+    super.key,
+  });
+
+  final FnthinkMarkRole role;
+  final String label;
+
+  /// 这一枚的主色（attribute／channel 档用它上色；tier 档实心时用它描边）。
+  final Color color;
+
+  final List<FnthinkSubMark> submarks;
+
+  /// 只给 [FnthinkMarkRole.tier] 用：false ＝ 透明底 + 分隔线描边（「备／未设置／不参与」这些
+  /// 没被选中的档位，今天就是不上色的）。另两档忽略它。
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final double hPad;
+    final double vPad;
+    final double radius;
+    final double fontSize;
+    final FontWeight weight;
+    switch (role) {
+      case FnthinkMarkRole.attribute:
+        hPad = 4;
+        vPad = 1;
+        radius = 4;
+        fontSize = 10;
+        weight = FontWeight.w600;
+      case FnthinkMarkRole.channel:
+        hPad = 5;
+        vPad = 1;
+        radius = 3;
+        fontSize = 10;
+        weight = FontWeight.normal;
+      case FnthinkMarkRole.tier:
+        hPad = 6;
+        vPad = 2;
+        radius = 4;
+        fontSize = 11;
+        weight = FontWeight.normal;
+    }
+    // 描边只在这一档出现（第二道判据钉的就是这一位）。
+    final bool bordered = role == FnthinkMarkRole.tier;
+    final Color foreground = bordered && !filled
+        ? AppColors.secondaryLabel(context)
+        : color;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+      decoration: BoxDecoration(
+        color: bordered
+            ? filled
+                  ? color.withValues(alpha: 0.14)
+                  : Colors.transparent
+            : color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(radius),
+        border: bordered
+            ? Border.all(color: filled ? color : AppColors.separator(context))
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: fontSize,
+              height: bordered ? 1.2 : null,
+              fontWeight: weight,
+              color: foreground,
+            ),
+          ),
+          for (final sub in submarks) ...[
+            const SizedBox(width: 3),
+            if (sub.dotColor != null) ...[
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: sub.dotColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 2),
+            ],
+            Text(
+              sub.label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: sub.dotColor == null
+                    ? FontWeight.normal
+                    : FontWeight.w500,
+                color: sub.color,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// 形状①「行」的**唯一装配点**（T100 片2）：整行可点 · 左图标块 · 标题（＋可选一句副标题）· 右箭头。
 ///
 /// 为什么收成一件而不是各页各搭：§1 把这一族合法形状定成三种（行／弹层里的动作行／主操作填充），

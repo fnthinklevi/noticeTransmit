@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart'
-    show FnthinkActionTone, FnthinkInlineAction;
+    show
+        FnthinkActionTone,
+        FnthinkInlineAction,
+        FnthinkMarkRole,
+        FnthinkStatusMark;
 
 import '../test_setup.dart';
 
@@ -196,6 +201,36 @@ void main() {
       reason.maxLines,
       greaterThanOrEqualTo(2),
       reason: '一行截断让"SMTP 连接超时"和别的长原因长得一模一样，等于没写',
+    );
+  });
+
+  testWidgets('通道 chip 由徽标件画出：壳、次级字与状态圆点都归件（T148 片16）', (tester) async {
+    await pumpHistory(tester, sixChannelRecord());
+
+    // ⚠ 件的 key 挂在自身（收 `super.key`）⇒ 这里按类型找，不按 key；
+    //   断的是"这一枚走件"，具体文字由既有那几条按文案的用例守着。
+    final marks = tester
+        .widgetList<FnthinkStatusMark>(find.byType(FnthinkStatusMark))
+        .toList();
+    expect(
+      marks.where((m) => m.role == FnthinkMarkRole.channel),
+      isNotEmpty,
+      reason:
+          '通道 chip 不再由 `FnthinkStatusMark` 给出 ⇒ 壳又回到页面自己搭，'
+          '而同一行里「高优」那类属性徽标与它是两份 padding／圆角／淡底 α',
+    );
+    // 次级字（状态读数＋圆点）必须**在件里面**，不是件外面另摆一行：
+    // 掉到外面就等于把 9px／w500／圆点这三格形状又抄了一份。
+    // ⚠ 文字取自 `deliveryStatusText`（唯一作者），这里现取现比，不抄字面量。
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+    final failedText = l10n.deliveryFailed;
+    final failed = marks.firstWhere(
+      (m) => m.submarks.any((s) => s.label == failedText),
+    );
+    expect(
+      failed.submarks.firstWhere((s) => s.label == failedText).dotColor,
+      isNotNull,
+      reason: '状态读数没有圆点 ⇒ 只剩文字，与同行那枚"色 + 字"的读数不再是同一格事实',
     );
   });
 }

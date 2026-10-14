@@ -325,7 +325,9 @@ void main() {
     test('通道状态页：徽标认得「未设置」，且选择器故意不给它一档', () {
       final src = codeOf('lib/pages/channel_status_page.dart');
       expect(
-        blockAfter(src, 'class _RoleBadge extends StatelessWidget'),
+        // T148 片16：那枚私有 `_RoleBadge extends StatelessWidget` 换进了公共件，
+        // 页面这边只剩「角色→(词, 是否实心)」这一份判定 ⇒ 钉这一位。
+        blockAfter(src, 'Widget _roleBadge(BuildContext context, String role)'),
         contains('ChannelConfigCodec.roleUnset => (l10n.roleUnset, false)'),
         reason: '落到 default 分支就画成「主」，等于替用户做了一个他没做过的决定',
       );

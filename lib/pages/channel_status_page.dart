@@ -12,6 +12,7 @@ import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../widgets/channel_health_badge.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/pull_to_refresh_list.dart';
 
@@ -374,7 +375,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _RoleBadge(role: channel.role),
+            _roleBadge(context, channel.role),
             const SizedBox(width: 6),
             Text(
               statusText,
@@ -667,38 +668,22 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
 ///
 /// ⚠ 「未设置」必须单独占一格：它的存在就是"用户还没选过"。落到 default 分支会画成「主」，
 /// 等于在界面上替用户做了一个他没做过的决定（新建通道不再默认主，见 1.5.76 反馈 #2）。
-class _RoleBadge extends StatelessWidget {
-  final String role;
-  const _RoleBadge({required this.role});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final (label, filled) = switch (role) {
-      ChannelConfigCodec.roleBackup => (l10n.roleBackup, false),
-      ChannelConfigCodec.roleUnset => (l10n.roleUnset, false),
-      ChannelConfigCodec.roleNone => (l10n.roleNone, false),
-      _ => (l10n.rolePrimary, true),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: filled
-            ? AppColors.blue.withValues(alpha: 0.14)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: filled ? AppColors.blue : AppColors.separator(context),
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          height: 1.2,
-          color: filled ? AppColors.blue : AppColors.secondaryLabel(context),
-        ),
-      ),
-    );
-  }
+///
+/// ⚠ 形状归 `FnthinkStatusMark`（tier 档，T148 片16），这里只留**角色→(词, 是否实心)** 这一份判定。
+///   原先这是一枚私有 `_RoleBadge extends StatelessWidget` —— 那是个壳：全族扫描那把尺当时只认
+///   名以 `Chip` 结尾的类，于是"这一族别再长一份自搭壳"对它根本不响。
+Widget _roleBadge(BuildContext context, String role) {
+  final l10n = AppLocalizations.of(context);
+  final (label, filled) = switch (role) {
+    ChannelConfigCodec.roleBackup => (l10n.roleBackup, false),
+    ChannelConfigCodec.roleUnset => (l10n.roleUnset, false),
+    ChannelConfigCodec.roleNone => (l10n.roleNone, false),
+    _ => (l10n.rolePrimary, true),
+  };
+  return FnthinkStatusMark(
+    role: FnthinkMarkRole.tier,
+    label: label,
+    color: AppColors.blue,
+    filled: filled,
+  );
 }

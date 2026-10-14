@@ -14,6 +14,9 @@ import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart'
+    show FnthinkMarkRole, FnthinkStatusMark;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test_setup.dart';
@@ -139,6 +142,42 @@ void main() {
   tearDown(() async {
     clearNativeChannelStubs();
     await GetIt.instance.reset();
+  });
+
+  testWidgets('角色徽标由徽标件画出（tier 档），页里不再自搭壳（T148 片16）', (tester) async {
+    // ⚠ 先播种再读：不 seedAll 时这一页没有行 ⇒ 上面那些"件在位"的断言会空过（本仓量过的假绿形状）。
+    tester.view.physicalSize = const Size(1200, 2800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await seedAll();
+
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(ChannelStatusPage)),
+    );
+    final marks = tester
+        .widgetList<FnthinkStatusMark>(find.byType(FnthinkStatusMark))
+        .toList();
+    expect(
+      marks.where((m) => m.role == FnthinkMarkRole.tier),
+      isNotEmpty,
+      reason:
+          '徽标不走件 ⇒ 私有 `_RoleBadge` 那种壳长回来；它当年还躲在"全族扫描只认 Chip"的口径外，'
+          '连"别再长一份"都没人管',
+    );
+    // 「主」实心、其余不上色 —— 这一格是**语义**（用户选了没有），不是配色偏好。
+    expect(
+      marks.any((m) => m.label == l10n.rolePrimary && m.filled),
+      isTrue,
+      reason: '主通道那一枚不再标成实心 ⇒ 与"没被选中"的那几枚混成一格',
+    );
+    expect(
+      marks.where((m) => !m.filled).map((m) => m.label),
+      isNot(contains(l10n.rolePrimary)),
+      reason: '「主」出现在非实心那一档 ⇒ 界面替用户做了一个他没做过的决定',
+    );
   });
 
   testWidgets('三族分组：族标题 + 每行的名字、类型、关键链接', (tester) async {

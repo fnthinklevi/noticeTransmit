@@ -519,15 +519,18 @@ void main() {
       );
     });
 
-    test('私有 chip 那一族只剩一个作者（全族扫描再对差集，片12）', () {
+    test('私有 chip／徽标那一族只剩一个作者（全族扫描再对差集，片12 起、片16 扩口径）', () {
       // 判据**不写"不许出现 `_DirectionChip`"那种字面口径** —— 换名 `_MyChip` 就绕过，
       // 而那正是这一族会漂的方式（T100 片5 的 `_Note` 同一条纪律）。
+      // ⚠ 片16 把认法从"名以 `Chip` 结尾"扩到 `Chip|Badge|Tag|Mark`：通道状态页那枚 `_RoleBadge`
+      //   就是这么躲过原口径的 —— 它是私有的徽标壳，形状与 `FnthinkChoiceChip` 那族同一层，
+      //   但扫描只认 `Chip` ⇒ "这一族别再长一份"对它根本不响（登记为漏口，不是"它合法"）。
       expect(
-        privateChipClasses(codeByPath.values),
+        privateMarkShells(codeByPath.values),
         isEmpty,
         reason:
-            '${privateChipClasses(codeByPath.values)} —— 页里又长出私有的 chip 壳 ⇒ '
-            '「一排可选项里的一枚」有第二份画法：选中态怎么表达（底色？描边？只有字重？）'
+            '${privateMarkShells(codeByPath.values)} —— 页里又长出私有的行内小形状壳 ⇒ '
+            '「可选项里的一枚／徽标里的一格」有第二份画法：选中态怎么表达（底色？描边？只有字重？）'
             '会各写各的，而"只有字重差"那一档的病是**用户在屏上读不出自己选上了没有**'
             '（T108 片② 在发送页实测过那一发）',
       );
@@ -542,22 +545,40 @@ class _MyChip extends StatelessWidget {
   Widget build(BuildContext context) => Text(label);
 }
 
+class _MyRoleBadge extends StatelessWidget {
+  const _MyRoleBadge({required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) => Text(label);
+}
+
 class FnthinkChoiceChip extends StatelessWidget {
   const FnthinkChoiceChip({required this.label});
   final String label;
   @override
   Widget build(BuildContext context) => Text(label);
 }
+
+class FnthinkStatusMark extends StatelessWidget {
+  const FnthinkStatusMark({required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) => Text(label);
+}
 ''';
       expect(
-        privateChipClasses([sample]),
-        ['_MyChip'],
-        reason: '私有 chip 壳都抓不到 ⇒ 全族扫描那条绿只说明"正则没匹配到任何东西"',
+        // ⚠ 两条各钉一维：`_MyChip` 钉"原名还在"，`_MyRoleBadge` 钉**扩出来的那半口径真的在认** ——
+        //   只测前者的话，把 `Badge|Tag|Mark` 从正则里删掉这条照样绿（那就是 `_RoleBadge` 躲过去的老样子）。
+        privateMarkShells([sample]),
+        ['_MyChip', '_MyRoleBadge'],
+        reason: '私有壳都抓不到 ⇒ 全族扫描那条绿只说明"正则没匹配到任何东西"',
       );
       // 反向：全是公共件时不许红（否则这条守卫拦的是不存在的事）。
       expect(
-        privateChipClasses([
-          sample.replaceAll('class _MyChip', 'class FnthinkOtherChip'),
+        privateMarkShells([
+          sample
+              .replaceAll('class _MyChip', 'class FnthinkOtherChip')
+              .replaceAll('class _MyRoleBadge', 'class FnthinkOtherBadge'),
         ]),
         isEmpty,
         reason: '公共件被当成抄本 ⇒ 这本账红得没有信息量',
@@ -577,6 +598,135 @@ class FnthinkChoiceChip extends StatelessWidget {
       final end = src.indexOf('\nclass ', start + className.length);
       return src.substring(start, end < 0 ? src.length : end);
     }
+
+    /// 取一个**成员**（方法／顶层函数）的正文：从签名到下一个成员开头（或顶层函数的收尾 `}`）。
+    /// ⚠ 同样不用 `blockAfter`：参数表里带 `{required …}` 时它会把参数表当函数体返回（假绿形状）。
+    /// ⚠ 先归一 CRLF：`codeByPath` 是 `readAsStringSync()` 的原文，`history_page.dart` 这类文件
+    ///   行尾是 `\r\n` ⇒ 拿 `'\n  Widget '` 去切会一段都切不到（本仓"同一批里两种 EOL 并存"那条坑）。
+    String memberOf(String srcRaw, String signature) {
+      final src = srcRaw.replaceAll('\r\n', '\n');
+      final start = src.indexOf(signature);
+      expect(
+        start,
+        greaterThan(-1),
+        reason: '找不到 $signature ⇒ 它被改名或删掉了，下面这些断言会全空',
+      );
+      const cuts = [
+        '\n  /// ',
+        '\n  Widget ',
+        '\n  String ',
+        '\n  Future<',
+        '\n  @override',
+        '\nclass ',
+        '\nenum ',
+        '\n}\n',
+      ];
+      final ends = [
+        for (final c in cuts)
+          if (src.indexOf(c, start + signature.length) > start)
+            src.indexOf(c, start + signature.length),
+      ]..sort();
+      expect(ends, isNotEmpty, reason: '$signature 之后找不到成员边界 ⇒ 页面形状变了');
+      return src.substring(start, ends.first);
+    }
+
+    test('三处行内徽标都由 `FnthinkStatusMark` 给出（片16：一个作者、按主语分三档）', () {
+      final hist = codeByPath['lib/pages/history_page.dart']!;
+      final tag = memberOf(hist, 'Widget _tagBadge(');
+      expect(
+        tag.contains('FnthinkStatusMark(') &&
+            tag.contains('FnthinkMarkRole.attribute'),
+        isTrue,
+        reason:
+            '「高优／备用」这类属性徽标又回到页面自搭 ⇒ 同一行里三份壳各长各的（padding／圆角／淡底 α），'
+            '下一枚徽标就会从这几份里挑一份抄',
+      );
+      for (final shell in const ['BoxDecoration(', 'BorderRadius.circular(']) {
+        expect(
+          tag.contains(shell),
+          isFalse,
+          reason: '换了件还留着 $shell ⇒ 件与自搭壳并存（两套形状同时在场，漂哪一套都没人喊）',
+        );
+      }
+      final chip = memberOf(hist, 'Widget _buildChannelChip(');
+      expect(
+        chip.contains('FnthinkStatusMark(') &&
+            chip.contains('FnthinkMarkRole.channel') &&
+            chip.contains('FnthinkSubMark'),
+        isTrue,
+        reason:
+            '通道 chip 的壳或它那两句次级字（「备用」／状态读数）回到页面自搭 ⇒ 9px 与 6px 圆点这两格'
+            '又是各写各的，而它们是"这条走了哪条通道、发出去没有"的唯一读数',
+      );
+      final role = memberOf(
+        codeByPath['lib/pages/channel_status_page.dart']!,
+        'Widget _roleBadge(BuildContext context, String role)',
+      );
+      expect(
+        role.contains('FnthinkStatusMark(') &&
+            role.contains('FnthinkMarkRole.tier'),
+        isTrue,
+        reason:
+            '角色徽标又自己搭壳 ⇒ 私有 `_RoleBadge` 那一格回到"扫描口径管不到"的老样子；'
+            '页面这边只该留「角色→(词, 是否实心)」这一份判定',
+      );
+    });
+
+    test('描边只绑 tier 那一档（片16：徽标族的三档不能长成一个样）', () {
+      final mark = classBody(
+        codeByPath['lib/widgets/fnthink_card.dart']!,
+        'FnthinkStatusMark',
+      );
+      expect(
+        mark.contains('Container(') && mark.contains('Text('),
+        isTrue,
+        reason: '这一件没在画东西 ⇒ 下面两条"含/不含某形状"全是空断言（绿的没内容）',
+      );
+      expect(
+        RegExp(r'Border\.all\(').allMatches(mark).length,
+        1,
+        reason:
+            '描边出现两处以上 ⇒ "这一项处在哪一档"与"这条有什么额外要标的"两种语义又混了：'
+            '另两档画上线等于在说"这是可对照的档位"，而它不是',
+      );
+      expect(
+        RegExp(r'role\s*==\s*FnthinkMarkRole\.tier').allMatches(mark).length,
+        1,
+        reason:
+            '描边位不再唯一绑在 tier 那一档 ⇒ 属性徽标也会带框（或档位标记反而没框）：'
+            '前者把附注说成档位，后者让"主／未设置"只剩颜色差 —— 两种都是读不出',
+      );
+    });
+
+    test('徽标件本身不可点（片16：与"能点的那一枚"分界）', () {
+      final mark = classBody(
+        codeByPath['lib/widgets/fnthink_card.dart']!,
+        'FnthinkStatusMark',
+      );
+      expect(
+        mark.contains('Container('),
+        isTrue,
+        reason: '这一件不在画东西 ⇒ 下面那一串"全都不在"是空断言',
+      );
+      // ⚠ needle 用**词**而不是 `onTap:` —— 件的公开签名里只要出现"点击回调"这一格（`this.onTap`、
+      //   `onPressed`…），它就已经在对外承诺"我能点"了；等它被写进 build 才红就晚了一步。
+      for (final shape in const [
+        'onTap',
+        'onPressed',
+        'GestureDetector(',
+        'InkWell(',
+        'CupertinoButton(',
+      ]) {
+        expect(
+          mark.contains(shape),
+          isFalse,
+          reason:
+              '徽标是**读数不是入口**（片14 那条族规矩：同一行里"能点的那一枚"与"只是状态的标记"'
+              '不许互换形状）。要动作走 `FnthinkInlineAction`／`FnthinkFilledAction`；'
+              '$shape 出现在这里就是那一行凭空多了一个入口',
+        );
+      }
+    });
 
     test('两枚实心动作都由 `FnthinkFilledAction` 给出（片15：差异⑧ 最后两格收口）', () {
       final src = codeByPath['lib/pages/history_page.dart']!;
@@ -1695,16 +1845,18 @@ List<File> _dartFilesIn(String root, String dir) => Directory('$root/$dir')
 String _relative(String root, String path) =>
     path.substring(root.length + 1).replaceAll(r'\', '/');
 
-/// 全族扫描：给定若干**剥注释后**的库文件源码，返回页里私有的 chip 壳类名。
+/// 全族扫描：给定若干**剥注释后**的库文件源码，返回页里私有的"行内小形状"壳类名。
 ///
 /// 判据刻意不是"不许出现 `_DirectionChip`"那种字面口径 —— 换一个名字（`_HistoryDirChip`）
 /// 就绕过，而那正是这一族会漂的方式（T100 片5 的 `_Note` 同一条纪律）。
-/// 认法＝`class <名以 Chip 结尾> extends StatelessWidget` 且**名以下划线开头**（公共件不带下划线，
-/// 因此 `FnthinkChoiceChip` 这类唯一作者不会被抓进来）。
-List<String> privateChipClasses(Iterable<String> sources) => [
+/// 认法＝`class <名以下划线开头、以 Chip|Badge|Tag|Mark 结尾> extends StatelessWidget`
+/// （公共件不带下划线，因此 `FnthinkChoiceChip`／`FnthinkStatusMark` 这类唯一作者不会被抓进来）。
+/// ⚠ 片16 把口径从"只认 `Chip`"扩到这四词：`channel_status_page` 那枚 `_RoleBadge` 正是
+///   靠"名字里不含 Chip"躲过原口径的 —— 同一层的东西，认法窄一格就等于不管它。
+List<String> privateMarkShells(Iterable<String> sources) => [
   for (final src in sources)
     for (final m in RegExp(
-      r'class\s+(_[A-Za-z0-9_]*Chip)\s+extends\s+StatelessWidget',
+      r'class\s+(_[A-Za-z0-9_]*(?:Chip|Badge|Tag|Mark))\s+extends\s+StatelessWidget',
     ).allMatches(src))
       m.group(1)!,
 ]..sort();

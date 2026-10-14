@@ -86,10 +86,12 @@ void main() {
       );
     }
     // 反向自证：那段还在画东西（整段被删／改名也会让上面那一串"全都不在"通过）。
+    // ⚠ 片16 起这一枚的壳归 `FnthinkStatusMark`（channel 档）⇒ 自证跟着换成"件在位"，
+    //   而不是"还留着 `Container(`"：壳搬进件之后，后者会在正确代码上恒红。
     expect(
-      chip.contains('Container('),
+      chip.contains('FnthinkStatusMark('),
       isTrue,
-      reason: 'chip 本体没在画壳子了 ⇒ ② 的负向断言全是空断言，这一族已经没人看着了',
+      reason: 'chip 本体没在走件了 ⇒ ② 的负向断言全是空断言，这一族已经没人看着了',
     );
   });
 
