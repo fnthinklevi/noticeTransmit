@@ -2900,6 +2900,38 @@ const _gateWecomUrl =
 /// 覆盖判据（连续裸代码不许超过 60 行）见 `test/architecture/release_gate_emulator_test.dart`。
 void _mark(String name) => debugPrint('GATE-MARK ▸ $name');
 
+/// 帧状态探针：挂住那一刻**谁还在排帧**，日志里要能数出来。
+///
+/// 为什么要它（2026-10-14 下午那轮逼出来的）：四条用例全挂在 `TimeoutException` 上，
+/// 而「最后动作：…·settle」这条读数被证伪了一半 —— `_settle` 自己墙钟有界（1/2/3/6/8 秒），
+/// 吃不满 180s 的节预算 ⇒ 真凶在"某处一直在要下一帧"。`transientCallbackCount` 就是
+/// Flutter 自家查泄漏用的那把尺（活着的 Ticker 数），`hasScheduledFrame` 说"下一帧已经排上了"。
+/// 顺手数几个已知会周期排帧的件（按 `runtimeType` 字符串比，不为此新增 import）：
+/// 每帧 `setState` 的远程执行横幅、转圈的活动指示器、还在跑的启动页。
+/// ⚠ 探针只打印不判定：它是给"下一轮读日志的人"看的，不参与任何断言，
+///   所以它坏了不会让闸门变绿或变红 —— 那种东西该由守卫去钉，不该由探针去假装。
+void _frameProbe(String why) {
+  final scheduler = WidgetsBinding.instance;
+  int mounted(String typeName) {
+    try {
+      return find
+          .byWidgetPredicate((w) => w.runtimeType.toString() == typeName)
+          .evaluate()
+          .length;
+    } catch (_) {
+      return -1; // 还没有 widget 树（装配前半段）
+    }
+  }
+
+  debugPrint(
+    'GATE-FRAMES ▸ $why transient=${scheduler.transientCallbackCount} '
+    'scheduled=${scheduler.hasScheduledFrame} '
+    'banner=${mounted('RemoteExecutionBanner')} '
+    'activity=${mounted('CupertinoActivityIndicator')} '
+    'splash=${mounted('SplashPage')}',
+  );
+}
+
 /// 每条用例各自装配一遍（㊼ 对 smoke 做过的那种形状，见 `smoke_test.dart` 的 launchApp）。
 ///
 /// 为什么拆：拆之前是**一个** testWidgets 串 24 节 ⇒ 一次挂住要吃满用例级超时，
@@ -2923,6 +2955,7 @@ Future<void> _assemble(
   // ── 装配 ────────────────────────────────────────────────────────────
   setupLocator();
   GetIt.instance.registerSingleton<UpdateService>(_StubUpdateService());
+  _mark('装配 ① DI 注册完（GetIt.reset 已 await、allowReassignment 已开）');
 
   // 起点必须是干净的：闸门要能重复跑，且"备份里有没有这一条"这类断言依赖初值
   final db = DatabaseHelper();
@@ -2933,13 +2966,17 @@ Future<void> _assemble(
   // 收件表也要擦，否则上面那句"起点数据已擦干净"对幻念收件是虚的：4.1 的"空态"会变成
   // "恰好是空的"，而上一轮如果中途红过、注入行留在库里，下一轮就是莫名其妙地红。
   await (await db.database).delete(FnthinkInboxMessage.table);
+  _mark('装配 ② 起点擦库完（三族通道 + 历史记录 + 幻念收件表）');
 
   // 现场灌在 pump **之前**：应用一来就带着这份配置启动，走的是"读已有配置"那条真实路径；灌在 pump 之后则等于在装配中途改配置 —— 会触发页面重建与通道探测。
   // 第 17 轮两处挂住（3/4 的 5.4a、4/4 的第 7 节）都紧跟在"装配完 + 种子写完"之后，这条顺序改动同时是一次否证实验。
   if (seed != null) await seed();
+  _mark('装配 ③ 现场种子写完（仍在 pump 之前）');
 
   await tester.pumpWidget(const MyApp());
+  _mark('装配 ④ MyApp 已 pump，开始等首帧与描述符');
   await _settle(tester, seconds: 3);
+  _frameProbe('装配 ⑤ 首帧落定（NavigationBar 断言之前）');
   expect(
     find.byType(NavigationBar),
     findsOneWidget,
@@ -3053,10 +3090,15 @@ Future<void> _step(
   try {
     await body().timeout(
       _stepBudgetEffective,
-      onTimeout: () => throw TimeoutException(
-        '本节在 $_stepBudgetEffective 内没跑完 ⇒ 挂住，不是断言失败；'
-        '最后动作：$_lastAction',
-      ),
+      onTimeout: () {
+        // 挂住那一刻先打一帧状态再抛：这是本轮唯一能拿到"谁在排帧"的时机 ——
+        // body 还卡在那句 await 上，而它的调用栈我们拿不到（ isolate 级 TimeoutException）。
+        _frameProbe('节挂住：$name');
+        throw TimeoutException(
+          '本节在 $_stepBudgetEffective 内没跑完 ⇒ 挂住，不是断言失败；'
+          '最后动作：$_lastAction',
+        );
+      },
     );
     watch.stop();
     // 每节的实际耗时进日志（2026-10-12 夜加）：它让"这台机还剩多少余量"可算 ——
