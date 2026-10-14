@@ -239,10 +239,15 @@ void main() {
       isTrue,
       reason: '迁移分支没了 ⇒ 老库升上来没有这一列，第一次读就崩',
     );
+    // ⚠ 这里断的是**下界**不是相等：这一支要的是"版本号至少抬到这一列之后，onUpgrade 才会跑到它"。
+    //   写死 `=24` 的话，每加一次迁移都要来改这条与本列无关的守卫（那正是"钉写法不钉契约"的代价，
+    //   v25 那轮就撞上了：dbVersion 抬到 25 之后这一条无端变红）。
+    final m = RegExp(r'staticconstintdbVersion=(\d+);').firstMatch(src);
+    expect(m, isNotNull, reason: '读不到 dbVersion ⇒ 这一条钉不住任何东西');
     expect(
-      src.contains('staticconstintdbVersion=24;'),
-      isTrue,
-      reason: '版本号没抬 ⇒ onUpgrade 永远不跑那一支',
+      int.parse(m!.group(1)!),
+      greaterThanOrEqualTo(24),
+      reason: '版本号低于 24 ⇒ onUpgrade 永远不跑那一支（往上抬是预期的，往下退才是事故）',
     );
   });
 }

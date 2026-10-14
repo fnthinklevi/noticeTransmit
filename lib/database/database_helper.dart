@@ -71,7 +71,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 24;
+  static const int dbVersion = 25;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -300,6 +300,7 @@ class DatabaseHelper
         device_name TEXT,
         priority INTEGER NOT NULL DEFAULT 1,
         delivery_info TEXT,
+        delivery_bucket TEXT NOT NULL DEFAULT '',
         timestamp INTEGER NOT NULL,
         created_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -307,6 +308,14 @@ class DatabaseHelper
 
     await db.execute('''
       CREATE INDEX idx_notifications_post_time ON notifications(post_time)
+    ''');
+
+    // v25 / T133 走 (c)：历史页那一档筛选筛的是这一列（等值，不再对 JSON 文本 LIKE）。
+    // 复合索引 (delivery_bucket, post_time) 是这一改动的全部理由 —— 筛完还要按时间倒序翻页，
+    // 只给 bucket 建单列索引的话，SQLite 仍要为每一档回表排序。
+    await db.execute('''
+      CREATE INDEX idx_notifications_bucket_post
+        ON notifications(delivery_bucket, post_time)
     ''');
 
     await db.execute('''
@@ -609,6 +618,20 @@ class DatabaseHelper
   /// ALTER 并抛 duplicate column —— 打开失败会被 _initDatabase 的 catch 备份成
   /// `.corrupt-*` 再重建空库，历史与库内通道配置就此丢失。版本号已统一为 [dbVersion]，
   /// 这层存在性判定兜住**已被错号标记的存量库**（它们每次启动都会重演该路径）。
+  /// 这张表在不在**这台库**上。迁移里凡是碰某张表的语句（加列、建索引、回填）都先问这一句。
+  ///
+  /// 为什么值得单独一枚：三条既有升级用例（inbox / pair_requests / engine_rules 的**局部老库
+  /// fixture**）只建自己那一张表，任何"顺手扫全库"的迁移语句都会在那里抛
+  /// `no such table` —— 而抛出会被 `_initDatabase` 当成库损坏，走"备份 + 重建空库"，
+  /// 把用户历史连库内配置一起清掉（T128 片1 那轮就是这么红的）。
+  Future<bool> _tableExists(Database db, String table) async {
+    final rows = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [table],
+    );
+    return rows.isNotEmpty;
+  }
+
   Future<void> _addColumnIfMissing(
     Database db,
     String table,
@@ -618,13 +641,7 @@ class DatabaseHelper
     // ⚠ 这张表还不在这台库上时**直接跳过**：没有这张表就没有要补的列，
     // 而"把它建出来"是它自己那条 `oldVersion < 建表版本` 分支的事 —— 在这里顺手 CREATE
     // 会造出一张列集合按当下形状、却少了后续数据迁移的半张表（那种表最难查）。
-    // T128 片1 加 `alias` 时三条既有升级用例（inbox / pair_requests / engine_rules 的
-    // 局部老库 fixture）就是撞在这上面红的：它们只建自己那一张表。
-    final tables = await db.rawQuery(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-      [table],
-    );
-    if (tables.isEmpty) return;
+    if (!await _tableExists(db, table)) return;
     final columns = await db.rawQuery('PRAGMA table_info($table)');
     if (columns.any((r) => r['name'] == column)) return;
     await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
@@ -917,6 +934,90 @@ class DatabaseHelper
         "TEXT NOT NULL DEFAULT ''",
       );
     }
+
+    if (oldVersion < 25) {
+      // v25 / T133 走 (c)：把"这条送达了吗"那一档判定**存成一列**，让 SQL 能等值筛。
+      //
+      // 为什么到这一版才动：历史页那一档过去是两层筛 —— SQL 拿 `delivery_info` 文本 LIKE 粗筛、
+      // Dart 再 jsonDecode 精筛。粗筛必然宽于精筛，于是每页实际条数在跳、而"还有没有下一页"
+      // 按粗筛行数回答（用户翻到的第 3 页没有定义）。引 JSON1 又不行：Android 各版本带的
+      // SQLite 有没有编进 JSON1 不是本机可假设的事（见 `buildSearchSql` 旧注释那句"不引 JSON1 依赖"）。
+      //
+      // 只加列 + 回填，**不改任何一行的 delivery_info**：这一列是派生值，读侧随时能重算，
+      // 回填失败最多是那一行两个档都筛不到（与旧行为一致），不会把历史读坏。
+      await _addColumnIfMissing(
+        db,
+        'notifications',
+        'delivery_bucket',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      // ⚠ 索引与回填都要先问"这张表在这台库上吗"：三条既有升级用例用的是**局部老库 fixture**
+      //   （只建自己那一张表），在这里裸跑 CREATE INDEX 会抛 no such table ——
+      //   而抛出等于让 _initDatabase 把整库当损坏库重建，历史就此清空（v25 的第一版就红了这三条）。
+      if (await _tableExists(db, 'notifications')) {
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_notifications_bucket_post '
+          'ON notifications(delivery_bucket, post_time)',
+        );
+        await backfillDeliveryBucket(db);
+      }
+    }
+  }
+
+  /// 把 `notifications` 里每一行的 `delivery_info` 现算成桶值写回 `delivery_bucket`。
+  ///
+  /// ⚠ 这一位是**迁移与读侧修复**唯一的回填口，而它算桶调的就是 [deliveryBucketOf] ——
+  /// 不在这里重抄状态词表，否则"运行写入时算的那一份"与"迁移回填的那一份"就是两个作者
+  /// （片1 那轮漂开的正是这种形状）。
+  ///
+  /// 三条纪律，都不是保险丝：
+  ///  - **异常不外抛**：`onUpgrade` 抛错会走 `_initDatabase` 的"备份原库 + 重建空库"分支，
+  ///    等于把用户历史连库内配置一起清掉（v11 那轮踩过，见 `_migrateDeliveryKeysToCanonical`）。
+  ///  - **不在这里再开 transaction()**：onUpgrade 已跑在 sqflite 的事务里，嵌套 BEGIN 在 SQLite 层是错。
+  ///    所以走 `db.batch()`（sqflite 的 batch 自己包一层事务，且这里不是嵌套 BEGIN）。
+  ///  - **单行坏 JSON 只跳过本行**：那一行留在 `''`（没人算过），两个档都筛不到 —— 与它今天
+  ///    在精筛里的表现逐字相同，不是新缺陷。
+  Future<void> backfillDeliveryBucket(Database db) async {
+    try {
+      final rows = await db.query(
+        'notifications',
+        columns: ['id', 'delivery_info'],
+      );
+      var batch = db.batch();
+      var pending = 0;
+      for (final row in rows) {
+        final id = row['id'];
+        if (id is! String || id.isEmpty) continue;
+        final raw = row['delivery_info'];
+        Map<String, dynamic> status = const {};
+        if (raw is String && raw.isNotEmpty) {
+          dynamic decoded;
+          try {
+            decoded = jsonDecode(raw);
+          } catch (_) {
+            // 坏 JSON：这一行保持"没人算过"以外唯一的命运 —— 跳过，不拖整批
+            continue;
+          }
+          if (decoded is Map) {
+            status = Map<String, dynamic>.from(decoded);
+          }
+        }
+        batch.update(
+          'notifications',
+          {'delivery_bucket': deliveryBucketOf(status)},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        if (++pending >= 500) {
+          await batch.commit(noResult: true);
+          batch = db.batch();
+          pending = 0;
+        }
+      }
+      if (pending > 0) await batch.commit(noResult: true);
+    } catch (e) {
+      debugPrint('送达桶值回填失败（那一行最多筛不到，不改任何原文）: $e');
+    }
   }
 
   /// v19 / T94 片3：**幻念通道**（这一台作为发送方的那些转发目标）。
@@ -1075,6 +1176,9 @@ class DatabaseHelper
                 'device_name':
                     record['deviceName'] ?? record['device_name'] ?? '',
                 'priority': record['priority'] ?? 1,
+                // 这一族的 prefs 时代没有送达状态可言（那一格那时还不存在），
+                // 桶值如实写"两个档都不落"，而不是留 `''`（`''` 的含义是"没人算过"）。
+                'delivery_bucket': deliveryBucketNone,
                 'timestamp': record['timestamp'] ?? 0,
                 'created_at': DateTime.now().millisecondsSinceEpoch,
               }, conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -1089,6 +1193,13 @@ class DatabaseHelper
 
   Future<void> insertNotification(Map<String, dynamic> record) async {
     final db = await database;
+    // 送达状态在这一族只有一份读法：先取成 Map，再让**同一份**既写 JSON 文本又算桶值。
+    // ⚠ 不许把 `delivery_bucket` 这一行删成"只写 delivery_info"：历史页那一档筛的是桶列，
+    //   漏写的行会停在 `''`（没人算过），两档都筛不到 —— 看起来像"这条被筛掉了"，
+    //   而真相是写入咽喉漏了一列。钉这一条的是 `delivery_bucket_in_sql_test.dart` ②。
+    final delivery = record['deliveryStatus'] is Map
+        ? Map<String, dynamic>.from(record['deliveryStatus'] as Map)
+        : const <String, dynamic>{};
     final dbMap = <String, dynamic>{
       'id': record['id'] ?? '',
       'title': record['title'] ?? '',
@@ -1101,11 +1212,8 @@ class DatabaseHelper
       'type': record['type'] ?? 'other',
       'device_name': record['deviceName'] ?? record['device_name'] ?? '',
       'priority': record['priority'] ?? 1,
-      'delivery_info':
-          record['deliveryStatus'] != null &&
-              (record['deliveryStatus'] as Map).isNotEmpty
-          ? jsonEncode(record['deliveryStatus'])
-          : null,
+      'delivery_info': delivery.isEmpty ? null : jsonEncode(delivery),
+      'delivery_bucket': deliveryBucketOf(delivery),
       'timestamp': record['timestamp'] ?? 0,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     };
@@ -1155,11 +1263,10 @@ class DatabaseHelper
 
   /// 构建推送历史搜索的 WHERE 子句（纯函数，单测锁定行为）。
   ///
-  /// 两层筛选设计（P1）：
-  /// - SQLite LIKE 粗筛：keyword 命中 title/content/app_name/package_name，
-  ///   送达状态对 delivery_info JSON 文本做 LIKE 粗筛（不引 JSON1 扩展依赖）；
-  /// - 精确判定由调用方在 Dart 端 jsonDecode delivery_info 后完成
-  ///   （见 NotificationService.searchRecords）。
+  /// T133 走 (c) 之后只有**一层**：keyword / 时间范围 / 应用名 / 包名走 SQL 文本条件，
+  /// 送达状态走 `delivery_bucket` 等值（那一列是 `deliveryBucketOf` 在写入与回填时算好的派生值）。
+  /// 以前这里是"SQL LIKE 粗筛 + Dart jsonDecode 精筛"两层，粗筛必然宽于精筛 ⇒ 分页条数与
+  /// "还有没有下一页"都在说谎。现在给档名就等值筛，不再需要调用方补第二刀。
   static (String where, List<dynamic> args) buildSearchSql({
     String? keyword,
     int? startTime,
@@ -1194,17 +1301,18 @@ class DatabaseHelper
       conds.add("package_name LIKE ? ESCAPE '\\'");
       args.add('%${escapeLike(packageName)}%');
     }
-    if (deliveryFilter == deliveryFilterNotDelivered) {
-      // ⚠ LIKE 参数由 `notDeliveredStatuses` 那张**词表**生成，不在此处另抄一遍状态词：
-      // 粗筛的口径必须不窄于精筛，否则只有某状态的记录进不了候选集，精筛那一半永远轮不到。
-      // 这不是假想 —— 片1 之前只 `LIKE '%failed%'`，而一条只有拦截通道的记录就是这么被吞掉的。
-      conds.add(
-        '(${List.generate(notDeliveredStatuses.length, (i) => 'delivery_info LIKE ?').join(' OR ')})',
-      );
-      args.addAll(notDeliveredStatuses.map((s) => '%$s%'));
-    } else if (deliveryFilter == deliveryFilterDelivered) {
-      conds.add('delivery_info LIKE ?');
-      args.add('%$deliveredStatus%');
+    if (deliveryFilter != null && deliveryFilter != deliveryFilterAll) {
+      // T133 走 (c)：这一档筛的是**存好的桶值**，不再对 `delivery_info` 文本 LIKE。
+      // 旧形状（两层筛）的代价不是慢，而是**页数与"有没有下一页"都对不上**：粗筛宽、精筛窄，
+      // 一页取回 200 行精筛后剩 6 行，而 hasMore 按那 200 行算 ⇒ 用户翻到的"第 3 页"没有定义。
+      //
+      // 档名直接当桶值用：`deliveryBucketDelivered`/`deliveryBucketNotDelivered` 在
+      // `delivery_status.dart` 里就**等于**那两颗档名常量 ⇒ 这两个词不可能各自漂开一次。
+      // ⚠ 认不出的档名（例如界面还留着旧 id `'failed'`）保持 **fail-closed**：
+      //   等值筛一个不在值域里的串 ⇒ 一行都不匹配。这与旧那句精筛对陌生档名返回 false 逐字同形，
+      //   宁可看不见，也不要"看起来筛过了其实没筛"。
+      conds.add('delivery_bucket = ?');
+      args.add(deliveryFilter);
     }
     final where = conds.isEmpty ? '' : 'WHERE ${conds.join(' AND ')}';
     return (where, args);
@@ -1890,7 +1998,11 @@ class DatabaseHelper
     final db = await database;
     await db.update(
       'notifications',
-      {'delivery_info': delivery.isEmpty ? null : jsonEncode(delivery)},
+      {
+        'delivery_info': delivery.isEmpty ? null : jsonEncode(delivery),
+        // 与上面那份同一次写入：判据调唯一作者（见 `lib/models/delivery_status.dart`）
+        'delivery_bucket': deliveryBucketOf(delivery),
+      },
       where: 'id = ?',
       whereArgs: [id],
     );

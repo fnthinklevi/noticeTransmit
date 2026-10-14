@@ -6,7 +6,6 @@ import 'archive_worker.dart';
 import 'channel_display.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
-import '../models/delivery_status.dart';
 import '../models/notification_record.dart';
 import 'platform_channel.dart';
 import 'active_channels.dart';
@@ -256,19 +255,23 @@ class NotificationService {
     return merged;
   }
 
-  /// 全量历史搜索（P1；T133 量级① 起也是历史页**唯一**读路）：SQLite LIKE 粗筛 +
-  /// Dart 端 jsonDecode 精筛。
+  /// 全量历史搜索（P1；T133 量级① 起也是历史页**唯一**读路；T133 走 (c) 起是**一层**筛）：
+  /// 送达状态那一档由 SQL 等值筛 `notifications.delivery_bucket` 完成。
   ///
-  /// 粗筛由 `DatabaseHelper.searchNotifications` 完成（keyword/时间范围/应用名/包名走 SQL，
-  /// 送达状态对 `delivery_info` JSON 文本 LIKE 粗筛，不引 JSON1 依赖）；精筛走
-  /// `matchDeliveryFilter`（**口径在 `lib/models/delivery_status.dart` 那一张词表上**，
-  /// 粗筛的 LIKE 参数由同一张表生成 ⇒ 两层不会漂开）。
+  /// 桶值这一列由 `lib/models/delivery_status.dart` 的 `deliveryBucketOf` 算（写入咽喉
+  /// `insertNotification`／`updateNotificationDelivery` 就地算，v25 迁移把存量回填一遍），
+  /// 所以"筛出来的行"与"这句判据认为该出现的行"是同一件事 —— 这里**不再补第二刀精筛**：
+  /// 补了也不会更准（同一句判据），只会把"这一页为什么少了几条"变成两件不同的事
+  /// （SQL 说 200 行、内存说 6 行），而那正是这一片要消掉的形状。
   ///
-  /// 返回 `(精筛后记录, 粗筛是否未取尽, 本页粗筛行数)`：
-  /// - `hasMore` 以**粗筛**行数为准 —— 精筛只过滤当页，"这一页精筛后为 0 条"不等于
-  ///   "后面没有了"（粗筛宽、精筛窄）；「没有更多了」只能由粗筛取尽来说。
-  /// - 第三位是**本页粗筛行数**，调用方翻页时 offset 必须按它累加，不能按精筛后的
-  ///   条数累加 —— 那会把游标往回拨（每页只前进"筛中的那几条"），既漏翻又重复扫。
+  /// ⚠ 认不出的档名（如漂掉的旧 id `'failed'`）仍然**fail-closed**：SQL 那句是
+  ///   `delivery_bucket = ?` 拿档名当值，陌生串不在值域里 ⇒ 一行都不匹配 ——
+  ///   与走 (c) 之前那句精筛对陌生档名返回 false 逐字同形（宁可看不见，也不要"筛了个寂寞"）。
+  ///   这一条由 `test/database/delivery_bucket_backfill_test.dart` 拿真库量着钉，
+  ///   别把它改成"未知档名当 all 处理"：那会把一个漂掉的 id 读成"筛选坏了"以外的东西。
+  ///
+  /// 返回 `(记录, 是否未取尽, 本页行数)`：走 (c) 之后三位一体 —— 第三项既是取回的行数
+  /// 也是筛中的行数，翻页游标按它累加从此没有歧义。
   Future<(List<NotificationRecord>, bool, int)> searchRecords({
     String? keyword,
     int? startTime,
@@ -290,18 +293,7 @@ class NotificationService {
       offset: offset,
     );
     final hasMore = rows.length >= limit;
-    var records = rows.map((e) => NotificationRecord.fromMap(e)).toList();
-    // Dart flow analysis 不做 a=='x' || a=='y' 的"值集合"提升，
-    // 先显式判空得到非空局部（final 提升可跨闭包保留）
-    // ⚠ 只要给了档名就交给那一句精筛判定，**包括认不出的档名**（那位返回 false ⇒ 这一档看不见任何记录）。
-    //   别改回"只在这两个档名时才精筛"：那样一个漂掉的旧 id（如 `'failed'`）会静默变成"筛了个寂寞"
-    //   —— 粗筛不加 WHERE、精筛不跑，列表原样全给，读起来像筛选坏了而不是筛到了。
-    final df = deliveryFilter;
-    if (df != null && df != deliveryFilterAll) {
-      records = records
-          .where((r) => matchDeliveryFilter(r.deliveryStatus, df))
-          .toList();
-    }
+    final records = rows.map((e) => NotificationRecord.fromMap(e)).toList();
     return (records, hasMore, rows.length);
   }
 

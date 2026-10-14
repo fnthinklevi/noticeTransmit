@@ -46,10 +46,12 @@ import '../services/history_channel_chips.dart';
 import '../services/history_paging.dart';
 import 'fnthink_send_page.dart';
 
-/// 转发那本账的一页读口（T133 量级①）：一页 = `(精筛后记录, 粗筛是否未取尽, 本页粗筛行数)`。
+/// 转发那本账的一页读口（T133 量级①）：一页 = `(本页记录, 是否还有下一页, 本页行数)`。
 ///
-/// `hasMore` 以**粗筛**行数为准（"这一页精筛后为 0 条"不等于后面没有了）；
-/// 翻页 offset 必须按第三位（粗筛行数）累加，按精筛后条数累加会把游标往回拨。
+/// ⚠ 走 (c) 之后**没有"粗筛／精筛"两层了**（送达档判定落进 `delivery_bucket` 那一列，
+/// SQL 一层就筛完），所以第三位与第一位是同一个数：翻页 offset 按它累加就是按行数累加。
+/// 两层筛的年代里，按精筛后条数累加会把游标往回拨 —— 那一段留在这里当理由，
+/// 别再把它当成两种数（替身 `fakeForwardedLoader` 也照这一条切片）。
 /// 生产走 `NotificationService.searchRecords`；测试注入内存替身 ——
 /// 与 `inboxLoader` 同一条理由（widget 测试不开 sqlite）。
 typedef ForwardedPageLoader =
@@ -176,9 +178,9 @@ class _HistoryPageState extends State<HistoryPage> {
   // "无筛选"只是一次不带参数的查询，不是另一条读路 —— 内存镜像那条路已随本片退役）。
   List<NotificationRecord>? _searchResults;
 
-  /// 粗筛选页游标：本会话已经扫过多少行**粗筛**结果。翻页 offset 按它累加 ——
-  /// 按精筛后的条数累加会在"粗筛宽、精筛窄"时把游标往回拨（每页只前进筛中的那几条），
-  /// 既漏翻又把同一段重复扫一遍。
+  /// 分页游标：本会话已经扫过多少行。走 (c) 之后 SQL 一层就筛完，这个数**既是本页行数也是
+  /// 筛中的行数**（名字里的 coarse 是两层筛年代的残留，留着因为它同时就是 offset）。
+  /// 之所以按读口回报的行数累加而不按 `_pageSize` 累加：最后一页不满一页。
   int _coarseOffset = 0;
 
   /// 转发那本账的总条数（无筛选标题与「清除全部」确认框用；读口注入，见构造函数）。
@@ -644,10 +646,12 @@ class _HistoryPageState extends State<HistoryPage> {
       };
 
   /// 取数循环（T133 量级①）：按 `_pageSize` 一页一页往回要，**凑满一屏才撒手** ——
-  /// 粗筛宽、精筛窄，某一页精筛后剩 0 条不等于后面没有了，所以空页不许停手；
-  /// 「没有更多了」只能由粗筛取尽（`hasMore == false`）来说。
-  /// 游标按**粗筛行数**累加（见 [_coarseOffset]），终止性由它保证：hasMore 为真时
-  /// 每轮至少前进一页粗筛行，游标单调递增直到取尽。
+  /// ⚠ 走 (c) 之后送达档判定落进 `delivery_bucket` 那一列，SQL 一层就筛完 —— 已经没有
+  /// 「粗筛宽、精筛窄」那两层了，所以「空页不许停手」在这一条读路上不会再触发；
+  /// 条件留着是纵深：读口可注入（`forwardedLoader`，测试替身只做切片不做筛选），
+  /// 「本页 0 条但 hasMore 为真」这种回报仍不许停手 —— 停手等于把后面还有的说成没有了。
+  /// 游标按读口回报的行数累加（见 [_coarseOffset]），终止性由它保证：hasMore 为真时
+  /// 每轮至少前进那几行，游标单调递增直到取尽。
   Future<void> _loadSearch({required bool reset}) async {
     if (_loadingMore) return;
     setState(() => _loadingMore = true);

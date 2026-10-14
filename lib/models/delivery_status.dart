@@ -1,9 +1,13 @@
-/// 「这条**送达了吗**」的口径（T133 片3，唯一作者）。
+/// 「这条**送达了吗**」的口径（T133 片3 立词表，T133 走 (c) 起也是**桶值唯一作者**）。
 ///
-/// 一张词表 + 一句精筛判定住在这里，而 SQL 粗筛的 LIKE 参数**由这张表生成**
-/// （见 `DatabaseHelper.buildSearchSql`）。两层因此不可能漂开 —— 片1 那轮修的正是
-/// 漂开之后的样子：粗筛只 `LIKE '%failed%'`，精筛却认 `failed || intercepted`，
-/// 于是只有拦截通道的记录永远进不了候选集，精筛那一半是死的。
+/// 这一层现在有两位：一张状态词表（[notDeliveredStatuses] / [deliveredStatus]）与
+/// 一句"这条落哪个桶"（[deliveryBucketOf]）。SQL 那一层不再自己判 —— 它筛的是
+/// `notifications.delivery_bucket` 这个**存好的值**（写入时算、迁移时回填，两处都调 [deliveryBucketOf]），
+/// 所以"粗筛宽、精筛窄"那一族缺陷从形状上消失了。
+///
+/// 来历（为什么这里曾经漂开过）：片1 之前 SQL 只 `LIKE '%failed%'`，而精筛认 `failed || intercepted`，
+/// 于是只有拦截通道的记录永远进不了候选集，精筛那一半是死的。当时的修法是"LIKE 参数由这张表生成"；
+/// 那是**同一条判据抄两遍再想办法让它们相等**，走 (c) 之后只留一遍。
 ///
 /// ⚠ 这一位与「这条**可以再发一次吗**」（`lib/services/repush_eligibility.dart`）
 /// 是两个问题，成员集合**故意不同**：
@@ -40,16 +44,51 @@ const String deliveryFilterNotDelivered = 'not_delivered';
 /// ⚠ 认不出的档名返回 false（fail-closed）：那一档**什么都不给看**。
 /// 宁可看不见，也不要"看起来筛过了其实没筛" —— 后者会把没过滤的结果当成过滤后的读数。
 bool matchDeliveryFilter(Map<String, dynamic> status, String filter) {
-  if (status.isEmpty) return false;
+  // 判据不再在这里写第二遍：这一位只是把桶值与档名比一下（T133 走 (c)）。
+  final bucket = deliveryBucketOf(status);
+  return switch (filter) {
+    deliveryFilterNotDelivered => bucket == deliveryBucketNotDelivered,
+    deliveryFilterDelivered => bucket == deliveryBucketDelivered,
+    _ => false,
+  };
+}
+
+/// 送达状态这一问的**第三个去处**：既不是"已送达"也不是"没发出去的"（在途、空 map、脏数据）。
+///
+/// 它与 DB 列 `delivery_bucket` 的**默认值 `''` 不是一回事**：`''` 说的是"这一行没人算过桶"，
+/// 而 `'none'` 说的是"算过了，两个档都不落"。把这两件事分开，写漏桶的 bug 才有被查出来的可能
+/// （见 `test/architecture/delivery_bucket_in_sql_test.dart` ④）。
+const String deliveryBucketNone = 'none';
+
+/// 两个档各自的桶值 —— **直接复用档名那两颗常量**，不再造第三套词。
+const String deliveryBucketDelivered = deliveryFilterDelivered;
+const String deliveryBucketNotDelivered = deliveryFilterNotDelivered;
+
+/// 一条记录的送达状态 map 落进哪个桶（T133 走 (c)：这一位是**唯一作者**）。
+///
+/// 为什么要把"算桶"这一发单独存在而不只是留 `matchDeliveryFilter`：
+/// 历史页那一档筛选过去是**两层**的 —— SQL 拿 `delivery_info` 文本 LIKE 粗筛、Dart 再 jsonDecode
+/// 精筛。粗筛必然宽于精筛 ⇒ 一页取回 200 行、精筛后只剩 6 行，而"还有没有下一页"是按那 200 行算的，
+/// 用户翻到的每一页条数都在跳（分页游标还按粗筛行数列走，于是"第 3 页"根本没有定义）。
+/// 把判定结果**存成一列**（写入时就地算、迁移时回填），SQL 那一层就能等值筛 `delivery_bucket`，
+/// 两层合成一层 —— 而算桶的那句判据还是这里这一句，两边不可能漂开。
+///
+/// ⚠ 返回的三值之一就是 DB 里存的那一份，也是 `buildSearchSql` 拿去比的那一份：
+///   改这一句的语义 = 改历史页每一档的行数；不改语义就不要动 `delivery_bucket` 的存量值
+///   （存量是上一次回填算的，语义一变就得再回填一次，而那要有迁移号可花）。
+String deliveryBucketOf(Map<String, dynamic> status) {
+  if (status.isEmpty) return deliveryBucketNone;
   final states = status.values
       .whereType<Map>()
       .map((m) => m['status']?.toString())
       .toList();
-  if (filter == deliveryFilterNotDelivered) {
-    return states.any(notDeliveredStatuses.contains);
+  // 顺序有意：先认"没发出去的"（任一命中）再认"已送达"（全部相等）。
+  // 一条既有 failed 又有 success 的记录，用户要看到的是"它没全送出去"，不是"它送出去过"。
+  if (states.any(notDeliveredStatuses.contains)) {
+    return deliveryBucketNotDelivered;
   }
-  if (filter == deliveryFilterDelivered) {
-    return states.isNotEmpty && states.every((s) => s == deliveredStatus);
+  if (states.isNotEmpty && states.every((s) => s == deliveredStatus)) {
+    return deliveryBucketDelivered;
   }
-  return false;
+  return deliveryBucketNone;
 }

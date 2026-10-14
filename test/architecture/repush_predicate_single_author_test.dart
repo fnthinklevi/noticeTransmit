@@ -105,26 +105,35 @@ void main() {
     });
   });
 
-  group('送达筛选：粗筛与精筛同源', () {
-    // 片1 时这一条是"从精筛源码里提取状态词，再要求粗筛 LIKE 到"（提取式，尺窄就可能空转）。
-    // 片3 把两层收到同一张词表上 ⇒ 断言改成**构造**：粗筛的参数必须逐字取自那张表。
-    test('SQL 粗筛的 LIKE 参数恰好是词表那几个状态词', () {
-      final (_, args) = DatabaseHelper.buildSearchSql(
+  group('送达筛选：判据只有一遍（T133 走 (c) 之后）', () {
+    // 片1 时这一条是"从精筛源码里提取状态词，再要求粗筛 LIKE 到"（提取式，尺窄就可能空转）；
+    // 片3 把两层收到同一张词表上，断言改成"粗筛参数逐字取自那张表"；
+    // 走 (c) 之后**两层合成一层**：判据算出的桶值存进 `notifications.delivery_bucket`，
+    // SQL 等值筛那一列。所以这一条现在钉的是反面 —— 状态词**不许再出现在 SQL 那一层**，
+    // 出现了就是有人把判据抄了第二遍（片1 那轮漂开的正是那个形状）。
+    test('SQL 那一层只剩"等值筛桶列"，一个状态词都不许抄进来', () {
+      final (where, args) = DatabaseHelper.buildSearchSql(
         deliveryFilter: deliveryFilterNotDelivered,
       );
+      expect(where, contains('delivery_bucket = ?'));
       expect(
-        args,
-        notDeliveredStatuses.map((s) => '%$s%').toList(),
+        where,
+        isNot(contains('delivery_info')),
+        reason: '又开始对 JSON 文本做 LIKE 了 ⇒ 两层筛回来了一半，页数与 hasMore 又会分叉',
+      );
+      expect(
+        args.whereType<String>().where(notDeliveredStatuses.contains).toList(),
+        isEmpty,
         reason:
-            '粗筛不许再自己抄状态词。顺序也要与词表一致 —— 同一份表在两层排成两样，'
-            '读代码的人会以为有两张表（片1 那轮的缺陷正是两层各抄一遍后漂开）。',
+            '状态词出现在 SQL 那一层 ⇒ 判据被抄了第二遍。走 (c) 之后 SQL 只认桶值，'
+            '词表动一处，历史页那一档跟着动是靠**写入侧重算**，不是靠这一层再拼一次 LIKE。',
       );
       // 尺自己的非空自证：表空了上面那句就变成"两个空集合相等"，那是假绿
       expect(notDeliveredStatuses, contains('failed'));
       expect(notDeliveredStatuses.length, greaterThanOrEqualTo(2));
     });
 
-    test('送达词表与档名只有一个作者，其余各处只引用不另抄', () {
+    test('送达词表、档名与桶值只有一个作者，其余各处只引用不另抄', () {
       final users =
           libCode.entries
               .where(
@@ -133,7 +142,10 @@ void main() {
                     e.value.contains('deliveredStatus') ||
                     e.value.contains('deliveryFilterNotDelivered') ||
                     e.value.contains('deliveryFilterDelivered') ||
-                    e.value.contains('matchDeliveryFilter'),
+                    // 走 (c) 新增的这三位同样是"只许引用、不许自造"的词
+                    e.value.contains('matchDeliveryFilter') ||
+                    e.value.contains('deliveryBucketOf') ||
+                    e.value.contains('deliveryBucketNone'),
               )
               .map((e) => e.key)
               .toList()
@@ -144,12 +156,13 @@ void main() {
           'database/database_helper.dart',
           'models/delivery_status.dart',
           'pages/history_page.dart',
-          'services/notification_service.dart',
         ],
         reason:
-            '「这条送达了吗」的消费者集合变了。今天只有 DB（粗筛取词表）、'
-            'service（精筛调那一句）、历史页（档名）三处 —— 新增读者请登记；'
-            '若是绕过词表自己抄一份状态词或档名，改回引用。',
+            '「这条送达了吗」的消费者集合变了。走 (c) 之后只有三处：DB（写入与回填算桶 + 等值筛那一列）、'
+            '判据自己（词表与桶值）、历史页（档名）。'
+            '⚠ `services/notification_service.dart` **已从这个集合里退场** —— 它以前是那句 Dart 精筛的读者，'
+            '现在 SQL 筛的就是同一个判据算出的值，再补一刀就是把同一句判据跑两遍。'
+            '新增读者请登记；绕过词表自己抄一份状态词/档名/桶值的，改回引用。',
       );
     });
   });

@@ -120,4 +120,91 @@ void main() {
       expect(matchDeliveryFilter(d, ''), isFalse);
     });
   });
+
+  group('桶值：T133 走 (c) 之后这一位是判据的唯一去处', () {
+    // 这一族从"SQL 粗筛 + Dart 精筛"收成"算一次、存一列、等值筛"。
+    // 于是桶值的**值域**与**与精筛的一致性**就是全部承诺：值域一破，SQL 那一层筛不到东西；
+    // 一致性一破，同一句判据在两处给出不同答案，而没有任何一层会报错。
+    final shapes = <String, Map<String, dynamic>>{
+      '全成功': statusOf(['success', 'success']),
+      '有失败': statusOf(['success', 'failed']),
+      '只有拦截': statusOf(['intercepted']),
+      '暂停中': statusOf(['paused']),
+      '还在途': statusOf(['sending']),
+      '混合在途': statusOf(['success', 'sending']),
+      '空记录': const {},
+      '异形条目': <String, dynamic>{
+        'chan:a': 'failed',
+        'chan:b': {'message': '没有状态'},
+      },
+    };
+
+    test('每一行恰好落进一个桶，且值域只有那三枚（没有第四枚）', () {
+      const domain = {
+        deliveryBucketDelivered,
+        deliveryBucketNotDelivered,
+        deliveryBucketNone,
+      };
+      for (final e in shapes.entries) {
+        final b = deliveryBucketOf(e.value);
+        expect(domain, contains(b), reason: '${e.key} 算出了值域外的桶值 $b');
+        final hits = <String>[
+          if (b == deliveryBucketDelivered) 'delivered',
+          if (b == deliveryBucketNotDelivered) 'not_delivered',
+          if (b == deliveryBucketNone) 'none',
+        ];
+        expect(hits.length, 1, reason: '${e.key} 落进零个或好几个桶 ⇒ SQL 那一层会重筛或漏筛');
+      }
+    });
+
+    test('桶与那句精筛逐行同答案（下沉没换判据，这是这一片的核心承诺）', () {
+      for (final e in shapes.entries) {
+        for (final filter in [
+          deliveryFilterDelivered,
+          deliveryFilterNotDelivered,
+        ]) {
+          expect(
+            matchDeliveryFilter(e.value, filter),
+            deliveryBucketOf(e.value) == filter,
+            reason:
+                '${e.key} 在档「$filter」下：精筛与桶值给的答案不一样 ⇒ '
+                'SQL 筛的与判据认的是两件事，两层筛又回来了',
+          );
+        }
+        // 「不限定」那一档谁都不匹配（它由调用方当作"不加条件"，不是判据的一档）
+        expect(matchDeliveryFilter(e.value, deliveryFilterAll), isFalse);
+      }
+    });
+
+    test('档名与桶名是同一对常量（SQL 拿档名当值筛的前提）', () {
+      // `buildSearchSql` 那一层不做映射：它把界面给的档名直接当 `delivery_bucket` 的值筛。
+      // 这两句一旦分家，历史页那两档会同时筛不到任何行，而全场测试仍然绿 —— 所以钉在这里。
+      expect(deliveryBucketDelivered, deliveryFilterDelivered);
+      expect(deliveryBucketNotDelivered, deliveryFilterNotDelivered);
+      expect(deliveryBucketNone, isNot(deliveryFilterAll));
+    });
+
+    test('既有成功又有失败的那一行算"没发出去的"，不算"已送达"', () {
+      // 顺序是判据的一部分：用户在"已送达"那一档看到一条有失败的记录，就是替他撒了谎。
+      expect(
+        deliveryBucketOf(statusOf(['success', 'failed'])),
+        deliveryBucketNotDelivered,
+      );
+      expect(
+        deliveryBucketOf(statusOf(['success', 'intercepted'])),
+        deliveryBucketNotDelivered,
+      );
+    });
+
+    test('没状态可说的行落 none，而不是落空串（空串的含义是"没人算过"）', () {
+      expect(deliveryBucketOf(const {}), deliveryBucketNone);
+      expect(
+        deliveryBucketOf(<String, dynamic>{'chan:a': 'failed'}),
+        deliveryBucketNone,
+      );
+      // ⚠ `''` 是**列的默认值**，意思是"这一行没被算过"（迁移没跑或写入咽喉漏了一列）。
+      //   判据永远不许返回它 —— 否则"没人算过"与"算过、两个档都不落"就分不开了。
+      expect(deliveryBucketOf(const {}), isNot(''));
+    });
+  });
 }
