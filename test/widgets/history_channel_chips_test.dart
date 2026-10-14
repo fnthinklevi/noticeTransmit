@@ -5,6 +5,8 @@ import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart'
+    show FnthinkActionTone, FnthinkInlineAction;
 
 import '../test_setup.dart';
 
@@ -131,6 +133,30 @@ void main() {
     expect(foldKey, findsOneWidget);
     expect(find.text('还有 2 个通道'), findsOneWidget);
     expect(find.text('ntfy'), findsNothing);
+  });
+
+  testWidgets('折叠那一枚由行内动作件画出，且取中性档（T148 片14）', (tester) async {
+    await pumpHistory(tester, sixChannelRecord());
+
+    // ⚠ 钉的是**件**不是 key：key 字符串逐字没动（`history-chip-fold-*`），
+    //   所以"换回自搭壳"这一种坏法只能靠 widget 类型逮 —— 而它正是这一格的全部风险
+    //   （壳在，字号 10、色由页面挑，与同行标记混成一片 ⇒ 又读不出点得动）。
+    // ⚠ `matchRoot: true` 必须有：那枚件收 `super.key`＝**键就是件本身**，
+    //   默认口径只往"祖先"找，恒得 0（片11 在同一族上红过一次，那是尺站错了地方）。
+    final action = find.ancestor(
+      of: foldKey,
+      matching: find.byType(FnthinkInlineAction),
+      matchRoot: true,
+    );
+    expect(action, findsOneWidget, reason: '那一枚不是公共件画的 ⇒ 行内动作这一族在这一页长出第二个作者');
+    expect(
+      tester.widget<FnthinkInlineAction>(action).tone,
+      FnthinkActionTone.neutral,
+      reason: '它只改这一行的显示范围、不动任何一条记录 ⇒ 蓝那一档会说成"做了一件会留痕的事"',
+    );
+    // ⚠ "双搭"（件还在、又留一枚自搭壳）不在这条里判：`CupertinoButton` 内部本来就用手势检测器，
+    //   按 widget 类型找 GestureDetector 会命中框架那一枚（那是措辞不是契约）。源码级那一判在
+    //   `test/architecture/history_chip_family_test.dart` ①（体内不许出现 GestureDetector/BoxDecoration）。
   });
 
   testWidgets('不超过一屏枚数时不画折叠那枚（不许凭空多一枚按钮）', (tester) async {

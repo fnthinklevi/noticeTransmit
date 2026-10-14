@@ -797,8 +797,14 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 那一串通道 chip（T133 片2）：**排法与折法走唯一作者** `history_channel_chips.dart`，
   /// 页面这里只交出"这一行此刻展开没有"那一份界面状态。
   ///
-  /// 折叠那枚 chip 是 `GestureDetector`（不是 TextButton）：它跟别的 chip 一样大、
-  /// 一样是状态标记而不是动作，走 TextButton 会长进那本裸按钮台账。
+  /// ⚠ 这一串里只有末尾那一枚**能点**（展开/收起），其余是状态标记 —— 状态标记不许长出 `onTap`：
+  ///   给一枚"通道名 + 送达状态"的标记加点击，等于在同一行里再造一个入口，而那两件事
+  ///   （看这一条的完整信息、看这一条走了哪几条通道）行上早就有各自的出口（点行出详情、长按出菜单）。
+  ///   钉这一维的是 `test/architecture/history_chip_family_test.dart`。
+  ///
+  /// 折叠那一枚在 T148 片14 之前是 `GestureDetector` + 同行 chip 那身外衣，注释原话写着
+  /// 「它跟别的 chip 一样大、一样是状态标记而不是动作」—— **那句是不实陈述**（它有 `onTap`，
+  /// 它一直是动作）；正因如此它才伪装成标记、在屏上读不出点得动。⇒ 现已归 `FnthinkInlineAction`。
   Widget _buildChannelChipWrap(
     NotificationRecord record,
     List<String> rows,
@@ -848,30 +854,22 @@ class _HistoryPageState extends State<HistoryPage> {
     required bool expanded,
     required AppLocalizations l10n,
   }) {
-    return GestureDetector(
+    return FnthinkInlineAction(
+      // ⚠ key 字符串逐字没动（`history-chip-fold-<id>`）：名字里那个 "chip" 是这段历史的化石 ——
+      //   它一直是**动作**（点了改这一行的显示范围），只是穿着同行 chip 那身 10px/radius 3 的外衣，
+      //   代价是用户在屏上读不出它点得动（与 T108 片②、片12 量到的是同一个病）。
+      //   改名＝作废按 key 定位的页面级用例，那不是统一。
       key: ValueKey('history-chip-fold-${record.id}'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() {
+      // 中性档：这一枚只展开/收起同一行的通道清单，不动任何一条记录的状态。
+      tone: FnthinkActionTone.neutral,
+      label: expanded
+          ? l10n.historyChipsCollapse
+          : l10n.historyChipsMore(hiddenCount),
+      onPressed: () => setState(() {
         if (!_expandedChipRows.remove(record.id)) {
           _expandedChipRows.add(record.id);
         }
       }),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-          color: AppColors.inputBg(context),
-          borderRadius: BorderRadius.circular(3),
-        ),
-        child: Text(
-          expanded
-              ? l10n.historyChipsCollapse
-              : l10n.historyChipsMore(hiddenCount),
-          style: TextStyle(
-            fontSize: 10,
-            color: AppColors.secondaryLabel(context),
-          ),
-        ),
-      ),
     );
   }
 

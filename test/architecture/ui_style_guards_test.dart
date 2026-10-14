@@ -300,7 +300,11 @@ void main() {
       'lib/pages/history_page.dart': {
         // T148 片13（2026-10-14）：那 13 枚筛选芯片换进公共件 `FnthinkChoiceChip` ⇒ 3 → 2。
         //   摘掉的那一枚是 `_filterChip` 自搭壳里的 `GestureDetector(`（现在那枚方法只转发）。
-        'GestureDetector(': 2,
+        // T148 片14（2026-10-14）：折叠那枚「还有 N 条／收起」归 `FnthinkInlineAction` ⇒ 2 → 1。
+        //   ⚠ 它以前**冒充状态标记**（同行 chip 那身 10px/radius 3 的外衣），而它有 `onTap` ——
+        //   屏上读不出点得动，与 T108 片②、片12 量到的是同一个病。剩这一枚是登记过的例外
+        //   （「现在推送」蓝底小钮 = 行内填充式小钮，公共件里没有这一档，要统一得先定那个形状）。
+        'GestureDetector(': 1,
         'IconButton(': 7,
         'FilledButton.icon(': 1,
       },
