@@ -579,8 +579,13 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
         // 只在同意之后画 —— 没同意时任何一发都在本机就被挡下（没有"服务器通不通"这回事），
         // 画出来只会把"还没同意"错读成"服务器坏了"。
         if (_consented)
-          FnthinkNote(
+          // T152 片D：这是**状态读数**（最近一发对着当前服务器通没通）⇒ 走带点亮那一枚的
+          // `FnthinkStatusRow`。⚠ 那一枚点只说"此刻通／此刻不通"，三档原话（没测过／不通／通）
+          // 仍由 `_serverHealthText` 一个人给 —— 点不亮**不等于**"坏了"，那句区分在文字里，
+          // 所以这里不许把点当成第二个结论源（T140 那一格量的就是"两枚读数当一枚用"）。
+          FnthinkStatusRow(
             keyName: 'fnthink-server-health',
+            dot: _serverHealth?.reachable == true,
             text: _serverHealthText(l10n),
           ),
         // 「多久问一次货」那一格（T88）。范围与生效值都来自契约经 `FnthinkSettings` 合成后的

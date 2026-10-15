@@ -562,7 +562,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           //    ⚠ 只搬通知档：指令档自己那张卡底部本来就有结论位（`remote-send-note`），
           //    两处都画同一句话 = 同一件事有两个作者（用例当场撞到两个候选）。
           if (_note != null && _tier == FnthinkSendTier.notice)
-            FnthinkNote(keyName: 'fnthink-send-note', text: _note!),
+            // T152 片D：这一句是**状态读数**（服务端收下了没有），不是说明文字 ⇒ 走
+            // `FnthinkStatusRow`：亮的那一枚点跟着 `_sent` 这一个真值走，与当场弹的那一句
+            // `showFnthinkOutcome(ok: _sent, …)` 同源。词仍是原话，一个字没改。
+            FnthinkStatusRow(
+              keyName: 'fnthink-send-note',
+              dot: _sent,
+              text: _note!,
+            ),
           _targetCard(l10n),
           const SizedBox(height: 12),
           if (_tier == FnthinkSendTier.notice)
@@ -1128,7 +1135,13 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         // ⚠ 已发出/被拒那句留在这底下（"我刚做成了什么"离那个按钮近）；
         //   而"为什么发不出去"（还没填齐）在页面最上面 —— 两者位置不同是刻意的。
         if (_note != null)
-          FnthinkNote(keyName: 'remote-send-note', text: _note!),
+          // 与通知档那一枚同一个形状、同一个真值（`_sent`）：两档各画一次结论，
+          // 但"亮=服务端收下了"这一枚点在两档里是同一个意思。
+          FnthinkStatusRow(
+            keyName: 'remote-send-note',
+            dot: _sent,
+            text: _note!,
+          ),
       ],
     );
   }

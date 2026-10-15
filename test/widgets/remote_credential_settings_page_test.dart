@@ -7,6 +7,7 @@ import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_remote_settings.dart';
 import 'package:notice_transmit/services/remote_credential_store.dart';
 import 'package:notice_transmit/services/secure_storage_service.dart';
+import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,7 +71,13 @@ void main() {
   }) async {
     // ⚠ 不给 prefs 打桩的话 `SharedPreferences.getInstance` 抛，而那一页的 `_load`
     //   整块不画 —— 症状是「页面空的」，很容易被误读成"这一格不存在"。
-    SharedPreferences.setMockInitialValues(initialPrefs);
+    // T152 片D：`enabled` 这一档以前是个**空参数** —— 传 true 也不往 prefs 里写，
+    //   于是页面读到的永远是默认关。那几条写 `pump(tester, enabled: true)` 的用例
+    //   其实一直在测"关着"那一路。现在按它写：这一片的用例不许建立在"参数说了而没人做"上。
+    SharedPreferences.setMockInitialValues({
+      ...initialPrefs,
+      if (enabled) 'flutter.${FnthinkRemoteSettings.keyEnabled}': true,
+    });
     final storage = _MemStorage();
     final settings = FnthinkRemoteSettings(contract: contract);
     final store = RemoteCredentialStore(contract: contract, storage: storage);
@@ -308,6 +315,42 @@ void main() {
       find.text(l10n.remoteCredTotpOnce),
       findsOneWidget,
       reason: 'TOTP 那一格是**另一处装配点**：只给密钥那格装上，这一格就没人说话',
+    );
+  });
+
+  // T152 片D：那一格换成 `FnthinkStatusRow` 之后多了一枚点亮的小圆点。这两条钉的是
+  // **点与句子不许说反话** —— 那一枚只跟 `state.enabled` 这一个真值走，接错了（例如恒亮）
+  // 屏幕上就是"一盏灯、一句话"两个结论源。
+  // ⚠ 拆成两条而不是一条里 pump 两次：`SharedPreferences` 的单例在同一发用例里不会跟着
+  //   `setMockInitialValues` 重读，第二次 pump 拿到的还是第一次的值（本仓那条
+  //   "mock 没换就复跑"的同族坑）。两条各测一档，才是各自独立的一发。
+  Color? switchDot(WidgetTester tester) {
+    final box = tester.widget<Container>(
+      find.byKey(const ValueKey('remote-exec-switch-state-dot')),
+    );
+    return (box.decoration! as BoxDecoration).color;
+  }
+
+  testWidgets('总开关开着 ⇒ 状态那一枚点是亮的', (tester) async {
+    await pump(tester, enabled: true);
+    expect(
+      find.byKey(const ValueKey('remote-exec-switch-state')),
+      findsOneWidget,
+    );
+    expect(switchDot(tester), AppColors.green, reason: '开着 ⇒ 亮的是绿的');
+  });
+
+  testWidgets('总开关关着 ⇒ 那一枚不许亮绿，也不许藏起来', (tester) async {
+    await pump(tester, enabled: false);
+    expect(
+      find.byKey(const ValueKey('remote-exec-switch-state-dot')),
+      findsOneWidget,
+      reason: '关着也要画那一枚：藏起来等于说这一页没有"开关状态"这回事',
+    );
+    expect(
+      switchDot(tester),
+      isNot(AppColors.green),
+      reason: '一句"没开"配一盏绿灯，用户不知道该信哪个',
     );
   });
 

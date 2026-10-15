@@ -448,8 +448,11 @@ class _RemoteCredentialSettingsPageState
             ),
           ],
         ),
-        FnthinkNote(
+        FnthinkStatusRow(
+          // T152 片D：那颗开关的当前状态（关着时必须说"任何通知正文都不会被执行"）——
+          // 它是读数，所以走带点亮那一枚的公共件；词仍是 `On`/`Off` 那两句原话。
           keyName: 'remote-exec-local-trigger-state',
+          dot: _localTrigger,
           text: _localTrigger
               ? l10n.remoteExecLocalTriggerOn
               : l10n.remoteExecLocalTriggerOff,
@@ -503,8 +506,10 @@ class _RemoteCredentialSettingsPageState
             ),
           ],
         ),
-        FnthinkNote(
+        FnthinkStatusRow(
+          // T152 片D：开关的当前状态是**读数**，不是说明 ⇒ 点亮那一枚跟着那一个真值走。
           keyName: 'remote-exec-switch-state',
+          dot: state.enabled,
           text: state.enabled
               ? l10n.remoteExecEnabledOn
               : l10n.remoteExecEnabledOff,
@@ -581,8 +586,12 @@ class _RemoteCredentialSettingsPageState
         // ⚠ 三档分开：**没设** / **设了且有指纹（显示打点的那一格）** /
         //   **设了但没有指纹**（存量设备：指纹是后加的那一项）。第三档写成
         //   "已设一把"是**假承诺** —— 它让人以为看得见是哪一把。
-        FnthinkNote(
+        FnthinkStatusRow(
+          // T152 片D：这一句是**这台有没有那把长期密钥**的读数 ⇒ 换成带点亮那一枚的公共件。
+          // ⚠ 点只跟 `state.hasKey` 这一个真值走；三档原话（没设／设了有指纹／设了但没指纹）
+          //   仍由 `_note` 那一位作者给 —— 点不亮不等于"坏了"，那一层区分在文字里。
           keyName: 'remote-cred-key-state',
+          dot: state.hasKey,
           text: !state.hasKey
               ? l10n.remoteCredKeyNone
               : (state.entry?.maskedKey == null
