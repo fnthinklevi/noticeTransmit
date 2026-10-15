@@ -1077,6 +1077,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'This permission is needed to get installed apps list for app filtering.\n\nTap \"Allow\" to go to system settings and enable it manually.';
 
   @override
+  String get appListPermGuideTitle =>
+      'Allow App-List Access in System Settings';
+
+  @override
+  String get appListPermGuideMsg =>
+      'The system calls this \"Read installed apps\" (some ROMs put it under Permissions, others under Other permissions).\n\n\"Open settings\" takes you to this app\'s system page — find that item and allow it; it takes effect when you come back.';
+
+  @override
+  String get autostartGuideTitle => 'Auto-start Lives in Your OEM Settings';
+
+  @override
+  String get autostartGuideMsg =>
+      'Auto-start is not a standard Android permission: each OEM keeps it in its own manager app. There is no unified switch and apps cannot request it.\n\n\"Open settings\" jumps to the page your device provides — set this app to \"allow auto-start\"; it takes effect when you come back.';
+
+  @override
   String get appListPermExtra =>
       'Used to get installed apps list for app-based notification filtering';
 

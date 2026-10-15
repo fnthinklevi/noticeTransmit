@@ -1036,6 +1036,20 @@ class AppLocalizationsZh extends AppLocalizations {
       '该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n点击「允许」后将跳转到系统设置页，请手动开启权限。';
 
   @override
+  String get appListPermGuideTitle => '应用列表权限要让系统放行';
+
+  @override
+  String get appListPermGuideMsg =>
+      '系统里这一项叫「读取已安装的应用列表」（部分机型在「权限」页，部分在「其他权限」或「应用权限」里）。\n\n点「去开启」会跳到本应用的系统设置页 —— 请找到这一项并允许；开完回到应用即可生效。';
+
+  @override
+  String get autostartGuideTitle => '自启动要在厂商的设置里开';
+
+  @override
+  String get autostartGuideMsg =>
+      '自启动不是 Android 的标准权限，各家厂商把它放在自己的管家类应用里，系统没有统一的开关，应用内也申请不到。\n\n点「去开启」会跳到本机对应的那一页 —— 请把本应用设为「允许自启动」；开完回到应用即可生效。';
+
+  @override
   String get appListPermExtra => '用于获取已安装应用列表，支持按应用过滤通知功能';
 
   @override

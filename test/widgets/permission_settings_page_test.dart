@@ -134,19 +134,66 @@ void main() {
     }
   });
 
-  group('应用列表权限那一行（1.5.76 反馈 #3）', () {
-    testWidgets('点一下就直接发起申请，不再先弹应用内说明框', (tester) async {
+  group('应用列表权限那一行（T153 片4：先引导后跳）', () {
+    // ⚠ **这一组在 2026-10-16 被维护者的新要求改写过**，原判据是：
+    //   「点一下就直接发起申请，不再先弹应用内说明框」（1.5.76 反馈 #3，
+    //    理由是"申请动作本身就是这一行的语义"）。
+    //   T153 片4 维护者 2026-10-15 拍板 Q2=a：「得先弹窗提醒用户把话说清楚并引导
+    //   用户进行操作」—— 因为他遇到的实际问题是**跳过去之后不知道该开哪一项**
+    //   （原话"不要只是跳转到应用设置页"）。
+    //
+    // 两次要求都关于"这一行点下去要不要弹"，但**目的不同**：1.5.76 去掉的是
+    // "再问你一次要不要申请"（确认），2026-10-15 加回的是"告诉你去哪找那一项"（指路）。
+    // 本组按最新指令钉"指路那一层在、且它**不拦路**（不点它就不跳）"。
+    // ⚠ 若维护者确认 1.5.76 #3 的意思是"这一行任何时候都别弹任何东西"，
+    //   回退只需删掉 `_guideThenJump` 的两处调用（`permission_settings_page.dart`）。
+    testWidgets('点一下**先弹引导**（说清系统里叫什么），确认后才跳', (tester) async {
       await pumpPage(tester, appListState: 'unknown');
 
       await tester.tap(find.text('应用列表权限'));
       await tester.pumpAndSettle();
 
-      expect(appListTaps, 1, reason: '这一行的语义就是"去申请"，点一次就该走一次');
+      // ① 引导框在场，且它说的是"这一项在系统里叫什么"
       expect(
-        find.text('需要应用列表权限'),
-        findsNothing,
-        reason: '那层说明框是用户要拿掉的中间步骤（它的文案还写着"将跳转到系统设置页"）',
+        find.text('应用列表权限要让系统放行'),
+        findsOneWidget,
+        reason: '没有这一层 ⇒ 用户跳过去站在一页权限列表前不知道开哪一项',
       );
+      expect(
+        find.textContaining('读取已安装的应用列表'),
+        findsOneWidget,
+        reason: '引导必须点出系统里那一项的名字，否则等于只是"跳过去"',
+      );
+      // ② 此刻**还没跳**（拦在引导这一层）
+      expect(appListTaps, 0, reason: '引导还没确认就跳了 ⇒ 那一层是装饰');
+
+      // ③ 点「去开启」才走那一发
+      //    ⚠ 必须限定在弹层内：那一格自己的副标题也写着「点击前往设置」
+      //      （`clickToSettings`，用于厂商那几行），不限定会 ambiguous。
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.text('点击前往设置'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(appListTaps, 1, reason: '确认之后必须真的走那一发');
+    });
+
+    testWidgets('引导里点「取消」⇒ 那一发不走（不许"取消也跳"）', (tester) async {
+      await pumpPage(tester, appListState: 'unknown');
+
+      await tester.tap(find.text('应用列表权限'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.text('取消'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(appListTaps, 0, reason: '取消 = "现在别跳"；取消之后还跳走，用户就失去了"我改主意了"这条出口');
     });
 
     testWidgets('已读到明确授予 ⇒ 该行不再可点（不给"重复申请"留口子）', (tester) async {

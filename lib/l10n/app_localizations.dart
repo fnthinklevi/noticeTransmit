@@ -2006,6 +2006,30 @@ abstract class AppLocalizations {
   /// **'该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n点击「允许」后将跳转到系统设置页，请手动开启权限。'**
   String get appListPermMsg;
 
+  /// No description provided for @appListPermGuideTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用列表权限要让系统放行'**
+  String get appListPermGuideTitle;
+
+  /// No description provided for @appListPermGuideMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统里这一项叫「读取已安装的应用列表」（部分机型在「权限」页，部分在「其他权限」或「应用权限」里）。\n\n点「去开启」会跳到本应用的系统设置页 —— 请找到这一项并允许；开完回到应用即可生效。'**
+  String get appListPermGuideMsg;
+
+  /// No description provided for @autostartGuideTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自启动要在厂商的设置里开'**
+  String get autostartGuideTitle;
+
+  /// No description provided for @autostartGuideMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'自启动不是 Android 的标准权限，各家厂商把它放在自己的管家类应用里，系统没有统一的开关，应用内也申请不到。\n\n点「去开启」会跳到本机对应的那一页 —— 请把本应用设为「允许自启动」；开完回到应用即可生效。'**
+  String get autostartGuideMsg;
+
   /// No description provided for @appListPermExtra.
   ///
   /// In zh, this message translates to:

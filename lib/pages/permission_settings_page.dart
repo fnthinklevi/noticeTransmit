@@ -6,6 +6,7 @@ import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/pull_to_refresh_list.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 class PermissionSettingsPage extends StatefulWidget {
   final bool notificationListenerGranted;
@@ -256,7 +257,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                   title: l10n.xiaomiAutoStart,
                   subtitle: l10n.clickToSettings,
                   isOn: false,
-                  onTap: widget.onRequestXiaomiAutoStart,
+                  onTap: () => _guideThenJump(
+                    title: l10n.autostartGuideTitle,
+                    message: l10n.autostartGuideMsg,
+                    jump: widget.onRequestXiaomiAutoStart,
+                  ),
                   isWarning: true,
                   context: context,
                 ),
@@ -266,7 +271,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                   title: l10n.meizuBgRun,
                   subtitle: l10n.clickToSettings,
                   isOn: false,
-                  onTap: widget.onRequestMeizuBackground,
+                  onTap: () => _guideThenJump(
+                    title: l10n.autostartGuideTitle,
+                    message: l10n.autostartGuideMsg,
+                    jump: widget.onRequestMeizuBackground,
+                  ),
                   isWarning: true,
                   context: context,
                 ),
@@ -276,7 +285,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                   title: l10n.huaweiProtected,
                   subtitle: l10n.clickToSettings,
                   isOn: false,
-                  onTap: widget.onRequestHuaweiLaunch,
+                  onTap: () => _guideThenJump(
+                    title: l10n.autostartGuideTitle,
+                    message: l10n.autostartGuideMsg,
+                    jump: widget.onRequestHuaweiLaunch,
+                  ),
                   isWarning: true,
                   context: context,
                 ),
@@ -286,7 +299,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                   title: l10n.oppoAutoStart,
                   subtitle: l10n.clickToSettings,
                   isOn: false,
-                  onTap: widget.onRequestOppoBackground,
+                  onTap: () => _guideThenJump(
+                    title: l10n.autostartGuideTitle,
+                    message: l10n.autostartGuideMsg,
+                    jump: widget.onRequestOppoBackground,
+                  ),
                   isWarning: true,
                   context: context,
                 ),
@@ -296,7 +313,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                   title: l10n.vivoBgStart,
                   subtitle: l10n.clickToSettings,
                   isOn: false,
-                  onTap: widget.onRequestVivoBackground,
+                  onTap: () => _guideThenJump(
+                    title: l10n.autostartGuideTitle,
+                    message: l10n.autostartGuideMsg,
+                    jump: widget.onRequestVivoBackground,
+                  ),
                   isWarning: true,
                   context: context,
                 ),
@@ -384,12 +405,20 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 AppListPermission.unknown => l10n.appListPermUnknown,
               },
               isOn: _appListPermissionGranted,
-              // 点下去**直接发起申请**（链路见 PermissionService.requestAppListPermission）。
-              // 这里原先先弹一层应用内说明框、再点「允许」才跳系统页 —— 维护者 1.5.76
-              // 反馈 #3 要的就是少这一层：申请动作本身就是这一行的语义。
+              // T153 片4（维护者 2026-10-15 拍板 Q2=a）：点下去**先弹引导，再说去跳**。
+              // ⚠ 这一格与 1.5.76 反馈 #3 去掉的那一层不是同一层：那次去掉的是
+              //   「进筛选页就自动弹」，这次是"用户主动点了这一行" —— 他正要跳走，
+              //   此刻最需要知道的正是"系统里它叫什么、去哪找、开完回来"。
+              //   而这一格从前只有一个「应用列表权限」的标题，跳过去之后用户
+              //   面对一页密密麻麻的权限项，不知道开哪一项（维护者原话：
+              //   "不要只是跳转到应用设置页"）。
               onTap: _appListPermissionGranted
                   ? null
-                  : widget.onRequestAppListPermission,
+                  : () => _guideThenJump(
+                      title: l10n.appListPermGuideTitle,
+                      message: l10n.appListPermGuideMsg,
+                      jump: widget.onRequestAppListPermission,
+                    ),
               context: context,
             ),
             Padding(
@@ -641,6 +670,38 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     if (_isOppo) return widget.onRequestOppoBackground;
     if (_isVivo) return widget.onRequestVivoBackground;
     return null;
+  }
+
+  /// 跳系统页之前**先把话说清楚**（T153 片4，维护者 2026-10-15 拍板 Q2=a）。
+  ///
+  /// 这一族动作全都有一个共同的坑：点下去屏幕直接切走，用户站在一页陌生的系统设置里
+  /// 不知道自己要找什么。所以每次跳之前先说清三件事 —— **系统里它叫什么、去哪一页、
+  /// 开完回来**（第三件尤其重要：不说它，用户不敢确定自己开对了没有）。
+  ///
+  /// ⚠ 与 1.5.76 反馈 #3 不冲突，两个语境不同：那一次去掉的是「**进页面就自动弹**一层」
+  ///   （用户正在做事，被无来由的弹层打断）；这一层是「**用户刚点了这一行**」时的说明 ——
+  ///   他正要跳走，此刻的说明是他要的那一件。判据也一样：前者拦路，后者铺路。
+  ///
+  /// ⚠ 拒绝的那条路**什么都不做**（不跳、不记状态）：这一格本来就没被授予，
+  ///   用户点"取消"的意思就是"现在别跳"。
+  Future<void> _guideThenJump({
+    required String title,
+    required String message,
+    required VoidCallback jump,
+  }) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final allowed = await IosDialogActions.showPermissionGuide(
+      context,
+      icon: Icons.settings,
+      title: title,
+      message: message,
+      rejectText: l10n.cancel,
+      // 「允许」在这一族里是"去开启"：它不是一次授权（应用内根本授不了），
+      // 而是一次**跳转约定**。文案照实说，用户才知道按下去会发生什么。
+      allowText: l10n.clickToSettings,
+    );
+    if (allowed) jump();
   }
 
   /// 组标题走公共件 `FnthinkRowLabel`（T146 片4）：这张页只交出**它在自己版面里的留白**（12px 起），
