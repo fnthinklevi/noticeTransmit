@@ -79,6 +79,16 @@ describe('基础端点与安全头', () => {
     const api = await request(app).get('/api/admin/version');
     expect(api.headers['cache-control']).toContain('no-store');
   });
+
+  // 兼容旧地址 /public/admin.html 返回的是同一份后台页面，CSP 必须照样盖上：
+  // 少这一条，走旧地址部署的那台实例会拿到一个没有 CSP 的管理面，而它看起来
+  // 与正常访问毫无区别（页面照常工作，只是少了一层 XSS 兜底）。
+  test('兼容地址 /public/admin.html 同样启用严格 CSP', async () => {
+    const res = await request(app).get('/public/admin.html');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-security-policy']).toContain("default-src 'self'");
+    expect(res.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+  });
 });
 
 describe('认证与会话', () => {
@@ -354,6 +364,39 @@ describe('二步验证 TOTP 全流程', () => {
       .send({ token: ADMIN_TOKEN, otp: await totpFor(secret) });
     expect(relogin.status).toBe(200);
     sessionId = relogin.body.sessionId;
+  });
+
+  // 2026-10-15 审计修复：secret 的形状必须**先判再验码**。少了这一道的表现不是
+  // "安全漏洞"，而是一句骗人的错误消息 —— otplib 对畸形 secret 抛的是
+  // SecretTooShortError 一类，被 verifyOtp 吞成 false，对外只剩「验证码错误」，
+  // 运维照这句话去查认证器，而真问题是提交进来的根本不是一把 base32。
+  test('enable 拒收畸形 secret（base32 形状先判，不靠 verifyOtp 事后吞）', async () => {
+    const shapes = [
+      'short', // 太短
+      'not-base32-!!!', // 含字母表外字符
+      'a'.repeat(64), // 长度够但不是 base32 字母表（小写 + 数字 0/1/8/9 都不在表内）
+      'secret with spaces', // 含空格
+      // 合法形状（32 字符纯 base32 大写，≥26）+ 错码 ⇒ 走验码那条，不是形状这条
+      'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
+    ];
+    // 注：空串不走这一条 —— 它被前面的 `!secret` 拦住回「参数缺失」，那是另一条分支。
+    for (const bad of shapes.slice(0, 4)) {
+      const res = await request(app)
+        .post('/api/admin/totp/enable')
+        .set('x-session-id', sessionId)
+        .send({ secret: bad, otp: '123456' });
+      expect(res.status).toBe(400);
+      // 关键在 message：必须说清是 secret 形状不对，而不是「验证码错误」
+      expect(res.body.message).toContain('base32');
+    }
+    // 最后一个是合法形状 + 错码 ⇒ 走验码分支，消息是「验证码错误」——
+    // 两条路的消息必须分得开，否则这道校验等于没加（反证：把条件改成恒假即这条红）。
+    const wrongCode = await request(app)
+      .post('/api/admin/totp/enable')
+      .set('x-session-id', sessionId)
+      .send({ secret: shapes[4], otp: '123456' });
+    expect(wrongCode.status).toBe(400);
+    expect(wrongCode.body.message).toBe('验证码错误');
   });
 
   test('安全回归：开启 2FA 前铸造的 token-only 会话已失效', async () => {

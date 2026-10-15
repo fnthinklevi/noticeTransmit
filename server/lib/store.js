@@ -128,7 +128,12 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // ========== 限流（内存 + 定期持久化） ==========
 
-const rateLimitStore = {};
+// 必须用 null 原型：键是 `${ip}:${bucket}`，而 ip 在 TRUST_PROXY>0 时取自客户端可控的
+// X-Forwarded-For。用 `{}` 时 `rateLimitStore['constructor']` 会沿原型链返回真值 ⇒
+// "这个键已经建过"被误判，计数器永不新建，对那个主体的限流静默失效（与下面
+// isValidSession 注释里那条同一族）。正常键里带冒号，不可能等于原型属性名，
+// 但防卫不依赖"今天恰好安全"。
+const rateLimitStore = Object.create(null);
 
 function saveRateLimitStore() {
   // 仅保存当前窗口内的记录，减少文件体积
@@ -140,7 +145,9 @@ function saveRateLimitStore() {
     }
   }
   if (Object.keys(slim).length > 0) {
-    writeJsonFile(RATE_LIMIT_FILE, slim);
+    if (!writeJsonFile(RATE_LIMIT_FILE, slim)) {
+      console.error('[persist] 限流表写入失败：重启后窗口计数清零，被限流的 IP 会立刻放行');
+    }
   } else {
     // 全部过期就删文件
     try {
@@ -243,7 +250,12 @@ function revokeAllSessions(reason) {
 }
 
 function saveSessions() {
-  writeJsonFile(SESSIONS_FILE, sessions);
+  // 写盘失败必须在这里点明是哪张表：writeJsonFile 内部只打路径，而"会话没落盘"与
+  // "封锁记录没落盘"的后果完全不同（前者=重启后要重新登录，后者=封过的 IP 解封）。
+  // 同一个 return false 不该被三种调用方咽成同一种沉默。
+  if (!writeJsonFile(SESSIONS_FILE, sessions)) {
+    console.error('[persist] 会话表写入失败：重启后已登录的后台会话全部失效，需重新登录');
+  }
 }
 
 // 启动时加载上次的会话
@@ -299,7 +311,13 @@ function getBlockedIPs() {
 
 function saveBlockedIPs(ips) {
   blockedIPsCache = Array.isArray(ips) ? ips : [];
-  return writeJsonFile(BLOCK_FILE, blockedIPsCache);
+  if (!writeJsonFile(BLOCK_FILE, blockedIPsCache)) {
+    // 这一条最安静也最危险：isIpBlocked 在读路径上就会调它（过期条目剔除），
+    // 失败被咽掉意味着"这次该解封的没解封、该续期的没续期"，而日志里一个字都没有。
+    console.error(
+      '[persist] IP 封锁表写入失败：内存与磁盘已分叉，重启后封锁名单回退到上一次落盘的版本',
+    );
+  }
 }
 
 function isIpBlocked(ip) {
@@ -340,7 +358,9 @@ let failedAttempts = loadFailedAttempts();
 function loadFailedAttempts() {
   const data = readJsonFile(FAILED_ATTEMPTS_FILE, {});
   const cutoff = Date.now() - FAILURE_WINDOW_MINUTES * 60 * 1000;
-  const cleaned = {};
+  // null 原型：ip 在 TRUST_PROXY>0 时来自客户端可控的 X-Forwarded-For，
+  // 普通对象上的 `failedAttempts['__proto__'].count++` 会写进 Object.prototype。
+  const cleaned = Object.create(null);
   for (const [ip, record] of Object.entries(data)) {
     if (record.lastAttempt > cutoff) {
       cleaned[ip] = record;
@@ -354,39 +374,35 @@ function loadFailedAttempts() {
 
 function saveFailedAttempts(data) {
   const cutoff = Date.now() - FAILURE_WINDOW_MINUTES * 60 * 1000;
-  const cleaned = {};
+  const cleaned = Object.create(null);
   for (const [ip, record] of Object.entries(data)) {
     if (record.lastAttempt > cutoff) {
       cleaned[ip] = record;
     }
   }
-  writeJsonFile(FAILED_ATTEMPTS_FILE, cleaned);
+  if (!writeJsonFile(FAILED_ATTEMPTS_FILE, cleaned)) {
+    // 丢的是"还差几次就封 IP"那张账：重启后攻击者白送一整轮尝试，而封锁策略
+    // 全靠它计数。这类静默失败比会话丢失更接近安全事件，所以单独点出来。
+    console.error('[persist] 2FA 失败计数写入失败：重启后失败次数清零，封锁策略从零开始计');
+  }
 }
 
 function recordFailedAttempt(ip) {
-  if (!failedAttempts[ip]) {
-    failedAttempts[ip] = {
-      count: 0,
-      firstAttempt: Date.now(),
-      lastAttempt: Date.now(),
-    };
+  const now = Date.now();
+  const windowMs = FAILURE_WINDOW_MINUTES * 60 * 1000;
+  // 窗口判定排在计数**之前**：这条记录早就过了窗口，就当全新的一次失败（count=1）。
+  // 写在后面的最终效果等价，但"先给旧计数 +1、再用旧窗口判断要不要重置"读起来像在
+  // 修改历史计数；而下一个人改窗口长度时，很容易只改一处而漏掉另一处。
+  let record = failedAttempts[ip];
+  if (!record || now - record.firstAttempt > windowMs) {
+    record = { count: 0, firstAttempt: now, lastAttempt: now };
+    failedAttempts[ip] = record;
   }
 
-  failedAttempts[ip].count++;
-  failedAttempts[ip].lastAttempt = Date.now();
+  record.count += 1;
+  record.lastAttempt = now;
 
-  const windowStart = failedAttempts[ip].firstAttempt;
-  const windowEnd = windowStart + FAILURE_WINDOW_MINUTES * 60 * 1000;
-
-  if (Date.now() > windowEnd) {
-    failedAttempts[ip] = {
-      count: 1,
-      firstAttempt: Date.now(),
-      lastAttempt: Date.now(),
-    };
-  }
-
-  if (failedAttempts[ip].count >= MAX_FAILED_ATTEMPTS) {
+  if (record.count >= MAX_FAILED_ATTEMPTS) {
     if (!DISABLE_IP_BLOCKING) {
       blockIp(ip);
     }

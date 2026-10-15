@@ -41,6 +41,11 @@ function securityHeaders(req, res, next) {
 const RATE_LIMIT_MAX_KEYS = 20000;
 
 function createRateLimitMiddleware(maxRequests, windowMs, message) {
+  // 过期条目按**时间周期**回收，而不是只靠"来新 key"触发。原因：一个 IP 死磕同一个
+  // bucket 时永远不会有新 key，而 RATE_LIMIT_MAX_KEYS 那把硬顶是全局的 —— 不按期扫，
+  // 被过期条目占着的格子要等到任意一个新 key 才释放，"表已满 ⇒ 这一发不记账"的
+  // fail-open 窗口会被无限拉长（越久放行，能偷的额度越多）。
+  let lastSweepAt = 0;
   return (req, res, next) => {
     // 已有专职限流器的路径不再吃全局那份额度（否则拆桶等于白拆：两把闸门里紧的那把先响）
     if (store.dedicatedRateLimitCovers(req.path)) return next();
@@ -53,9 +58,12 @@ function createRateLimitMiddleware(maxRequests, windowMs, message) {
     const key = `${ip}:${bucket}`;
     const now = Date.now();
 
+    if (now - lastSweepAt >= windowMs) {
+      lastSweepAt = now;
+      store.cleanupRateLimitStore();
+    }
     if (!store.rateLimitStore[key]) {
       // 兜底封顶：极端情况（海量不同 IP）下先清过期，仍超限则本次不记账
-      store.cleanupRateLimitStore();
       if (Object.keys(store.rateLimitStore).length >= RATE_LIMIT_MAX_KEYS) {
         return next();
       }

@@ -339,7 +339,20 @@ router.post(
     const out = [];
     for (const taken of dispatched.taken) {
       const record = messages[taken.messageId];
-      const content = decryptBodyFor(contract, process.env.ENCRYPTION_KEY, record.body);
+      let content;
+      try {
+        content = decryptBodyFor(contract, process.env.ENCRYPTION_KEY, record.body);
+      } catch (e) {
+        // 解不开几乎总是 ENCRYPTION_KEY 被轮换过（旧密文是旧密钥封的）。整条 poll 失败
+        // 是对的（fail-closed：宁可设备什么都取不到，也不把一条解不出的消息静默跳过——
+        // 跳过就等于替发送方宣布"这条没发过"），但错误必须点名是哪一条、哪台设备：
+        // 否则运维在日志里只看到一句"服务器内部错误"，而那条消息会一直卡到过期，
+        // 并且每一轮 poll 再炸一次。
+        console.error(
+          `[fnthink:poll] 正文解密失败 device=${auth.sender} messageId=${record.messageId}: ${e.message}`,
+        );
+        throw e;
+      }
       out.push(projectForPoll(record, content));
     }
     const receipts = receiptsForSender(
@@ -1010,7 +1023,10 @@ function handleEndpointProbe(req, res) {
     message: readIngress(contract, {}, {}),
     secure,
     ip,
-    method: 'POST',
+    // 用请求的真实方法而不是硬编码 'POST'：这条路由今天只注册了 POST（见下面的注册
+    // 顺序注释），所以两者等价；但硬编码的那一份在将来有人补一条 GET 探针时不会报错，
+    // 只会让 ④ 那道 postOnly 判定永远不执行 —— 而"探针走的是哪条路"就静默地变了。
+    method: req.method,
     now,
     dryRun: true,
   });

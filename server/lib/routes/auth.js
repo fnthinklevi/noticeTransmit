@@ -284,9 +284,24 @@ router.post(
       return res.status(400).json({ code: -1, message: '参数缺失' });
     }
 
+    // 形状先判，再验码。otplib 对畸形 secret 抛的是 SecretTooShortError 一类，被
+    // verifyOtp 吞成 false 之后对外只有一句"验证码错误" —— 运维照这句话去查认证器，
+    // 而真问题是提交进来的根本不是一把 base32 secret（setup 响应被改过 / 手抄漏字符）。
+    // RFC 4648 的 base32 大写字母表 + 右填充；otplib v13 另要求解码后 ≥16 字节
+    // （= 26 个 base32 字符，见 otp.js 的 buildOtpVerifyOptions）。
+    // 顺手 trim：Setup 响应里的 secret 经 JSON 往返不带空白，但手抄/粘贴会带上，
+    // 而 store 出去的原样串下一次验证会直接解不开。
+    const secretText = String(secret).trim();
+    if (!/^[A-Z2-7]+=*$/.test(secretText) || secretText.replace(/=+$/, '').length < 26) {
+      return res.status(400).json({
+        code: -1,
+        message: 'secret 不是合法的 base32 串（请从「二步验证设置」重新获取，不要手抄修改）',
+      });
+    }
+
     let isValid = false;
     try {
-      isValid = await verifyOtp(secret, otp);
+      isValid = await verifyOtp(secretText, otp);
     } catch (e) {
       console.error('TOTP enable verify error:', e.message);
       isValid = false;
@@ -299,7 +314,7 @@ router.post(
     const { plain: recoveryCodes, hashed: hashedCodes } = await store.generateRecoveryCodes();
     const config = {
       enabled: true,
-      secret,
+      secret: secretText,
       recoveryCodes: hashedCodes,
     };
 
