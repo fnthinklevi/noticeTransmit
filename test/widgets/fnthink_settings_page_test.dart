@@ -26,6 +26,7 @@ import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
+import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
 import 'package:notice_transmit/services/fnthink_grant_items.dart';
 import 'package:notice_transmit/services/fnthink_remote_action_categories.dart';
@@ -3022,23 +3023,59 @@ void main() {
 
       final named = find.byKey(const ValueKey('fnthink-endpoint-row-ep_new'));
       await revealTo(tester, named);
+      // T152 片C：那一行不再是一个 `Text` 里的整句 ——「这一把是谁」在主文案格、
+      // 使用读数在副文案格（`-sub`）、「收不收信」在状态徽标格（`-row` 子树里那枚
+      // `FnthinkStatusMark`）。**三件事一条都没少**，断言只是跟着各回各的格。
       expect(
         tester.widget<Text>(named).data,
-        '${l10n.fnthinkEndpointRowNamed('自家 NAS', 'ep_new')} · '
-        '${l10n.fnthinkEndpointUsable} · '
-        '${l10n.fnthinkEndpointLastUsedUnknown}',
+        l10n.fnthinkEndpointRowNamed('自家 NAS', 'ep_new'),
         reason:
             '那一行要的是**这一把**的 id 与名字，不是"你有几把"这种代词；'
-            '这一发的载荷里压根没有 `lastUsedAt` 这一栏 ⇒ 只能说"没说"，不能说"从没收过"（T127 ②）',
+            'id 不能丢，因为用户要拿它去核 NAS 那边填的是不是同一把',
+      );
+      final namedMark = tester.widget<FnthinkStatusMark>(
+        find.byKey(const ValueKey('fnthink-endpoint-row-ep_new-mark')),
+      );
+      expect(
+        namedMark.label,
+        l10n.fnthinkEndpointUsable,
+        reason: '能用那一档说的是"还能收信"，徽标不许把它写成别的词',
+      );
+      expect(
+        namedMark.color,
+        AppColors.green,
+        reason:
+            '能用＝绿、已经不收信＝红：这一档沿用结论那四色的口径。'
+            '换成任何一种"看起来像链接"的蓝，那一行就同时是"能用"和"说不清"',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-endpoint-row-ep_new-sub')),
+            )
+            .data,
+        l10n.fnthinkEndpointLastUsedUnknown,
+        reason: '这一发的载荷里压根没有 `lastUsedAt` 这一栏 ⇒ 只能说"没说"，不能说"从没收过"（T127 ②）',
       );
       final revoked = find.byKey(const ValueKey('fnthink-endpoint-row-ep_old'));
       await revealTo(tester, revoked);
       expect(
         tester.widget<Text>(revoked).data,
-        '${l10n.fnthinkEndpointRowUnnamed('ep_old')} · '
-        '${l10n.fnthinkEndpointNotUsable('revoked')} · '
-        '${l10n.fnthinkEndpointLastUsedUnknown}',
+        l10n.fnthinkEndpointRowUnnamed('ep_old'),
         reason: '没起名要说"未命名"；已吊销的那行不能消失，否则"我明明建过"变成"界面说没有"',
+      );
+      final oldMark = tester.widget<FnthinkStatusMark>(
+        find.byKey(const ValueKey('fnthink-endpoint-row-ep_old-mark')),
+      );
+      expect(
+        oldMark.label,
+        l10n.fnthinkEndpointNotUsable('revoked'),
+        reason: '已吊销那一档要把服务端那个状态词带出来（revoked 与 paused 是两回事）',
+      );
+      expect(
+        oldMark.color,
+        AppColors.red,
+        reason: '不再收信那一档必须是红的那一档：与"能用"同色就等于界面没说它已经死了',
       );
       expect(
         find.byKey(const ValueKey('fnthink-endpoint-list-none')),
@@ -3109,7 +3146,9 @@ void main() {
       final l10n = await pumpEndpoint(tester, h);
       await tapRead(tester);
       String rowOf(String id) {
-        final f = find.byKey(ValueKey('fnthink-endpoint-row-$id'));
+        // T152 片C：那一把"上一次什么时候收过信"现在在副文案那一格（`-sub`），
+        // 主文案那一格是这一把的名字与 id。三档口径一条没变，只是各自回到自己的格。
+        final f = find.byKey(ValueKey('fnthink-endpoint-row-$id-sub'));
         return tester.widget<Text>(f).data!;
       }
 

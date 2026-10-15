@@ -481,14 +481,34 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
           )
         else
           for (final row in listing.endpoints!) ...[
-            FnthinkNote(
+            // T152 片C：端点那一行照设备名单行同一枚形状（48px：图标块 · 是谁 · 那一把的
+            // 使用读数 · 状态徽标 · 行尾动作槽）。原来那一句用 ' · ' 把三件事串成一行小灰字，
+            // 于是"这一把现在收不收信"与"上次什么时候收过"在屏上是同一种东西。
+            // ⚠ key `fnthink-endpoint-row-<id>` 逐字搬过去，宿主仍是主文案那枚 `Text`。
+            FnthinkPeerRow(
               keyName: 'fnthink-endpoint-row-${row.id}',
-              text:
-                  '${row.name.isEmpty ? l10n.fnthinkEndpointRowUnnamed(row.id) : l10n.fnthinkEndpointRowNamed(row.name, row.id)}'
-                  ' · '
-                  '${row.usable ? l10n.fnthinkEndpointUsable : l10n.fnthinkEndpointNotUsable(row.status)}'
-                  ' · '
-                  '${_endpointUsedTail(l10n, row)}',
+              icon: Icons.link,
+              iconColor: AppColors.blue,
+              title: row.name.isEmpty
+                  ? l10n.fnthinkEndpointRowUnnamed(row.id)
+                  : l10n.fnthinkEndpointRowNamed(row.name, row.id),
+              subtitle: _endpointUsedTail(l10n, row),
+              // 「能用／不能用」是这一行唯一的状态读数 ⇒ 它进徽标，不进正文。
+              // 绿／红这两档沿用结论那四色的口径（能用＝绿的，已经不收信＝红的），
+              // 不在这里另挑一种颜色。
+              statusMark: FnthinkStatusMark(
+                // 派生 key 由调用点给（这一枚是页面传进来的件，不是行自己造的）：
+                // 行级 keyName 落在主文案那枚 `Text` 上，徽标要有自己可被断言的那一位。
+                key: ValueKey('fnthink-endpoint-row-${row.id}-mark'),
+                role: FnthinkMarkRole.attribute,
+                label: row.usable
+                    ? l10n.fnthinkEndpointUsable
+                    : l10n.fnthinkEndpointNotUsable(row.status),
+                color: row.usable ? AppColors.green : AppColors.red,
+              ),
+              // 这一行没有详情页：能做的两下（关掉／换一把）留在行下当文字动作，
+              // 阶段3 的收纳只管配对页那三枚并排的文字按钮。
+              onTap: null,
             ),
             // 已经不收信的那一把**不再给"关掉"或"换一把"那两下**：那一行没有可操作的东西了，
             // 而给它一个按下去只会拿到一句幂等答复的按钮，等于在界面上摆一个假动作。
