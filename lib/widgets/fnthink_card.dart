@@ -549,6 +549,297 @@ class FnthinkEntryRow extends StatelessWidget {
   }
 }
 
+/// 设备／端点那一族的**列表行**（T150 片A：维护者 2026-10-15 改进方案 阶段1 组件 A）。
+///
+/// ## 为什么不是 [FnthinkEntryRow]
+/// 那一枚是「进一页」的行：右端固定一枚 chevron、**没有读数位**。名单／端点这些行要当场回答的是
+/// 三件不同的事 —— 这一行是谁、它此刻是什么档、能对它做什么动作。把读数挤进入口行，
+/// 就是把"只是状态的标记"和"能点的那一枚"放进同一格（片14 那条族规矩拦的正是这个形状）。
+///
+/// ## 行高钉死 48，不随内容长短走
+/// 「同页对齐」判的是同一张卡里连着几行高度一致，而这一族的行是**要扫读**的（在一堆设备里找那台）。
+/// 比 [HistoryRowTile] 的 44 高 4px，因为这一枚带图标块 —— 块的尺寸取 [FnthinkEntryRow] 那一枚
+/// （30／圆角 8／图标 18）：入口行与设备行会被连着看，块一分叉就是"两种行"。
+///
+/// ## `keyName` 落在主文案那枚 `Text` 上，不落容器
+/// 本仓行级断言全是 `tester.widget<Text>(find.byKey(...)).data` —— 宿主挂到容器上那一发拿到的是
+/// null（`HistoryRowTile` 把 key 挂 InkWell 上是另一族断言：它按 key **点行**）。副文案另给一枚
+/// 派生 key `'$keyName-sub'`：「档位」「授权时刻」各是各的事实，要能被单独断，而不是只能对整句 contains。
+///
+/// ## `onTap` 为 null ⇒ 整行点不动，但 `trailing` 仍点得动
+/// 这正是名单页的形状：那一行**没有详情页**，能点的只有行尾那颗「⋯」。所以这里靠
+/// `CupertinoButton(onPressed: null)`（它只是不挂手势），**不用** `IgnorePointer` —— 后者会连着
+/// 把行尾那颗一起废掉，而"忙的时候点不动"是这一族从 [FnthinkEntryRow] 就搬过来的语义。
+class FnthinkPeerRow extends StatelessWidget {
+  const FnthinkPeerRow({
+    required this.keyName,
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    this.subtitle,
+    this.statusMark,
+    this.trailing,
+    this.onTap,
+    super.key,
+  });
+
+  final String keyName;
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+
+  /// 第二行小字（时刻、别名这类**从属**读数）。留空是版式，不是忘了写。
+  final String? subtitle;
+
+  /// 右端的读数件（今天就是 [FnthinkStatusMark]：档位、授权状态）。
+  final Widget? statusMark;
+
+  /// 行尾动作件（「⋯」那一枚）。给了它就不再画 chevron —— 一行只能有一个"能点的东西"被读出来。
+  final Widget? trailing;
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      key: ValueKey('$keyName-row'),
+      onPressed: onTap,
+      // 留白在这一层定死：`CupertinoButton` 的默认 padding 会让行高随内容变，钉不住 48。
+      padding: EdgeInsets.zero,
+      child: SizedBox(
+        height: 48,
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: iconColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 18, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    key: ValueKey(keyName),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      key: ValueKey('$keyName-sub'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryLabel(context),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (statusMark != null) ...[const SizedBox(width: 8), statusMark!],
+            if (trailing != null) ...[
+              const SizedBox(width: 4),
+              trailing!,
+            ] else if (onTap != null) ...[
+              const SizedBox(width: 6),
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: AppColors.tertiaryLabel(context),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 历史那一族的**方向**（这一发是本机发起的，还是对面来的）。
+///
+/// 图标与颜色**配在这一处**、由各页二选一，而不是各页自己挑一对：同屏还有
+/// [FnthinkOutcomeTone] 那四色（结论），方向再各自上色就会长出"第二种蓝"。
+///
+/// ⚠ 这两枚色**刻意取在结论那四色之外**（紫／青，避开绿红蓝灰）：一行历史里方向与结论是
+/// 两个主语（"谁发出的"与"成了没有"），共色会把它们说成同一件事。
+/// 方向那句话（`directionLabel`）仍然留在行上 —— 色是**加**的第二道判据，不是替掉词。
+enum FnthinkHistoryDirection {
+  outgoing(Icons.arrow_upward, AppColors.purple),
+  incoming(Icons.arrow_downward, AppColors.cyan);
+
+  const FnthinkHistoryDirection(this.glyph, this.color);
+
+  final IconData glyph;
+  final Color color;
+}
+
+/// 一条历史行末尾那枚**结论**的颜色档（已同意=绿／已拒绝=红／已过期=灰／等待中=蓝）。
+///
+/// ⚠ 这里只有色，**没有词**。词由各页那一族唯一作者给（`_pairStateWord` 那一支，对着契约词表），
+/// 在这里再造一份"哪个状态说哪句话"就会长出第二个词表：内核加一种状态时这里不会红，
+/// 而它会开始把不认识的状态说成某个已知的。
+enum FnthinkOutcomeTone { approved, denied, expired, pending }
+
+/// 历史行（只读）：方向 · 是谁 · 档位 · 结论 · 时刻（T150 片A 组件 B）。
+///
+/// ## 与 [FnthinkPeerRow] 的分别就在"能不能点"
+/// 历史是**已经落定的事实**：没有行内动作、没有 chevron、没有任何可点宿主。这一条不只写在文档里 ——
+/// 它钉在 `test/widgets/fnthink_row_shape_test.dart`：这一枚的子树里出现 `CupertinoButton`／
+/// `InkWell`／`GestureDetector` 就红。将来有人给历史行加"重推"入口时，红的不是形状，
+/// 是"历史不可改"这句口径（行内重推那一发走的是 T133 片(b) 的**转发行**，不是这一族）。
+///
+/// ## 44px、单行主文案 + 一行从属读数
+/// 与 `HistoryRowTile` 同一量级（那边 44），因为这里是**扫读结论**的地方：一行一条，翻一遍就知道结果。
+/// 第二行放「发起／收到那句话 + 多久之前」：那句话**留着**而不是被箭头替掉 ——
+/// ARB 死词条棘轮（`arb_dead_entries_ratchet_test`，登记表此刻是空的、零容忍）红起来说的就是
+/// "有人把一句人话从屏上抹掉了"，而形状是**加**判据，不该拿掉词去换。
+///
+/// ## `keyName` 落主文案，四枚派生 key 落各格
+/// `'$keyName-icon'`／`'-direction'`／`'-time'`／`'-level'`／`'-outcome'`／`'-row'`。
+/// 换件时页面按 `keyName` 逐字搬（`fnthink-pair-history-<requestId>` 那一族判据认的就是它）。
+class FnthinkHistoryRow extends StatelessWidget {
+  const FnthinkHistoryRow({
+    required this.keyName,
+    required this.direction,
+    required this.directionLabel,
+    required this.peerLabel,
+    required this.outcomeLabel,
+    required this.outcomeTone,
+    this.levelChip,
+    this.timeLabel,
+    super.key,
+  });
+
+  final String keyName;
+  final FnthinkHistoryDirection direction;
+
+  /// 「我发起的／对方请求的」那一句，由调用点给（词表在 l10n，件不造词）。
+  final String directionLabel;
+  final String peerLabel;
+
+  /// 结论那一句的原话（同上：词由那一页的唯一作者给）。
+  final String outcomeLabel;
+  final FnthinkOutcomeTone outcomeTone;
+
+  /// 这一条当时请求／授予的那一档（`L1`／`L2`／`L3`）。null ⇒ 那一格不留空位。
+  final String? levelChip;
+
+  /// 「多久之前」。null ⇒ 不画（不是画一个"—"假装有时间）。
+  final String? timeLabel;
+
+  Color _toneColor(BuildContext context) => switch (outcomeTone) {
+    FnthinkOutcomeTone.approved => AppColors.green,
+    FnthinkOutcomeTone.denied => AppColors.red,
+    FnthinkOutcomeTone.pending => AppColors.blue,
+    // 灰这一档刻意取 `tertiaryLabel` 而不是 `AppColors.systemGray`：后者那两枚值是**底色**
+    // （浅色档 0xFFF2F2F7），画在白卡上等于隐形。同族那一枚点在
+    // `remote_history_page` 里就正踩在这个坑上（已登记，不在本片范围）。
+    FnthinkOutcomeTone.expired => AppColors.tertiaryLabel(context),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      // 行高钉在这里，`Container` 只做测量位（断言按 key 拿高度，不拿字号）。
+      height: 44,
+      child: Container(
+        key: ValueKey('$keyName-row'),
+        alignment: Alignment.center,
+        child: Row(
+          children: [
+            Icon(
+              direction.glyph,
+              size: 18,
+              color: direction.color,
+              key: ValueKey('$keyName-icon'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    peerLabel,
+                    key: ValueKey(keyName),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          directionLabel,
+                          key: ValueKey('$keyName-direction'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.secondaryLabel(context),
+                          ),
+                        ),
+                      ),
+                      if (timeLabel != null) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          timeLabel!,
+                          key: ValueKey('$keyName-time'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.tertiaryLabel(context),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (levelChip != null) ...[
+              const SizedBox(width: 8),
+              // 属性档（无边框、w600）：档位是这一条**有什么**，不是这一条成了没有。
+              FnthinkStatusMark(
+                key: ValueKey('$keyName-level'),
+                role: FnthinkMarkRole.attribute,
+                label: levelChip!,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ],
+            const SizedBox(width: 6),
+            // 结论取 tier 档（唯一带描边的那一档）：这一行要扫的就是"成了没有"。
+            FnthinkStatusMark(
+              key: ValueKey('$keyName-outcome'),
+              role: FnthinkMarkRole.tier,
+              label: outcomeLabel,
+              color: _toneColor(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// 一排**可选项**里的一枚（T108 片②：从发送页那四枚各搭一遍的 `CupertinoButton` 抬上来）。
 ///
 /// 形状是原 `_TierButton`：选中＝蓝底描边＋加粗；不可用＝置灰但**留着**（藏起来用户会以为
