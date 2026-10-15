@@ -8,6 +8,7 @@ import '../models/notification_rule.dart';
 import '../services/installed_apps_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_option_picker.dart';
@@ -143,19 +144,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
         title: Text(l10n.ruleEditTitle),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: Text(
-              l10n.save,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.blue,
-              ),
-            ),
-          ),
-        ],
+        actions: [FnthinkInlineAction(label: l10n.save, onPressed: _save)],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -200,16 +189,9 @@ class _RuleEditPageState extends State<RuleEditPage> {
                       color: AppColors.primaryLabel(context),
                     ),
                   ),
-                  TextButton(
+                  FnthinkInlineAction(
+                    label: l10n.add,
                     onPressed: _addCondition,
-                    child: Text(
-                      l10n.add,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.systemBlue(context),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -257,16 +239,9 @@ class _RuleEditPageState extends State<RuleEditPage> {
                       ),
                     ),
                   ),
-                  TextButton(
+                  FnthinkInlineAction(
+                    label: l10n.ruleAppPickTitle,
                     onPressed: _openAppScopePicker,
-                    child: Text(
-                      l10n.ruleAppPickTitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.systemBlue(context),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -294,17 +269,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
                       color: AppColors.primaryLabel(context),
                     ),
                   ),
-                  TextButton(
-                    onPressed: _addAction,
-                    child: Text(
-                      l10n.add,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.systemBlue(context),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+                  FnthinkInlineAction(label: l10n.add, onPressed: _addAction),
                 ],
               ),
               const SizedBox(height: 12),
@@ -969,16 +934,9 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
             onPressed: _refreshing ? null : _manualRefreshApps,
             tooltip: l10n.refreshAppList,
           ),
-          TextButton(
+          FnthinkInlineAction(
+            label: l10n.save,
             onPressed: () => Navigator.pop(context, _excluded.toList()),
-            child: Text(
-              l10n.save,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.blue,
-              ),
-            ),
           ),
         ],
       ),

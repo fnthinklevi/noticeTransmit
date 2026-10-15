@@ -185,12 +185,14 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
           const SizedBox(height: 8),
           Row(
             children: [
-              TextButton(
+              FnthinkInlineAction(
                 key: const ValueKey('update-server-reprobe'),
+                label: _busy
+                    ? l10n.updateServerProbing
+                    : l10n.updateServerProbeNow,
+                // 中性档：它是"再看一眼"（重探一次），不是"往前走一步"。
+                tone: FnthinkActionTone.neutral,
                 onPressed: _busy ? null : _probeAll,
-                child: Text(
-                  _busy ? l10n.updateServerProbing : l10n.updateServerProbeNow,
-                ),
               ),
               if (_busy)
                 const SizedBox(

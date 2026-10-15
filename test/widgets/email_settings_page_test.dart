@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
 import '../test_setup.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 /// 邮件页（列表 + 单条编辑弹层）。
 ///
@@ -192,12 +193,12 @@ void main() {
       testSucceeds = false;
       store.rows = seedRows();
       await openEditor(tester);
-      expect(find.widgetWithText(TextButton, '仅测试'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, '测试并保存'), findsOneWidget);
+      expect(find.widgetWithText(FnthinkInlineAction, '仅测试'), findsOneWidget);
+      expect(find.widgetWithText(FnthinkInlineAction, '测试并保存'), findsOneWidget);
 
       calls.clear();
       final before = store.snapshot();
-      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '仅测试'));
       await tester.pumpAndSettle();
 
       expect(calls, contains('testEmail'));
@@ -237,7 +238,7 @@ void main() {
         '改过名字的值班邮箱',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       expect(store.rows, hasLength(2));
@@ -296,7 +297,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.widgetWithText(TextField, '通道名称'), '备用邮箱改名');
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       final row = store.rows.firstWhere((r) => r['id'] == 'em-2');
@@ -333,7 +334,7 @@ void main() {
       await tester.enterText(find.widgetWithText(TextField, '收件人'), '  ');
       await tester.pumpAndSettle();
       final before = store.snapshot();
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       final snack = find.textContaining('保存失败：请填写');

@@ -889,6 +889,62 @@ class FnthinkStatusMark extends StatelessWidget {
       }
     });
 
+    // T153 片6：**非幻念页**也有一本（口径互补，合起来才是"全库还剩几枚"）。
+    // 判据扫两种写法：`TextButton(` **与** `TextButton.icon(` ——
+    // 第一版只扫前者，`email_settings_page` 那枚 `TextButton.icon` 漏了，
+    // 而它在屏上与 `TextButton` 长得一样（都是裸文字）。
+    // ⚠ 口径限定 **`lib/pages/`**：这本账管的是"**页面自己搭的**按钮"。
+    //   `lib/widgets/ios_dialog_actions.dart` 里那几枚 `TextButton` 是**件自身**的
+    //   实现（`confirm` 给历史页面当 actions 构建器用），它不该入这本账 ——
+    //   第一版没限定目录，把件自己扫进来了（当场红在"账外新增"）。
+    bool isPage(String path) =>
+        path.startsWith('lib/pages/') && !path.startsWith('lib/pages/fnthink_');
+    Map<String, int> nonFnthink() => {
+      for (final e in countingRe(rawTextButton).entries)
+        if (isPage(e.key)) e.key: e.value,
+    };
+    Map<String, int> nonFnthinkWithIcon() => {
+      for (final e in countingRe(
+        RegExp(r'(^|[^A-Za-z0-9_])TextButton\.icon\('),
+      ).entries)
+        if (isPage(e.key)) e.key: e.value,
+    };
+
+    test('非幻念页：账外的文件长出一枚就红（含 TextButton.icon）', () {
+      final all = <String, int>{};
+      for (final m in [nonFnthink(), nonFnthinkWithIcon()]) {
+        for (final e in m.entries) {
+          all[e.key] = (all[e.key] ?? 0) + e.value;
+        }
+      }
+      expect(
+        all.keys.toSet().difference(kPlainTextButtons.keys.toSet()),
+        isEmpty,
+        reason:
+            '某张非幻念页出现了台账之外的裸 TextButton ⇒ 变多。'
+            '新写一枚请改走三种合法形状（PrimaryActionButton / FnthinkInlineAction / '
+            'FnthinkEntryRow）；真换掉一枚就把那一格改小、换到 0 就把这一格删掉',
+      );
+    });
+
+    test('非幻念页：逐文件枚数与台账相等（这本账就是剩余工作量）', () {
+      final all = <String, int>{};
+      for (final m in [nonFnthink(), nonFnthinkWithIcon()]) {
+        for (final e in m.entries) {
+          all[e.key] = (all[e.key] ?? 0) + e.value;
+        }
+      }
+      for (final entry in kPlainTextButtons.entries) {
+        expect(
+          all[entry.key] ?? 0,
+          entry.value,
+          reason:
+              '${entry.key} 里裸 TextButton 实际 ${all[entry.key] ?? 0} 枚、'
+              '台账记 ${entry.value} 枚 ⇒ 换掉一枚就把账改小（这本只许减少）',
+        );
+      }
+    });
+
     test('T98 片③：勾上那一支必须代建通道，且已有就不重复建', () {
       // 三段链（对方授权／本机勾选／一条目标=它的通道）缺一段就不发，而缺的是哪一段
       // 界面上看不出来 —— 这一片把'还差一段'变成'替你办了'。判据落在**触发条件**上：
@@ -1831,6 +1887,34 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/widgets/fnthink_card.dart': 1,
   'lib/widgets/icon_picker_tile.dart': 1,
   'lib/widgets/rule_template_sheet.dart': 1,
+};
+
+/// 非幻念页的裸 `TextButton`（T153 片6 的台账，**只许减少**）。
+///
+/// 这一族与幻念那本（`kFnthinkRawTextButtons`，口径是 `lib/pages/fnthink_*.dart`）
+/// 是**两本不同的账**：那本管幻念六页，这本管其余页面。2026-10-15 维护者反馈
+/// 「应用内哪些地方还是用的这种纯文字无 widget 的按钮，必须改」时，两本都要看。
+///
+/// T153 片6 从 19 处换到 **3 处**（换掉 16 处：AppBar 顶栏动作 8、行内动作 5、
+/// 空态创建 1、卡片三步 3 减…见 §6 T153 块逐处清单），剩下三处**各有保留理由**：
+///
+///  1. `webhook_settings_page` ×1 —— 那枚「测试并保存」带**内联 loading 槽**
+///     （`_isSaving ? CircularProgressIndicator : Text(...)`），而公共件没有那个槽；
+///     硬换会丢掉"正在保存"这个反馈。
+///  2. `battery_page` ×1 与 3. `temperature_page` ×1 —— 那两枚是**行内 chip 族**
+///     （`Container(height:32) + TextButton.styleFrom` 自搭的选中态芯片），
+///     与 `FnthinkChoiceChip`（13px/radius 10 的"一排可选项里的一枚"）
+///     **不是同一族的密度**。T90 片9 已把这一族登记成**另一笔账**（行内 chip 形状统一），
+///     硬并会把行内 chip 放大一圈 —— 那是重设计不是统一。
+///
+/// ⚠ 两本账的**空值都合法**（清零之后守卫靠「账外不许新增」那一条继续有牙）。
+/// ⚠ 判据同时扫 `TextButton(` 与 `TextButton.icon(`：**第一版只扫前者，漏了后者**
+///   （`email_settings_page` 那枚「仅测试」就是 `TextButton.icon`，
+///   而它被测试撞出来时，屏上看起来一切正常）。
+const Map<String, int> kPlainTextButtons = <String, int>{
+  'lib/pages/webhook_settings_page.dart': 1,
+  'lib/pages/battery_page.dart': 1,
+  'lib/pages/temperature_page.dart': 1,
 };
 
 /// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。

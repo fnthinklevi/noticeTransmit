@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -114,17 +115,7 @@ class _KeywordsPageState extends State<KeywordsPage>
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: _saveAndBack,
-            child: Text(
-              l10n.save,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
+          FnthinkInlineAction(label: l10n.save, onPressed: _saveAndBack),
         ],
       ),
       body: Column(

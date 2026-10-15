@@ -12,6 +12,7 @@ import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 /// 自建应用通道设置页 widget 冒烟测试。
 ///
@@ -222,7 +223,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       // service.saveChannels 归一化后的行是 UI 格式（baseUrl/appType/...）；
@@ -269,7 +270,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(_fieldName(), '办公告警应用');
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       final saved = store.rows.firstWhere((r) => r['id'] == 'app-1');
@@ -289,7 +290,7 @@ void main() {
 
       await tester.enterText(_fieldName(), 'NAS 告警应用');
       await tester.enterText(_fieldWithLabel('企业 ID（corpid）'), 'corp-new');
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       expect(store.rows, hasLength(1));
@@ -511,7 +512,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       final saved = store.rows.firstWhere((r) => r['id'] == 'app-1');
@@ -543,7 +544,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       final toast = find.descendant(
@@ -629,7 +630,7 @@ void main() {
         reason: '三个字段都各自绑到了控制器；少绑一个就是"输入框空白 + 保存写空"',
       );
 
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
       final saved = store.rows.firstWhere((r) => r['id'] == 'app-f');
       final config = Map<String, dynamic>.from(saved['config'] as Map);
@@ -689,7 +690,7 @@ void main() {
       // 只判"点击之后"的调用：进页面时的 loadChannels/描述符拉取会先写进库里一条
       // setAppChannels（初始化同步），不清掉就成了「谁先跑」的假阳性。
       calls.clear();
-      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '仅测试'));
       await tester.pumpAndSettle();
 
       expect(calls, contains('testAppChannel'));
@@ -717,7 +718,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(_fieldName(), '改好的名字');
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '测试并保存'));
       await tester.pumpAndSettle();
 
       expect(

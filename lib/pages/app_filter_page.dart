@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/installed_apps_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
 import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
 
@@ -283,16 +284,12 @@ class _AppFilterPageState extends State<AppFilterPage>
             onPressed: _refreshing ? null : _manualRefreshApps,
             tooltip: l10n.refreshAppList,
           ),
-          TextButton(
+          // T153 片6：与派生页（`remote_trigger_filter_page`）同一枚形状 ——
+          // 两页的「完成」是同一个人在同一位置的同一个动作，不该一页裸文字、一页公共件。
+          FnthinkInlineAction(
+            key: const ValueKey('app-filter-done'),
+            label: l10n.done,
             onPressed: _saveAndBack,
-            child: Text(
-              l10n.done,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
         ],
       ),

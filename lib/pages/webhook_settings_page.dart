@@ -12,6 +12,7 @@ import '../services/platform_channel.dart';
 import '../services/template_variables.dart';
 import '../services/webhook_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
@@ -411,17 +412,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         title: Text(_title(l10n)),
         actions: [
           // T04 的形状：「仅测试」在左、「测试并保存」在右，三族同一。
-          TextButton(
+          FnthinkInlineAction(
+            label: l10n.testOnly,
             onPressed: _isSaving || _isTesting ? null : _testThis,
-            child: Text(
-              l10n.testOnly,
-              style: TextStyle(
-                fontSize: 16,
-                color: _isSaving || _isTesting
-                    ? AppColors.tertiaryLabel(context)
-                    : AppColors.secondaryLabel(context),
-              ),
-            ),
+            tone: FnthinkActionTone.neutral,
           ),
           TextButton(
             onPressed: _isSaving ? null : _saveChannelAndTest,

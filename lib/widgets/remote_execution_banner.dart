@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart' show Ticker;
 
 import '../l10n/app_localizations.dart';
 import '../services/fnthink_remote_runner.dart';
+import 'fnthink_card.dart';
 
 /// 远程执行的**界面顶端横幅**（契约 `delay.cancelChannels` 里的 `inAppBanner`）。
 ///
@@ -136,9 +137,15 @@ class _RemoteExecutionBannerState extends State<RemoteExecutionBanner>
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),
-                    TextButton(
+                    FnthinkInlineAction(
+                      key: ValueKey(
+                        'remote-exec-banner-cancel-${pending.first.execId}',
+                      ),
+                      label: l10n.remoteExecCancel,
+                      // 撤下一次还没到点的执行：可逆（到点之前撤销是设计好的出口），
+                      // 但它是"把马上要做的事拦下来" ⇒ 中性偏警告，走 neutral。
+                      tone: FnthinkActionTone.neutral,
                       onPressed: () => _cancel(pending.first.execId),
-                      child: Text(l10n.remoteExecCancel),
                     ),
                   ],
                 ),

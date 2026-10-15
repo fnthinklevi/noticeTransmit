@@ -139,13 +139,16 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
               ),
             ),
           ),
-          TextButton(
+          FnthinkInlineAction(
             key: const ValueKey('backup-mode-switch-back'),
+            label: l10n.backupModeSwitchBack,
+            // 中性档：它把备份模式切回自动（可逆、也不破坏什么）——
+            // 原来是一枚无色的裸 TextButton，与旁边那句横幅挤在同一行。
+            tone: FnthinkActionTone.neutral,
             onPressed: () async {
               await BackupMode.reset();
               await _loadBackupMode();
             },
-            child: Text(l10n.backupModeSwitchBack),
           ),
         ],
       ),
@@ -206,10 +209,12 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
         title: Text(l10n.channelStatusTitle),
         actions: [
           // 主备设置（T11）的入口在右上角：这一页本身是只读视图，改角色是个动作。
-          TextButton(
+          FnthinkInlineAction(
             key: const ValueKey('channel-status-open-roles'),
+            label: l10n.mainBackupSettings,
             onPressed: () => _showRoleSheet(),
-            child: Text(l10n.mainBackupSettings),
+            // 中性档：这是"去看/改配置"，不是"往前走一步"。
+            tone: FnthinkActionTone.neutral,
           ),
         ],
       ),

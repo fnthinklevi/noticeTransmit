@@ -6,6 +6,8 @@ import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
 import '../services/rule_template_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
+import '../widgets/primary_action_button.dart';
 import '../widgets/rule_template_sheet.dart';
 import 'rule_edit_page.dart';
 import 'rule_tester_page.dart';
@@ -172,16 +174,13 @@ class _RuleListPageState extends State<RuleListPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextButton(
+                // T153 片6：空态里那枚「先加一条」是**这一页唯一的创建动作**，
+                // 与端点页「创建端点」、快捷方式页「添加快捷方式」同一档
+                // ⇒ 走 `PrimaryActionButton`（全宽填充），不再是裸文字。
+                PrimaryActionButton(
+                  key: const ValueKey('rule-list-add-first'),
+                  label: l10n.ruleAddFirst,
                   onPressed: _addRule,
-                  child: Text(
-                    l10n.ruleAddFirst,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.blue,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -326,21 +325,10 @@ class _RuleListPageState extends State<RuleListPage> {
                       Row(
                         children: [
                           Expanded(
-                            child: TextButton(
+                            child: FnthinkInlineAction(
+                              key: ValueKey('rule-card-edit-${rule.id}'),
+                              label: l10n.edit,
                               onPressed: () => _editRule(rule),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                              child: Text(
-                                l10n.edit,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: AppColors.systemBlue(context),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
                             ),
                           ),
                           Container(
@@ -349,21 +337,14 @@ class _RuleListPageState extends State<RuleListPage> {
                             height: 24,
                           ),
                           Expanded(
-                            child: TextButton(
+                            child: FnthinkInlineAction(
+                              key: ValueKey(
+                                'rule-card-save-template-${rule.id}',
+                              ),
+                              label: l10n.ruleTemplateSaveAs,
+                              // 语义色归一到那一张表：原来这里自己挑了橙色，
+                              // 而「存为模板」是"往前走一步"（可逆、非破坏）⇒ action 档。
                               onPressed: () => _saveRuleAsTemplate(rule),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                              child: Text(
-                                l10n.ruleTemplateSaveAs,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: AppColors.systemOrange(context),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
                             ),
                           ),
                           Container(
@@ -372,21 +353,12 @@ class _RuleListPageState extends State<RuleListPage> {
                             height: 24,
                           ),
                           Expanded(
-                            child: TextButton(
+                            child: FnthinkInlineAction(
+                              key: ValueKey('rule-card-delete-${rule.id}'),
+                              label: l10n.delete,
+                              // 删一条规则不可逆 ⇒ 红（与端点页「关掉」同一条判据）。
+                              tone: FnthinkActionTone.destructive,
                               onPressed: () => _deleteRule(rule),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                              child: Text(
-                                l10n.delete,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: AppColors.systemRed(context),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
                             ),
                           ),
                         ],

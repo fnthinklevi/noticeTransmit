@@ -3,10 +3,11 @@ import 'package:flutter/cupertino.dart';
 // 值输入格现在仍是 Material 的 `TextField`（`_buildTextFieldSection`，属于还没迁的那一屏）
 // ⇒ 按类型找它得引 material 的这一名；用 show 限定，避免与 cupertino 的同名件冲突。
 import 'package:flutter/material.dart'
-    show AlertDialog, IconButton, Icons, InkWell, TextButton, TextField;
+    show AlertDialog, IconButton, Icons, InkWell, TextField;
 import 'package:notice_transmit/pages/rule_edit_page.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 Widget _buildApp(Widget home) {
   return AppRoot(locale: const Locale('zh'), dark: false, home: home);
@@ -136,7 +137,7 @@ void main() {
 
       // ⚠ 页面上「添加条件」是**分组标题**，按钮文案是「添加」，且条件区与动作区各一颗
       //   ⇒ 必须限定作用域并按顺序取，裸 find.text('添加') 会一次命中多颗。
-      final addBtns = find.widgetWithText(TextButton, '添加');
+      final addBtns = find.widgetWithText(FnthinkInlineAction, '添加');
       expect(addBtns, findsNWidgets(2), reason: '条件区与动作区各应有一颗「添加」');
       await tester.tap(addBtns.first);
       await tester.pumpAndSettle();
@@ -158,7 +159,7 @@ void main() {
 
     testWidgets('添加条件全流程：选类型 + 填值 + 按弹层里那颗「添加」⇒ 页面真的多出一行', (tester) async {
       await openPage(tester, NotificationRule(id: 'r1', name: 'R'));
-      await tester.tap(find.widgetWithText(TextButton, '添加').first);
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '添加').first);
       await tester.pumpAndSettle();
 
       // ⚠ 可点的是那一行（`InkWell`），label 只是它上方的标题文字 ⇒ 点 label 什么都不会发生
@@ -211,7 +212,7 @@ void main() {
       // 动作区那颗是第二颗「添加」（第一颗属于条件区）
       // ⚠ 它在 800×600 的测试视口外（实测中心 Offset(736,755)）⇒ 不先滚进视野这发 tap 打空，
       //   对话框根本没被按出来。这和首页那次的教训同一条：视口外的格子躺在那儿但点不到。
-      final actionAddBtn = find.widgetWithText(TextButton, '添加').last;
+      final actionAddBtn = find.widgetWithText(FnthinkInlineAction, '添加').last;
       await tester.ensureVisible(actionAddBtn);
       await tester.pumpAndSettle();
       await tester.tap(actionAddBtn);

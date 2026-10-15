@@ -9,6 +9,7 @@ import '../services/channel_descriptor_service.dart';
 import '../services/channel_health_store.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/channel_form_renderer.dart';
 import '../widgets/channel_health_badge.dart';
@@ -185,28 +186,16 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
           // 「新增通道」不在这里 —— 那是列表页的事（本页只描述一条）。
           // 测试失败绝不回滚保存：配置是对的、只是这一刻连不上，回滚会把用户的有效
           // 编辑一起吞掉。
-          TextButton(
+          FnthinkInlineAction(
+            label: l10n.testOnly,
             onPressed: _saving || _testingId != null ? null : _testThis,
-            child: Text(
-              l10n.testOnly,
-              style: TextStyle(
-                fontSize: 16,
-                color: _saving || _testingId != null
-                    ? AppColors.tertiaryLabel(context)
-                    : AppColors.secondaryLabel(context),
-              ),
-            ),
+            // 中性档：「仅测试」是"看一眼动一下"，不是"往前走一步"——
+            // 颜色语义由 colorOf 那一处定，页面不再自己挑（原来挑的是次要灰）。
+            tone: FnthinkActionTone.neutral,
           ),
-          TextButton(
+          FnthinkInlineAction(
+            label: l10n.testAndSave,
             onPressed: _saving ? null : _saveChannelAndTest,
-            child: Text(
-              l10n.testAndSave,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.blue,
-              ),
-            ),
           ),
         ],
       ),

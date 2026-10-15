@@ -12,6 +12,7 @@ import '../services/channel_probe_service.dart';
 import '../services/email_service.dart';
 import '../services/template_variables.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_form_renderer.dart';
@@ -749,9 +750,15 @@ class _EmailEditorPageState extends State<_EmailEditorPage> {
                   )
                 : Padding(
                     padding: const EdgeInsets.only(right: 4),
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.send_outlined, size: 16),
-                      label: Text(l10n.testOnly),
+                    // T153 片6：这一枚与右边「测试并保存」是并列的一对，
+                    // 右边已换成 `FnthinkInlineAction` ⇒ 这一枚跟上（原来是
+                    // `TextButton.icon`，两枚不同形状）。**图标丢掉是取舍**：
+                    // 公共件没有图标槽，而"两枚并列形状一致"比"其中一枚多一枚图标"
+                    // 更重要；要加回图标就给公共件补一个口（那是改件，不是改这一处）。
+                    child: FnthinkInlineAction(
+                      key: const ValueKey('email-test-only'),
+                      label: l10n.testOnly,
+                      tone: FnthinkActionTone.neutral,
                       onPressed: () {
                         if (!_validate()) return;
                         final channel = _compose();
@@ -762,7 +769,8 @@ class _EmailEditorPageState extends State<_EmailEditorPage> {
                       },
                     ),
                   ),
-          TextButton(
+          FnthinkInlineAction(
+            label: l10n.testAndSave,
             onPressed: () async {
               // P5：必填校验未过 ⇒ 标红 + 点名，不写库也不测
               if (!_validate()) return;
@@ -770,10 +778,6 @@ class _EmailEditorPageState extends State<_EmailEditorPage> {
               Navigator.of(context).pop();
               await widget.onSave(channel);
             },
-            child: Text(
-              l10n.testAndSave,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
           ),
         ],
       ),

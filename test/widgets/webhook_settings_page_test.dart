@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
 import '../test_setup.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 /// Webhook **单通道详情页**（T07-B 之前这里是全量平铺编辑器）。
 ///
@@ -723,7 +724,7 @@ void main() {
       calls.clear();
       store.savedBatches.clear();
 
-      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '仅测试'));
       await tester.pumpAndSettle();
 
       expect(calls, contains('testWebhook'));
@@ -742,7 +743,7 @@ void main() {
       calls.clear();
       final prefs = await SharedPreferences.getInstance();
 
-      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '仅测试'));
       await tester.pumpAndSettle();
 
       expect(
@@ -761,7 +762,7 @@ void main() {
       await openDetail(tester, const []);
       calls.clear();
 
-      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '仅测试'));
       await tester.pumpAndSettle();
 
       expect(calls, isNot(contains('testWebhook')));
@@ -806,7 +807,7 @@ void main() {
       testWebhookHangs = true;
       addTearDown(() => testWebhookHangs = false);
 
-      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '仅测试'));
       await tester.pump();
       expect(
         calls,
@@ -827,7 +828,9 @@ void main() {
       );
       expect(
         tester
-            .widget<TextButton>(find.widgetWithText(TextButton, '仅测试'))
+            .widget<FnthinkInlineAction>(
+              find.widgetWithText(FnthinkInlineAction, '仅测试'),
+            )
             .onPressed,
         isNotNull,
         reason: '「发送中」没复位 ⇒ 这一页从此点不动，而它唯一能做的事就是再测一次',
