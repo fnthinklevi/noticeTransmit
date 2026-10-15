@@ -466,20 +466,26 @@ class _RemoteCredentialSettingsPageState
               ? l10n.remoteExecLocalTriggerOn
               : l10n.remoteExecLocalTriggerOff,
         ),
-        FnthinkInlineAction(
+        // T153 片2：这一格原先是一枚纯文字按钮（`FnthinkInlineAction`）＋下面一行
+        // 计数小字 —— 而「入口」这件事在幻念那几页早就有自己的形状（`FnthinkEntryRow`：
+        // 图标 + 主文案 + 副文案 + chevron）。同族页（配对页设备行、端点页那一行）
+        // 在 T152 已换完，这一格是漏网的那一枚。
+        // ⚠ key 逐字搬：`remote-exec-local-trigger-apps` 现在落在 `FnthinkEntryRow`
+        //    这一行上（`key:` 直接给 widget，不是 keyName —— 该件没有那个形参），
+        //    页面级用例 `find.byKey(...)` 认的就是这一行。
+        FnthinkEntryRow(
           key: const ValueKey('remote-exec-local-trigger-apps'),
-          label: l10n.remoteExecLocalTriggerApps,
-          onPressed: _busy ? null : _openLocalTriggerApps,
-        ),
-        // ⚠ 空清单那一句**必须画出来**：这一路的「允许 0 个」是真的都不许（fail-closed），
-        //   不说它，用户看到的就是「我开了怎么没用」而查不出原因。
-        FnthinkNote(
-          keyName: 'remote-exec-local-trigger-count',
-          text: blocking
+          icon: Icons.apps,
+          iconColor: AppColors.blue,
+          title: l10n.remoteExecLocalTriggerApps,
+          // 计数**进副文案**而不是下面另起一行小字：一屏里"这一行是什么"与
+          // "这一行现在是什么状态"本该挨着，分成两行要多一次眼跳。
+          subtitle: blocking
               ? l10n.remoteExecLocalTriggerBlockCount(count)
               : count == 0
               ? l10n.remoteExecLocalTriggerAllowNone
               : l10n.remoteExecLocalTriggerAllowCount(count),
+          onTap: _busy ? null : _openLocalTriggerApps,
         ),
       ],
     );

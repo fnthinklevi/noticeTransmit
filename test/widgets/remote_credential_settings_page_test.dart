@@ -9,6 +9,7 @@ import 'package:notice_transmit/services/remote_credential_store.dart';
 import 'package:notice_transmit/services/secure_storage_service.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _MemStorage implements SecureStorageService {
@@ -351,6 +352,43 @@ void main() {
       switchDot(tester),
       isNot(AppColors.green),
       reason: '一句"没开"配一盏绿灯，用户不知道该信哪个',
+    );
+  });
+
+  // T153 片2：「可触发的应用」那一格从「纯文字按钮 + 下面一行计数小字」
+  // 换成 `FnthinkEntryRow`（图标 + 主文案 + 副文案 + chevron）—— 同族页
+  // （配对页设备行、端点页那一行）在 T152 已换完，这一格是漏网的那一枚。
+  //
+  // 三条判据：① 入口是**行**不是纯文字；② 计数那句话一个字没删（搬进了副文案）；
+  // ③ 点那一行仍然进得来（换件不许把入口弄丢）。
+  testWidgets('「可触发的应用」是入口行，计数搬进副文案而非下面另起一行', (tester) async {
+    await pump(tester, enabled: true);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+
+    // ① 那一行在场（key 逐字搬：`remote-exec-local-trigger-apps`）
+    expect(
+      find.byKey(const ValueKey('remote-exec-local-trigger-apps')),
+      findsOneWidget,
+    );
+    // ① 它是 `FnthinkEntryRow`（不是裸文字按钮）
+    //    ⚠ `find.ancestor` 方向是"key 的后代"，而这一枚 key 在 widget 自身上 ⇒ 恒 0。
+    //      改断"这一行就是那一枚"：key 与类型指向同一个 element。
+    final rowFinder = find.byType(FnthinkEntryRow);
+    expect(rowFinder, findsOneWidget);
+    expect(
+      tester.widget<FnthinkEntryRow>(rowFinder).key,
+      const ValueKey('remote-exec-local-trigger-apps'),
+      reason: 'key 没落在那一行上 ⇒ 换件把入口弄丢了，而屏上看起来一切正常',
+    );
+
+    // ② 计数那句**还在**（allow 空档 ⇒「允许 0 个应用 ⇒ 哪一条通知都不会触发」）——
+    //    它是搬家不是删除：这一路 fail-closed，不说这句用户看到的是"我开了怎么没用"。
+    expect(
+      find.text(l10n.remoteExecLocalTriggerAllowNone),
+      findsOneWidget,
+      reason: '空清单那一句必须还在，只是换了宿主',
     );
   });
 

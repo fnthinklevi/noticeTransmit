@@ -38,7 +38,14 @@ void main() {
     //   ⚠ 剩下的 11 枚一枚都没少画：错误原因（`remote-cred-problem`／契约不可用）、
     //   边界提示（宽限期／词表外状态／还差凭据）与 TOTP 那一族（按方案整块不动）照旧是
     //   `FnthinkNote`。这一格从 14 降到 11 是"换了宿主"，不是"删了话"。
-    'pages/remote_credential_settings_page.dart': 11,
+    // T153 片2（2026-10-15）：11 → **10**。「可触发的应用」那一格的计数小字
+    //   （`remote-exec-local-trigger-count`）上移为 `FnthinkEntryRow` 的 subtitle ——
+    //   那句话一个字没删（仍是 allow/block 两档那三句原话），只是从"下面另起一行小字"
+    //   变成"入口行自己的副文案"：一屏里"这一行是什么"与"它现在什么状态"本该挨着。
+    //   ⚠ 空清单那一句（「允许 0 个应用 ⇒ 哪一条通知都不会触发」）**必须还在**：
+    //   这一路的"允许 0 个"是真的谁都不许（fail-closed），不说它，用户看到的就是
+    //   「我开了怎么没用」而查不出原因。所以它是搬家不是删除。
+    'pages/remote_credential_settings_page.dart': 10,
   };
 
   /// 尺的本体：给一段源码，抓出里面所有"小字说明件"的类名。
