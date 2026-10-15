@@ -447,6 +447,87 @@ void main() {
     });
   });
 
+  // T153 片5：**从系统设置回来要重取**（应用列表那一格）。
+  //
+  // 这一页的 `didChangeAppLifecycleState(resumed)` 早就在做三件事
+  // （`checkAllPermissions` + 精确闹钟 + L3 那一格），L3 那一条也有用例钉
+  // （见上面「回前台必须再取一次」）。**只有应用列表这一格没有判据** ——
+  // 而它恰恰是维护者 2026-10-15 第 4 条反馈里"跳过去开完回来"的那一格：
+  // 开完回来如果这一格还写着「已关闭」，用户会以为白开了（只能退出重进来确认）。
+  group('应用列表权限那一格：从系统设置回来要重取（T153 片5）', () {
+    // 这一格的状态在页面里读的是 `_permissionService.appListGranted`（**不是**构造参数
+    // 那份进页快照）⇒ 重取之后 setState 就能把新读数画出来。判据落在这条链上：
+    // 改 mock 的原生返回值（模拟"用户在系统里开了"）→ 触发 resumed → 看屏上换没换。
+    Future<void> pumpWithState(WidgetTester tester, String initial) async {
+      await pumpPage(tester, appListState: initial);
+    }
+
+    testWidgets('在系统里开过之后回来 ⇒ 那一格从「未开启」变成「已开启」且不再可点', (tester) async {
+      await pumpWithState(tester, 'denied');
+
+      final tile = find
+          .ancestor(
+            of: find.text('应用列表权限').first,
+            matching: find.byType(InkWell),
+          )
+          .first;
+      // ① 起点：明确拒绝 ⇒ 可点（点它去申请）
+      expect(
+        tester.widget<InkWell>(tile).onTap,
+        isNotNull,
+        reason: '被拒态必须可点，否则用户没有任何出口',
+      );
+      expect(find.text('未开启'), findsWidgets);
+
+      // ② 模拟"用户在系统设置里开了"：原生读数换成 granted
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'getAppListPermissionState') return 'granted';
+            if (call.method == 'canScheduleExactAlarms') return false;
+            return false;
+          });
+
+      // ③ 走一次真实的生命周期（去系统设置 = paused，回来 = resumed）
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      // ④ 那一格必须换了读数 —— 不重取的表现不是崩，是"把用户刚做完的事抹掉"
+      expect(
+        find.text('已开启'),
+        findsWidgets,
+        reason: '开完回来还写着「未开启」⇒ 用户以为白开了（只能退出重进来确认）',
+      );
+      final tileAfter = find
+          .ancestor(
+            of: find.text('应用列表权限').first,
+            matching: find.byType(InkWell),
+          )
+          .first;
+      expect(
+        tester.widget<InkWell>(tileAfter).onTap,
+        isNull,
+        reason: '已授权还让点，就是在催用户重复申请（与精确闹钟那一行同一条规矩）',
+      );
+    });
+
+    testWidgets('反相：系统里没开过，回来仍是「已关闭」且可点（不许自己变绿）', (tester) async {
+      await pumpWithState(tester, 'denied');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('未开启'),
+        findsWidgets,
+        reason: '读数没变就不该变；"回来一律画成已开启"是另一半缺陷（假绿）',
+      );
+    });
+  });
+
   group('精确闹钟那一行（T140 走 (c)：只剩系统授权一枚真值）', () {
     // 这一族以前右侧是一枚写 Flutter 偏好的开关（默认关），副标题报的却是系统授权。
     // 后果不是崩，是**同一行上两句假话的合取**：写着「已授权」，而排闹钟的代码看的是那枚关着的开关
