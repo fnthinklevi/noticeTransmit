@@ -6385,17 +6385,11 @@ abstract class AppLocalizations {
   /// **'配对历史'**
   String get fnthinkPairHistoryTitle;
 
-  /// No description provided for @fnthinkPairHistoryLine.
+  /// No description provided for @fnthinkPairHistoryWants.
   ///
   /// In zh, this message translates to:
-  /// **'{role} · {peer} · 要的是 {level} · {status} · {at}'**
-  String fnthinkPairHistoryLine(
-    String role,
-    String peer,
-    String level,
-    String status,
-    String at,
-  );
+  /// **'要的是 {level}'**
+  String fnthinkPairHistoryWants(String level);
 
   /// No description provided for @fnthinkPairHistoryOutgoing.
   ///
@@ -6832,8 +6826,8 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerLine.
   ///
   /// In zh, this message translates to:
-  /// **'{peer} · 它 → 你 · 授到 {level} · {at}'**
-  String fnthinkPeerLine(String peer, String level, String at);
+  /// **'它 → 你 · 授到 {level} · {at}'**
+  String fnthinkPeerLine(String level, String at);
 
   /// No description provided for @fnthinkPeersEmpty.
   ///

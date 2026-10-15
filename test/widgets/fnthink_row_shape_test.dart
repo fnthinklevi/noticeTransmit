@@ -431,6 +431,13 @@ void main() {
     testWidgets('方向那两档与结论那四档不共色（两个主语不能有一种颜色）', (tester) async {
       // 结论那四色**从件自己产出的读数里取**，不在测试里另抄一份映射：
       // 抄了就成了第二个作者 —— 以后给 tone 加一档，抄的那份不会红，而判据已经变了。
+      // `unknown` 不在这一圈里：它**不上色**（见下那条），不参与"四档四色"。
+      const colored = <FnthinkOutcomeTone>[
+        FnthinkOutcomeTone.approved,
+        FnthinkOutcomeTone.denied,
+        FnthinkOutcomeTone.expired,
+        FnthinkOutcomeTone.pending,
+      ];
       await pump(
         tester,
         Column(
@@ -448,7 +455,7 @@ void main() {
         ),
       );
       final outcomeColors = <Color>{
-        for (final tone in FnthinkOutcomeTone.values)
+        for (final tone in colored)
           tester
               .widget<FnthinkStatusMark>(
                 find.byKey(ValueKey('hist-tone-${tone.name}-outcome')),
@@ -457,8 +464,19 @@ void main() {
       };
       expect(
         outcomeColors.length,
-        FnthinkOutcomeTone.values.length,
+        colored.length,
         reason: '四档结论四种颜色：重色的两行在扫读时就是同一件事',
+      );
+
+      final unknownMark = tester.widget<FnthinkStatusMark>(
+        find.byKey(const ValueKey('hist-tone-unknown-outcome')),
+      );
+      expect(
+        unknownMark.filled,
+        isFalse,
+        reason:
+            '词表外那一档**不许上色**：任何一种颜色都是一个结论，而本机说不出那个结论 —— '
+            '把它画成"灰=已过期"那一档，就等于把"读不出来"说成"不再有意义"',
       );
 
       final directionColors = <Color>{

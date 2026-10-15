@@ -22,9 +22,13 @@ void main() {
       'lib/pages/battery_page.dart': '电量规则卡',
       'lib/pages/temperature_page.dart': '温度规则卡',
       'lib/pages/history_page.dart': '历史记录卡',
+      // T152 片B（维护者 2026-10-15 方案 阶段3）：名单行里那三枚文字按钮收成"一行＋⋯"，
+      // 撤销与改名进的就是这一枚共用弹层。⚠ 这一处是**点行尾那枚「⋯」**开的，不是长按 ——
+      // 那一行今天没有详情页、也没有可长按的卡片壳，所以下面那条 `onLongPress` 断言不含它。
+      'lib/pages/fnthink_peers_page.dart': '设备配对页的名单行（T152 片B 起，行尾「⋯」）',
     };
 
-    test('六个入口都还经共用的 CardActionSheet', () {
+    test('登记的每一处都还经共用的 CardActionSheet', () {
       for (final entry in entries.entries) {
         expect(
           read(entry.key),

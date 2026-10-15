@@ -1141,7 +1141,10 @@ class FnthinkStatusMark extends StatelessWidget {
       );
       // T129 片2 加了第 5 枚：**问一次对面答了没**（挂在「我发起过的配对请求」那一格里）。
       // T128 片1 加了第 6 枚：**改名**（挂在名单每一行上；别名只给这一行，所以入口必须在行里）。
-      expect(n('lib/pages/fnthink_peers_page.dart', 'FnthinkInlineAction('), 6);
+      // T152 片B 回到 **4**：名单行的「撤销」「改名」收进行尾那枚「⋯」的弹层（维护者 2026-10-15
+      // 方案 阶段3），主操作「发一条」**留在行内**。少的那两枚不是删掉了功能，是换了宿主 ——
+      // 颜色那一半的账在下面 T108 那条里跟着搬（`CardAction.danger`）。
+      expect(n('lib/pages/fnthink_peers_page.dart', 'FnthinkInlineAction('), 4);
     });
 
     // T108 片①：那批"蓝色文字点击件"按功能语义分色，并把"谁还在自己搭按钮"记成一本账。
@@ -1156,7 +1159,10 @@ class FnthinkStatusMark extends StatelessWidget {
       //    少一枚 ⇒ 有人把它改回了默认蓝，而界面上"能不能反悔"这件事又看不出来了。
       const destructive = <String, int>{
         'lib/pages/fnthink_endpoint_page.dart': 2,
-        'lib/pages/fnthink_peers_page.dart': 2,
+        // T152 片B：2 → 1。名单行那枚「撤销」搬进行尾「⋯」的弹层，本页只剩待确认那一条的
+        // 「拒绝」还在行内上红。**红这一档没有少，是换了宿主** —— 下面那条 `danger: true`
+        // 钉的就是搬过去的那一枚（少了它，撤销在弹层里就与"改个名字"同一个颜色）。
+        'lib/pages/fnthink_peers_page.dart': 1,
         // T119 起设置页有 3 枚：重置地址码、撤销配对口令、**撤销中转同意**。
         'lib/pages/fnthink_settings_page.dart': 3,
       };
@@ -1184,6 +1190,18 @@ class FnthinkStatusMark extends StatelessWidget {
           expect(actual, greaterThanOrEqualTo(e.value));
         }
       }
+      // T152 片B：那枚搬进弹层的「撤销」用的红是另一套词汇（`CardAction.danger`，由
+      // `CardActionSheet` 把 label 与图标一起转红）。这一族"不可逆要看得出来"的口径因此是
+      // **两处相加**，不是只看行内那一处 —— 少一枚就是"撤销现在看起来与改个名字一样"。
+      expect(
+        'danger: true'
+            .allMatches(codeByPath['lib/pages/fnthink_peers_page.dart']!)
+            .length,
+        1,
+        reason:
+            '名单行尾「⋯」里那枚撤销不再带 danger ⇒ 弹层里它与"改名"同色，'
+            '而这一发断掉的是配对关系（撤销之后要重新扫码才能再配上）',
+      );
       // 判据自证：台账不许是空的（空表会让上面那一圈恒真 —— 本仓"不许变多"型台账的正解）。
       expect(
         destructive.values.reduce((a, b) => a + b),

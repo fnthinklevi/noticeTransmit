@@ -693,7 +693,20 @@ enum FnthinkHistoryDirection {
 /// ⚠ 这里只有色，**没有词**。词由各页那一族唯一作者给（`_pairStateWord` 那一支，对着契约词表），
 /// 在这里再造一份"哪个状态说哪句话"就会长出第二个词表：内核加一种状态时这里不会红，
 /// 而它会开始把不认识的状态说成某个已知的。
-enum FnthinkOutcomeTone { approved, denied, expired, pending }
+enum FnthinkOutcomeTone {
+  approved,
+  denied,
+  expired,
+  pending,
+
+  /// 词表外的状态值（存量里读到内核不认识的那个词）⇒ 这一枚**不上色**。
+  ///
+  /// ⚠ 不许把它并进 `expired`：那一档说的是"这一条不再有意义"，而"本机读不出来"是另一件事
+  /// —— 给它任何一种颜色，都是界面替本机下了一个它没有根据的结论。画法取 tier 档现成的
+  /// `filled: false`（透明底 + 分隔线描边），那是这套件里「没被判定」已有的那一形
+  /// （「备／未设置／不参与」用的就是它）。
+  unknown,
+}
 
 /// 历史行（只读）：方向 · 是谁 · 档位 · 结论 · 时刻（T150 片A 组件 B）。
 ///
@@ -750,7 +763,12 @@ class FnthinkHistoryRow extends StatelessWidget {
     // （浅色档 0xFFF2F2F7），画在白卡上等于隐形。同族那一枚点在
     // `remote_history_page` 里就正踩在这个坑上（已登记，不在本片范围）。
     FnthinkOutcomeTone.expired => AppColors.tertiaryLabel(context),
+    // 不上色那一档根本不读这个值（`filled: false` 时前景由 `FnthinkStatusMark` 自己取）。
+    FnthinkOutcomeTone.unknown => AppColors.tertiaryLabel(context),
   };
+
+  /// 词表外那一档**不填色**：见 [FnthinkOutcomeTone.unknown]。
+  bool get _toneFilled => outcomeTone != FnthinkOutcomeTone.unknown;
 
   @override
   Widget build(BuildContext context) {
@@ -832,6 +850,7 @@ class FnthinkHistoryRow extends StatelessWidget {
               role: FnthinkMarkRole.tier,
               label: outcomeLabel,
               color: _toneColor(context),
+              filled: _toneFilled,
             ),
           ],
         ),

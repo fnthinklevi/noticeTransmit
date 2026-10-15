@@ -21,6 +21,7 @@ import '../services/fnthink_remote_action_categories.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../theme/app_colors.dart';
+import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/fnthink_outcome.dart';
@@ -474,18 +475,29 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           child: FnthinkCard(
             title: l10n.fnthinkPairHistoryTitle,
             children: [
+              // T152 片B：那一句「谁 · 要的是哪一档 · 什么结论 · 多久之前」拆成一行的几格 ——
+              // 这五件事本来就有五种身份（主语／属性／结论／时刻），排成一行小灰字时那些身份
+              // 全被抹平。⚠ key 逐字搬：`fnthink-pair-history-<requestId>` 是判据认的那一枚。
               for (final row in rows)
-                FnthinkNote(
+                FnthinkHistoryRow(
                   keyName: 'fnthink-pair-history-${row.requestId}',
-                  text: l10n.fnthinkPairHistoryLine(
-                    row.outgoing
-                        ? l10n.fnthinkPairHistoryOutgoing
-                        : l10n.fnthinkPairHistoryIncoming,
-                    row.peerAddress,
-                    row.level.isEmpty ? '—' : row.level,
-                    _pairStateWord(l10n, row.status),
-                    fnthinkAgoLabel(l10n, row.changedAt) ?? '—',
-                  ),
+                  direction: row.outgoing
+                      ? FnthinkHistoryDirection.outgoing
+                      : FnthinkHistoryDirection.incoming,
+                  // 那句话**留着**：箭头与色是加出来的第二道判据，不是替掉词。
+                  directionLabel: row.outgoing
+                      ? l10n.fnthinkPairHistoryOutgoing
+                      : l10n.fnthinkPairHistoryIncoming,
+                  peerLabel: row.peerAddress,
+                  // 「要的是 L2」而不是光一枚 `L2`：历史那一行说的是**当时请求的那一档**，
+                  // 不是这台现在的授权（那在名单行里，两处主语不同）。
+                  levelChip: row.level.isEmpty
+                      ? null
+                      : l10n.fnthinkPairHistoryWants(row.level),
+                  outcomeLabel: _pairStateWord(l10n, row.status),
+                  outcomeTone: _pairStateTone(row.status),
+                  // 没有时刻就不画那一格（画一个 '—' 会把"这一条没带时间"说成"很久以前"）。
+                  timeLabel: fnthinkAgoLabel(l10n, row.changedAt),
                 ),
             ],
           ),
@@ -510,6 +522,20 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
         // 词表外的值：把原话摊出来。画成"失败"会让人去重扫一次码，而那一发会消耗新口令。
         return l10n.fnthinkPairStateUnknown(status);
     }
+  }
+
+  /// 那一档结论上什么色。**只有档，没有词** —— 词是上面那一支给的（对着契约词表）。
+  ///
+  /// ⚠ `unknown` 走的是"不上色"那一档：本机说不出结论的时候，任何一种颜色都是界面在替本机
+  ///   下一个它没有根据的结论（画成灰也不行 —— 灰在这一族里说的是"这一条不再有意义"）。
+  FnthinkOutcomeTone _pairStateTone(String status) {
+    return switch (fnthinkPairRequestStateOf(_contract!, status)) {
+      FnthinkPairRequestState.approved => FnthinkOutcomeTone.approved,
+      FnthinkPairRequestState.denied => FnthinkOutcomeTone.denied,
+      FnthinkPairRequestState.expired => FnthinkOutcomeTone.expired,
+      FnthinkPairRequestState.pending => FnthinkOutcomeTone.pending,
+      FnthinkPairRequestState.unknown => FnthinkOutcomeTone.unknown,
+    };
   }
 
   List<Widget> _pairRequestRows(
@@ -868,36 +894,24 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           )
         else
           for (final peer in rows) ...[
-            FnthinkNote(
+            // T152 片B／阶段3：一台设备＝一行。这一行今天**没有详情页**，所以 `onTap` 传 null
+            // （整行点不动、也不画 chevron），能点的只有行尾那枚「⋯」；「发一条」是主操作，
+            // 按方案留在行内当文字动作。⚠ key 逐字搬：`fnthink-peer-<地址码>` 现在落在主文案
+            // 那枚 `Text` 上（六处 `tester.widget<Text>(find.byKey(...)).data` 认的就是宿主）。
+            FnthinkPeerRow(
               keyName: 'fnthink-peer-${peer.peerAddress}',
-              text: l10n.fnthinkPeerLine(
-                // T128 片1：这一行"是谁"那一段的唯一作者（地址码仍在前，别名在括号里 ——
-                // 能被核对的那个东西不能被一个本机编的名字替掉）。
-                peer.whoLabel,
+              icon: Icons.phone_android,
+              iconColor: AppColors.blue,
+              // T128 片1：这一行"是谁"那一段的唯一作者（地址码仍在前，别名在括号里 ——
+              // 能被核对的那个东西不能被一个本机编的名字替掉）。
+              title: peer.whoLabel,
+              // 「它 → 你 · 授到 L2 · 时刻」：方向那句话留着（T98 片① 判的就是这一族有两个方向，
+              // 而"是谁"那一格已经由上面那行主文案报了，不必在第二遍里复读）。
+              subtitle: l10n.fnthinkPeerLine(
                 peer.level,
                 fnthinkFormatTime(peer.grantedAt),
               ),
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FnthinkInlineAction(
-                key: ValueKey('fnthink-peer-revoke-${peer.peerAddress}'),
-                label: l10n.fnthinkPeerRevoke,
-                tone: FnthinkActionTone.destructive,
-                // 撤销那一发要能连点两下都不出事（服务端幂等），但 `_busy` 仍然拦：
-                // 拦的不是"撤两次"，是"两次删行撞在一起"——那种时候界面显示的是哪一次？
-                onPressed: _busy ? null : () => _revoke(peer),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FnthinkInlineAction(
-                key: ValueKey('fnthink-peer-rename-${peer.peerAddress}'),
-                label: l10n.fnthinkPeerRename,
-                // T128 片1：别名挂在**这一行**，且刻意不是破坏性色调 —— 它不碰授权、
-                // 不碰服务端，改的只是这一行在屏幕上叫什么。地址码不能被它替掉（见 whoLabel）。
-                onPressed: _busy ? null : () => _renamePeer(peer),
-              ),
+              trailing: _peerMoreButton(l10n, peer),
             ),
             Align(
               alignment: Alignment.centerLeft,
@@ -995,6 +1009,51 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           // T149 片6：74 字那一段（撤销先走服务器、已收通知不删、对面的许可由它自己撤）整段进问号，
           // **正文一字没删** —— 「撤销不会删掉已收到的通知」这句是要紧的承诺。
           helpBody: l10n.fnthinkPeersBoundary,
+        ),
+      ],
+    );
+  }
+
+  /// 行尾那枚「⋯」：把**危险与低频**那两发（撤销、改名）从行里收进弹层。
+  ///
+  /// 为什么收纳（维护者 2026-10-15 方案 阶段3 第 2 条）：三枚同字号、同排在一行下面的文字按钮
+  /// 并排时，"不可逆的那一枚"与"只是改个名字"在屏上没有分别 —— 而撤销那一发断掉的是配对关系。
+  /// 进了弹层，红色那一档才说得上"这一发做完就回不去"（`CardAction.danger`）。
+  ///
+  /// ⚠ 主操作「发一条」**不进来**：它是这一行存在的理由，藏进二级弹层等于少一个入口
+  ///   （那条纪律在 `feedback-no-redundant-entry-points` 那一族里记着）。
+  Widget _peerMoreButton(AppLocalizations l10n, FnthinkPeer peer) {
+    return IconButton(
+      key: ValueKey('fnthink-peer-more-${peer.peerAddress}'),
+      icon: const Icon(Icons.more_horiz, size: 18),
+      color: AppColors.secondaryLabel(context),
+      // 忙的时候点不动 —— 与搬走那两枚文字按钮同一个语义（置灰，不是藏起来）。
+      onPressed: _busy ? null : () => _showPeerActions(l10n, peer),
+    );
+  }
+
+  Future<void> _showPeerActions(AppLocalizations l10n, FnthinkPeer peer) async {
+    // ⚠ 动作由 `CardActionSheet` 在**弹层完全下场之后**才执行（那条时序不变量钉在组件里）：
+    //   撤销那一发紧接着要弹二次确认，两层模态交叉退场会在真机上留下一片吞手势的屏障。
+    //   标题给的是这一行的称呼（`whoLabel`）：弹层里得看得见"这是谁的菜单"。
+    await CardActionSheet.show(
+      context,
+      title: peer.whoLabel,
+      actions: [
+        CardAction(
+          icon: Icons.edit,
+          label: l10n.fnthinkPeerRename,
+          // T128 片1：别名挂在**这一行**，且刻意不是破坏性色调 —— 它不碰授权、
+          // 不碰服务端，改的只是这一行在屏幕上叫什么。地址码不能被它替掉（见 whoLabel）。
+          onTap: () => _renamePeer(peer),
+        ),
+        CardAction(
+          icon: Icons.link_off,
+          label: l10n.fnthinkPeerRevoke,
+          danger: true,
+          // 撤销那一发要能连点两下都不出事（服务端幂等），但 `_busy` 仍然拦：
+          // 拦的不是"撤两次"，是"两次删行撞在一起"——那种时候界面显示的是哪一次？
+          onTap: () => _revoke(peer),
         ),
       ],
     );

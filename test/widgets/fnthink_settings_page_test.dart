@@ -2426,15 +2426,25 @@ void main() {
       );
       await revealTo(tester, first);
       expect(first, findsOneWidget);
-      final line = tester.widget<Text>(first).data!;
-      expect(line, contains('AAAAAAAAAAAAAAAAAAAA'));
+      // T152 片B：那一行不再是**整句** ——「是谁」在主文案那一格（key 逐字没动），
+      // 档位与授权时刻在副文案那一格（派生 key `-sub`）。三条事实一条都没少，
+      // 只是各回到自己的格 ⇒ 断言也跟着按格打，不再对整句 contains。
       expect(
-        line,
+        tester.widget<Text>(first).data!,
+        contains('AAAAAAAAAAAAAAAAAAAA'),
+      );
+      final grant = tester
+          .widget<Text>(
+            find.byKey(const ValueKey('fnthink-peer-AAAAAAAAAAAAAAAAAAAA-sub')),
+          )
+          .data!;
+      expect(
+        grant,
         contains('L2'),
         reason: '档位显示的是名单里那一列（= 服务端当初回的那一档），不是页面上另算的一份',
       );
       expect(
-        line,
+        grant,
         matches(RegExp(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}')),
         reason:
             '时刻按本机时区格式化。用例里**不许**写死一个绝对时刻字符串 —— '
@@ -2543,7 +2553,7 @@ void main() {
       final h = harness(peers: [row('CCCCCCCCCCCCCCCCCCCC', at: 0)]);
       await pumpPeers(tester, h);
       final target = find.byKey(
-        const ValueKey('fnthink-peer-CCCCCCCCCCCCCCCCCCCC'),
+        const ValueKey('fnthink-peer-CCCCCCCCCCCCCCCCCCCC-sub'),
       );
       await revealTo(tester, target);
       final line = tester.widget<Text>(target).data!;
@@ -2569,22 +2579,59 @@ void main() {
       requestId: 'pr_9',
     );
 
-    /// 走完「撤销 → 二次确认」。
-    /// ⚠ 这里要 `revealTo`（滚到被 build 出来）**再** `ensureVisible`（把它滚进视口）：
+    /// 走完「行尾那枚「⋯」→ 弹层里的撤销 → 二次确认」。
+    ///
+    /// T152 片B：那枚撤销从行里搬进了共用的 `CardActionSheet`，所以这一发现在是**两步**。
+    /// ⚠ 两步都要 `revealTo`（滚到被 build 出来）**再** `ensureVisible`（把它滚进视口）：
     ///   `ListView` 懒建，`revealTo` 在"已经 build 但在屏幕外"时直接返回，此时 `tap` 会
     ///   打到一个 hit-test 打不中的坐标（点了等于没点，弹层永远不出现）。
+    /// ⚠ 中间那条 `findsOneWidget` 不是多余的：弹层没开就往下点，打到的会是背后那一页的
+    ///   某个同词控件，用例照样"撤销成功"，而真正该验的那一步从来没发生。
     Future<void> tapRevoke(
       WidgetTester tester,
       AppLocalizations l10n,
       String address,
     ) async {
-      final button = find.byKey(ValueKey('fnthink-peer-revoke-$address'));
-      await revealTo(tester, button);
-      await tester.ensureVisible(button);
+      final more = find.byKey(ValueKey('fnthink-peer-more-$address'));
+      await revealTo(tester, more);
+      await tester.ensureVisible(more);
       await tester.pumpAndSettle();
-      await tester.tap(button);
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      final item = find.text(l10n.fnthinkPeerRevoke);
+      expect(item, findsOneWidget, reason: '那枚「⋯」没开出弹层 ⇒ 这一族里"撤销"这一发今天做不成了');
+      await tester.tap(item);
       await tester.pumpAndSettle();
     }
+
+    testWidgets('阶段3 的收纳：一行只留「发一条」，撤销与改名进行尾那枚「⋯」（T152 片B）', (tester) async {
+      stubChannels();
+      final h = harness(peers: [peerRow('AAAAAAAAAAAAAAAAAAAA')]);
+      final l10n = await pumpPeers(tester, h);
+      final more = find.byKey(
+        const ValueKey('fnthink-peer-more-AAAAAAAAAAAAAAAAAAAA'),
+      );
+      await revealTo(tester, more);
+      // 弹层没开之前，那两个词在屏上**一次都不该出现**：它们是从行里搬走的，不是新加的。
+      // 这一条钉的就是维护者点名的"纯文字感"第二来源 —— 一行三枚同色文字按钮并排时，
+      // "不可逆的那一枚"与"只是改个名字"在屏上没有分别。
+      expect(find.text(l10n.fnthinkPeerRevoke), findsNothing);
+      expect(find.text(l10n.fnthinkPeerRename), findsNothing);
+      // 主操作**留在行内**（方案原话）：搬进二级弹层等于少一个入口。
+      expect(find.text(l10n.fnthinkPeerSend), findsOneWidget);
+
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.fnthinkPeerRevoke), findsOneWidget);
+      expect(find.text(l10n.fnthinkPeerRename), findsOneWidget);
+      // 弹层标题给的是这一行的称呼：用户得看得见自己正在对**哪一台**做这一发
+      // （名单里有两台以上时，"撤销"两个字不带对象就是猜）。
+      expect(
+        find.textContaining('AAAAAAAAAAAAAAAAAAAA'),
+        findsWidgets,
+        reason: '弹层里说不出这是哪一台 ⇒ 那一发做在了猜的那台上',
+      );
+    });
 
     testWidgets('点了不等于撤了：那一发要先过二次确认', (tester) async {
       stubChannels();

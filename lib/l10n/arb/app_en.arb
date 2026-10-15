@@ -1695,8 +1695,8 @@
     }
   },
   "fnthinkPairHistoryTitle": "Pairing history",
-  "fnthinkPairHistoryLine": "{role} · {peer} · requesting {level} · {status} · {at}",
-  "@fnthinkPairHistoryLine": {"placeholders": {"role": {"type": "String"}, "peer": {"type": "String"}, "level": {"type": "String"}, "status": {"type": "String"}, "at": {"type": "String"}}},
+  "fnthinkPairHistoryWants": "requesting {level}",
+  "@fnthinkPairHistoryWants": {"placeholders": {"level": {"type": "String"}}},
   "fnthinkPairHistoryOutgoing": "sent by this device",
   "fnthinkPairHistoryIncoming": "requested by the other device",
   "agoMinutes": "{n} min ago",
@@ -1852,12 +1852,9 @@
   "fnthinkPeerForwardChannelMade": "Created a channel to it (all three links are in place now)",
   "fnthinkPeerForwardChannelKept": "A channel to it already exists; nothing was created",
   "fnthinkPeerForwardHint": "Check it so notifications this device receives are forwarded to it.",
-  "fnthinkPeerLine": "{peer} · it → you · granted {level} · {at}",
+  "fnthinkPeerLine": "it → you · granted {level} · {at}",
   "@fnthinkPeerLine": {
     "placeholders": {
-      "peer": {
-        "type": "String"
-      },
       "level": {
         "type": "String"
       },

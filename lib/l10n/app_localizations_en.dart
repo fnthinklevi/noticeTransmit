@@ -3589,14 +3589,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPairHistoryTitle => 'Pairing history';
 
   @override
-  String fnthinkPairHistoryLine(
-    String role,
-    String peer,
-    String level,
-    String status,
-    String at,
-  ) {
-    return '$role · $peer · requesting $level · $status · $at';
+  String fnthinkPairHistoryWants(String level) {
+    return 'requesting $level';
   }
 
   @override
@@ -3874,8 +3868,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Check it so notifications this device receives are forwarded to it.';
 
   @override
-  String fnthinkPeerLine(String peer, String level, String at) {
-    return '$peer · it → you · granted $level · $at';
+  String fnthinkPeerLine(String level, String at) {
+    return 'it → you · granted $level · $at';
   }
 
   @override

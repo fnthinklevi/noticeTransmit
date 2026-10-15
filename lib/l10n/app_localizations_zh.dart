@@ -3431,14 +3431,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairHistoryTitle => '配对历史';
 
   @override
-  String fnthinkPairHistoryLine(
-    String role,
-    String peer,
-    String level,
-    String status,
-    String at,
-  ) {
-    return '$role · $peer · 要的是 $level · $status · $at';
+  String fnthinkPairHistoryWants(String level) {
+    return '要的是 $level';
   }
 
   @override
@@ -3694,8 +3688,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeerForwardHint => '勾上它，这台设备收到的通知才会往它那边转。';
 
   @override
-  String fnthinkPeerLine(String peer, String level, String at) {
-    return '$peer · 它 → 你 · 授到 $level · $at';
+  String fnthinkPeerLine(String level, String at) {
+    return '它 → 你 · 授到 $level · $at';
   }
 
   @override
