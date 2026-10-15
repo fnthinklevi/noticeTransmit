@@ -41,9 +41,21 @@
   "stopped": "已停止",
   "currentChannels": "当前推送通道",
   "homeOnlyPrimaryShown": "仅显示主通道，另有 {count, plural, =1{1 条} other{{count} 条}}在「通道状态」里",
-  "@homeOnlyPrimaryShown": { "placeholders": { "count": { "type": "int" } } },
+  "@homeOnlyPrimaryShown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "homeNoPrimaryChannel": "未设主通道（另有 {count, plural, =1{1 条} other{{count} 条}}启用，见「通道状态」）",
-  "@homeNoPrimaryChannel": { "placeholders": { "count": { "type": "int" } } },
+  "@homeNoPrimaryChannel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noChannels": "未配置推送通道",
   "historyChipsMore": "还有 {n} 个通道",
   "historyChipsCollapse": "收起",
@@ -1049,21 +1061,31 @@
   "deviceStatusBrief": "{model} · 电量 {level}%",
   "@deviceStatusBrief": {
     "placeholders": {
-      "model": { "type": "String" },
-      "level": { "type": "int" }
+      "model": {
+        "type": "String"
+      },
+      "level": {
+        "type": "int"
+      }
     }
   },
   "deviceStatusBriefCharging": "{model} · 电量 {level}% · 充电中",
   "@deviceStatusBriefCharging": {
     "placeholders": {
-      "model": { "type": "String" },
-      "level": { "type": "int" }
+      "model": {
+        "type": "String"
+      },
+      "level": {
+        "type": "int"
+      }
     }
   },
   "deviceStatusBriefNoReading": "{model} · 电量读数还没到",
   "@deviceStatusBriefNoReading": {
     "placeholders": {
-      "model": { "type": "String" }
+      "model": {
+        "type": "String"
+      }
     }
   },
   "deviceStatusShort": "下面每一项都来自**同一次**读取。",
@@ -1073,7 +1095,9 @@
   "snapshotCapturedAt": "读取于 {time}",
   "@snapshotCapturedAt": {
     "placeholders": {
-      "time": { "type": "String" }
+      "time": {
+        "type": "String"
+      }
     }
   },
   "snapshotModel": "型号",
@@ -1083,8 +1107,12 @@
   "snapshotSystemVersionValue": "Android {version}（API {sdk}）",
   "@snapshotSystemVersionValue": {
     "placeholders": {
-      "version": { "type": "String" },
-      "sdk": { "type": "int" }
+      "version": {
+        "type": "String"
+      },
+      "sdk": {
+        "type": "int"
+      }
     }
   },
   "snapshotNetwork": "网络",
@@ -1098,8 +1126,12 @@
   "snapshotBatteryValue": "{level}%（{state}）",
   "@snapshotBatteryValue": {
     "placeholders": {
-      "level": { "type": "int" },
-      "state": { "type": "String" }
+      "level": {
+        "type": "int"
+      },
+      "state": {
+        "type": "String"
+      }
     }
   },
   "batteryChargingState": "充电中",
@@ -1108,31 +1140,45 @@
   "snapshotBatteryTempValue": "{value}℃",
   "@snapshotBatteryTempValue": {
     "placeholders": {
-      "value": { "type": "String" }
+      "value": {
+        "type": "String"
+      }
     }
   },
   "snapshotStorage": "存储",
   "snapshotStorageValue": "已用 {used} GB / 共 {total} GB",
   "@snapshotStorageValue": {
     "placeholders": {
-      "used": { "type": "String" },
-      "total": { "type": "String" }
+      "used": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "snapshotMemory": "内存",
   "snapshotMemoryValue": "可用 {available} GB / 共 {total} GB",
   "@snapshotMemoryValue": {
     "placeholders": {
-      "available": { "type": "String" },
-      "total": { "type": "String" }
+      "available": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "snapshotBrightness": "屏幕亮度",
   "snapshotBrightnessValue": "{percent}%（{mode}）",
   "@snapshotBrightnessValue": {
     "placeholders": {
-      "percent": { "type": "int" },
-      "mode": { "type": "String" }
+      "percent": {
+        "type": "int"
+      },
+      "mode": {
+        "type": "String"
+      }
     }
   },
   "brightnessModeAuto": "自动",
@@ -1141,9 +1187,15 @@
   "snapshotUptimeValue": "{days} 天 {hours} 小时 {minutes} 分",
   "@snapshotUptimeValue": {
     "placeholders": {
-      "days": { "type": "int" },
-      "hours": { "type": "int" },
-      "minutes": { "type": "int" }
+      "days": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "unreadableField": "这台设备读不到",
@@ -1717,7 +1769,13 @@
   },
   "fnthinkPairHistoryTitle": "配对历史",
   "fnthinkPairHistoryWants": "要的是 {level}",
-  "@fnthinkPairHistoryWants": {"placeholders": {"level": {"type": "String"}}},
+  "@fnthinkPairHistoryWants": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkPairHistoryOutgoing": "我发起的",
   "fnthinkPairHistoryIncoming": "对方请求的",
   "agoMinutes": "{n} 分钟前",
@@ -2277,8 +2335,12 @@
   },
   "@fnthinkRegisterRateLimited": {
     "placeholders": {
-      "minutes": {"type": "int"},
-      "seconds": {"type": "int"}
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "fnthinkPollIntervalRange": "可设范围 {min}–{max} 秒，由协议规定，不是本机偏好",
@@ -2325,8 +2387,7 @@
   "fnthinkSentAt": "发送时间",
   "fnthinkPeerAckedAt": "对端接收时间",
   "fnthinkReceivedAt": "接收时间",
-  "fnthinkRecipient": "收件人"
-,
+  "fnthinkRecipient": "收件人",
   "l3SettingsSectionTitle": "对端可以请求的系统设置",
   "l3SettingsSectionDesc": "这一档的每一项都要你在设备上点一下确认。没给的项不会藏起来，只会置灰并说清楚差在哪一格。",
   "l3StateMissing": "还没给这台设备授权",
@@ -2336,8 +2397,7 @@
   "l3ItemMonitoring": "通知转发监听",
   "l3ItemCollectInbox": "幻念收件开关",
   "l3NoteAutostart": "系统只有各厂商的入口，不提供统一读数",
-  "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页"
-,
+  "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页",
   "updateBlockIntegrityFailed": "更新包校验未通过，已阻止安装",
   "updateBlockChecksumMismatch": "更新包完整性校验未通过（校验和不匹配），已阻止安装",
   "updateBlockUnverifiable": "无法完成安全性校验，已阻止安装",
@@ -2345,9 +2405,23 @@
   "updateFailDownloaderStart": "无法启动系统下载器",
   "updateFailProgressQuery": "获取下载进度失败",
   "updateFailDownloader": "系统下载器下载失败{detail}",
-  "@updateFailDownloader": {"description": "系统下载器失败那一句；{detail} 是原生给的 reasonText（带括号或空串）", "placeholders": {"detail": {"type": "String"}}},
+  "@updateFailDownloader": {
+    "description": "系统下载器失败那一句；{detail} 是原生给的 reasonText（带括号或空串）",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
   "updateFailHttpStatus": "下载失败：HTTP {code}",
-  "@updateFailHttpStatus": {"description": "按 HTTP 状态码报失败；{code} 是状态码", "placeholders": {"code": {"type": "int"}}},
+  "@updateFailHttpStatus": {
+    "description": "按 HTTP 状态码报失败；{code} 是状态码",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
   "updateSizeUnknown": "未知",
   "updateNotificationTitle": "通知推送助手更新",
   "updateServerTitle": "更新服务器",
@@ -2369,11 +2443,32 @@
   "updateServerUnprobed": "还没探过",
   "updateServerNoAnswer": "没回话（网络或域名解析不通）",
   "updateServerHttpStatus": "这一台回了 HTTP {code}",
-  "@updateServerHttpStatus": {"placeholders": {"code": {"type": "int"}}},
+  "@updateServerHttpStatus": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
   "updateServerLatestLine": "这台报的最新版：{version}+{build}",
-  "@updateServerLatestLine": {"placeholders": {"version": {"type": "String"}, "build": {"type": "String"}}},
+  "@updateServerLatestLine": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
   "updateServerCdnLine": "安装包来自 {host}",
-  "@updateServerCdnLine": {"placeholders": {"host": {"type": "String"}}},
+  "@updateServerCdnLine": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
   "updateServerAnswerEmpty": "通了，但这一台没报出版本信息",
   "remoteExecSection": "远程执行",
   "remoteExecWhyTitle": "远程执行的安全度由什么决定",
@@ -2389,26 +2484,81 @@
   "remoteExecLocalTriggerOn": "已开启：仍只有选中的应用、且命中关键词的通知才可能触发",
   "remoteExecLocalTriggerOff": "已关闭：任何通知正文都不会被执行",
   "remoteExecLocalTriggerApps": "可触发的应用",
+  "remoteTriggerFilterTitle": "可触发的应用",
+  "remoteTriggerAllow": "允许触发",
+  "remoteTriggerBlock": "禁止触发",
+  "remoteTriggerAllowModeInfo": "当前模式：允许触发 — 只有选中的应用，其通知正文才能触发本机远程指令",
+  "remoteTriggerAllowModeSelected": "已选择 {n} 个应用，仅这些应用的通知能触发远程指令",
+  "remoteTriggerBlockModeInfo": "当前模式：禁止触发 — 选中的应用除外，其余应用的通知都能触发",
+  "remoteTriggerBlockModeSelected": "已选择 {n} 个应用，这些应用的通知不会触发远程指令",
   "remoteExecLocalTriggerAllowNone": "允许 0 个应用 ⇒ 哪一条通知都不会触发",
   "remoteExecLocalTriggerAllowCount": "允许 {count} 个应用",
-  "@remoteExecLocalTriggerAllowCount": { "placeholders": { "count": { "type": "int" } } },
+  "@remoteExecLocalTriggerAllowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecLocalTriggerBlockCount": "除 {count} 个应用之外都可触发",
-  "@remoteExecLocalTriggerBlockCount": { "placeholders": { "count": { "type": "int" } } },
+  "@remoteExecLocalTriggerBlockCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecOpenSettings": "远程执行设置",
   "remoteExecSendPage": "远程指令发送",
   "remoteExecHistory": "远程执行历史",
   "remoteExecDelayTitle": "延时执行",
   "remoteExecDelayUsingDefault": "这一条会在 {seconds} 秒后自动执行（协议默认那一档）",
-  "@remoteExecDelayUsingDefault": { "placeholders": { "seconds": { "type": "int" } } },
+  "@remoteExecDelayUsingDefault": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecDelayChosen": "这一条会在 {seconds} 秒后自动执行（你选的）",
-  "@remoteExecDelayChosen": { "placeholders": { "seconds": { "type": "int" } } },
+  "@remoteExecDelayChosen": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecDelayRange": "可设范围 {min}–{max} 秒，由协议规定，不是本机偏好",
-  "@remoteExecDelayRange": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
+  "@remoteExecDelayRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecDelayReset": "改用协议默认",
   "remoteExecDelayInvalid": "延时这一档没有生效：{reason}",
-  "@remoteExecDelayInvalid": { "placeholders": { "reason": { "type": "String" } } },
+  "@remoteExecDelayInvalid": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "remoteExecPendingBanner": "远程指令「{item}」等 {seconds} 秒后自动执行",
-  "@remoteExecPendingBanner": { "placeholders": { "item": { "type": "String" }, "seconds": { "type": "int" } } },
+  "@remoteExecPendingBanner": {
+    "placeholders": {
+      "item": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecCancel": "撤销",
   "remoteExecCancelled": "已撤销：那一条不会执行",
   "remoteExecCancelTooLate": "已经动手了，撤不回来（动作可能做完了一半）",
@@ -2430,7 +2580,13 @@
     }
   },
   "remoteCredKeyMin": "至少 {min} 个字符，由协议规定",
-  "@remoteCredKeyMin": { "placeholders": { "min": { "type": "int" } } },
+  "@remoteCredKeyMin": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
   "remoteCredKeyGenerate": "生成一把",
   "remoteCredKeyCustom": "我自己设一把",
   "remoteCredKeyOnce": "这一串只出现这一次：请现在就抄到你自己单独保存的地方（或当面交给对面那台）。关掉这一页之后本机只剩哈希，谁都看不回这串字——包括你自己。",
@@ -2445,7 +2601,13 @@
   "remoteCredTotpOnce": "这一枚只出现这一次，而且只存在接收端：请现在就录进对面那台的验证器 App（或当面交给对方录）。之后由验证器保管，不经过任何服务器；本机关掉这一页之后也只剩那一枚种子。",
   "remoteCredTotpClear": "撤掉这一枚",
   "remoteCredProblem": "本机的凭据不可用：{reason}",
-  "@remoteCredProblem": { "placeholders": { "reason": { "type": "String" } } },
+  "@remoteCredProblem": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "remoteCredResetAll": "全部重置",
   "remoteCredResetAllAsk": "全部重置之后，对面手里那把高级密钥与那枚验证码种子都当场作废。要继续远程执行就得重新生成并当面交给对方。",
   "remotePeersReadFailed": "名单读不出来（库里这一张表没读到）。这不是「还没配对过设备」——先去设备绑定那一页看一眼。",
@@ -2460,10 +2622,6 @@
   "remoteActionCallsSearch": "让对面按关键词搜通话记录",
   "remoteActionLocationGet": "让对面回一份最近定位",
   "remoteActionCameraSnap": "让对面拍一张照片",
-  "remoteActionContactsSearch": "让对面按关键词搜通讯录",
-  "fnthinkReadContactsTitle": "通讯录",
-  "fnthinkReadContactsSubtitle": "允许已配对的设备按姓名或号码搜本机通讯录",
-  "fnthinkReadContactsDenied": "没拿到通讯录权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。",
   "remoteActionContactsSearch": "让对面按关键词搜通讯录",
   "fnthinkReadContactsTitle": "通讯录",
   "fnthinkReadContactsSubtitle": "允许已配对的设备按姓名或号码搜本机通讯录",
@@ -2495,7 +2653,13 @@
   "fnthinkShortcutsTargetInvalid": "目标要是一条带 scheme 的链接，或「包名/类名」。",
   "fnthinkShortcutsDuplicate": "这个名字已经登记过了。",
   "fnthinkShortcutsDeleteAsk": "删掉「{name}」之后，对面再点名这个名字就打不开了。要继续吗？",
-  "@fnthinkShortcutsDeleteAsk": { "placeholders": { "name": { "type": "String" } } },
+  "@fnthinkShortcutsDeleteAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "remoteSettingNotification": "请对面打开「通知监听」权限页",
   "remoteSettingExactAlarm": "请对面打开「精确闹钟」权限页",
   "remoteSettingBatteryOptimization": "请对面去关掉「电池优化」",
@@ -2538,19 +2702,76 @@
   "remoteSendShortcutNameLabel": "打开哪一条",
   "remoteSendShortcutNameWhy": "填对面在本机登记过的名字（本机看不到那份清单）。名字对不上时这一发不会执行。",
   "remoteSendNeedsShortcutName": "名字要填 {min}–{max} 个字，且不能带控制字符。",
-  "@remoteSendNeedsShortcutName": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
-  "@remoteSendNeedsSmsKeyword": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
-  "@remoteSendNeedsCallsKeyword": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
-  "@remoteSendNeedsReportCount": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
+  "@remoteSendNeedsShortcutName": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@remoteSendNeedsSmsKeyword": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@remoteSendNeedsCallsKeyword": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@remoteSendNeedsReportCount": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "remoteSendContactsKeywordLabel": "搜什么名字或号码",
   "remoteSendContactsKeywordWhy": "只回传命中的那几条（姓名／号码）。对面那台「可被远程读取的内容」里这一项关着时，这一发不会执行。",
   "remoteSendNeedsContactsKeyword": "要搜的名字或号码填 {min}–{max} 个字，且不能带控制字符。",
-  "@remoteSendNeedsContactsKeyword": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
+  "@remoteSendNeedsContactsKeyword": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "remoteSendStartedNote": "已发出。等对面那台回「正在执行」与「执行完毕」两条回执——它们会出现在远程执行历史里。",
   "remoteSendFailed": "这一发没发出去：{reason}",
-  "@remoteSendFailed": { "placeholders": { "reason": { "type": "String" } } },
+  "@remoteSendFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "remoteSendLevelUnknown": "这一档（{level}）不在协议词表里，不发。",
-  "@remoteSendLevelUnknown": { "placeholders": { "level": { "type": "String" } } },
+  "@remoteSendLevelUnknown": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryIn": "收到的指令",
   "remoteHistoryOut": "发出的指令",
   "remoteHistoryAll": "全部",
@@ -2561,17 +2782,53 @@
   "remoteHistoryFailed": "没做成",
   "remoteHistoryCancelled": "已取消",
   "remoteHistoryStateUnknown": "不认得的执行状态（{state}）",
-  "@remoteHistoryStateUnknown": { "placeholders": { "state": { "type": "String" } } },
+  "@remoteHistoryStateUnknown": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryResult": "结果：{result}",
-  "@remoteHistoryResult": { "placeholders": { "result": { "type": "String" } } },
+  "@remoteHistoryResult": {
+    "placeholders": {
+      "result": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryReason": "理由：{reason}",
-  "@remoteHistoryReason": { "placeholders": { "reason": { "type": "String" } } },
+  "@remoteHistoryReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryArgument": "参数：{argument}",
-  "@remoteHistoryArgument": { "placeholders": { "argument": { "type": "String" } } },
+  "@remoteHistoryArgument": {
+    "placeholders": {
+      "argument": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryFromPeer": "来自 {peer}",
-  "@remoteHistoryFromPeer": { "placeholders": { "peer": { "type": "String" } } },
+  "@remoteHistoryFromPeer": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryToPeer": "发给 {peer}",
-  "@remoteHistoryToPeer": { "placeholders": { "peer": { "type": "String" } } },
+  "@remoteHistoryToPeer": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryLocalTrigger": "本机应用的通知触发的（没有远端发送方）",
   "remoteReasonSwitchOff": "远程执行总开关关着",
   "remoteReasonLocalTriggerOff": "本机通知触发那颗开关关着",
@@ -2579,21 +2836,69 @@
   "remoteReasonMissingItem": "指令没带要做的那一项",
   "remoteReasonConfirmRequired": "这一项要求本机当场确认一次",
   "remoteReasonNotGranted": "对端没被授权做这一项：{x}",
-  "@remoteReasonNotGranted": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonNotGranted": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonMissingGrant": "这一项要先在本机开着：{x}",
-  "@remoteReasonMissingGrant": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonMissingGrant": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownAction": "认不出这个动作：{x}",
-  "@remoteReasonUnknownAction": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownAction": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownSetting": "认不出这项设置：{x}",
-  "@remoteReasonUnknownSetting": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownSetting": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownItem": "授权清单里有一项认不出：{x}",
-  "@remoteReasonUnknownItem": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownItem": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownCeiling": "对端那一行的档位天花板认不出：{x}",
-  "@remoteReasonUnknownCeiling": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownCeiling": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonLevel": "这一档超出对端被授予的范围：{x}",
-  "@remoteReasonLevel": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonLevel": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonSourceNotAllowed": "这一档不许从这个来源进来：{x}",
-  "@remoteReasonSourceNotAllowed": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonSourceNotAllowed": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonAuthWrong": "凭据不对",
   "remoteReasonAuthMissing": "这一档必须带凭据，而这条没带",
   "remoteReasonAuthMode": "用的凭据方式协议里没有",
@@ -2612,31 +2917,103 @@
   "remoteReasonDeviceStateRefused": "设备状态推送被拒",
   "remoteReasonAlertRefused": "响铃被拒",
   "remoteReasonUnmappedAction": "这个动作还没有执行器：{x}",
-  "@remoteReasonUnmappedAction": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnmappedAction": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonListenerStart": "监听没开起来",
   "remoteReasonListenerStop": "监听没停下来",
   "remoteReasonNotApplied": "这项设置没有真的改变：{x}",
-  "@remoteReasonNotApplied": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonNotApplied": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonThrew": "执行时抛了异常：{x}",
-  "@remoteReasonThrew": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonThrew": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonBadArgumentKind": "这个动作不接受这一类参数：{x}",
-  "@remoteReasonBadArgumentKind": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonBadArgumentKind": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonBadChannelArgument": "通道那一段参数不对：{x}",
-  "@remoteReasonBadChannelArgument": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonBadChannelArgument": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonBadKeyword": "关键词那一项不成形：{x}",
-  "@remoteReasonBadKeyword": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonBadKeyword": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonBadReportCount": "报告条数不成形：{x}",
-  "@remoteReasonBadReportCount": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonBadReportCount": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonMissingArgument": "这一项要带参数：{x}",
-  "@remoteReasonMissingArgument": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonMissingArgument": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonNoSuchChannel": "没有这条通道：{x}",
-  "@remoteReasonNoSuchChannel": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonNoSuchChannel": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnexpectedArgument": "这个动作不接受参数：{x}",
-  "@remoteReasonUnexpectedArgument": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnexpectedArgument": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownTargetWord": "目标那一段认不出：{x}",
-  "@remoteReasonUnknownTargetWord": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownTargetWord": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknown": "（没有更多原因可读：{x}）",
-  "@remoteReasonUnknown": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknown": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryCancel": "取消这一条",
   "remoteHistoryCancelNote": "取消只对还没开始执行的那一条有用；已经开始执行的不受这条窗口影响。",
   "remoteHistoryRemoved": "这一条已从本机历史里删掉。",
@@ -2672,5 +3049,19 @@
   "fnthinkRemoteTitle": "远程控制",
   "fnthinkRemoteNeedsReceive": "先开「接收」—— 这一页的前提是这台愿意收别人的东西",
   "fnthinkRemoteNeedsConsent": "还没过同意门 —— 去「接收」那一页读一次说明并同意",
-  "fnthinkRemoteNeedsSwitch": "远程执行默认关 —— 进去把它打开"
+  "fnthinkRemoteNeedsSwitch": "远程执行默认关 —— 进去把它打开",
+  "@remoteTriggerAllowModeSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@remoteTriggerBlockModeSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

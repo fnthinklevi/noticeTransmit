@@ -41,9 +41,21 @@
   "stopped": "Stopped",
   "currentChannels": "Push Channels",
   "homeOnlyPrimaryShown": "Primary channel only; {count, plural, =1{1 more} other{{count} more}} in Channel status",
-  "@homeOnlyPrimaryShown": { "placeholders": { "count": { "type": "int" } } },
+  "@homeOnlyPrimaryShown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "homeNoPrimaryChannel": "No primary channel set; {count, plural, =1{1 more} other{{count} more}} enabled — see Channel status",
-  "@homeNoPrimaryChannel": { "placeholders": { "count": { "type": "int" } } },
+  "@homeNoPrimaryChannel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noChannels": "No channels configured",
   "historyChipsMore": "{n} more channels",
   "historyChipsCollapse": "Collapse",
@@ -965,7 +977,7 @@
       }
     }
   },
-  "restorePartialFailed": "Some settings were not restored \u2014 please check each settings page",
+  "restorePartialFailed": "Some settings were not restored — please check each settings page",
   "backupRestoreSubtitle": "Encrypted backup of channels, rules and settings, restorable on a new device",
   "developerDiagEnabled": "Developer diagnostics enabled (rule/merge logs in logcat)",
   "developerDiagDisabled": "Developer diagnostics disabled",
@@ -1049,21 +1061,31 @@
   "deviceStatusBrief": "{model} · battery {level}%",
   "@deviceStatusBrief": {
     "placeholders": {
-      "model": { "type": "String" },
-      "level": { "type": "int" }
+      "model": {
+        "type": "String"
+      },
+      "level": {
+        "type": "int"
+      }
     }
   },
   "deviceStatusBriefCharging": "{model} · battery {level}% · charging",
   "@deviceStatusBriefCharging": {
     "placeholders": {
-      "model": { "type": "String" },
-      "level": { "type": "int" }
+      "model": {
+        "type": "String"
+      },
+      "level": {
+        "type": "int"
+      }
     }
   },
   "deviceStatusBriefNoReading": "{model} · no battery reading yet",
   "@deviceStatusBriefNoReading": {
     "placeholders": {
-      "model": { "type": "String" }
+      "model": {
+        "type": "String"
+      }
     }
   },
   "deviceStatusShort": "Every line below comes from the same reading.",
@@ -1073,7 +1095,9 @@
   "snapshotCapturedAt": "Read at {time}",
   "@snapshotCapturedAt": {
     "placeholders": {
-      "time": { "type": "String" }
+      "time": {
+        "type": "String"
+      }
     }
   },
   "snapshotModel": "Model",
@@ -1083,8 +1107,12 @@
   "snapshotSystemVersionValue": "Android {version} (API {sdk})",
   "@snapshotSystemVersionValue": {
     "placeholders": {
-      "version": { "type": "String" },
-      "sdk": { "type": "int" }
+      "version": {
+        "type": "String"
+      },
+      "sdk": {
+        "type": "int"
+      }
     }
   },
   "snapshotNetwork": "Network",
@@ -1098,8 +1126,12 @@
   "snapshotBatteryValue": "{level}% ({state})",
   "@snapshotBatteryValue": {
     "placeholders": {
-      "level": { "type": "int" },
-      "state": { "type": "String" }
+      "level": {
+        "type": "int"
+      },
+      "state": {
+        "type": "String"
+      }
     }
   },
   "batteryChargingState": "charging",
@@ -1108,31 +1140,45 @@
   "snapshotBatteryTempValue": "{value}°C",
   "@snapshotBatteryTempValue": {
     "placeholders": {
-      "value": { "type": "String" }
+      "value": {
+        "type": "String"
+      }
     }
   },
   "snapshotStorage": "Storage",
   "snapshotStorageValue": "{used} GB used of {total} GB",
   "@snapshotStorageValue": {
     "placeholders": {
-      "used": { "type": "String" },
-      "total": { "type": "String" }
+      "used": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "snapshotMemory": "Memory",
   "snapshotMemoryValue": "{available} GB free of {total} GB",
   "@snapshotMemoryValue": {
     "placeholders": {
-      "available": { "type": "String" },
-      "total": { "type": "String" }
+      "available": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "snapshotBrightness": "Screen brightness",
   "snapshotBrightnessValue": "{percent}% ({mode})",
   "@snapshotBrightnessValue": {
     "placeholders": {
-      "percent": { "type": "int" },
-      "mode": { "type": "String" }
+      "percent": {
+        "type": "int"
+      },
+      "mode": {
+        "type": "String"
+      }
     }
   },
   "brightnessModeAuto": "auto",
@@ -1141,9 +1187,15 @@
   "snapshotUptimeValue": "{days} d {hours} h {minutes} m",
   "@snapshotUptimeValue": {
     "placeholders": {
-      "days": { "type": "int" },
-      "hours": { "type": "int" },
-      "minutes": { "type": "int" }
+      "days": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "unreadableField": "Not readable on this device",
@@ -1696,7 +1748,13 @@
   },
   "fnthinkPairHistoryTitle": "Pairing history",
   "fnthinkPairHistoryWants": "requesting {level}",
-  "@fnthinkPairHistoryWants": {"placeholders": {"level": {"type": "String"}}},
+  "@fnthinkPairHistoryWants": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkPairHistoryOutgoing": "sent by this device",
   "fnthinkPairHistoryIncoming": "requested by the other device",
   "agoMinutes": "{n} min ago",
@@ -2256,8 +2314,12 @@
   },
   "@fnthinkRegisterRateLimited": {
     "placeholders": {
-      "minutes": {"type": "int"},
-      "seconds": {"type": "int"}
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "fnthinkPollIntervalRange": "Allowed range {min}–{max}s, set by the protocol, not a local preference",
@@ -2304,8 +2366,7 @@
   "fnthinkSentAt": "Sent",
   "fnthinkPeerAckedAt": "Received by peer",
   "fnthinkReceivedAt": "Received",
-  "fnthinkRecipient": "Recipient"
-,
+  "fnthinkRecipient": "Recipient",
   "l3SettingsSectionTitle": "System settings a peer can request",
   "l3SettingsSectionDesc": "Each item here needs a confirmation you make on this device. Items you have not granted stay listed - greyed out, with the reason.",
   "l3StateMissing": "Not granted on this device yet",
@@ -2315,8 +2376,7 @@
   "l3ItemMonitoring": "Notification forwarding listener",
   "l3ItemCollectInbox": "Fnthink inbox switch",
   "l3NoteAutostart": "Android exposes per-vendor entry points only - there is no unified reading",
-  "l3NoteLivesInFnthinkPage": "This switch lives on the Fnthink Push page"
-,
+  "l3NoteLivesInFnthinkPage": "This switch lives on the Fnthink Push page",
   "updateBlockIntegrityFailed": "Update package verification failed. Installation blocked.",
   "updateBlockChecksumMismatch": "Update package integrity check failed (checksum mismatch). Installation blocked.",
   "updateBlockUnverifiable": "Cannot verify the update package. Installation blocked.",
@@ -2324,9 +2384,23 @@
   "updateFailDownloaderStart": "Cannot start the system downloader.",
   "updateFailProgressQuery": "Failed to read the download progress.",
   "updateFailDownloader": "System downloader failed{detail}.",
-  "@updateFailDownloader": {"description": "系统下载器失败那一句；{detail} 是原生给的 reasonText（带括号或空串）", "placeholders": {"detail": {"type": "String"}}},
+  "@updateFailDownloader": {
+    "description": "系统下载器失败那一句；{detail} 是原生给的 reasonText（带括号或空串）",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
   "updateFailHttpStatus": "Download failed: HTTP {code}.",
-  "@updateFailHttpStatus": {"description": "按 HTTP 状态码报失败；{code} 是状态码", "placeholders": {"code": {"type": "int"}}},
+  "@updateFailHttpStatus": {
+    "description": "按 HTTP 状态码报失败；{code} 是状态码",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
   "updateSizeUnknown": "Unknown",
   "updateNotificationTitle": "Notification Forwarder Update",
   "updateServerTitle": "Update server",
@@ -2348,11 +2422,32 @@
   "updateServerUnprobed": "Not probed yet",
   "updateServerNoAnswer": "No answer (network or DNS failure)",
   "updateServerHttpStatus": "This server returned HTTP {code}",
-  "@updateServerHttpStatus": {"placeholders": {"code": {"type": "int"}}},
+  "@updateServerHttpStatus": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
   "updateServerLatestLine": "Latest it reports: {version}+{build}",
-  "@updateServerLatestLine": {"placeholders": {"version": {"type": "String"}, "build": {"type": "String"}}},
+  "@updateServerLatestLine": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
   "updateServerCdnLine": "Packages from {host}",
-  "@updateServerCdnLine": {"placeholders": {"host": {"type": "String"}}},
+  "@updateServerCdnLine": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
   "updateServerAnswerEmpty": "Reached it, but it reported no version info",
   "remoteExecSection": "Remote execution",
   "remoteExecWhyTitle": "What actually decides how safe remote execution is",
@@ -2368,29 +2463,84 @@
   "remoteExecLocalTriggerOn": "On: still only the selected apps, with a keyword hit, can trigger",
   "remoteExecLocalTriggerOff": "Off: no notification body will be executed",
   "remoteExecLocalTriggerApps": "Apps that may trigger",
+  "remoteTriggerFilterTitle": "Triggerable Apps",
+  "remoteTriggerAllow": "Allow",
+  "remoteTriggerBlock": "Block",
+  "remoteTriggerAllowModeInfo": "Mode: Allow — only selected apps' notification content can trigger remote commands",
+  "remoteTriggerAllowModeSelected": "{n} apps selected; only their notifications can trigger remote commands",
+  "remoteTriggerBlockModeInfo": "Mode: Block — except selected apps, all other apps' notifications can trigger",
+  "remoteTriggerBlockModeSelected": "{n} apps selected; their notifications will not trigger remote commands",
   "remoteExecLocalTriggerAllowNone": "0 apps allowed ⇒ no notification can trigger anything",
   "remoteExecLocalTriggerAllowCount": "{count} app(s) allowed",
-  "@remoteExecLocalTriggerAllowCount": { "placeholders": { "count": { "type": "int" } } },
+  "@remoteExecLocalTriggerAllowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecLocalTriggerBlockCount": "Every app except {count} can trigger",
-  "@remoteExecLocalTriggerBlockCount": { "placeholders": { "count": { "type": "int" } } },
+  "@remoteExecLocalTriggerBlockCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecOpenSettings": "Remote execution settings",
   "remoteExecSendPage": "Send a remote command",
   "remoteExecHistory": "Remote execution history",
   "remoteExecDelayTitle": "Cancel window",
   "remoteExecDelayUsingDefault": "It runs automatically {seconds}s later (the protocol default)",
-  "@remoteExecDelayUsingDefault": { "placeholders": { "seconds": { "type": "int" } } },
+  "@remoteExecDelayUsingDefault": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecDelayChosen": "It runs automatically {seconds}s later (your choice)",
-  "@remoteExecDelayChosen": { "placeholders": { "seconds": { "type": "int" } } },
-  "remoteExecPendingBanner": "Remote command \u300c{item}\u300d runs in {seconds}s unless you cancel",
-  "@remoteExecPendingBanner": { "placeholders": { "item": { "type": "String" }, "seconds": { "type": "int" } } },
+  "@remoteExecDelayChosen": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "remoteExecPendingBanner": "Remote command 「{item}」 runs in {seconds}s unless you cancel",
+  "@remoteExecPendingBanner": {
+    "placeholders": {
+      "item": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecCancel": "Cancel",
-  "remoteExecCancelled": "Cancelled \u2014 that command will not run",
+  "remoteExecCancelled": "Cancelled — that command will not run",
   "remoteExecCancelTooLate": "It already started, so it cannot be undone (the action may be half done)",
   "remoteExecDelayRange": "Allowed range {min}–{max}s, set by the protocol, not a local preference",
-  "@remoteExecDelayRange": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
+  "@remoteExecDelayRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "remoteExecDelayReset": "Use protocol default",
   "remoteExecDelayInvalid": "This cancel window is not in effect: {reason}",
-  "@remoteExecDelayInvalid": { "placeholders": { "reason": { "type": "String" } } },
+  "@remoteExecDelayInvalid": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "remoteCredWhyTitle": "Why the credential and the device identity are two different keys",
   "remoteCredShort": "This key authorizes others to make this device act — it is not the key that proves this device is who it says it is.",
   "remoteCredWhy": "A credential authorizes one remote command, and it is a different key from your device identity: one proves which device this is, the other authorizes someone to make it act.",
@@ -2424,7 +2574,13 @@
     }
   },
   "remoteCredKeyMin": "At least {min} characters, set by the protocol",
-  "@remoteCredKeyMin": { "placeholders": { "min": { "type": "int" } } },
+  "@remoteCredKeyMin": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
   "remoteCredKeyGenerate": "Generate one",
   "remoteCredKeyCustom": "Set my own",
   "remoteCredKeyOnce": "This string appears exactly once: copy it somewhere you keep yourself right now (or hand it to the other device in person). Once you close this page only the hash stays on this device, and nobody — including you — can read the string back.",
@@ -2439,7 +2595,13 @@
   "remoteCredTotpOnce": "This appears exactly once and exists only on the receiving device: enter it into the other device's authenticator app now (or hand it over in person to be entered there). After that the authenticator keeps it, no server ever sees it, and once you close this page only the seed remains here.",
   "remoteCredTotpClear": "Remove this one",
   "remoteCredProblem": "The credential stored on this device is unusable: {reason}",
-  "@remoteCredProblem": { "placeholders": { "reason": { "type": "String" } } },
+  "@remoteCredProblem": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "remoteCredResetAll": "Reset everything",
   "remoteCredResetAllAsk": "After a full reset, both the advanced key and the code seed the other side holds stop working at once. To keep remote execution going you must generate new ones and hand them over in person.",
   "remotePeersReadFailed": "The peer list could not be read (that table didn't come back). This isn't 'no paired devices yet' — check the device pairing page first.",
@@ -2454,10 +2616,6 @@
   "remoteActionCallsSearch": "Search the other device's call log by keyword",
   "remoteActionLocationGet": "Have the other device report its last known location",
   "remoteActionCameraSnap": "Have the other device take a photo",
-  "remoteActionContactsSearch": "Search the other device’s contacts by keyword",
-  "fnthinkReadContactsTitle": "Contacts",
-  "fnthinkReadContactsSubtitle": "Let paired devices search this device’s contacts by name or number",
-  "fnthinkReadContactsDenied": "Contacts permission not granted — this stays off. Toggle again to retry, or grant it in system settings.",
   "remoteActionContactsSearch": "Search the other device’s contacts by keyword",
   "fnthinkReadContactsTitle": "Contacts",
   "fnthinkReadContactsSubtitle": "Let paired devices search this device’s contacts by name or number",
@@ -2489,7 +2647,13 @@
   "fnthinkShortcutsTargetInvalid": "The target must be a link with a scheme, or \"package/class\".",
   "fnthinkShortcutsDuplicate": "That name is already registered.",
   "fnthinkShortcutsDeleteAsk": "After deleting \"{name}\", the other side can no longer open it by that name. Continue?",
-  "@fnthinkShortcutsDeleteAsk": { "placeholders": { "name": { "type": "String" } } },
+  "@fnthinkShortcutsDeleteAsk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "remoteSettingNotification": "Ask the other device to open its notification-listener page",
   "remoteSettingExactAlarm": "Ask the other device to open its exact-alarm page",
   "remoteSettingBatteryOptimization": "Ask the other device to turn off battery optimization",
@@ -2532,19 +2696,76 @@
   "remoteSendShortcutNameLabel": "Which entry",
   "remoteSendShortcutNameWhy": "Type a name the other device has registered (this device cannot see that list). If no name matches, nothing runs.",
   "remoteSendNeedsShortcutName": "The name must be between {min} and {max} characters and carry no control characters.",
-  "@remoteSendNeedsShortcutName": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
-  "@remoteSendNeedsSmsKeyword": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
-  "@remoteSendNeedsCallsKeyword": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
-  "@remoteSendNeedsReportCount": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
+  "@remoteSendNeedsShortcutName": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@remoteSendNeedsSmsKeyword": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@remoteSendNeedsCallsKeyword": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@remoteSendNeedsReportCount": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "remoteSendContactsKeywordLabel": "Which name or number",
   "remoteSendContactsKeywordWhy": "Only the matching entries travel back (name / number). If that device keeps this item off under \"Readable remotely\", nothing runs.",
   "remoteSendNeedsContactsKeyword": "The name or number must be between {min} and {max} characters and carry no control characters.",
-  "@remoteSendNeedsContactsKeyword": { "placeholders": { "min": { "type": "int" }, "max": { "type": "int" } } },
+  "@remoteSendNeedsContactsKeyword": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "remoteSendStartedNote": "Sent. Wait for the other device to send back two receipts — “executing” and “execution_done” — they will show up in the remote execution history.",
   "remoteSendFailed": "It did not go out: {reason}",
-  "@remoteSendFailed": { "placeholders": { "reason": { "type": "String" } } },
+  "@remoteSendFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "remoteSendLevelUnknown": "This level ({level}) is not in the protocol vocabulary — nothing sent.",
-  "@remoteSendLevelUnknown": { "placeholders": { "level": { "type": "String" } } },
+  "@remoteSendLevelUnknown": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryIn": "Commands received",
   "remoteHistoryOut": "Commands sent",
   "remoteHistoryAll": "All",
@@ -2555,17 +2776,53 @@
   "remoteHistoryFailed": "Failed",
   "remoteHistoryCancelled": "Cancelled",
   "remoteHistoryStateUnknown": "Unrecognised execution state ({state})",
-  "@remoteHistoryStateUnknown": { "placeholders": { "state": { "type": "String" } } },
+  "@remoteHistoryStateUnknown": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryResult": "Result: {result}",
-  "@remoteHistoryResult": { "placeholders": { "result": { "type": "String" } } },
+  "@remoteHistoryResult": {
+    "placeholders": {
+      "result": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryReason": "Reason: {reason}",
-  "@remoteHistoryReason": { "placeholders": { "reason": { "type": "String" } } },
+  "@remoteHistoryReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryArgument": "Argument: {argument}",
-  "@remoteHistoryArgument": { "placeholders": { "argument": { "type": "String" } } },
+  "@remoteHistoryArgument": {
+    "placeholders": {
+      "argument": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryFromPeer": "From {peer}",
-  "@remoteHistoryFromPeer": { "placeholders": { "peer": { "type": "String" } } },
+  "@remoteHistoryFromPeer": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryToPeer": "To {peer}",
-  "@remoteHistoryToPeer": { "placeholders": { "peer": { "type": "String" } } },
+  "@remoteHistoryToPeer": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryLocalTrigger": "Triggered by this device's own app notification (no remote sender)",
   "remoteReasonSwitchOff": "The remote-execution master switch is off",
   "remoteReasonLocalTriggerOff": "Local notification triggering is switched off",
@@ -2573,21 +2830,69 @@
   "remoteReasonMissingItem": "The command carried no item",
   "remoteReasonConfirmRequired": "This item must be confirmed on the device itself",
   "remoteReasonNotGranted": "The peer is not granted this item: {x}",
-  "@remoteReasonNotGranted": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonNotGranted": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonMissingGrant": "This must already be on locally first: {x}",
-  "@remoteReasonMissingGrant": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonMissingGrant": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownAction": "Unknown action: {x}",
-  "@remoteReasonUnknownAction": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownAction": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownSetting": "Unknown setting: {x}",
-  "@remoteReasonUnknownSetting": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownSetting": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownItem": "The grant list holds an item we cannot match: {x}",
-  "@remoteReasonUnknownItem": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownItem": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownCeiling": "The peer's level ceiling cannot be matched: {x}",
-  "@remoteReasonUnknownCeiling": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownCeiling": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonLevel": "This level is above what the peer was granted: {x}",
-  "@remoteReasonLevel": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonLevel": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonSourceNotAllowed": "This level may not arrive from this source: {x}",
-  "@remoteReasonSourceNotAllowed": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonSourceNotAllowed": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonAuthWrong": "The credential did not match",
   "remoteReasonAuthMissing": "This level requires a credential and none was carried",
   "remoteReasonAuthMode": "The credential mode is not in the protocol",
@@ -2606,31 +2911,103 @@
   "remoteReasonDeviceStateRefused": "The device-state push was refused",
   "remoteReasonAlertRefused": "The alert ring was refused",
   "remoteReasonUnmappedAction": "This action has no executor yet: {x}",
-  "@remoteReasonUnmappedAction": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnmappedAction": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonListenerStart": "The listener did not start",
   "remoteReasonListenerStop": "The listener did not stop",
   "remoteReasonNotApplied": "This setting did not actually change: {x}",
-  "@remoteReasonNotApplied": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonNotApplied": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonThrew": "Executing threw: {x}",
-  "@remoteReasonThrew": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonThrew": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonBadArgumentKind": "This action takes no argument of that kind: {x}",
-  "@remoteReasonBadArgumentKind": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonBadArgumentKind": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonBadChannelArgument": "The channel argument is malformed: {x}",
-  "@remoteReasonBadChannelArgument": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonBadChannelArgument": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonBadKeyword": "The keyword argument is malformed: {x}",
-  "@remoteReasonBadKeyword": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonBadKeyword": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonBadReportCount": "The report count is malformed: {x}",
-  "@remoteReasonBadReportCount": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonBadReportCount": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonMissingArgument": "This item needs an argument: {x}",
-  "@remoteReasonMissingArgument": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonMissingArgument": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonNoSuchChannel": "No such channel: {x}",
-  "@remoteReasonNoSuchChannel": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonNoSuchChannel": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnexpectedArgument": "This action takes no argument: {x}",
-  "@remoteReasonUnexpectedArgument": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnexpectedArgument": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknownTargetWord": "The target cannot be matched: {x}",
-  "@remoteReasonUnknownTargetWord": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknownTargetWord": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteReasonUnknown": "(no further reason available: {x})",
-  "@remoteReasonUnknown": { "placeholders": { "x": { "type": "String" } } },
+  "@remoteReasonUnknown": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "remoteHistoryCancel": "Cancel this one",
   "remoteHistoryCancelNote": "Cancelling only works before execution starts; one already running is past that window.",
   "remoteHistoryRemoved": "This entry is now gone from this device's history.",
@@ -2651,5 +3028,19 @@
   "fnthinkRemoteTitle": "Remote control",
   "fnthinkRemoteNeedsReceive": "Turn on Receive first - this page assumes this device is willing to receive",
   "fnthinkRemoteNeedsConsent": "Not consented yet - read the note on the Receive page and agree",
-  "fnthinkRemoteNeedsSwitch": "Remote execution is off by default - open it here"
+  "fnthinkRemoteNeedsSwitch": "Remote execution is off by default - open it here",
+  "@remoteTriggerAllowModeSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@remoteTriggerBlockModeSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

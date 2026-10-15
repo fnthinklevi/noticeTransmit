@@ -1813,6 +1813,11 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/pages/main_page_update.dart': 2,
   'lib/pages/more_page.dart': 2,
   'lib/pages/remote_credential_settings_page.dart': 1,
+  // T153 片1：远程触发筛选页从 `AppFilterPage` 派生，那一枚「刷新失败」轻提示
+  // 照搬过来（同一发刷新、同一句失败，两页各一枚 ⇒ 账 +1）。
+  // ⚠ 这不是"新增一处没人管的轻提示"，而是把既有那一枚的形状复制到派生页；
+  //    SnackBar 的换法仍未定（Cupertino 无对应件），所以照原样入账。
+  'lib/pages/remote_trigger_filter_page.dart': 1,
   'lib/pages/rule_list_page.dart': 1,
   'lib/pages/webhook_settings_page.dart': 1,
   'lib/pages/widget_guide_page.dart': 3,

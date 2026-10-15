@@ -7993,6 +7993,54 @@ abstract class AppLocalizations {
   /// **'可触发的应用'**
   String get remoteExecLocalTriggerApps;
 
+  /// No description provided for @remoteTriggerFilterTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'可触发的应用'**
+  String get remoteTriggerFilterTitle;
+
+  /// No description provided for @remoteTriggerAllow.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许触发'**
+  String get remoteTriggerAllow;
+
+  /// No description provided for @remoteTriggerBlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'禁止触发'**
+  String get remoteTriggerBlock;
+
+  /// No description provided for @remoteTriggerAllowModeInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前模式：允许触发 — 只有选中的应用，其通知正文才能触发本机远程指令'**
+  String get remoteTriggerAllowModeInfo;
+
+  /// No description provided for @remoteTriggerAllowModeSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选择 {n} 个应用，仅这些应用的通知能触发远程指令'**
+  String remoteTriggerAllowModeSelected(int n);
+
+  /// No description provided for @remoteTriggerBlockModeInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前模式：禁止触发 — 选中的应用除外，其余应用的通知都能触发'**
+  String get remoteTriggerBlockModeInfo;
+
+  /// No description provided for @remoteTriggerBlockModeSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选择 {n} 个应用，这些应用的通知不会触发远程指令'**
+  String remoteTriggerBlockModeSelected(int n);
+
+  /// No description provided for @remoteTriggerEmptyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有选择应用。允许触发模式下，未选择任何应用等于谁都不许触发。'**
+  String get remoteTriggerEmptyHint;
+
   /// No description provided for @remoteExecLocalTriggerAllowNone.
   ///
   /// In zh, this message translates to:

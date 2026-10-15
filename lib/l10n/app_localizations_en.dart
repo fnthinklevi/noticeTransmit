@@ -4619,6 +4619,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteExecLocalTriggerApps => 'Apps that may trigger';
 
   @override
+  String get remoteTriggerFilterTitle => 'Triggerable Apps';
+
+  @override
+  String get remoteTriggerAllow => 'Allow';
+
+  @override
+  String get remoteTriggerBlock => 'Block';
+
+  @override
+  String get remoteTriggerAllowModeInfo =>
+      'Mode: Allow — only selected apps\' notification content can trigger remote commands';
+
+  @override
+  String remoteTriggerAllowModeSelected(int n) {
+    return '$n apps selected; only their notifications can trigger remote commands';
+  }
+
+  @override
+  String get remoteTriggerBlockModeInfo =>
+      'Mode: Block — except selected apps, all other apps\' notifications can trigger';
+
+  @override
+  String remoteTriggerBlockModeSelected(int n) {
+    return '$n apps selected; their notifications will not trigger remote commands';
+  }
+
+  @override
+  String get remoteTriggerEmptyHint =>
+      'No apps selected. In Allow mode, an empty list means nothing can trigger.';
+
+  @override
   String get remoteExecLocalTriggerAllowNone =>
       '0 apps allowed ⇒ no notification can trigger anything';
 

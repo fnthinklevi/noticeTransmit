@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/installed_apps_service.dart';
-import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
 import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
@@ -46,8 +45,6 @@ class AppFilterPage extends StatefulWidget {
 
 class _AppFilterPageState extends State<AppFilterPage>
     with WidgetsBindingObserver {
-  static const _channel = AppChannels.notification;
-
   /// 应用清单读取走服务层（原生方法名不下沉到 widget 层）
   InstalledAppsService get _apps => GetIt.instance<InstalledAppsService>();
 
@@ -114,16 +111,7 @@ class _AppFilterPageState extends State<AppFilterPage>
   /// 只有拿到明确拒绝信号才返回 false。取不到结果时**按不允许处理**——
   /// 旧写法是 `?? true` / catch 也 return true，等于第二个 fail-open：
   /// 用户在系统里拒了权限，页面照样去扫描并展示结果。
-  Future<bool> _checkPermission() async {
-    try {
-      final result =
-          await _channel.invokeMethod('canQueryAllPackages') as bool?;
-      return result ?? false;
-    } catch (e) {
-      debugPrint('检查应用列表权限失败: $e');
-      return false;
-    }
-  }
+  Future<bool> _checkPermission() => _apps.canQueryPackages();
 
   /// 无权限进入页面时的提醒弹窗：允许 → 跳系统设置申请；拒绝 → 仅显示提示文案
   Future<void> _showPermissionDialog() async {
@@ -138,7 +126,7 @@ class _AppFilterPageState extends State<AppFilterPage>
       allowText: l10n.allow,
     );
     if (allowed) {
-      _channel.invokeMethod('requestQueryAllPackagesPermission');
+      _apps.requestQueryAllPackages();
     }
   }
 
@@ -410,7 +398,7 @@ class _AppFilterPageState extends State<AppFilterPage>
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: GestureDetector(
           onTap: () {
-            _channel.invokeMethod('requestQueryAllPackagesPermission');
+            _apps.requestQueryAllPackages();
           },
           child: Text(
             l10n.appFilterNoPermPrompt,

@@ -17,7 +17,7 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
-import 'app_filter_page.dart';
+import 'remote_trigger_filter_page.dart';
 
 /// 远程执行的**凭据设置页**（片3b-2）。
 ///
@@ -383,11 +383,21 @@ class _RemoteCredentialSettingsPageState
     });
   }
 
-  /// 「可触发的应用」那一格：**页复用、表不复用**。
+  /// 「可触发的应用」那一格：**页派生、表不复用**。
+  ///
+  /// T153 片1：这里原先直接复用 `AppFilterPage`，于是从远程执行设置页点进去，
+  /// 用户读到的是「通知应用 / 不通知应用 · 这些应用的通知会被推送」—— 整页在说
+  /// 通知转发，而这一格的真实语义是「哪些应用的通知正文能触发本机远程指令」。
+  /// 现在改走 `RemoteTriggerFilterPage`（派生页，文案是触发语义；
+  /// `AppFilterPage` 保持原样给通知筛选用，一个字节没动）。
   ///
   /// ⚠ 写进 `FnthinkRemoteSettings` 自己的三份键，不碰 `enabled_packages` ——
   ///   那一份的语义是「要转发的应用」，往它上面挂这一判，等于用户收窄
   ///   「谁的通知能动这台设备」时顺手改了推送名单（一次操作改两件事）。
+  ///
+  /// ⚠ 返回契约与换页前**逐字相同**（`mode` + `packages`）：换页不换数据形状，
+  ///   否则"写进去的形状"与"判定读出来的形状"会分成两套（下面回读走同一个解析器
+  ///   就是为了这个）。
   Future<void> _openLocalTriggerApps() async {
     final settings = _settings;
     if (settings == null) return;
@@ -395,8 +405,7 @@ class _RemoteCredentialSettingsPageState
     if (!mounted) return;
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       CupertinoPageRoute<Map<String, dynamic>>(
-        builder: (_) => AppFilterPage(
-          installedApps: const [],
+        builder: (_) => RemoteTriggerFilterPage(
           initialMode: current.mode,
           enabledPackages: current.packages.toList(),
         ),

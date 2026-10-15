@@ -4390,6 +4390,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteExecLocalTriggerApps => '可触发的应用';
 
   @override
+  String get remoteTriggerFilterTitle => '可触发的应用';
+
+  @override
+  String get remoteTriggerAllow => '允许触发';
+
+  @override
+  String get remoteTriggerBlock => '禁止触发';
+
+  @override
+  String get remoteTriggerAllowModeInfo =>
+      '当前模式：允许触发 — 只有选中的应用，其通知正文才能触发本机远程指令';
+
+  @override
+  String remoteTriggerAllowModeSelected(int n) {
+    return '已选择 $n 个应用，仅这些应用的通知能触发远程指令';
+  }
+
+  @override
+  String get remoteTriggerBlockModeInfo => '当前模式：禁止触发 — 选中的应用除外，其余应用的通知都能触发';
+
+  @override
+  String remoteTriggerBlockModeSelected(int n) {
+    return '已选择 $n 个应用，这些应用的通知不会触发远程指令';
+  }
+
+  @override
+  String get remoteTriggerEmptyHint => '还没有选择应用。允许触发模式下，未选择任何应用等于谁都不许触发。';
+
+  @override
   String get remoteExecLocalTriggerAllowNone => '允许 0 个应用 ⇒ 哪一条通知都不会触发';
 
   @override
