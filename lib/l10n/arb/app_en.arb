@@ -2195,6 +2195,14 @@
   },
   "fnthinkEndpointNone": "Read successfully: this device owns no endpoints. Use the button above to create one.",
   "fnthinkEndpointListFailed": "Could not read this time ({reason}) — 'could not read' is not 'none', so nothing is listed and no claim is made.",
+  "fnthinkEndpointListCount": "{n} endpoint(s) on this device",
+  "@fnthinkEndpointListCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "@fnthinkEndpointListFailed": {
     "placeholders": {
       "reason": {

@@ -2216,6 +2216,14 @@
   },
   "fnthinkEndpointNone": "读到了：这台设备名下没有接入端点。要用的话点上面那一下建一把。",
   "fnthinkEndpointListFailed": "这一次没读到（{reason}）—— 「没读到」不等于「没有」，所以这里仍然不列任何东西，也不说你没有。",
+  "fnthinkEndpointListCount": "名下现有 {n} 把入口",
+  "@fnthinkEndpointListCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "@fnthinkEndpointListFailed": {
     "placeholders": {
       "reason": {

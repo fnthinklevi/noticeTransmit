@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/fnthink_shortcut_registry.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/primary_action_button.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_form_dialog.dart';
@@ -233,15 +234,18 @@ class _FnthinkShortcutsPageState extends State<FnthinkShortcutsPage> {
                     ),
                   ),
               const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FnthinkInlineAction(
-                  key: const ValueKey('fnthink-shortcuts-add'),
-                  label: l10n.fnthinkShortcutsAdd,
-                  onPressed: _add,
-                ),
-              ),
             ],
+          ),
+          // T153 片3：这一枚原先是卡内左对齐的 `FnthinkInlineAction`（纯文字）——
+          // 而它是**这一页唯一的创建动作**（按一下多一条快捷方式），与端点页
+          // 「创建端点」、配对页「发一条」是同一档：做掉一件事，不是"跟在某个值旁边的小动作"。
+          // ⇒ 换成 `PrimaryActionButton`（全宽填充，一页最多一枚），并**移出卡片**：
+          //   卡内是"读/改已有那些"，卡外是"动手做一件新事"——摆法本身在说这件事。
+          // ⚠ key 逐字搬（`fnthink-shortcuts-add`）：页面级用例认的就是那一枚。
+          PrimaryActionButton(
+            key: const ValueKey('fnthink-shortcuts-add'),
+            label: l10n.fnthinkShortcutsAdd,
+            onPressed: _add,
           ),
         ],
       ),

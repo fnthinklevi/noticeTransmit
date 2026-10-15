@@ -7393,6 +7393,12 @@ abstract class AppLocalizations {
   /// **'这一次没读到（{reason}）—— 「没读到」不等于「没有」，所以这里仍然不列任何东西，也不说你没有。'**
   String fnthinkEndpointListFailed(String reason);
 
+  /// No description provided for @fnthinkEndpointListCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'名下现有 {n} 把入口'**
+  String fnthinkEndpointListCount(int n);
+
   /// No description provided for @fnthinkEndpointRevoke.
   ///
   /// In zh, this message translates to:
@@ -8034,12 +8040,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已选择 {n} 个应用，这些应用的通知不会触发远程指令'**
   String remoteTriggerBlockModeSelected(int n);
-
-  /// No description provided for @remoteTriggerEmptyHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'还没有选择应用。允许触发模式下，未选择任何应用等于谁都不许触发。'**
-  String get remoteTriggerEmptyHint;
 
   /// No description provided for @remoteExecLocalTriggerAllowNone.
   ///

@@ -441,14 +441,33 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
             ),
         // ↓↓↓ 读的那半。三种"没有列表"必须分开说：还没读、读了但没读到、读到了确实没有。
         // 把它们合成一句"你还没有端点"，用户就会在第一次读失败那天下 NAS 的定时任务。
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FnthinkInlineAction(
-            key: const ValueKey('fnthink-endpoint-read'),
-            label: l10n.fnthinkEndpointListRead,
-            tone: FnthinkActionTone.neutral,
-            onPressed: _busy ? null : _readEndpoints,
-          ),
+        //
+        // T153 片3：这一枚原先是 `FnthinkInlineAction`（纯文字按钮）—— 维护者
+        // 2026-10-15 点名的就是它（「读一次我建过的入口」）。它与「创建端点」并列，
+        // 是这一页两个主要出口之一，却是一行灰字。
+        // ⚠ 不换 `PrimaryActionButton`：那一族「一页最多一枚全宽填充」，上面那枚
+        //    「创建端点」已经占了（它做掉一件事：铸一把新口令）。
+        //    所以走**入口行**（`FnthinkEntryRow`：图标 + 主文案 + 副文案 + chevron）——
+        //    与配对页名单行、凭据页「可触发的应用」同一枚形状。
+        // ⚠ **三档读数一行不动**（下面那三块 HelpNoteRow 照旧）：副文案只报"读没读过
+        //    这一下"这件事本身，不替代三档 —— 三档各有各的问号与整句，替代它们等于
+        //    把 #157 立的「没有 ≠ 还没看」那道判据抹掉（那三条用例当场红）。
+        FnthinkEntryRow(
+          key: const ValueKey('fnthink-endpoint-read'),
+          icon: Icons.refresh,
+          iconColor: AppColors.blue,
+          title: l10n.fnthinkEndpointListRead,
+          // 副文案只回答"这一下发过没有"：点过 ⇒ 读到的条数；没点过 ⇒ 那句短的"还没读过"。
+          // ⚠ 空清单那句留给下面 `fnthink-endpoint-list-none` 那一档说（它带着
+          //    "要用的话点上面那一下建一把"），这里不重复。
+          subtitle: listing == null
+              ? l10n.fnthinkEndpointListPendingShort
+              : listing.endpoints == null
+              ? l10n.fnthinkEndpointListFailedShort(
+                  listing.reason ?? 'no-endpoint-list',
+                )
+              : l10n.fnthinkEndpointListCount(listing.endpoints!.length),
+          onTap: _busy ? null : _readEndpoints,
         ),
         // 三档分开画：**还没读** / **读了但这次失败** / **读了且为空**。
         // 「没有」与「还没看」是两句话（#157 那片立的判据），空格子会被读成前者；

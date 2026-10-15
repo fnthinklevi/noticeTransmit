@@ -1167,7 +1167,11 @@ class FnthinkStatusMark extends StatelessWidget {
         'lib/pages/fnthink_settings_page.dart': 3,
       };
       const neutral = <String, int>{
-        'lib/pages/fnthink_endpoint_page.dart': 2,
+        // T153 片3：2 → **1**。「读一次」那枚从中性行内动作换成了 `FnthinkEntryRow`
+        // （入口行）—— 它本来就是这一页两个主要出口之一，一行灰字读不出点得动。
+        // **中性这一档没有少，是换了宿主**：剩下那一枚是教程里的「复制」，
+        // 它才是真正的"行内次要动作"（跟在某段命令旁边）。
+        'lib/pages/fnthink_endpoint_page.dart': 1,
         'lib/pages/fnthink_settings_page.dart': 3,
       };
       for (final (table, needle) in const [

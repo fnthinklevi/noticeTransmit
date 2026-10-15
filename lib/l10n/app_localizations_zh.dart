@@ -4041,6 +4041,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String fnthinkEndpointListCount(int n) {
+    return '名下现有 $n 把入口';
+  }
+
+  @override
   String get fnthinkEndpointRevoke => '关掉这把';
 
   @override
@@ -4414,9 +4419,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String remoteTriggerBlockModeSelected(int n) {
     return '已选择 $n 个应用，这些应用的通知不会触发远程指令';
   }
-
-  @override
-  String get remoteTriggerEmptyHint => '还没有选择应用。允许触发模式下，未选择任何应用等于谁都不许触发。';
 
   @override
   String get remoteExecLocalTriggerAllowNone => '允许 0 个应用 ⇒ 哪一条通知都不会触发';

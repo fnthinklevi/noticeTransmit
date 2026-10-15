@@ -4246,6 +4246,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String fnthinkEndpointListCount(int n) {
+    return '$n endpoint(s) on this device';
+  }
+
+  @override
   String get fnthinkEndpointRevoke => 'Close this one';
 
   @override
@@ -4644,10 +4649,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String remoteTriggerBlockModeSelected(int n) {
     return '$n apps selected; their notifications will not trigger remote commands';
   }
-
-  @override
-  String get remoteTriggerEmptyHint =>
-      'No apps selected. In Allow mode, an empty list means nothing can trigger.';
 
   @override
   String get remoteExecLocalTriggerAllowNone =>
