@@ -16,7 +16,8 @@ void main() {
   final en = lookupAppLocalizations(const Locale('en'));
 
   group('送达状态那一格只有一个作者', () {
-    test('五个认得的状态各有一句，且互不相同', () {
+    // T154 片1：五档 → **六档**（加 `queued`，幻念设备档转发的回执档）。
+    test('六个认得的状态各有一句，且互不相同', () {
       final said = <String, String>{
         for (final s in const [
           'success',
@@ -24,10 +25,11 @@ void main() {
           'intercepted',
           'paused',
           'pending',
+          'queued',
         ])
           s: deliveryStatusText(zh, s),
       };
-      expect(said.values.toSet(), hasLength(5), reason: '两档共用一句话 = 这一档白分');
+      expect(said.values.toSet(), hasLength(6), reason: '两档共用一句话 = 这一档白分');
       expect(said['success'], zh.deliverySuccess);
       expect(said['failed'], zh.deliveryFailed);
       expect(said['intercepted'], zh.deliveryIntercepted);
@@ -35,10 +37,23 @@ void main() {
       // 暂停那一档要说的是**这条的下场**，不是"用户动了开关"（T138 ③）
       expect(said['paused'], zh.deliveryPausedNotSent);
       expect(said['paused'], contains('未发送'));
+      // T154 片1：`queued` 说的是"本机做完了、球在对面"——
+      // 既不许与在途的「发送中」同句，也不许说成「已送达」（202 只是入队）。
+      expect(said['queued'], zh.deliveryQueued);
+      expect(said['queued'], isNot(said['pending']));
+      expect(said['queued'], isNot(said['success']));
     });
 
     test('认不出的与空串都说「状态未知」，不许兜底成「发送中」', () {
-      for (final weird in const ['sending', 'PENDING', '', 'queued', 'null']) {
+      // ⚠ 这一组里**不能再用 `queued` 当反例**：T154 片1 起它进了表（幻念设备档
+      //   转发的回执档）。它被放进来的那一次，这条用例当场红 —— 正是它该有的样子。
+      for (final weird in const [
+        'sending',
+        'PENDING',
+        '',
+        'queueing',
+        'null',
+      ]) {
         expect(
           deliveryStatusText(zh, weird),
           zh.deliveryUnknown,
@@ -84,6 +99,10 @@ void main() {
         reason: '一句「状态未知」配一枚在途的蓝点 = 两句谎互相壮胆',
       );
       expect(deliveryStatusColor(ctx, 'pending'), AppColors.blue);
+      // T154 片1：`queued` 有自己的点色（幻念族的 teal）—— 与在途的蓝不同，
+      // 因为"本机还在发"与"本机发完了、球在对面"要用户做的事完全不同。
+      expect(deliveryStatusColor(ctx, 'queued'), AppColors.teal);
+      expect(deliveryStatusColor(ctx, 'queued'), isNot(AppColors.blue));
       expect(deliveryStatusColor(ctx, 'success'), AppColors.green);
       expect(deliveryStatusColor(ctx, 'failed'), AppColors.red);
       expect(deliveryStatusColor(ctx, 'intercepted'), AppColors.orange);

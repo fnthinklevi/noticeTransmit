@@ -1863,6 +1863,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deliveryPending => '发送中';
 
   @override
+  String get deliveryQueued => '已推送到服务器 · 待目标设备上线';
+
+  @override
   String get deliveryUnknown => '状态未知';
 
   @override

@@ -1406,6 +1406,108 @@ void main() {
       );
     });
   });
+
+  group('幻念转发的送达回执（T154 片1）', () {
+    // 病灶：维护者 2026-10-15「推送对象是幻念推送、目标设备未上线时，历史里那条
+    // **永远显示「发送中」**」。根因不在文案 —— 这条链上**一处回执都没有**：
+    // 入库时 `deliveryKeysOfActiveChannels` 照给了 `chan:fnthink` 一个 `pending`，
+    // 而设备档走的是「原生队列 → 后台 isolate → sendNotice」，全程没人写回那一格。
+    //
+    // 这一组钉"补上了没有"，因为**接不上时没有任何症状**（通知照常转发、
+    // 历史照常显示，只是那一格永远说"正在发"）。
+
+    test('后台轮通过唯一那段循环报回执（不许在别处再写一遍发送循环）', () {
+      final src = read('lib/services/fnthink_fanout_entrypoint.dart');
+      expect(
+        src.contains('sendAndReportFanoutItem('),
+        isTrue,
+        reason:
+            '发送 + 记账必须只有一处（`sendAndReportFanoutItem`）：'
+            '后台轮里再展开一遍那段循环 ⇒ 两份判据（"至少一条成 ⇒ queued"、'
+            '"回执失败不带走整轮"）各自维护，迟早漂开',
+      );
+      // 后台轮里不该再出现裸的逐目标 try/catch（那正是被抽走的那段）。
+      final roundStart = src.indexOf(
+        'Future<void> fnthinkBackgroundFanoutRound',
+      );
+      final roundEnd = src.indexOf(
+        'Future<FnthinkFanoutOutcome> sendAndReportFanoutItem',
+      );
+      expect(roundStart, greaterThan(-1));
+      expect(roundEnd, greaterThan(roundStart));
+      final roundBody = src.substring(roundStart, roundEnd);
+      expect(
+        roundBody.contains('try {'),
+        isFalse,
+        reason: '后台轮里又长出 try/catch ⇒ 有人把发送循环抄回来了',
+      );
+      expect(
+        roundBody.contains('recordFnthinkFanoutOutcome('),
+        isFalse,
+        reason: '记账只在 `sendAndReportFanoutItem` 里发一次；这里再发一次就是重复回执',
+      );
+    });
+
+    test('那一段循环真的报了回执（key 是幻念那一格）', () {
+      final src = read('lib/services/fnthink_fanout_entrypoint.dart');
+      final start = src.indexOf(
+        'Future<FnthinkFanoutOutcome> sendAndReportFanoutItem',
+      );
+      expect(start, greaterThan(-1));
+      final body = src.substring(start);
+      expect(
+        body.contains('recordFnthinkFanoutOutcome(item.id, outcome)'),
+        isTrue,
+        reason: '抽出来了却不报 ⇒ 那一格还是永远 pending（本次修的正是它）',
+      );
+    });
+
+    test('默认实现写的是 chan:fnthink 那一格，且键经唯一作者拼', () {
+      final src = read('lib/services/fnthink_fanout_entrypoint.dart');
+      final start = src.indexOf('fnthinkDefaultRecordFanoutOutcome');
+      expect(start, greaterThan(-1));
+      final body = src.substring(start);
+      expect(
+        body.contains('channelDeliveryKey(kFnthinkChannelSlug)'),
+        isTrue,
+        reason:
+            '手打 `\'chan:fnthink\'` 就绕过了唯一作者（`channel_display.dart` 那句'
+            '"别处不手打"）—— 将来 slug 改了，这一处会静默写到一个没人读的键上',
+      );
+      expect(body.contains("'chan:fnthink'"), isFalse, reason: '同上：不许出现手打的字面量');
+      expect(
+        body.contains('updateNotificationDelivery'),
+        isTrue,
+        reason: '算出来不写回去 ⇒ 这一格不会有任何变化',
+      );
+      expect(
+        body.contains('viaBackup'),
+        isTrue,
+        reason:
+            '粘滞标记（与 `applyDelivery` 同一条规矩）：这一轮确实走了备用就不再清掉，'
+            '整格重写会把它抹掉',
+      );
+      expect(
+        body.contains('getNotificationById'),
+        isTrue,
+        reason: '必须**现读现改**：整表重建会把别的通道（webhook / 邮件）那一格的结论抹掉',
+      );
+    });
+
+    test('状态词 `queued` 在唯一那张显示表里有自己那一档', () {
+      final src = read('lib/services/delivery_display.dart');
+      expect(
+        src.contains("case 'queued':"),
+        isTrue,
+        reason: '漏了这一档 ⇒ 屏上落进 `default: 未知`，比"发送中"更让人摸不着头脑',
+      );
+      expect(
+        src.contains("'queued' => AppColors.teal"),
+        isTrue,
+        reason: '与在途的蓝同色 ⇒ 屏上分不出"本机还在发"与"本机发完了、球在对面"',
+      );
+    });
+  });
 }
 
 class _StubSigner implements FnthinkIdentitySigner {

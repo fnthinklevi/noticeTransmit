@@ -919,6 +919,7 @@
   "deliverySuccess": "推送成功",
   "deliveryFailed": "推送失败",
   "deliveryPending": "发送中",
+  "deliveryQueued": "已推送到服务器 · 待目标设备上线",
   "deliveryUnknown": "状态未知",
   "deliveryPausedNotSent": "暂停未发送",
   "pushPausedByUser": "已暂停",

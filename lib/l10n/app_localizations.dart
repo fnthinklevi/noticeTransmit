@@ -3560,6 +3560,12 @@ abstract class AppLocalizations {
   /// **'发送中'**
   String get deliveryPending;
 
+  /// No description provided for @deliveryQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'已推送到服务器 · 待目标设备上线'**
+  String get deliveryQueued;
+
   /// No description provided for @deliveryUnknown.
   ///
   /// In zh, this message translates to:

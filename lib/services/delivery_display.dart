@@ -32,6 +32,14 @@ String deliveryStatusText(AppLocalizations l10n, String status) {
       // 初值与"在途"因此是同一件事 —— 以前不是：不参与推送的通道也领了一个 `pending`，
       // 而没有任何回执会来推离它，这一格就永远替本机说了一句「发送中」。
       return l10n.deliveryPending;
+    case 'queued':
+      // T154 片1：幻念设备档转发的回执档（维护者 2026-10-15：「对端未上线一直显示
+      // 「发送中」」）。它与 `pending` 的区别是**球在哪一边**：
+      //   `pending` = 本机还没交出去（在途）；
+      //   `queued`  = 本机做完了 —— 服务端已收下并替我们排着，等那台设备来取。
+      // 不说成「已送达」：202 只是入队，对面可能一直不上线；
+      // 也不说成「发送中」：本机这一侧确实已经没有在途的东西了。
+      return l10n.deliveryQueued;
     default:
       return l10n.deliveryUnknown;
   }
@@ -48,6 +56,10 @@ Color deliveryStatusColor(BuildContext context, String status) {
     'intercepted' => AppColors.orange,
     'paused' => AppColors.orange,
     'pending' => AppColors.blue,
+    // T154 片1：`queued` 用**幻念族自己的色**（teal）而不是在途的蓝 ——
+    // 蓝点那句"正在发"是给 `pending` 的，而这一档要说的是"本机已经交出去了、
+    // 球在服务器那边"。两档都画蓝会让"哪一段没做完"这件事在屏上分不出来。
+    'queued' => AppColors.teal,
     _ => AppColors.systemGray(context),
   };
 }

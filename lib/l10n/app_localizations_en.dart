@@ -1938,6 +1938,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryPending => 'Sending';
 
   @override
+  String get deliveryQueued =>
+      'Queued on server · waiting for the target to come online';
+
+  @override
   String get deliveryUnknown => 'Status unknown';
 
   @override

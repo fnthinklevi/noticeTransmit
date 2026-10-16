@@ -919,6 +919,7 @@
   "deliverySuccess": "Sent",
   "deliveryFailed": "Failed",
   "deliveryPending": "Sending",
+  "deliveryQueued": "Queued on server · waiting for the target to come online",
   "deliveryUnknown": "Status unknown",
   "deliveryPausedNotSent": "Paused · not sent",
   "pushPausedByUser": "Paused by user",
