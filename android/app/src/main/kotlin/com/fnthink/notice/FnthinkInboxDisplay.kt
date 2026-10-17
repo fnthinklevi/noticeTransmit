@@ -184,7 +184,9 @@ object FnthinkInboxDisplay {
         try {
             val manager = context.getSystemService(NotificationManager::class.java)
             // T137 验收①：旧渠道升级时清掉 —— 真机上它造成 MIUI 设置页两行同名「幻念推送 · 收件」，
-            // 用户分不清在调哪一行。放在 ensure 的最后：新渠道先立住，旧的才删。
+            // 用户分不清在调哪一行。⚠ **要害是次序：删必须在下面那句「见到新渠道就 return」之前** ——
+            // 升级上来的设备新渠道早就存在、`ensure` 一进门就走那条 return，删除摆在它之后一次都不会跑。
+            // 次序由 `FnthinkInboxChannelGuardTest` 钉住（比的是「删除」与「那句 return」两处下标）。
             if (manager.getNotificationChannel(LEGACY_CHANNEL_ID) != null) {
                 manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
             }
