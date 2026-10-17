@@ -204,6 +204,7 @@ void main() {
       windowSeconds: () async => 0,
       l2: l2,
       l3: _NoopL3(),
+      l3InPlace: (_) async => true,
       saveRecord: (r) async => saved.add(r),
       sendReceipt: (peer, receipt) async {
         receipts.add((peer, receipt));
@@ -234,6 +235,7 @@ void main() {
           maxLevel: contract.capabilityLevels.last,
           items: grantEverythingExceptArguments(contract),
         ),
+        l3InPlace: (_) async => true,
       ),
       runner: runner,
       notifier: notifier,

@@ -142,6 +142,7 @@ void main() {
       windowSeconds: () async => 0,
       l2: _NoopL2(),
       l3: _NoopL3(),
+      l3InPlace: (_) async => true,
       saveRecord: (record) async => saved.add(record),
       sendReceipt: (peer, receipt) async {
         replies.add((peer, receipt));
@@ -163,6 +164,7 @@ void main() {
         ),
         grantForSender: (peer) async =>
             FnthinkGrant(maxLevel: 'L1', items: const []),
+        l3InPlace: (_) async => true,
       ),
       runner: runner,
       notifier: const RemoteExecutionNotifier(),

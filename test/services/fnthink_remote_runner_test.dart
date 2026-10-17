@@ -188,26 +188,29 @@ void main() {
     schedule = (d, f) => Timer(const Duration(days: 1), () {});
   });
 
-  RemoteCommandRunner runner({RemoteExecutionNotifier? statusBar}) =>
-      RemoteCommandRunner(
-        contract: contract,
-        windowSeconds: () async => windowSeconds,
-        l2: l2,
-        l3: l3,
-        saveRecord: (r) async => saved.add(r),
-        sendReceipt: (peer, receipt) async {
-          receipts.add(receipt);
-          return receiptOk;
-        },
-        sendReport: (peer, action, payload) async {
-          reports.add('$peer|$action|$payload');
-          return reportOk;
-        },
-        now: () => clock,
-        schedule: schedule,
-        statusBar: statusBar,
-        newId: (seed) => 'x${seed.length.toRadixString(16)}',
-      );
+  RemoteCommandRunner runner({
+    RemoteExecutionNotifier? statusBar,
+    bool l3Ok = true,
+  }) => RemoteCommandRunner(
+    contract: contract,
+    windowSeconds: () async => windowSeconds,
+    l2: l2,
+    l3: l3,
+    l3InPlace: (_) async => l3Ok,
+    saveRecord: (r) async => saved.add(r),
+    sendReceipt: (peer, receipt) async {
+      receipts.add(receipt);
+      return receiptOk;
+    },
+    sendReport: (peer, action, payload) async {
+      reports.add('$peer|$action|$payload');
+      return reportOk;
+    },
+    now: () => clock,
+    schedule: schedule,
+    statusBar: statusBar,
+    newId: (seed) => 'x${seed.length.toRadixString(16)}',
+  );
 
   RemoteCommandAccepted accepted({
     String level = 'L2',
@@ -257,6 +260,28 @@ void main() {
     test('本机触发那一路显式交空串（没有消息可关联）', () async {
       await runner().run(accepted(), messageId: '');
       expect(saved.single.messageId, '');
+    });
+  });
+
+  group('T134 尾巴：执行前那一格改读本机状态', () {
+    test('本机不在位 ⇒ 动手前被拦，理由 missing-grant（执行器一次都不碰）', () async {
+      windowSeconds = 0;
+      await runner(l3Ok: false).run(
+        accepted(level: 'L3', item: 'collect_inbox'),
+        messageId: '',
+      );
+      expect(l3.calls, isEmpty, reason: '不在位就是不动手 —— 拦在执行前，不是做完再说没做成');
+      expect(saved.last.state, RemoteExecutionStates.failed);
+      expect(saved.last.reason, 'missing-grant:collect_inbox');
+    });
+
+    test('本机在位 ⇒ 照常执行（判据只在这一格，不在两处）', () async {
+      windowSeconds = 0;
+      await runner(l3Ok: true).run(
+        accepted(level: 'L3', item: 'collect_inbox'),
+        messageId: '',
+      );
+      expect(l3.calls, ['toggle(collect_inbox)']);
     });
   });
 
@@ -463,35 +488,9 @@ void main() {
       expect(saved.last.state, RemoteExecutionStates.done);
     });
 
-    test('L3 缺前置授权的那一项 ⇒ failed，理由逐字带上', () async {
-      windowSeconds = 0;
-      await runner().run(
-        accepted(level: 'L3', item: 'collect_inbox'),
-        messageId: '',
-      );
-      expect(l3.calls, isEmpty);
-      expect(saved.last.state, RemoteExecutionStates.failed);
-      expect(saved.last.reason, startsWith('missing-grant:'));
-    });
-
-    test('⚠ 判定层把名单里那份授权传下来了 ⇒ 同一项到点真的动手', () async {
-      // 这一条钉的是 `accepted.grantedKeys` **有人读**。它一度是个死字段：
-      // 判定层已经放行（本机那一行勾了这项），而这一格拿空集再判一次 ⇒
-      // 表现是"窗口走完、回执说 missing-grant 失败"，而名单明明写着勾过 ——
-      // 两处的日志各自都说自己没错，最难查的那种。
-      windowSeconds = 0;
-      await runner().run(
-        accepted(
-          level: 'L3',
-          item: 'collect_inbox',
-          grantedKeys: const {'collect_inbox'},
-        ),
-        messageId: '',
-      );
-      expect(l3.calls, ['toggle(collect_inbox)']);
-      expect(saved.last.state, RemoteExecutionStates.done);
-      expect(saved.last.reason, isEmpty);
-    });
+    // （T134 尾巴改指：旧判据「缺前置授权 ⇒ missing-grant」已搬到
+    //   `T134 尾巴：执行前那一格改读本机状态` 那一组 ——
+    //   读口从对端清单换成 FnthinkL3LocalState，行为用例跟判据走。）
 
     test('L1 的 item 落在 L3 那张表上 ⇒ 照样走设置表（并集表）', () async {
       windowSeconds = 0;

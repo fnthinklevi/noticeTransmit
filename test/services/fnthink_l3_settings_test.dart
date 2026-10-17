@@ -87,12 +87,7 @@ void main() {
         FnthinkL3Ok(contract.l3Settings['exact_alarm']!),
       );
       expect(
-        parseL3Item(
-          contract,
-          'monitoring',
-          confirmedThisTime: true,
-          grantedKeys: const {'monitoring'},
-        ),
+        parseL3Item(contract, 'monitoring', confirmedThisTime: true),
         FnthinkL3Ok(contract.l3Settings['monitoring']!),
       );
     });
@@ -131,20 +126,14 @@ void main() {
       );
     });
 
-    test('先有授权才谈得上翻的项，缺授权就是缺（不自动去拿）', () {
+    test('T134 尾巴：missing-grant 改指本机状态，纯函数不再判授权', () {
+      // 旧判据（grantedKeys 缺 ⇒ missing-grant）已随对端清单读法退役；
+      // 新家：判定层 `_rejectL3Item` 与执行前 pre-check（runner），
+      // 读口唯一作者 `FnthinkL3LocalState`，两处行为各有用例钉。
       expect(
         parseL3Item(contract, 'monitoring', confirmedThisTime: true),
-        const FnthinkL3Rejected('missing-grant:monitoring'),
-      );
-      // 授权已在那台设备上 ⇒ 放行
-      expect(
-        parseL3Item(
-          contract,
-          'monitoring',
-          confirmedThisTime: true,
-          grantedKeys: const {'monitoring'},
-        ),
         isA<FnthinkL3Ok>(),
+        reason: '纯函数不再读授权 —— 在这里拒它会让「本机在不在位」没有出处',
       );
     });
 
@@ -160,12 +149,7 @@ void main() {
     test('两种形态各落到该落的方法上', () async {
       final exec = RecordingExecutor();
       for (final key in ['exact_alarm', 'monitoring']) {
-        final parsed = parseL3Item(
-          contract,
-          key,
-          confirmedThisTime: true,
-          grantedKeys: {if (key == 'monitoring') 'monitoring'},
-        );
+        final parsed = parseL3Item(contract, key, confirmedThisTime: true);
         expect(parsed, isA<FnthinkL3Ok>());
         await dispatchL3Setting(
           contract,
@@ -231,19 +215,10 @@ void main() {
     // ⚠ 与 `server/test/fnthink-l3target.test.js` **逐条对应**：两端各拆一次同一个 item，
     //   两份都改或都不改 —— 否则漂了只有真发一次才看得见。
 
-    // ⚠ `grantedKeys` **给了**（Dart 侧那一格没给就是拒）：`monitoring` /
-    //   `collect_inbox` 在契约 `requiresExistingGrantFrom` 里。
-    //   ⚗ 顺带记一处两端不同的默认值：Node 侧 `opts.grantedKeys` 不给就**跳过**
-    //   那一格，Dart 侧默认是空集合 ⇒ **全拒**。调用方两边都得给，
-    //   而"不给"在两端的含义不同（放行 vs 拒）—— 本组按 Dart 的约定给。
+    // ⚠ `missing-grant` 已改指本机状态（T134 尾巴），判在判定层与执行前两处；
+    //   本函数只管拆 item 与确认，所以这里不再传清单。
     FnthinkL3Ok ok(String item) =>
-        parseL3Item(
-              contract,
-              item,
-              confirmedThisTime: true,
-              grantedKeys: const {'monitoring', 'collect_inbox'},
-            )
-            as FnthinkL3Ok;
+        parseL3Item(contract, item, confirmedThisTime: true) as FnthinkL3Ok;
 
     test('裸 key 收，且目标值是 null（沿用旧语义：读当前再翻，不幂等）', () {
       expect(ok('monitoring').setting.targetValue, isNull);
@@ -280,27 +255,6 @@ void main() {
       final setting = ok('exact_alarm/on').setting;
       expect(setting.mode, 'grant');
       expect(setting.targetValue, isTrue);
-    });
-
-    test('前置授权那一格仍然按**拆出来的 key** 判', () {
-      // ⚠ `grantedKeys` 给了（即使是空列表）那一格才判。
-      final bare = parseL3Item(
-        contract,
-        'collect_inbox',
-        confirmedThisTime: true,
-        grantedKeys: const <String>{},
-      );
-      expect((bare as FnthinkL3Rejected).reason, 'missing-grant:collect_inbox');
-      final withTarget = parseL3Item(
-        contract,
-        'collect_inbox/on',
-        confirmedThisTime: true,
-        grantedKeys: const <String>{},
-      );
-      expect(
-        (withTarget as FnthinkL3Rejected).reason,
-        'missing-grant:collect_inbox',
-      );
     });
 
     test('词从契约读：契约里去掉 itemTargetWords ⇒ 目标值不再被拆', () {

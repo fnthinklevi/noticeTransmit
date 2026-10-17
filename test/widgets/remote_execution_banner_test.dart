@@ -88,6 +88,7 @@ void main() {
       windowSeconds: () async => 10,
       l2: _NoopL2(),
       l3: _NoopL3(),
+      l3InPlace: (_) async => true,
       saveRecord: (_) async {},
       sendReceipt: (peer, receipt) async => true,
       sendReport: (peer, action, payload) async => true,

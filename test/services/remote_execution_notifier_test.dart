@@ -142,6 +142,7 @@ void main() {
     windowSeconds: () async => 10,
     l2: l2,
     l3: _NoopL3(),
+    l3InPlace: (_) async => true,
     saveRecord: (r) async => saved.add(r),
     sendReceipt: (peer, receipt) async => true,
     sendReport: (peer, action, payload) async => true,
@@ -177,6 +178,7 @@ void main() {
         windowSeconds: () async => 0,
         l2: l2,
         l3: _NoopL3(),
+        l3InPlace: (_) async => true,
         saveRecord: (x) async => saved.add(x),
         sendReceipt: (peer, receipt) async => true,
         sendReport: (peer, action, payload) async => true,
@@ -240,6 +242,7 @@ void main() {
         windowSeconds: () async => 10,
         l2: l2,
         l3: _NoopL3(),
+        l3InPlace: (_) async => true,
         saveRecord: (x) async => saved.add(x),
         sendReceipt: (peer, receipt) async {
           receipts.add(receipt);

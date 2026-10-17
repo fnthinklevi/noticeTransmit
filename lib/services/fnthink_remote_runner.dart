@@ -46,6 +46,11 @@ class RemoteCommandRunner extends ChangeNotifier {
     required this.sendReceipt,
     required this.sendReport,
     required this.now,
+
+    /// L3 两枚 toggle 的「本机能力在位」读口（T134 尾巴，唯一作者 FnthinkL3LocalState）。
+    /// ⚠ 必填：漏接时执行前那一格按 fail-closed 拒掉所有 L3 toggle（可见），
+    /// 但恒 true 的默认值会让这一维静默失效 —— 不给那种口子。
+    required this.l3InPlace,
     this.schedule = _defaultSchedule,
     this.newId = newRemoteExecutionId,
     this.statusBar,
@@ -82,6 +87,9 @@ class RemoteCommandRunner extends ChangeNotifier {
   sendReport;
 
   final DateTime Function() now;
+
+  /// L3 两枚 toggle 的「本机能力在位」读口（T134 尾巴，唯一作者 FnthinkL3LocalState）。
+  final Future<bool> Function(String key) l3InPlace;
 
   /// 排一次延时（注入：测试里自己点火，不必睡真表）。默认走 [Timer]。
   ///
@@ -180,7 +188,6 @@ class RemoteCommandRunner extends ChangeNotifier {
       record: record,
       seconds: seconds,
       startedAt: startedAt,
-      grantedKeys: accepted.grantedKeys,
       // 发起端那枚关联键（T143 片2）：两段回执都靠它才对回**它那一行**。
       // 本机自己触发那一路没有它（对面不存在），旧版发起端也没带 ⇒ 空串。
       exec: command.exec,
@@ -353,7 +360,7 @@ class RemoteCommandRunner extends ChangeNotifier {
     //   ⇒ 执行明明做成了，历史那一行却记成 `failed`，而第二段回执压根没发出去
     //   （对面一直等下去）。这一条是内核那个判据当场抓出来的，不是想出来的。
     flight.record = _withState(flight.record, RemoteExecutionStates.executing);
-    final result = await _dispatch(flight.record, flight.grantedKeys);
+    final result = await _dispatch(flight.record);
     await _finish(
       execId,
       result.ok ? RemoteExecutionStates.done : RemoteExecutionStates.failed,
@@ -369,20 +376,24 @@ class RemoteCommandRunner extends ChangeNotifier {
 
   /// 按档派发（L1 走并集那张表：先动作表、再设置表，与判定层同一顺序）。
   ///
-  /// ⚠ [grantedKeys] 是判定层从**本机名单那一行**取来的那份（`RemoteCommandAccepted` 带的），
-  ///   不是这里再读一次库、也不是留空：留空等于 `requiresExistingGrantFrom` 那两枚
-  ///   **永远**判成 `missing-grant`（判定层已经放行的那一条到动手这一刻又被拦下，
-  ///   而界面上只会看到一句"执行失败"）。
+  /// ⚠ **`requiresExistingGrantFrom` 在这里判的是本机状态**（T134 尾巴）：
+  ///   唯一作者 `FnthinkL3LocalState`，在 parseL3Item 之前那一发 ——
+  ///   窗口走完到动手之间本机状态可能变（用户关了监听/撤了同意），
+  ///   动手那一刻要用真值。对端清单那一维已退役：判定层第四道独家负责。
   ///
   /// 回来的那三元里 `outcome` 只在 `ok` 时有值，词只许出自那张封闭词表
   /// （`fnthink_remote_outcome_words.dart`）—— 成功那一档的读数是这一片才补上的，
   /// 这里再凑一句"看起来像结果"的散文就是第二个作者。
   Future<({bool ok, String? reason, String outcome})> _dispatch(
     FnthinkRemoteExecutionRecord record,
-    Set<String> grantedKeys,
   ) async {
     try {
       if (record.level == 'L3') {
+        final base = contract.grantItemBase(record.item);
+        if (contract.l3SettingsRequiringExistingGrant.contains(base) &&
+            !await l3InPlace(base)) {
+          return (ok: false, reason: 'missing-grant:$base', outcome: '');
+        }
         final parsed = parseL3Item(
           contract,
           record.item,
@@ -390,7 +401,6 @@ class RemoteCommandRunner extends ChangeNotifier {
           //   （契约 `l3.confirmForm = cancelableDelay`：内核仍是"每次确认"，
           //   形式从"点一下"变成"没去取消"）。判定层不判它，因为它那时还没有窗口。
           confirmedThisTime: true,
-          grantedKeys: grantedKeys,
         );
         if (parsed is FnthinkL3Rejected) {
           return (ok: false, reason: parsed.reason, outcome: '');
@@ -571,7 +581,6 @@ class _InFlight {
     required this.record,
     required this.seconds,
     required this.startedAt,
-    required this.grantedKeys,
     this.exec = '',
   });
 
@@ -591,8 +600,6 @@ class _InFlight {
   ///
   /// ⚠ 它跟着这一条**进工作集**而不是到点再查一次库：用户在窗口里改了名单那一行的话，
   ///   这一发已经放行的是**那一刻**的授权，而"到点前一刻被改掉的清单"该影响的是下一条。
-  final Set<String> grantedKeys;
-
   /// 发起端随指令带过来的那枚关联键（`kFnthinkRemoteCorrelationKey`）。空串 = 对面没带
   /// （旧版发起端，或本机自己触发那一路）。回执只**原样抄回**，本机不解释它的含义。
   final String exec;

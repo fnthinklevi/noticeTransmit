@@ -1350,11 +1350,16 @@ void main() {
       final runner = read('lib/services/fnthink_remote_runner.dart');
       expect(
         runner,
-        contains('grantedKeys: grantedKeys'),
+        contains('l3InPlace('),
         reason:
-            '判定层取来的那份清单必须走到 parseL3Item 那一格，否则 '
-            '`RemoteCommandAccepted.grantedKeys` 是个死字段：窗口到点后 '
-            '`requiresExistingGrantFrom` 恒判 missing-grant（判定层放行的那条被自己下面一格拦下）',
+            'T134 尾巴（维护者 2026-10-17 拍）：`requiresExistingGrantFrom` 改指本机状态'
+            '（唯一作者 FnthinkL3LocalState），执行前那一格要问的是它 —— '
+            '对端清单那份读法已退役（判定层第四道独家负责）',
+      );
+      expect(
+        runner,
+        isNot(contains('grantedKeys: grantedKeys')),
+        reason: '旧读法长回来 = 与本机状态两处各判一次，正是 T134 尾巴拆掉的那个形状',
       );
     });
     test('进程被杀留下的那几行有人收尾（T147 ③：sweep 不再只有测试调用点）', () {

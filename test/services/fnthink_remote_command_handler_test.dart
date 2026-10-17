@@ -81,6 +81,7 @@ void main() {
   Future<RemoteCommandRecognizer> recognizer({
     bool enabled = true,
     Future<FnthinkGrant> Function(String peer)? grants,
+    bool l3InPlace = true,
   }) async {
     SharedPreferences.setMockInitialValues({
       if (enabled) FnthinkRemoteSettings.keyEnabled: true,
@@ -100,6 +101,7 @@ void main() {
       contract: contract,
       settings: settings,
       credentials: store,
+      l3InPlace: (_) async => l3InPlace,
       grantForSender:
           grants ??
           (peer) async => FnthinkGrant(
@@ -453,6 +455,39 @@ void main() {
       await store.setCustomKey('my-long-key-1234');
       final parsed = await r.parse(
         msg(wire(level: 'L3', item: 'collect_inbox', key: 'my-long-key-1234')),
+      );
+      expect(parsed, isA<RemoteCommandAccepted>());
+    });
+  });
+
+  group('T134 尾巴：requiresExistingGrantFrom 改指本机状态', () {
+    test('本机不在位 ⇒ missing-grant（对端清单那一维不再参与这一格）', () async {
+      final r = await recognizer(
+        l3InPlace: false,
+        grants: (peer) async =>
+            FnthinkGrant(maxLevel: top, items: const ['monitoring/on']),
+      );
+      await store.setCustomKey('my-long-key-1234');
+      final parsed = await r.parse(
+        msg(wire(level: 'L3', item: 'monitoring/on', key: 'my-long-key-1234')),
+      );
+      expect(
+        (parsed as RemoteCommandRejected).reason,
+        // 判定层对 _rejectItem 的输出统一加 `item:` 前缀（人话词表那把尺会剥）。
+        'item:missing-grant:monitoring',
+        reason: '这一维答的是「这台在不在位」——对端勾没勾由第四道管，两件事不许再读同一份',
+      );
+    });
+
+    test('本机在位 ⇒ 这一格放行（第四道与词表照旧各管各的）', () async {
+      final r = await recognizer(
+        l3InPlace: true,
+        grants: (peer) async =>
+            FnthinkGrant(maxLevel: top, items: const ['monitoring/on']),
+      );
+      await store.setCustomKey('my-long-key-1234');
+      final parsed = await r.parse(
+        msg(wire(level: 'L3', item: 'monitoring/on', key: 'my-long-key-1234')),
       );
       expect(parsed, isA<RemoteCommandAccepted>());
     });

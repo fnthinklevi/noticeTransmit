@@ -60,8 +60,12 @@ class FnthinkL3Rejected extends FnthinkL3Parse {
 /// （T27/T28 那条「预授权失败只有一句话」在 L3 上的复刻）：
 ///  - `missing-item`      载荷里没有 item
 ///  - `unknown-setting:X` X 不在词表里
-///  - `missing-grant:X`   这一项要先有对应授权才谈得上翻（契约 requiresExistingGrantFrom）
 ///  - `confirm-required`  这一项每次都要确认，而这一次没确认
+///
+/// ⚠ **`missing-grant` 不在这里判了**（T134 尾巴，维护者 2026-10-17 拍）：
+///   它改指**本机能力在位**（唯一作者 `FnthinkL3LocalState`），那是带 IO 的判据，
+///   落在判定层与执行前两处调用方手里；本函数退回纯函数（只读契约），
+///   那个曾经住在这里的 `grantedKeys` 形参随对端清单读法一起退役。
 ///
 /// [confirmedThisTime] 是**本机**那一次用户动作 —— 不许拿载荷里那个自称的标志替它
 /// （那就是让发送方替接收端点"我确认了"，T30 那条红线）。
@@ -69,7 +73,6 @@ FnthinkL3Parse parseL3Item(
   FnthinkContract contract,
   String? item, {
   bool confirmedThisTime = false,
-  Set<String> grantedKeys = const <String>{},
 }) {
   if (item == null || item.isEmpty) {
     return const FnthinkL3Rejected('missing-item');
@@ -114,10 +117,6 @@ FnthinkL3Parse parseL3Item(
           true &&
       !confirmedThisTime) {
     return const FnthinkL3Rejected('confirm-required');
-  }
-  if (contract.l3SettingsRequiringExistingGrant.contains(key) &&
-      !grantedKeys.contains(key)) {
-    return FnthinkL3Rejected('missing-grant:$key');
   }
   return FnthinkL3Ok(setting);
 }

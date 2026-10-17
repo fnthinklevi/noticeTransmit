@@ -90,12 +90,7 @@ void main() {
   test('拼出来的 L3 item 带目标值，且 parseL3Item 认它（幂等那一条）', () {
     for (final want in [true, false]) {
       final item = buildL3Item(contract, key: 'monitoring', want: want);
-      final parsed = parseL3Item(
-        contract,
-        item,
-        confirmedThisTime: true,
-        grantedKeys: const {'monitoring'},
-      );
+      final parsed = parseL3Item(contract, item, confirmedThisTime: true);
       expect(parsed, isA<FnthinkL3Ok>());
       final setting = (parsed as FnthinkL3Ok).setting;
       expect(
@@ -110,7 +105,6 @@ void main() {
         contract,
         buildL3Item(contract, key: 'monitoring'),
         confirmedThisTime: true,
-        grantedKeys: const {'monitoring'},
       ),
       isA<FnthinkL3Ok>(),
     );

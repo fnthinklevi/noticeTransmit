@@ -21,6 +21,7 @@ import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_receiver_service.dart';
+import '../services/fnthink_l3_local_state.dart';
 import '../services/fnthink_remote_command_handler.dart';
 import '../services/fnthink_remote_executors.dart';
 import '../services/fnthink_remote_runner.dart';
@@ -285,6 +286,8 @@ void setupLocator() {
       //   发 L2/L3"—— 远程指令在线上一条是 L1 通知，服务端的能力判据对它根本不响。
       //   守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
       grantForSender: (peer) => getIt<FnthinkPeerService>().grantFor(peer),
+      // T134 尾巴：L3 两枚 toggle 的「本机能力在位」读口（唯一作者 FnthinkL3LocalState）。
+      l3InPlace: (key) => getIt<FnthinkL3LocalState>().inPlace(key),
     ),
   );
   // 两个执行器。
@@ -304,6 +307,24 @@ void setupLocator() {
       snapPhotoNow: _fnthinkSnapPhotoOnce,
       searchContactsNow: _fnthinkSearchContactsOnce,
       launchAppNow: _fnthinkLaunchShortcutOnce,
+    ),
+  );
+  // T134 尾巴：L3 两枚 toggle 的「本机能力在位」唯一读口。
+  //  - monitoring ⇒ 监听服务在位（T74 既有那族读数，不新造）；
+  //  - collect_inbox ⇒ 服务地址已配 + 中转同意在位（同意被撤 ⇒ 对面翻不动）。
+  getIt.registerLazySingleton<FnthinkL3LocalState>(
+    () => FnthinkL3LocalState(
+      monitoringInPlace: () async =>
+          getIt<NotificationService>().serviceRunning,
+      collectInboxInPlace: () async {
+        final settings = getIt<FnthinkSettings>();
+        try {
+          if ((await settings.host).isEmpty) return false;
+        } catch (_) {
+          return false;
+        }
+        return settings.hasRelayConsent();
+      },
     ),
   );
   getIt.registerLazySingleton<DeviceL3Executor>(
@@ -346,6 +367,8 @@ void setupLocator() {
               .remoteExecutionDelayDefaultSeconds,
       l2: getIt<DeviceL2Executor>(),
       l3: getIt<DeviceL3Executor>(),
+      // T134 尾巴：L3 两枚 toggle 的「本机能力在位」读口（唯一作者 FnthinkL3LocalState）。
+      l3InPlace: (key) => getIt<FnthinkL3LocalState>().inPlace(key),
       saveRecord: (record) =>
           // ⚠ 直接 new 而不走 getIt：DatabaseHelper 是单例且全仓其余六处（上面 92–125 行）
           //   都是直接 new 的 —— 它**没有**在 DI 注册。写成 getIt<> 的后果是

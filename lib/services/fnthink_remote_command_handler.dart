@@ -52,6 +52,7 @@ class RemoteCommandRecognizer {
     required this.settings,
     required this.credentials,
     required this.grantForSender,
+    required this.l3InPlace,
   });
 
   final FnthinkContract contract;
@@ -67,6 +68,13 @@ class RemoteCommandRecognizer {
   /// ⚠ 读口必须是 `FnthinkPeerService.grantFor`：那张表的读只有一个咽喉，
   ///   这里再 `loadFnthinkPeers()` 一遍就是第二个读法（页面与服务层从此各读各的）。
   final Future<FnthinkGrant> Function(String peerAddress) grantForSender;
+
+  /// L3 两枚 toggle 的「本机能力在位」读口（T134 尾巴）。
+  ///
+  /// ⚠ 同样必填：漏接时那一格按 fail-closed 拒掉所有 L3 toggle（表现可见），
+  ///   但给一个"恒 true"的默认值就是让这一维静默失效 —— 那正是本仓不许的
+  ///   "可空隐式依赖"形状。唯一作者 = `FnthinkL3LocalState`。
+  final Future<bool> Function(String key) l3InPlace;
 
   /// 这一条收件是不是远程指令。**只认幻念推送那一条渠道** —— L1 的白名单应用那一路
   /// 是**本机**触发的、根本不经过收件表，它走 [RemoteCommandWiring.onLocalContent]
@@ -188,7 +196,7 @@ class RemoteCommandRecognizer {
       );
     }
     // ⑤ item 在不在那一档的词表里。
-    final bad = _rejectItem(command, grantedKeys: grantedKeys);
+    final bad = await _rejectItem(command);
     if (bad != null) {
       return RemoteCommandRejected(command, sender, 'item:$bad', source);
     }
@@ -208,12 +216,9 @@ class RemoteCommandRecognizer {
   /// 使 L1 的 item 就是 L2∪L3 那张并集表）—— 只写进 `case 'L2'` 的话，
   /// L1 那条路会绕过形状判据直接放行。而 switch 里每一档若都 return，
   /// 后面那段就成了死代码，所以三档各归一个小函数、由这一段统一收口。
-  String? _rejectItem(
-    RemoteCommand command, {
-    required Set<String> grantedKeys,
-  }) {
+  Future<String?> _rejectItem(RemoteCommand command) async {
     final word = switch (command.level) {
-      'L3' => _rejectL3Item(command, grantedKeys: grantedKeys),
+      'L3' => await _rejectL3Item(command),
       'L2' => _rejectL2Item(command.item),
       _ => _rejectL1Item(command.item),
     };
@@ -230,10 +235,7 @@ class RemoteCommandRecognizer {
     return rejectL2Argument(contract, parsed.action);
   }
 
-  String? _rejectL3Item(
-    RemoteCommand command, {
-    required Set<String> grantedKeys,
-  }) {
+  Future<String?> _rejectL3Item(RemoteCommand command) async {
     // ⚠ **这里只判"认不认得"与"前置授权有没有"两件** ——
     //   `confirm-required`（契约 confirmEveryTime）是**延期**判据：它答的是
     //   "本机那一次用户动作有没有发生"，而这件事只有执行那一层知道（延时窗口
@@ -246,15 +248,13 @@ class RemoteCommandRecognizer {
     final key = contract.grantItemBase(command.item);
     final setting = contract.l3Settings[key];
     if (setting == null) return 'unknown-setting:$key';
-    // ⚠⚠ 片4 之后这一格与第四道（`rejectBySenderGrant`）**读的是同一份东西**：
-    //   `grantedKeys` 就是名单那一行的 items（按名字取），而 L3 要过第四道就得整串在档，
-    //   在档则名字必在 ⇒ 这一条对**对端那一路已经判不出任何新的东西**（旧用例
-    //   「缺前置授权 ⇒ missing-grant」今天红的位置已经挪到 `not-granted`）。
-    //   它留着是因为 `requiresExistingGrantFrom` 的原意是「这台**自己**先开着这一项，
-    //   对面才谈得上翻」—— 那一维今天没有读口（读的是对端清单，不是本机状态）。
-    //   拆成读本机还是删掉，是一条安全取舍，登记在 roadmap，不由这一片代拍。
+    // ⚠⚠ T134 尾巴（维护者 2026-10-17 拍：改指本机状态、不删）：这一格原来读
+    //   **对端清单**，与第四道（`rejectBySenderGrant`）读同一份东西 ⇒ 对对端那一路
+    //   判不出任何新东西。现在改读**本机能力在位**（唯一作者 `FnthinkL3LocalState`）：
+    //   「这台自己先把这一项立在位上，对面才谈得上翻」。对端授权那一维
+    //   仍由第四道独家负责，这里不再读第二份。
     if (contract.l3SettingsRequiringExistingGrant.contains(key) &&
-        !grantedKeys.contains(key)) {
+        !await l3InPlace(key)) {
       return 'missing-grant:$key';
     }
     return null;
