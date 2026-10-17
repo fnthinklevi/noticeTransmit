@@ -12,7 +12,9 @@ import '../support/source_guards.dart';
 /// T59：幻念推送那一格「进备份什么、恢复什么、绝不进什么」。
 ///
 /// 判据（维护者 2026-10-01 定）：**备份恢复的是「意图」，不恢复「身份」，也不携带「凭证」**。
-/// 所以这一格只有三项：接收总开关、所选服务地址、同意门的版本号。
+/// 所以这一格只有五项：接收总开关、所选服务地址、同意门的版本号、所选收取间隔（T88）、
+/// 收件保留那一档（T47 片2）。字段集合的唯一判据是 `FnthinkBackup.field*` 那几枚常量
+/// —— 本文件不抄名单（抄的那一份会在加键那天过期而守卫仍绿），只钉"带出什么、判掉什么"。
 /// 本文件里最值钱的三条用例是 ①"从没配过的机器不带地址与同意键"、②"版本号不够就不写同意门
 /// 并把这句话报出来"、③"契约读不到时按没同意过处理" —— 三条都是 fail-closed 方向；
 /// 反过来（默认恢复、默认同意）表现是"用户没点过同意却开始往外发"。
@@ -255,7 +257,7 @@ void main() {
       expect(note, contains('间隔'), reason: '只报第一条就是替用户把第二件事藏起来了');
     });
 
-    test('只带那四个意图字段：这一格里不许出现口令/地址码/名单', () async {
+    test('只带点名的意图字段：这一格里不许出现口令/地址码/名单', () async {
       await seed({'flutter.${FnthinkSettings.keyPollSeconds}': 45});
       final got = await FnthinkBackup().collect();
       for (final banned in ['secret', 'passphrase', 'address', 'peer', 'key']) {
@@ -265,6 +267,76 @@ void main() {
           reason: '收集结果里出现了 $banned ⇒ 这一格开始携带凭证或身份',
         );
       }
+    });
+  });
+
+  group('收件保留那一档（T47 片2，同样归「意图」）', () {
+    test('选过 ⇒ 跟着进备份；没选过 ⇒ 不带这个键（缺省 30 不等于"选了 30"）', () async {
+      await seed({'flutter.${FnthinkSettings.keyRetentionDays}': 90});
+      expect(
+        await FnthinkBackup().collect(),
+        containsPair(FnthinkBackup.fieldRetentionDays, 90),
+      );
+
+      // 没选过时 settings 读出来也是 30 —— 那一句"留 30 天"是真读数，
+      // 但把它写成备份字段就变成了"这台选过 30"，档位表哪天调缺省就追不上了。
+      await seed({});
+      expect(
+        (await FnthinkBackup().collect()).keys,
+        isNot(contains(FnthinkBackup.fieldRetentionDays)),
+      );
+    });
+
+    test('合法那一档恢复得回来，而且**不需要契约**（与间隔那一档的分别就在这）', () async {
+      await seed({});
+      // 故意不传 contractLoader：判档位用的是本机那张封闭表，
+      // 装配未完成时也该恢复得回来 —— 把"读不到契约"拖进这一格才是无缘由地少恢复一项。
+      final note = await FnthinkBackup().apply({
+        FnthinkBackup.fieldRetentionDays: 90,
+      });
+      expect(note, isNull, reason: '档位表内 ⇒ 该恢复，并回一句"全部按预期"');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(FnthinkSettings.keyRetentionDays), 90);
+    });
+
+    test('档位表外的数不写 prefs，并把这句话报出来', () async {
+      await seed({});
+      final note = await FnthinkBackup().apply({
+        FnthinkBackup.fieldRetentionDays: 13,
+      });
+      expect(note, isNotNull, reason: '少了这一档却不报告 = 用户以为换机后一切照旧');
+      expect(note, contains('保留'), reason: '报告里要能看出少了哪一项');
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(FnthinkSettings.keyRetentionDays),
+        isNull,
+        reason: '写一个界面认不出的档位进 prefs，读出来是缺省、盘上是 13，两处各说一套',
+      );
+    });
+
+    test('类型不对（字符串）不写键，本机现值不动', () {
+      final got = FnthinkBackup.normalize(const {
+        FnthinkBackup.fieldRetentionDays: '30',
+      });
+      expect(got, isEmpty, reason: '把 "30" 当成 30 就是替用户认下了一档他从没选过的保留');
+    });
+
+    test('只设过保留档位也算"这台配过幻念推送"（冲突判定不许看不见它）', () async {
+      await seed({'flutter.${FnthinkSettings.keyRetentionDays}': 7});
+      expect(
+        await FnthinkBackup().hasContent(),
+        isTrue,
+        reason: '判成"从没配过" ⇒ 恢复时这一格被静默盖掉，连一句覆盖提醒都没有',
+      );
+    });
+
+    test('盘上是坏档位时 collect 原样带出（判它的是 apply，报告才看得见）', () async {
+      await seed({'flutter.${FnthinkSettings.keyRetentionDays}': 13});
+      expect(
+        await FnthinkBackup().collect(),
+        containsPair(FnthinkBackup.fieldRetentionDays, 13),
+        reason: 'collect 先替它擦掉 ⇒ 症状变成"备份里干干净净而本机一直是坏的"',
+      );
     });
   });
 }

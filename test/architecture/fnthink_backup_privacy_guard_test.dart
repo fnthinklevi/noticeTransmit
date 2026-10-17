@@ -21,7 +21,7 @@ void main() {
   final service = code('lib/services/backup_service.dart');
 
   group('幻念推送那一格的白名单', () {
-    test('类别里只允许那四个字段（新增必须显式登记）', () {
+    test('类别里只允许点名的那五个字段（新增必须显式登记）', () {
       final fields = RegExp(
         r"static const field\w+ = '([a-z_]+)';",
       ).allMatches(backup).map((m) => m.group(1)!).toSet();
@@ -33,6 +33,10 @@ void main() {
           'consent_version',
           // T88 之后加进来的第四项：它仍然只是"这台希望多久问一次货"这一句意图。
           'poll_seconds',
+          // T47 片2 加进来的第五项：同样只是意图（"本机希望留多久"）。
+          // 过了"意图还是身份/凭证"这一问的判据是它**读不出任何一条消息的内容** ——
+          // 天数不是正文，也不参与任何鉴权；反面那条（把整张收件表塞进备份）才是身份级泄露。
+          'inbox_retention_days',
         },
         reason:
             '多一个字段就要先过"它是意图还是身份/凭证"这一问；'
@@ -53,7 +57,7 @@ void main() {
         'grantRelayConsent',
         // 远程执行的凭据（维护者 2026-10-04 定：**不进备份**，理由见
         // `FnthinkBackup` 类注释的第 ⑤ 条）。加进这份名单是因为那一格现在是
-        // **白名单式**的（只写 `collect()` 里点名的四个字段），所以"没进"是构造
+        // **白名单式**的（只写 `collect()` 里点名的那五个字段），所以"没进"是构造
         // 保证的而不是靠一张排除表 —— 一旦有人往 `collect()` 里加一行"顺手把远程
         // 执行开关也带上"，这里必须当场喊住。
         //

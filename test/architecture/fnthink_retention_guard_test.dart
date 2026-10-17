@@ -2,10 +2,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// T47 守卫：收件保留策略的三个"不许再长第二份"。
+/// T47 守卫：收件保留策略的四个"不许再长第二份"。
 /// ① 数值与档位只住 `FnthinkSettings`（界面与 prune 各读各的那一份）；
 /// ② `pruneFnthinkInbox` 的读者只有收件服务（页面/别处不许直连）；
-/// ③ 设置页那一格的形状（picker 用的是同一份档位表）。
+/// ③ 设置页那一格的形状（picker 用的是同一份档位表）；
+/// ④ 每枚 prefs 键都得在备份那一格有着落（片2 撞出来的那条：新键写完忘了接备份，
+///    表现是换机后一切正常、只有收件保留悄悄回到缺省）。
 String read(String path) => File(path).readAsStringSync();
 
 String strip(String code) => code
@@ -18,6 +20,7 @@ void main() {
   final service = strip(read('lib/services/fnthink_inbox_service.dart'));
   final page = strip(read('lib/pages/fnthink_settings_page.dart'));
   final mainActions = strip(read('lib/pages/main_page_actions.dart'));
+  final backup = strip(read('lib/services/fnthink_backup.dart'));
 
   test('档位/缺省/资源闸只住 settings 一处', () {
     expect(
@@ -71,5 +74,30 @@ void main() {
       contains('fnthink-retention-pick'),
       reason: '行内动作有 key（页面级用例与闸门按它点）',
     );
+  });
+
+  test('每枚 prefs 键都要在备份那一格有着落', () {
+    // 尺子从声明处现取，不抄一份名单：抄的那一份会在加键那天就过期（守卫仍然绿）。
+    final keys = RegExp(
+      r'static const (key[A-Za-z0-9_]+)\s*=',
+    ).allMatches(settings).map((m) => m.group(1)!).toSet();
+    expect(keys, isNotEmpty, reason: '锚点：一枚键都没取到 = 本守卫对谁都放行');
+    // 具名例外：今天一枚都没有。将来真有"故意不进备份"的键，要连着理由一起登记在这里，
+    // 而不是让守卫闭嘴 —— 静默漏掉的症状是"换机后一切正常，只有这一档回到缺省"。
+    const deliberatelyExcluded = <String, String>{};
+    for (final key in keys.difference(deliberatelyExcluded.keys.toSet())) {
+      expect(
+        backup,
+        contains('FnthinkSettings.$key'),
+        reason: '$key 没进幻念推送那一格 ⇒ 恢复后它悄悄用缺省，界面上看不出少过东西',
+      );
+    }
+    for (final e in deliberatelyExcluded.entries) {
+      expect(
+        e.value.length,
+        greaterThan(9),
+        reason: '${e.key} 的排除理由只有一句空话：这条例外不该存在',
+      );
+    }
   });
 }

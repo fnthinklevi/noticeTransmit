@@ -11,8 +11,8 @@ import 'fnthink_settings.dart';
 /// **判据（维护者 2026-10-01 定，覆盖此前口径）：备份恢复的是「意图」，
 /// 不恢复「身份」，也不携带「凭证」。**
 ///
-/// 进这一格的只有四项：接收总开关、所选服务地址、同意门的版本号（第几版中转政策）、
-/// 用户选的那一档收取间隔（T88 之后）。
+/// 进这一格的只有五项：接收总开关、所选服务地址、同意门的版本号（第几版中转政策）、
+/// 用户选的那一档收取间隔（T88 之后）、收件保留那一档（T47 片2）。
 /// 能力档位与端点的名字要等 T49 —— 本机此刻还没有"可存的那一份"，与其写一个空键占位，
 /// 不如等真的有值再进（写了就是"备份里有这一类"的假承诺）。
 ///
@@ -32,7 +32,7 @@ import 'fnthink_settings.dart';
 ///    两台设备上有同样的哈希 —— 恢复出来的那份随时可能落到别人手里。它还带着一条**单向**的
 ///    依赖（凭据在对面那台录的验证器里，备份补不回来），所以"恢复"在这里根本不是一个
 ///    能靠备份文件完成的操作，正确的做法是**重新生成 + 当面交给对方**。
-///    ⚠ 这一条**不需要**新增排除逻辑：这一格是**白名单式**的（[collect] 只写点名的四个字段），
+///    ⚠ 这一条**不需要**新增排除逻辑：这一格是**白名单式**的（[collect] 只写点名的五个字段），
 ///    所以"没进"是构造保证的。守卫在 `test/architecture/fnthink_backup_privacy_guard_test.dart`
 ///    （名单里有 `RemoteCredentialStore` 与三个键名）—— 有人往 [collect] 里"顺手加一行"
 ///    时那里会当场喊住。
@@ -66,6 +66,12 @@ class FnthinkBackup {
   /// 归到「意图」而不是「身份」：它说的是"这台希望多久问一次货"，不带任何凭证，
   /// 越界的那一档由 [apply] 按契约范围判掉（宁可不恢复也不写进 prefs）。
   static const fieldPollSeconds = 'poll_seconds';
+
+  /// 用户选的那一档收件保留天数（T47 片2）。同 poll 那一档归「意图」：
+  /// 它说的是"本机希望留多久"，不带正文、不带凭证，也读不出任何一条消息的内容。
+  /// 判档位的那张表住 `FnthinkSettings.retentionChoices`（唯一作者），
+  /// **不来自契约** —— 所以这一档不像间隔那样需要"契约读不到就不恢复"。
+  static const fieldRetentionDays = 'inbox_retention_days';
 
   /// 已装配好的那一份契约（null = 现在读不到）。
   ///
@@ -113,6 +119,11 @@ class FnthinkBackup {
           fieldConsentVersion: version,
         if (prefs.getInt(FnthinkSettings.keyPollSeconds) case final int poll)
           fieldPollSeconds: poll,
+        // 盘上是档位外的值也**原样带出**：判档位是 [apply] 那一头的事，而"这台手机上有一枚
+        // 界面读不出来的坏档位"这件事只有走恢复报告才可能被人看见 —— collect 先替它擦掉，
+        // 症状是"备份里干干净净而本机一直是坏的"。
+        if (prefs.getInt(FnthinkSettings.keyRetentionDays) case final int days)
+          fieldRetentionDays: days,
       },
     };
   }
@@ -123,7 +134,8 @@ class FnthinkBackup {
     return prefs.getBool(FnthinkSettings.keyReceiveEnabled) == true ||
         prefs.getString(FnthinkSettings.keyHost) != null ||
         prefs.getInt(FnthinkSettings.keyConsentVersion) != null ||
-        prefs.getInt(FnthinkSettings.keyPollSeconds) != null;
+        prefs.getInt(FnthinkSettings.keyPollSeconds) != null ||
+        prefs.getInt(FnthinkSettings.keyRetentionDays) != null;
   }
 
   /// 形状兜底：文件是外部输入，值类型不受控。缺项一律**不写键**（保持本机现值），
@@ -148,6 +160,12 @@ class FnthinkBackup {
     // 而 `normalize` 是静态的形状兜底，手里没有契约。
     if (raw[fieldPollSeconds] case final num seconds) {
       out[fieldPollSeconds] = seconds.toInt();
+    }
+    // 保留档位同理：这里只判类型。**合法与否由 [apply] 判**，判据是
+    // `FnthinkSettings.retentionChoices` 那一张封闭表 —— 在 normalize 里判也做得到
+    // （它不需要契约），但那一头丢东西是**静默**的，而 apply 那一头能往恢复报告里带一句话。
+    if (raw[fieldRetentionDays] case final num days) {
+      out[fieldRetentionDays] = days.toInt();
     }
     return out;
   }
@@ -197,6 +215,22 @@ class FnthinkBackup {
         } on StateError catch (e) {
           notes.add('收取间隔那一档没有恢复：${e.message}');
         }
+      }
+    }
+    if (values[fieldRetentionDays] case final int days) {
+      // 档位判据取 `FnthinkSettings.retentionChoices` 那一张表的**读数**，不在这里重列一遍数：
+      // 界面、prune、恢复三处吃的必须是同一份档位，否则"界面能选而恢复说非法"就是两处各变一半。
+      // ⚠ 这里**不借** `FnthinkSettings.setRetentionDays`（它同样会抛）：那枚方法要求一个
+      // contract 实例才能装配，而保留档位的合法性与契约无关 —— 为了写一个 prefs 值把
+      // "读不到契约"拖进这一格，只会让本该恢复得回来的东西无缘由地不恢复。
+      if (FnthinkSettings.retentionChoices.contains(days)) {
+        await prefs.setInt(FnthinkSettings.keyRetentionDays, days);
+      } else {
+        notes.add(
+          '收件保留那一档没有恢复：文件里记的是 $days 天，不在本机认得的档位里'
+          '（${FnthinkSettings.retentionChoices.join(' / ')} 天）。'
+          '本机继续按缺省留，去设置页重新选一档。',
+        );
       }
     }
     return notes.isEmpty ? null : notes.join('；');
