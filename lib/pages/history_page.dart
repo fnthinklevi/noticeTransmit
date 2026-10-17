@@ -320,7 +320,6 @@ class _HistoryPageState extends State<HistoryPage> {
   ///
   /// 这是**界面状态**而不是事实，所以它住在页面里而不是那个排法文件里 ——
   /// 后者只回答"该露哪几枚"，不该知道"这一行此刻被谁点开过"。
-  final Set<String> _expandedChipRows = {};
 
   /// 当前展示的记录（统一走分页读数；null = 头一页还没回来）
   List<NotificationRecord> get _displayedRecords => _searchResults ?? const [];
@@ -802,41 +801,152 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  /// 那一串通道 chip（T133 片2）：**排法与折法走唯一作者** `history_channel_chips.dart`，
-  /// 页面这里只交出"这一行此刻展开没有"那一份界面状态。
+  /// 送达那一行（T154 片2）：**一行统计 + 一枚「查看详情」**。
   ///
-  /// ⚠ 这一串里只有末尾那一枚**能点**（展开/收起），其余是状态标记 —— 状态标记不许长出 `onTap`：
-  ///   给一枚"通道名 + 送达状态"的标记加点击，等于在同一行里再造一个入口，而那两件事
-  ///   （看这一条的完整信息、看这一条走了哪几条通道）行上早就有各自的出口（点行出详情、长按出菜单）。
-  ///   钉这一维的是 `test/architecture/history_chip_family_test.dart`。
+  /// 维护者 2026-10-15：「要『共X条通道·Y成功·Z失败·查看详情』子页」。
+  /// 此前行内把每枚 chip 摊开（可折叠），而用户的第一个问题是"这条到底成没成" ——
+  /// 摊开的 chip 只回答"每一格分别是什么"。⇒ 行内只留结论，细节进子页。
   ///
-  /// 折叠那一枚在 T148 片14 之前是 `GestureDetector` + 同行 chip 那身外衣，注释原话写着
-  /// 「它跟别的 chip 一样大、一样是状态标记而不是动作」—— **那句是不实陈述**（它有 `onTap`，
-  /// 它一直是动作）；正因如此它才伪装成标记、在屏上读不出点得动。⇒ 现已归 `FnthinkInlineAction`。
-  Widget _buildChannelChipWrap(
+  /// ⚠ 统计的**成员判定不在这里**：`tallyDelivery` 按 `lib/models/delivery_status.dart`
+  ///   那两位（`deliveredStatus` / `notDeliveredStatuses`）数一遍 —— 与历史页筛选、
+  ///   `delivery_bucket` 算的是同一张表。这一页只决定"怎么摆"。
+  /// ⚠ 每段**各自带色**（成功绿 / 失败红）：整行一色会让"2 成功 1 失败"读起来像全失败，
+  ///   而"失败要看得出来"是本仓的强纪律（与 chip 上那枚点同色）。
+  /// ⚠ 没有送达记录（`rows` 为空）时照旧说「无推送通道」—— 那不是 0 条通道的统计。
+  Widget _buildDeliveryTallyLine(
     NotificationRecord record,
     List<String> rows,
     AppLocalizations l10n,
   ) {
-    final ordered = orderChannelsByAttention(rows, record.deliveryStatus);
-    final expanded = _expandedChipRows.contains(record.id);
-    final shown = visibleChannelChips(ordered, expanded: expanded);
-    // 有没有可折的，按**全集**判：展开态 `shown == ordered`，此时 folded 计数是 0，
-    // 但那一枚「收起」还得留在原位 —— 用 shown 判就会长出"展开之后收不回去"。
-    final foldable = foldedChannelChipCount(ordered) > 0;
+    if (rows.isEmpty) {
+      return Text(
+        l10n.noChannels,
+        style: TextStyle(
+          fontSize: 10,
+          color: AppColors.secondaryLabel(context),
+        ),
+      );
+    }
+    final tally = tallyDelivery(record.deliveryStatus);
+    const dot = ' · ';
     return Wrap(
-      spacing: 4,
+      spacing: 0,
       runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final c in shown) _buildChannelChipFor(record, c, l10n),
-        if (foldable)
-          _buildChipFoldToggle(
-            record,
-            hiddenCount: ordered.length - shown.length,
-            expanded: expanded,
-            l10n: l10n,
+        Text(
+          l10n.historyTallyTotal(tally.total),
+          style: TextStyle(
+            fontSize: 10,
+            color: AppColors.secondaryLabel(context),
           ),
+        ),
+        // 只报非零的那几段：全成功时说「共 3 条通道 · 3 成功」，
+        // 而"0 失败"那一句是替一件没发生的事占地方。
+        if (tally.done > 0)
+          Text(
+            dot + l10n.historyTallyDone(tally.done),
+            style: TextStyle(
+              fontSize: 10,
+              color: deliveryStatusColor(context, 'success'),
+            ),
+          ),
+        if (tally.failed > 0)
+          Text(
+            dot + l10n.historyTallyFailed(tally.failed),
+            style: TextStyle(
+              fontSize: 10,
+              color: deliveryStatusColor(context, 'failed'),
+            ),
+          ),
+        if (tally.inFlight > 0)
+          Text(
+            dot + l10n.historyTallyInFlight(tally.inFlight),
+            style: TextStyle(
+              fontSize: 10,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        const SizedBox(width: 8),
+        FnthinkInlineAction(
+          key: ValueKey('history-delivery-detail-${record.id}'),
+          // 中性档：它是一次"展开看细节"，不改任何一条记录的状态。
+          tone: FnthinkActionTone.neutral,
+          label: l10n.historyDeliveryDetail,
+          onPressed: () => _showDeliveryDetailSheet(record),
+        ),
       ],
+    );
+  }
+
+  /// 送达详情子页（T154 片2）：这一条到底推给了谁、每一格现在是什么。
+  ///
+  /// 内容就是此前摊在行内那一串 chip（一个字没少）—— 排法仍是
+  /// `orderChannelsByAttention`（要人动手的排最前），chip 的渲染仍是
+  /// `_buildChannelChipFor`（状态点、备用标、失败原因内联都照旧）。
+  /// T154 片3 的"每通道单独重推"也落在这里（那时候每格多一枚按钮）。
+  Future<void> _showDeliveryDetailSheet(NotificationRecord record) async {
+    final l10n = AppLocalizations.of(context);
+    final ordered = orderChannelsByAttention(
+      record.channels,
+      record.deliveryStatus,
+    );
+    final tally = tallyDelivery(record.deliveryStatus);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.historyDeliveryDetailTitle,
+                key: const ValueKey('history-delivery-detail-title'),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLabel(context),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                [
+                  l10n.historyTallyTotal(tally.total),
+                  if (tally.done > 0) l10n.historyTallyDone(tally.done),
+                  if (tally.failed > 0) l10n.historyTallyFailed(tally.failed),
+                  if (tally.inFlight > 0)
+                    l10n.historyTallyInFlight(tally.inFlight),
+                ].join(' · '),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final c in ordered)
+                        _buildChannelChipFor(record, c, l10n),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -856,40 +966,6 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildChipFoldToggle(
-    NotificationRecord record, {
-    required int hiddenCount,
-    required bool expanded,
-    required AppLocalizations l10n,
-  }) {
-    return FnthinkInlineAction(
-      // ⚠ key 字符串逐字没动（`history-chip-fold-<id>`）：名字里那个 "chip" 是这段历史的化石 ——
-      //   它一直是**动作**（点了改这一行的显示范围），只是穿着同行 chip 那身 10px/radius 3 的外衣，
-      //   代价是用户在屏上读不出它点得动（与 T108 片②、片12 量到的是同一个病）。
-      //   改名＝作废按 key 定位的页面级用例，那不是统一。
-      key: ValueKey('history-chip-fold-${record.id}'),
-      // 中性档：这一枚只展开/收起同一行的通道清单，不动任何一条记录的状态。
-      tone: FnthinkActionTone.neutral,
-      label: expanded
-          ? l10n.historyChipsCollapse
-          : l10n.historyChipsMore(hiddenCount),
-      onPressed: () => setState(() {
-        if (!_expandedChipRows.remove(record.id)) {
-          _expandedChipRows.add(record.id);
-        }
-      }),
-    );
-  }
-
-  /// 渠道 chip + 送达状态小圆点与文字（成功/失败/发送中；无状态记录仅显示渠道名）
-  /// 失败时在 chip 下方内联显示失败原因
-  ///
-  /// [channel] 传送达键（`chan:<slug>`）：界面显示名在此统一换算，调用方不必再
-  /// 关心"这条是键还是名字"。
-  ///
-  /// [viaBackup]：该通道是主备路由（T12）降级后选中的备用通道 → chip 上追加「备用」。
-  /// 备用通道通常是用户平时不盯的那条（邮件、另一个群），不标出来就等于"消息悄悄换了
-  /// 出口"，与"不静默丢失"冲突；但也不额外弹提示 —— 这只是一次降级投递，不是错误。
   Widget _buildChannelChip(
     String channel,
     Color chipColor,
@@ -2502,16 +2578,7 @@ class _HistoryPageState extends State<HistoryPage> {
           : () => _showRecordDetail(record),
       onLongPress: _batchMode ? null : () => _showRecordActionsSheet(record),
       lines: [
-        if (rows.isNotEmpty)
-          _buildChannelChipWrap(record, rows, l10n)
-        else
-          Text(
-            l10n.noChannels,
-            style: TextStyle(
-              fontSize: 10,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
+        _buildDeliveryTallyLine(record, rows, l10n),
         // 每一条转发行都有这一枚（T133 片9 走 (b)）：口径由文案说清楚，判据住在作者那一处，
         // 页面不再自己比状态字面量决定"这条给不给出口"。
         if (widget.onPushNow != null) _buildPushNowButton(record, l10n),

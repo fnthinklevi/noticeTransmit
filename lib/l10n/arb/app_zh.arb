@@ -57,15 +57,6 @@
     }
   },
   "noChannels": "未配置推送通道",
-  "historyChipsMore": "还有 {n} 个通道",
-  "historyChipsCollapse": "收起",
-  "@historyChipsMore": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "statusOk": "状态正常",
   "statusError": "状态异常",
   "statusUnknown": "状态未知",
@@ -927,6 +918,40 @@
   "deliveryViaBackupTag": "备用",
   "pushNow": "现在推送",
   "pushAgain": "再发一次",
+  "historyTallyTotal": "共 {n} 条通道",
+  "@historyTallyTotal": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "historyTallyDone": "{n} 成功",
+  "@historyTallyDone": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "historyTallyFailed": "{n} 失败",
+  "@historyTallyFailed": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "historyTallyInFlight": "{n} 在途",
+  "@historyTallyInFlight": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "historyDeliveryDetail": "查看详情",
+  "historyDeliveryDetailTitle": "这条推给了谁",
   "privacyOverviewTitle": "隐私政策概述",
   "privacyOverviewContent": "通知推送助手（以下简称\"本应用\"）由幻念团队开发并运营。本应用高度重视您的个人信息与隐私保护，在您使用本应用前，请仔细阅读本隐私政策，了解我们如何收集、使用、存储和保护您的信息。\n\n本政策适用于本应用提供的所有服务。当您安装并使用本应用时，即表示您已阅读、理解并同意本政策的全部内容。",
   "privacyInfoTitle": "我们收集的信息",

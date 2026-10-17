@@ -178,6 +178,10 @@ void main() {
           'database/database_helper.dart',
           'models/delivery_status.dart',
           'pages/history_page.dart',
+          // T154 片2：行内那一行统计（"几条成 / 几条没成"）必须与筛选同源，
+          // 否则会出现"筛『失败』能筛到 3 条、行内统计却说 2 失败"这种自己跟自己打架的账。
+          // 它只**引用**那两位，不另抄词表（`history_chip_layout_guard_test` 盯着这一点）。
+          'services/history_channel_chips.dart',
         ],
         reason:
             '「这条送达了吗」的消费者集合变了。走 (c) 之后只有三处：DB（写入与回填算桶 + 等值筛那一列）、'

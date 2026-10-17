@@ -140,14 +140,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noChannels => '未配置推送通道';
 
   @override
-  String historyChipsMore(int n) {
-    return '还有 $n 个通道';
-  }
-
-  @override
-  String get historyChipsCollapse => '收起';
-
-  @override
   String get statusOk => '状态正常';
 
   @override
@@ -1885,6 +1877,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get pushAgain => '再发一次';
+
+  @override
+  String historyTallyTotal(int n) {
+    return '共 $n 条通道';
+  }
+
+  @override
+  String historyTallyDone(int n) {
+    return '$n 成功';
+  }
+
+  @override
+  String historyTallyFailed(int n) {
+    return '$n 失败';
+  }
+
+  @override
+  String historyTallyInFlight(int n) {
+    return '$n 在途';
+  }
+
+  @override
+  String get historyDeliveryDetail => '查看详情';
+
+  @override
+  String get historyDeliveryDetailTitle => '这条推给了谁';
 
   @override
   String get privacyOverviewTitle => '隐私政策概述';

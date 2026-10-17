@@ -1,20 +1,22 @@
-/// 历史记录里那一串通道 chip 的**排法与折法**（T133 片2，唯一作者）。
+/// 历史记录里通道那一族的**排法与统计**（T133 片2 立，T154 片2 改口径；唯一作者）。
 ///
-/// 现状缺陷（维护者 2026-10-10 第 8 条）：一条记录有几个通道就画几枚 chip，
-/// 顺序抄 `record.channels`（配置顺序，与"哪条出问题了"无关）、无上限、无折叠
-/// ⇒ 通道一多就是 N 枚 chip 换行堆叠、行高不定，而**真失败的那枚被埋在中间**。
+/// 这一族只决定两件事：
+///  ① **顺序**（[orderChannelsByAttention]）—— 子页里按它排，要人动手的排最前；
+///  ② **统计**（[tallyDelivery]）—— 行内那一行「共 N 条通道 · X 成功 · …」。
 ///
-/// 这一页排的是"先看谁"，不是"送达了吗"也不是"可以再发一次吗" ——
-/// 那两问各有一位作者（`NotificationService.matchDeliveryFilter` 与
-/// `repush_eligibility.dart`），本文件不回答它们，只决定**出现的顺序与露出的枚数**。
-/// 之所以三者不能合成一个：注意力序要把 `intercepted` 排在前面（那是通道级事实），
-/// 而重推池必须把它排在外面（那是用户自己定的规则）。
+/// "送达了吗"与"可以再发一次吗"各有作者
+/// （`NotificationService.matchDeliveryFilter` 与 `repush_eligibility.dart`），
+/// 本文件不回答它们。三条判据不能合成一个：注意力序要把 `intercepted` 排在前面
+/// （那是通道级事实），而重推池必须把它排在外面（那是用户自己定的规则）。
+///
+/// ⚠ **折法整族在 T154 片2 退休**（`visibleChannelChips` / `foldedChannelChipCount` /
+///   `visibleChannelChipCount`）：维护者 2026-10-15 要的是"行内看结论、细节进子页"，
+///   行内不再摊 chip ⇒"露几枚"这个上限失去意义，留着就是死代码。
+///   它当初（T133 片2）要解的是"通道一多就 N 枚堆叠、真失败那枚被埋在中间"——
+///   那个问题现在由"行内根本不摊 chip"从形状上解掉了，比折叠更彻底。
 library;
 
-/// 一屏内一行放得下的枚数。⚠ 按 393dp（MEIZU 21 走查那台）的行宽粗估：
-/// 一行两枚稳、三枚看名字长度，四枚之后必然换行 —— 它钉的是"只有一处口径"，
-/// 不是"这个数正好"；换机型要重看（同 `normalizeAlias` 那条纪律）。
-const int visibleChannelChipCount = 4;
+import '../models/delivery_status.dart';
 
 /// 注意力档位（小的在前）。
 ///
@@ -58,17 +60,54 @@ List<String> orderChannelsByAttention(
   return indexed.map((e) => e.value).toList();
 }
 
-/// 露出来的那几枚：折叠态只露前 [visibleChannelChipCount] 枚，展开态全露。
-List<String> visibleChannelChips(
-  List<String> ordered, {
-  bool expanded = false,
-}) {
-  if (expanded || ordered.length <= visibleChannelChipCount) return ordered;
-  return ordered.sublist(0, visibleChannelChipCount);
+/// 一条记录的**送达统计**（T154 片2）。
+///
+/// 维护者 2026-10-15：「要『共X条通道·Y成功·Z失败·查看详情』子页」——
+/// 此前行内把那几枚 chip 全摊开（带折叠），用户的第一个问题是"这条到底成没成"，
+/// 而摊开的 chip 只回答"每一格分别是什么"。统计回答前者，子页回答后者。
+///
+/// ⚠ 三档的**成员判定不在这里写**：成了是 `deliveredStatus`、没成是
+/// `notDeliveredStatuses`（两位都在 `lib/models/delivery_status.dart`，
+/// 与历史页筛选、桶值算的是同一张表）。这里只做"按那张表数一遍"。
+/// `queued`（T154 片1 新档）落在 [inFlight]：它没有到对端，但也确实不是失败。
+class DeliveryTally {
+  const DeliveryTally({
+    required this.total,
+    required this.done,
+    required this.failed,
+    required this.inFlight,
+  });
+
+  final int total;
+  final int done;
+  final int failed;
+  final int inFlight;
+
+  bool get isEmpty => total == 0;
 }
 
-/// 被折起来的枚数（0 = 没有"还有几枚"那一枚，界面据此决定画不画）。
-int foldedChannelChipCount(List<String> ordered) {
-  final hidden = ordered.length - visibleChannelChipCount;
-  return hidden > 0 ? hidden : 0;
+/// 数一遍这条记录的每一格。
+DeliveryTally tallyDelivery(Map<String, dynamic> deliveryStatus) {
+  var done = 0;
+  var failed = 0;
+  var other = 0;
+  for (final info in deliveryStatus.values) {
+    final status = info is Map ? (info['status']?.toString() ?? '') : '';
+    if (status == deliveredStatus) {
+      done++;
+    } else if (notDeliveredStatuses.contains(status)) {
+      failed++;
+    } else {
+      // 空状态（仅记录那一档）、`pending`、`queued`、以及任何认不出的词：
+      // 都算"还没到对端"。认不出的不许猜成成功也不许猜成失败 —— 与
+      // `deliveryBucketOf` 的 fail-closed 是同一个方向（宁可说不清，不许替它判）。
+      other++;
+    }
+  }
+  return DeliveryTally(
+    total: deliveryStatus.length,
+    done: done,
+    failed: failed,
+    inFlight: other,
+  );
 }

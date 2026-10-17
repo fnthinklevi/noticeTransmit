@@ -136,6 +136,18 @@ void main() {
     ]);
     final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
 
+    // 「带 force 那一发」= 片1 的单条出口（它就是那条不受暂停开关限制的路，
+    // force=true 在原生那一侧）—— 它仍在**行内**这一格上，必须摸得到：
+    expect(find.byKey(pushNowKey('n-paused')), findsOneWidget);
+
+    // ⚠ T154 片2：通道级的那一格状态读数（「暂停未发送」）随 chip 一起收进了详情子页，
+    //   所以先开子页再断言。若仍断在行内，下面那条 `findsNothing` 会因为
+    //   "那地方本来就不画读数"而恒绿 —— 那不是判据，那是空断言。
+    await tester.tap(
+      find.byKey(const ValueKey('history-delivery-detail-n-paused')),
+    );
+    await tester.pumpAndSettle();
+
     expect(
       find.text(l10n.deliveryPausedNotSent),
       findsOneWidget,
@@ -146,9 +158,6 @@ void main() {
       findsNothing,
       reason: '「已暂停」只说用户动了开关，把它留在送达格里就是把两件事混成一句',
     );
-    // 「带 force 那一发」= 片1 的单条出口（它就是那条不受暂停开关限制的路，
-    // force=true 在原生那一侧）——这一格上必须摸得到：
-    expect(find.byKey(pushNowKey('n-paused')), findsOneWidget);
   });
 
   testWidgets('片9 走 (b)：被规则拦下的那条**也有**出口，说的是「再发一次」', (tester) async {

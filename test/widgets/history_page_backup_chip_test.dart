@@ -8,11 +8,15 @@ import 'package:notice_transmit/widgets/app_root.dart';
 
 import '../test_setup.dart';
 
-/// T12 补充：历史列表要看得出「这条是降级走备用通道发的」。
+/// T12 补充：历史要看得出「这条是降级走备用通道发的」。
 ///
 /// 备用通道往往是用户平时不盯的那条（另一个群、邮件）。降级投递本身不是错误，
 /// 但悄悄换了出口就等于让用户以为消息还在老地方 —— 与"不静默丢失"冲突。
 /// 所以标记只做在 chip 上（一个「备用」小字），不弹提示、不算失败。
+///
+/// ⚠ T154 片2：通道细节（连同这枚「备用」）从行内收进了**详情子页** ——
+///   三条用例因此都要先开子页再断言。这不只是补一次 tap：
+///   若仍断在行内，`findsNothing` 那两条会因为"那地方本来就不画 chip"而**恒绿**。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   initTestDatabase();
@@ -66,9 +70,16 @@ void main() {
           onExport: () async => <String, dynamic>{},
           onClearToday: () async => 0,
           onClearLastN: (_) async => 0,
+          onPushNow: (_) async {},
         ),
       ),
     );
+    await tester.pumpAndSettle();
+  }
+
+  /// 打开这条记录的详情子页 —— chip（含「备用」标）在那里面。
+  Future<void> openDetail(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('history-delivery-detail-n-1')));
     await tester.pumpAndSettle();
   }
 
@@ -84,12 +95,16 @@ void main() {
         'chan:email': {'status': 'success', 'message': 'ok'},
       }),
     );
+    await openDetail(tester);
 
     expect(
       find.text('备用'),
       findsOneWidget,
       reason: '降级投递过却看不出来 = 用户以为消息发到了主通道',
     );
+    // 反向自证：两枚 chip 都在（"整段没画出来"也会让 findsOneWidget 以外的一切变得没意义）。
+    expect(find.text('钉钉'), findsOneWidget);
+    expect(find.text('邮件'), findsOneWidget);
   });
 
   testWidgets('未降级的记录不出现「备用」', (tester) async {
@@ -100,8 +115,11 @@ void main() {
         'chan:email': {'status': 'failed', 'message': '超时'},
       }),
     );
+    await openDetail(tester);
 
     expect(find.text('备用'), findsNothing);
+    // 反向自证：子页确实画了（否则这条"没有备用"是空断言）。
+    expect(find.text('钉钉'), findsOneWidget);
   });
 
   testWidgets('老记录（升级前的 delivery_info 没有这个键）照常渲染', (tester) async {
@@ -112,8 +130,11 @@ void main() {
         'chan:dingtalk': {'status': 'pending', 'message': ''},
       }),
     );
+    // 行内统计照常（这条记录只有一枚通道有状态 ⇒ 共 1 条通道）
+    expect(find.text('取件码'), findsOneWidget);
+    await openDetail(tester);
 
     expect(find.text('备用'), findsNothing);
-    expect(find.text('取件码'), findsOneWidget);
+    expect(find.text('钉钉'), findsOneWidget);
   });
 }

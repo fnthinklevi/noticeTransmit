@@ -142,14 +142,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noChannels => 'No channels configured';
 
   @override
-  String historyChipsMore(int n) {
-    return '$n more channels';
-  }
-
-  @override
-  String get historyChipsCollapse => 'Collapse';
-
-  @override
   String get statusOk => 'Normal';
 
   @override
@@ -1961,6 +1953,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pushAgain => 'Send Again';
+
+  @override
+  String historyTallyTotal(int n) {
+    return 'across $n channels';
+  }
+
+  @override
+  String historyTallyDone(int n) {
+    return '$n ok';
+  }
+
+  @override
+  String historyTallyFailed(int n) {
+    return '$n failed';
+  }
+
+  @override
+  String historyTallyInFlight(int n) {
+    return '$n in flight';
+  }
+
+  @override
+  String get historyDeliveryDetail => 'View details';
+
+  @override
+  String get historyDeliveryDetailTitle => 'Where this went';
 
   @override
   String get privacyOverviewTitle => 'Privacy Policy Overview';

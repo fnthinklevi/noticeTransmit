@@ -320,18 +320,6 @@ abstract class AppLocalizations {
   /// **'未配置推送通道'**
   String get noChannels;
 
-  /// No description provided for @historyChipsMore.
-  ///
-  /// In zh, this message translates to:
-  /// **'还有 {n} 个通道'**
-  String historyChipsMore(int n);
-
-  /// No description provided for @historyChipsCollapse.
-  ///
-  /// In zh, this message translates to:
-  /// **'收起'**
-  String get historyChipsCollapse;
-
   /// No description provided for @statusOk.
   ///
   /// In zh, this message translates to:
@@ -3607,6 +3595,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'再发一次'**
   String get pushAgain;
+
+  /// No description provided for @historyTallyTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {n} 条通道'**
+  String historyTallyTotal(int n);
+
+  /// No description provided for @historyTallyDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 成功'**
+  String historyTallyDone(int n);
+
+  /// No description provided for @historyTallyFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 失败'**
+  String historyTallyFailed(int n);
+
+  /// No description provided for @historyTallyInFlight.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 在途'**
+  String historyTallyInFlight(int n);
+
+  /// No description provided for @historyDeliveryDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看详情'**
+  String get historyDeliveryDetail;
+
+  /// No description provided for @historyDeliveryDetailTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条推给了谁'**
+  String get historyDeliveryDetailTitle;
 
   /// No description provided for @privacyOverviewTitle.
   ///

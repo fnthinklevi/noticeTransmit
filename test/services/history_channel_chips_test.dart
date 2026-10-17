@@ -1,12 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/services/history_channel_chips.dart';
 
-/// T133 片2：那一串通道 chip 的排法与折法（唯一作者的纯函数真值表）。
+/// T133 片2 立、T154 片2 改口径：通道那一族的**排法与统计**（唯一作者的纯函数真值表）。
 ///
-/// 盯的是三件会被"顺手改回去"的事：
+/// 盯的是两件会被"顺手改回去"的事：
 /// 1. 出问题的排在前（原先抄配置顺序 ⇒ 真失败那枚埋在中间）；
-/// 2. 同档**稳定**（否则每次 rebuild 自己换序，那是噪音不是信息）；
-/// 3. 折起来的是尾部的"没事"那几枚，而不是头部。
+/// 2. 同档**稳定**（否则每次 rebuild 自己换序，那是噪音不是信息）。
+///
+/// ⚠ 折法那一组（`visibleChannelChips` / `foldedChannelChipCount` / `visibleChannelChipCount`）
+/// 在 T154 片2 **整组删除**：行内不再摊 chip（改为一统计行 + 子页），"露几枚"没有意义了。
+/// 删除时**没有**把那些用例改成别的东西凑数 —— 那一族的能力本身退休了。
+/// 新的一组钉 [tallyDelivery]，它接替的是同一个位置上的另一个问题：
+/// 不是"露几枚"，而是"这条到底成没成"。
 void main() {
   Map<String, dynamic> d(Map<String, String> byChannel) =>
       byChannel.map<String, dynamic>((k, v) => MapEntry(k, {'status': v}));
@@ -84,36 +89,74 @@ void main() {
     });
   });
 
-  group('折法：只折尾部，展开态全露', () {
-    // ⚠ 这一组的期望值**一律写死数字**，不引用 `visibleChannelChipCount` ——
-    //   拿"被量的那个常量"去算期望值就是自证：上限改成 99，四条用例一条都不会红
-    //   （2026-10-10 反证 Y1 实测到的假绿）。常量自己的读数只在下面那一条里钉一次。
-    test('上限今天定在 4 枚（改这个数要连同一句理由一起改）', () {
-      expect(visibleChannelChipCount, 4);
+  group('统计：这条到底成没成（T154 片2）', () {
+    test('全成功：三档计数各自对得上', () {
+      final t = tallyDelivery(
+        d({'chan:a': 'success', 'chan:b': 'success', 'chan:c': 'success'}),
+      );
+      expect(t.total, 3);
+      expect(t.done, 3);
+      expect(t.failed, 0);
+      expect(t.inFlight, 0);
     });
 
-    test('不超过上限时全露，折叠计数为 0', () {
-      final three = ['a', 'b', 'c'];
-      expect(visibleChannelChips(three), three);
-      expect(foldedChannelChipCount(three), 0);
+    test('混合：成了的与没成的分开数（这是维护者要的那一行）', () {
+      final t = tallyDelivery(
+        d({'chan:a': 'success', 'chan:b': 'success', 'chan:c': 'failed'}),
+      );
+      expect(t.total, 3);
+      expect(t.done, 2);
+      expect(t.failed, 1);
+      expect(t.inFlight, 0);
     });
 
-    test('恰好到上限不折（边界：上限那一枚不能自己被折进去）', () {
-      final four = ['a', 'b', 'c', 'd'];
-      expect(visibleChannelChips(four), four);
-      expect(foldedChannelChipCount(four), 0);
+    test('没成的那三档都算 failed：发失败、被拦、暂停（同 `notDeliveredStatuses`）', () {
+      for (final s in const ['failed', 'intercepted', 'paused']) {
+        final t = tallyDelivery(d({'chan:x': s}));
+        expect(t.failed, 1, reason: '$s 应算"没成"');
+        expect(t.done, 0);
+        expect(t.inFlight, 0);
+      }
     });
 
-    test('超出上限只露前 4 枚，折的是尾部（那些是"没事"的那几枚）', () {
-      final six = ['a', 'b', 'c', 'd', 'e', 'f'];
-      expect(visibleChannelChips(six), ['a', 'b', 'c', 'd']);
-      expect(foldedChannelChipCount(six), 2);
+    test('在途那几档都算 inFlight：pending 与 queued 各是各的"没到对端"', () {
+      for (final s in const ['pending', 'queued', 'sending', '']) {
+        final t = tallyDelivery(d({'chan:x': s}));
+        expect(t.inFlight, 1, reason: '$s 应算"还在路上"');
+        expect(t.failed, 0, reason: '$s 不是失败 —— 把它数成失败就是把本机的等待说成事故');
+        expect(t.done, 0);
+      }
     });
 
-    test('展开态全露 —— 但折叠计数按全集算，「收起」才留在原位', () {
-      final seven = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-      expect(visibleChannelChips(seven, expanded: true), seven);
-      expect(foldedChannelChipCount(seven), 3);
+    test('认不出的词不猜：算在途，不算成功也不算失败', () {
+      final t = tallyDelivery(d({'chan:x': 'weird-word'}));
+      expect(t.inFlight, 1);
+      expect(t.done, 0);
+      expect(t.failed, 0);
+      expect(
+        t.inFlight + t.done + t.failed,
+        t.total,
+        reason: '三档必须覆盖全部：漏一档就会出现"共 3 条 · 2 成功"这种对不上的账',
+      );
+    });
+
+    test('空 map ⇒ 全 0（界面据此不画这一行）', () {
+      final t = tallyDelivery(const {});
+      expect(t.total, 0);
+      expect(t.isEmpty, isTrue);
+    });
+
+    test('三档之和恒等于 total（混合样本 + 陌生词一起数）', () {
+      final t = tallyDelivery(
+        d({
+          'chan:a': 'success',
+          'chan:b': 'failed',
+          'chan:c': 'queued',
+          'chan:d': 'weird',
+        }),
+      );
+      expect(t.total, 4);
+      expect(t.inFlight + t.done + t.failed, 4);
     });
   });
 }

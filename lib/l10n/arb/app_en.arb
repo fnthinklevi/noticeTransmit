@@ -57,15 +57,6 @@
     }
   },
   "noChannels": "No channels configured",
-  "historyChipsMore": "{n} more channels",
-  "historyChipsCollapse": "Collapse",
-  "@historyChipsMore": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "statusOk": "Normal",
   "statusError": "Abnormal",
   "statusUnknown": "Unknown",
@@ -927,6 +918,40 @@
   "deliveryViaBackupTag": "Backup",
   "pushNow": "Push Now",
   "pushAgain": "Send Again",
+  "historyTallyTotal": "across {n} channels",
+  "@historyTallyTotal": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "historyTallyDone": "{n} ok",
+  "@historyTallyDone": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "historyTallyFailed": "{n} failed",
+  "@historyTallyFailed": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "historyTallyInFlight": "{n} in flight",
+  "@historyTallyInFlight": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "historyDeliveryDetail": "View details",
+  "historyDeliveryDetailTitle": "Where this went",
   "privacyOverviewTitle": "Privacy Policy Overview",
   "privacyOverviewContent": "NoticeTransmit (hereinafter referred to as \"this App\") is developed and operated by the Fnthink team. This App takes your privacy seriously. Please read this Privacy Policy carefully before using this App to understand how we collect, use, store, and protect your information.\n\nThis Policy applies to all services provided by this App. By installing and using this App, you acknowledge that you have read, understood, and agreed to this Policy.",
   "privacyInfoTitle": "Information We Collect",

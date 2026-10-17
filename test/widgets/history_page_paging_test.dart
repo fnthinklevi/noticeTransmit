@@ -161,11 +161,17 @@ void main() {
     // 指示格与第二页的行都在懒构建区，按住**列表那根**滚动条一路拖到底，
     // 让 _onScroll 自己触发续拉。（页面上方向条也是一根 Scrollable 且在树序里更靠前，
     // 按 Scrollable 找会拖错 —— 认 ListView。）
-    await tester.dragUntilVisible(
-      find.text('通知r_250'),
-      find.byType(ListView),
-      const Offset(0, -500),
-    );
+    //
+    // ⚠ 这里不用 `dragUntilVisible`：它在每轮之间只 `pump()` 一帧，不等异步续拉落地。
+    //   T154 片2 把行内的一串 chip 换成一行统计之后**行变矮**，同样 250 条更早触底 ⇒
+    //   续拉更容易在"ListView 正被 loading 态替换"的那一帧被撞上，
+    //   于是 `element(view)` 拿到 0 个、抛 `Bad state: No element`（实测过）。
+    //   判据不变（触底 → 第二页进来 → 取尽后指示格消失），只是把等待方式换成
+    //   `pumpAndSettle`：它等的是"这一轮确实做完了"，而不是"这一帧画完了"。
+    for (var i = 0; i < 60 && find.text('通知r_250').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+    }
     await tester.pumpAndSettle();
 
     expect(find.text('通知r_250'), findsOneWidget, reason: '触底续拉没有把第二页带进来');
