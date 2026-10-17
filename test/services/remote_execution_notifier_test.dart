@@ -165,7 +165,7 @@ void main() {
     test('窗口一开始就在状态栏发一条', () async {
       final r = runner();
       addTearDown(r.dispose);
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       expect(notifier.shown, [id]);
     });
 
@@ -186,14 +186,14 @@ void main() {
         statusBar: notifier,
       );
       addTearDown(r.dispose);
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       expect(notifier.shown, isEmpty);
     });
 
     test('到点前问原生一句；它说撤过 ⇒ 不动手，终态 cancelled', () async {
       final r = runner();
       addTearDown(r.dispose);
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       notifier.cancelledOutOfBand.add(id);
 
       fired.single();
@@ -207,7 +207,7 @@ void main() {
     test('没被撤过 ⇒ 照常动手', () async {
       final r = runner();
       addTearDown(r.dispose);
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       fired.single();
       await Future<void>.delayed(Duration.zero);
       expect(l2.calls, ['setListener(true)']);
@@ -217,7 +217,7 @@ void main() {
     test('到终点都收掉那一枚（留着"10 秒后执行"是在骗用户还有机会）', () async {
       final r = runner();
       addTearDown(r.dispose);
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       fired.single();
       await Future<void>.delayed(Duration.zero);
       expect(notifier.cleared, contains(id));
@@ -226,7 +226,7 @@ void main() {
     test('窗口内从界面撤掉 ⇒ 那一枚也收掉', () async {
       final r = runner();
       addTearDown(r.dispose);
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       expect(await r.cancel(id), isTrue);
       expect(notifier.cleared, contains(id));
     });
@@ -254,7 +254,7 @@ void main() {
         statusBar: notifier,
       );
       addTearDown(withSpy.dispose);
-      final id = await withSpy.run(accepted());
+      final id = await withSpy.run(accepted(), messageId: '');
       notifier.cancelledOutOfBand.add(id);
       fired.single();
       await Future<void>.delayed(Duration.zero);

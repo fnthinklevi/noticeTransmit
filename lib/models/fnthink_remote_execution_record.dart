@@ -26,6 +26,7 @@ class FnthinkRemoteExecutionRecord {
     required this.createdAt,
     this.result = '',
     this.reason = '',
+    this.messageId = '',
   });
 
   /// 本机给这一条的主键。⚠ 为什么要有它而不是拿消息号当主键：
@@ -67,6 +68,16 @@ class FnthinkRemoteExecutionRecord {
   /// 没成的理由（机器词，如 `cancelled-by-user` / `wrong`）。
   final String reason;
 
+  /// 产生这条记录的那条收件消息（收件表主键）。**空 = 这条没有消息可关联**：
+  /// 本机白名单触发那一路不进收件表（`onLocalContent`），还有 v26 之前落下的存量行。
+  ///
+  /// ⚠ 为什么允许这一列而契约 `execution.fields` 里没有它：那串白名单管的是
+  /// **服务端留痕**会出什么键，而这一格只住本机、从不出门 —— 与 `exec_id`（本机铸的主键）
+  /// 同一类。它解决的问题很具体：收件历史页要把 `FRX1:` 原文那行显示成
+  /// 「一条远程指令（状态/原因）」（T141①），显示层要能从消息找到它的判定结论，
+  /// 而拿 `peerAddress + createdAt≈receivedAt` 去猜关联是本仓不碰的那种猜。
+  final String messageId;
+
   bool get incoming => direction == kFnthinkRemoteDirectionIn;
   bool get outgoing => direction == kFnthinkRemoteDirectionOut;
 
@@ -88,6 +99,7 @@ class FnthinkRemoteExecutionRecord {
     'created_at': createdAt,
     'result': result,
     'reason': reason,
+    'message_id': messageId,
   };
 
   static const table = 'fnthink_remote_executions';
@@ -104,6 +116,7 @@ class FnthinkRemoteExecutionRecord {
     'created_at',
     'result',
     'reason',
+    'message_id',
   ];
 
   static FnthinkRemoteExecutionRecord fromMap(Map<String, Object?> map) =>
@@ -119,6 +132,7 @@ class FnthinkRemoteExecutionRecord {
         createdAt: (map['created_at'] as num?)?.toInt() ?? 0,
         result: '${map['result'] ?? ''}',
         reason: '${map['reason'] ?? ''}',
+        messageId: '${map['message_id'] ?? ''}',
       );
 
   @override

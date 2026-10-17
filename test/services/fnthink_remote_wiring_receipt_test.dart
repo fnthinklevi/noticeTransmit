@@ -174,6 +174,24 @@ void main() {
     );
   });
 
+  group('T141①：拒的那一档留痕带消息关联', () {
+    test('onCommand 收到的指令被拒 ⇒ 记录带那条收件的消息号', () async {
+      // grantForSender 交的是 L1 ⇒ 一条 L2 指令必在第四道被拒（理由不钉，那不是本条的事）。
+      final wire = RemoteCommandEnvelope.encode(
+        level: 'L2',
+        item: 'listener:start',
+      );
+      expect(await wiring.onCommand(_message(wire)), isTrue);
+      expect(saved, hasLength(1));
+      expect(saved.single.state, RemoteExecutionStates.failed);
+      expect(
+        saved.single.messageId,
+        'm-1',
+        reason: '关联丢了 ⇒ 收件历史页那行永远画不出「被拒/原因」',
+      );
+    });
+  });
+
   group('回执走认领那一格', () {
     test('第二段回执 ⇒ 本机那一行被更新，且**不按通知弹出来**', () async {
       table['RX-1'] = _outRow();

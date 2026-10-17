@@ -149,7 +149,14 @@ class RemoteCommandRunner extends ChangeNotifier {
       sendReceipt(peer, receipt);
 
   /// 一条指令从放行到终态的全过程。回 `exec_id`（撤销入口拿它）。
-  Future<String> run(RemoteCommandAccepted accepted) async {
+  ///
+  /// [messageId] 必填：产生这条记录的那条收件消息（T141①），执行记录要用它被
+  /// 收件历史页找到。空串 = 这一路没有消息（本机白名单触发不进收件表）——
+  /// 不给默认值：漏传不是"没有"，是" somebody 忘了交"，让调用点自己说清是哪一种。
+  Future<String> run(
+    RemoteCommandAccepted accepted, {
+    required String messageId,
+  }) async {
     final command = accepted.command;
     final startedAt = now();
     final seconds = await windowSeconds();
@@ -167,6 +174,7 @@ class RemoteCommandRunner extends ChangeNotifier {
       state: RemoteExecutionStates.pending,
       source: accepted.source,
       createdAt: startedAt.millisecondsSinceEpoch,
+      messageId: messageId,
     );
     _inFlight[execId] = _InFlight(
       record: record,
@@ -292,6 +300,7 @@ class RemoteCommandRunner extends ChangeNotifier {
           source: row.source,
           createdAt: row.createdAt,
           reason: 'interrupted',
+          messageId: row.messageId,
         ),
       );
       swept++;
@@ -517,6 +526,7 @@ class RemoteCommandRunner extends ChangeNotifier {
     createdAt: r.createdAt,
     result: result,
     reason: reason ?? '',
+    messageId: r.messageId,
   );
 
   /// 把所有还在等窗口的撤掉（装配拆卸时用；不给一条 orphan Timer 留活口）。

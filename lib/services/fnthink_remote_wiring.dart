@@ -84,10 +84,10 @@ class RemoteCommandWiring {
         // 它本来就不是指令 ⇒ 是一条普通消息，照常显示、不进远程历史。
         return false;
       case RemoteCommandRejected():
-        await _recordRejected(parsed);
+        await _recordRejected(parsed, messageId: message.messageId);
         return true;
       case RemoteCommandAccepted():
-        await runner.run(parsed);
+        await runner.run(parsed, messageId: message.messageId);
         return true;
     }
   }
@@ -108,7 +108,10 @@ class RemoteCommandWiring {
     return true;
   }
 
-  Future<void> _recordRejected(RemoteCommandRejected rejected) async {
+  Future<void> _recordRejected(
+    RemoteCommandRejected rejected, {
+    required String messageId,
+  }) async {
     final now = DateTime.now();
     final execId = newRemoteExecutionId(
       'rejected|${rejected.sender}|${rejected.command.level}|'
@@ -127,6 +130,7 @@ class RemoteCommandWiring {
       source: rejected.source,
       createdAt: now.millisecondsSinceEpoch,
       reason: rejected.reason,
+      messageId: messageId,
     );
     await saveRecord(record);
     if (!remoteExecutionSendsReceipt(contract, rejected.source)) return;
@@ -193,10 +197,10 @@ class RemoteCommandWiring {
       case RemoteCommandNotACommand():
         return;
       case RemoteCommandRejected():
-        await _recordRejected(parsed);
+        await _recordRejected(parsed, messageId: '');
         return;
       case RemoteCommandAccepted():
-        await runner.run(parsed);
+        await runner.run(parsed, messageId: '');
         return;
     }
   }

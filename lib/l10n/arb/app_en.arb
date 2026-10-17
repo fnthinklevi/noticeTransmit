@@ -2813,6 +2813,7 @@
   "remoteHistoryOut": "Commands sent",
   "remoteHistoryAll": "All",
   "remoteHistoryEmpty": "No remote execution yet.",
+  "fnthinkRemoteCommandRowTitle": "A remote command",
   "remoteHistoryPending": "Waiting",
   "remoteHistoryExecuting": "Executing",
   "remoteHistoryDone": "Done",

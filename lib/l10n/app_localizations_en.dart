@@ -5209,6 +5209,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteHistoryEmpty => 'No remote execution yet.';
 
   @override
+  String get fnthinkRemoteCommandRowTitle => 'A remote command';
+
+  @override
   String get remoteHistoryPending => 'Waiting';
 
   @override

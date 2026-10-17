@@ -479,4 +479,90 @@ void main() {
       expect(top.map((r) => r.execId), ['x0000005', 'x0000004']);
     });
   });
+
+  group('T141①：消息关联列', () {
+    test('v25→v26 迁移：老表补列、存量行读回空串（不猜关联）', () async {
+      SharedPreferences.setMockInitialValues({});
+      if (await databaseFactory.databaseExists(dbPath)) {
+        await databaseFactory.deleteDatabase(dbPath);
+      }
+      final db = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(version: 25),
+      );
+      // v25 的老形状（没有 message_id）：局部老库 fixture 只建自己那张表 ——
+      // 迁移分支必须先问“这张表在不在”，不在就跳过（_tableExists 那条纪律）。
+      await db.execute('''
+        CREATE TABLE ${FnthinkRemoteExecutionRecord.table} (
+          exec_id TEXT PRIMARY KEY,
+          direction TEXT NOT NULL DEFAULT 'in',
+          peer_address TEXT NOT NULL DEFAULT '',
+          level TEXT NOT NULL DEFAULT '',
+          item TEXT NOT NULL DEFAULT '',
+          argument TEXT NOT NULL DEFAULT '',
+          state TEXT NOT NULL DEFAULT '',
+          source TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL,
+          result TEXT NOT NULL DEFAULT '',
+          reason TEXT NOT NULL DEFAULT ''
+        )
+      ''');
+      await db.insert(FnthinkRemoteExecutionRecord.table, {
+        'exec_id': 'old-1',
+        'direction': 'in',
+        'peer_address': 'p',
+        'level': 'L2',
+        'item': 'listener:start',
+        'argument': '',
+        'state': 'done',
+        'source': 'fnthink',
+        'created_at': 1700000000000,
+        'result': '',
+        'reason': '',
+      });
+      helper.debugDatabase = db;
+      addTearDown(() async {
+        helper.debugDatabase = null;
+        await db.close();
+      });
+
+      await helper.upgradeSchemaForTest(db, 25, 26);
+      expect(
+        await columnsOf(db),
+        FnthinkRemoteExecutionRecord.columns.toSet(),
+        reason: '迁移后的列集合必须与模型声明一致（含新列）',
+      );
+      final stored = (await helper.loadRemoteExecutionRecords()).single;
+      expect(stored.execId, 'old-1');
+      expect(stored.messageId, '', reason: '存量行的关联没有历史出处，读回空串 = 界面那行只换标题不画状态');
+    });
+
+    test('按消息号批量读：命中键建映射，没命中的不在 map 里', () async {
+      await freshDb();
+      final hit = record('x0000001');
+      await helper.saveRemoteExecutionRecord(
+        FnthinkRemoteExecutionRecord(
+          execId: hit.execId,
+          direction: hit.direction,
+          peerAddress: hit.peerAddress,
+          level: hit.level,
+          item: hit.item,
+          argument: hit.argument,
+          state: hit.state,
+          source: hit.source,
+          createdAt: hit.createdAt,
+          messageId: 'm-1',
+        ),
+      );
+      await helper.saveRemoteExecutionRecord(record('x0000002'));
+
+      final map = await helper.remoteExecutionRecordsByMessageIds([
+        'm-1',
+        'm-missing',
+      ]);
+      expect(map.keys, ['m-1']);
+      expect(map['m-1']!.execId, 'x0000001');
+      expect(await helper.remoteExecutionRecordsByMessageIds([]), isEmpty);
+    });
+  });
 }

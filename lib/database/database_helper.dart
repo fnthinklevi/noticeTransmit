@@ -71,7 +71,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 25;
+  static const int dbVersion = 26;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -590,7 +590,11 @@ class DatabaseHelper
         source TEXT NOT NULL DEFAULT '',
         created_at INTEGER NOT NULL,
         result TEXT NOT NULL DEFAULT '',
-        reason TEXT NOT NULL DEFAULT ''
+        reason TEXT NOT NULL DEFAULT '',
+        -- 产生这行的收件消息主键（T141①）。空 = 白名单触发那一路（不进收件表）
+        -- 或 v26 之前的存量行。它只住本机、从不出门，与 exec_id 同类；
+        -- 收件历史页靠它把那行指令原文换成「一条远程指令（状态/原因）」。
+        message_id TEXT NOT NULL DEFAULT ''
       )
     ''');
     // 历史页按方向 + 时间倒序翻；"还没到终态的那几条"是状态栏撤销那一格要读的面。
@@ -933,6 +937,21 @@ class DatabaseHelper
         'peer_name',
         "TEXT NOT NULL DEFAULT ''",
       );
+    }
+
+    if (oldVersion < 26) {
+      // v26 / T141①：执行记录补一列「产生它的那条收件消息」。只加列、DEFAULT 空串 ——
+      // 存量行的关联没有历史出处（判定那一刻手里有消息号，但当时没有地方存它），
+      // 替它们猜一个（按时间/对端去碰）就是让显示层把 A 指令的状态画到 B 消息上。
+      // 空串在界面上的表现：那行仍显示「一条远程指令」但状态那格不画 —— 与升级前逐字相同。
+      if (await _tableExists(db, FnthinkRemoteExecutionRecord.table)) {
+        await _addColumnIfMissing(
+          db,
+          FnthinkRemoteExecutionRecord.table,
+          'message_id',
+          "TEXT NOT NULL DEFAULT ''",
+        );
+      }
     }
 
     if (oldVersion < 25) {
@@ -1831,6 +1850,27 @@ class DatabaseHelper
       ],
     );
     return rows.map(FnthinkRemoteExecutionRecord.fromMap).toList();
+  }
+
+  /// 按收件消息主键批量读（T141①）：收件历史页要把「一条远程指令」的状态画在行上，
+  /// 一页几十行不能逐条去查 —— 一发 IN 查询回来按消息号建映射。
+  /// 返回 map 里没有的那个消息号 = 没有关联记录（还没判定/判定异常/存量行），
+  /// 界面据此只换标题不画状态，不编一句「还没执行」出来。
+  /// 表小（逐日上限在契约里）且本查询不走既有索引，不另建 —— 页面量级不需要。
+  Future<Map<String, FnthinkRemoteExecutionRecord>>
+  remoteExecutionRecordsByMessageIds(List<String> messageIds) async {
+    final ids = messageIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return const {};
+    final db = await database;
+    final rows = await db.query(
+      FnthinkRemoteExecutionRecord.table,
+      where: 'message_id IN (${List.filled(ids.length, '?').join(',')})',
+      whereArgs: ids,
+    );
+    return {
+      for (final row in rows.map(FnthinkRemoteExecutionRecord.fromMap))
+        if (row.messageId.isNotEmpty) row.messageId: row,
+    };
   }
 
   /// 读一条。null = 没有这一条（界面那句"没找到"必须是这句话，不是"已取消"）。

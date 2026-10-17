@@ -2819,6 +2819,7 @@
   "remoteHistoryOut": "发出的指令",
   "remoteHistoryAll": "全部",
   "remoteHistoryEmpty": "还没有任何远程执行记录。",
+  "fnthinkRemoteCommandRowTitle": "一条远程指令",
   "remoteHistoryPending": "等执行",
   "remoteHistoryExecuting": "执行中",
   "remoteHistoryDone": "执行完毕",

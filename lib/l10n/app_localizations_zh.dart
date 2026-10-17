@@ -4935,6 +4935,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryEmpty => '还没有任何远程执行记录。';
 
   @override
+  String get fnthinkRemoteCommandRowTitle => '一条远程指令';
+
+  @override
   String get remoteHistoryPending => '等执行';
 
   @override

@@ -8935,6 +8935,12 @@ abstract class AppLocalizations {
   /// **'还没有任何远程执行记录。'**
   String get remoteHistoryEmpty;
 
+  /// No description provided for @fnthinkRemoteCommandRowTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'一条远程指令'**
+  String get fnthinkRemoteCommandRowTitle;
+
   /// No description provided for @remoteHistoryPending.
   ///
   /// In zh, this message translates to:

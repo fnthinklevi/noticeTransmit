@@ -8,6 +8,8 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
+import 'package:notice_transmit/services/fnthink_remote_execution.dart';
 import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
@@ -57,13 +59,15 @@ void main() {
     int sentAt = 0,
     int ackedAt = 0,
     String? ackResult,
+    String? title,
+    String? body,
   }) => FnthinkInboxMessage(
     messageId: id,
     sender: sender,
     type: 'notice',
     item: '',
-    title: '机箱温度',
-    body: '温度 63 度（$id）',
+    title: title ?? '机箱温度',
+    body: body ?? '温度 63 度（$id）',
     receivedAt: 1780000000000,
     sentAt: sentAt,
     read: read,
@@ -92,6 +96,7 @@ void main() {
     String initialDirection = 'forwarded',
     FnthinkPeer? rosterPeer,
     String? focusMessageId,
+    Map<String, FnthinkRemoteExecutionRecord> commandRecords = const {},
   }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -140,6 +145,11 @@ void main() {
           // 生产的默认读口是 `FnthinkPeerService.list`，这里给同一个替身（一人一册）。
           inboxListPeers: () async =>
               rosterPeer == null ? const [] : [rosterPeer],
+          // T141①：指令行的状态读口替身（按消息号建映射）。
+          remoteCommandRecordsLoader: (ids) async => {
+            for (final id in ids)
+              if (commandRecords[id] != null) id: commandRecords[id]!,
+          },
         ),
       ),
     );
@@ -627,6 +637,106 @@ void main() {
         findsNothing,
         reason: '发出档出现“接收时间” ⇒ 用户会以为那是对方收到的时刻（本机今天拿不到）',
       );
+    });
+  });
+
+  // ===== T141①：收件行把指令原文换成「一条远程指令（状态/原因）」 =====
+  //
+  // 维护者 2026-10-17 拍板：界面要显示。三条判据：① 指令行的标题换成人话（动作走
+  // `fnthinkRemoteActionLabel` 那位唯一作者）；② 状态/原因来自判定层落的执行记录
+  // （按消息号关联），理由走 `remoteReasonText` 词表外原样带出；③ 信封原文不上屏。
+  // 记录还没有（刚落库未判定/存量行）⇒ 只换标题不画状态，不编「还没执行」。
+  group('T141①：指令行显示', () {
+    FnthinkRemoteExecutionRecord record(
+      String state, {
+      String reason = '',
+      String result = '',
+    }) => FnthinkRemoteExecutionRecord(
+      execId: 'e-1',
+      direction: kFnthinkRemoteDirectionIn,
+      peerAddress: 'endpoint:ep_7',
+      level: 'L2',
+      item: 'listener:start',
+      argument: '',
+      state: state,
+      source: 'fnthink',
+      createdAt: 1780000000000,
+      reason: reason,
+      result: result,
+      messageId: 'm-1',
+    );
+
+    testWidgets('被拒的那条：标题是人话，状态带没做成的理由，原文不上屏', (tester) async {
+      table = [
+        row(
+          'm-1',
+          title: '',
+          body: RemoteCommandEnvelope.encode(
+            level: 'L2',
+            item: 'listener:start',
+          ),
+        ),
+      ];
+      await pump(
+        tester,
+        initialDirection: 'received',
+        commandRecords: {
+          'm-1': record(RemoteExecutionStates.failed, reason: 'switch-off'),
+        },
+      );
+
+      expect(find.textContaining('一条远程指令'), findsOneWidget);
+      expect(
+        find.textContaining('一条远程指令 · '),
+        findsOneWidget,
+        reason: '动作人话与标题同一行，用户读得出对面想做什么',
+      );
+      expect(
+        find.textContaining('没做成'),
+        findsOneWidget,
+        reason: '状态词走 remoteHistoryFailed（唯一作者），不是页面手翻的',
+      );
+      expect(
+        find.textContaining('远程执行总开关关着'),
+        findsOneWidget,
+        reason: '理由走 remoteReasonText 翻人话；机器词 switch-off 不许上屏',
+      );
+      expect(find.textContaining('switch-off'), findsNothing);
+      expect(
+        find.textContaining('FRX1'),
+        findsNothing,
+        reason: '信封原文（含凭据字段）不尾上屏 —— 它住在详情与库里，不在行上',
+      );
+    });
+
+    testWidgets('记录还没有 ⇒ 只换标题不画状态，不编「还没执行」', (tester) async {
+      table = [
+        row(
+          'm-1',
+          title: '',
+          body: RemoteCommandEnvelope.encode(
+            level: 'L2',
+            item: 'listener:start',
+          ),
+        ),
+      ];
+      await pump(tester, initialDirection: 'received');
+
+      expect(find.textContaining('一条远程指令'), findsOneWidget);
+      expect(
+        find.textContaining('等执行'),
+        findsNothing,
+        reason: '没有记录 ≠ 还在等执行：把不知道画成pending是替判定层说话',
+      );
+      expect(find.textContaining('没做成'), findsNothing);
+    });
+
+    testWidgets('普通消息行照旧（标题/正文不换形状）', (tester) async {
+      table = [row('m-2')];
+      await pump(tester, initialDirection: 'received');
+
+      expect(find.textContaining('一条远程指令'), findsNothing);
+      expect(find.text('机箱温度'), findsOneWidget);
     });
   });
 }

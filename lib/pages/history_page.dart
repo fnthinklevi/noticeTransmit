@@ -22,6 +22,10 @@ import '../models/notification_record.dart';
 import '../models/delivery_status.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
+import '../models/fnthink_remote_execution_record.dart';
+import '../services/fnthink_remote_action_labels.dart';
+import '../services/fnthink_remote_execution_state_words.dart';
+import '../services/fnthink_remote_reason_words.dart';
 import '../widgets/card_action_sheet.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
@@ -138,6 +142,16 @@ class HistoryPage extends StatefulWidget {
   final Future<List<Map<String, dynamic>>> Function(String notificationId)?
   deliveryLogsLoader;
 
+  /// 收件行上「一条远程指令」的状态读口（T141①）：按消息号批量查执行记录。
+  /// 默认走真库，测试注入替身 —— 与 `inboxLoader` 同一条理由：真库读口在
+  /// flutter_test 绑定下要向平台通道要数据库路径。
+  /// ⚠ 判定发生在落库之后（同一轮内），所以可能短暂读到空：那时只换标题、
+  /// 不画状态，不编一句「还没执行」出来。
+  final Future<Map<String, FnthinkRemoteExecutionRecord>> Function(
+    List<String> messageIds,
+  )?
+  remoteCommandRecordsLoader;
+
   /// 打开时停在哪一档。首页那张「幻念收件」卡靠它把人**直接放到收件档**：
   /// 这一档是数据源切换而不是筛选条件，进来还要再手动切一次的话，"原来还有第二个抽屉"这件事
   /// 就藏在一次不显眼的点击里了。其余入口（推送历史卡）留默认值 'forwarded'。
@@ -168,6 +182,7 @@ class HistoryPage extends StatefulWidget {
     this.inboxSendTo,
     this.inboxListPeers,
     this.deliveryLogsLoader,
+    this.remoteCommandRecordsLoader,
     this.initialDirection = 'forwarded',
     this.focusMessageId,
   });
@@ -1898,6 +1913,10 @@ class _HistoryPageState extends State<HistoryPage> {
   List<FnthinkInboxMessage> _allOut = const [];
   bool _allLoaded = false;
 
+  /// 指令行的状态账（T141①）：消息号 → 判定层落的执行记录。
+  /// 只在装载收件行时刷新；读失败保持旧值/空 —— 界面上那格不画，不编话。
+  Map<String, FnthinkRemoteExecutionRecord> _commandRecords = const {};
+
   Future<void> _loadInbox() async {
     final direction = _inboxDirection;
     // 两条路都从**注入优先、生产走服务层**那一份取（页面不直连表：这是守卫钉住的那条线）。
@@ -1924,6 +1943,10 @@ class _HistoryPageState extends State<HistoryPage> {
       _inbox = rows;
       _inboxLoaded = true;
     });
+    // 发出档没有指令行：传空把上一档的账清掉，免得切档后旧状态还挂在同号消息上。
+    unawaited(
+      _loadCommandRecords(direction == kFnthinkDirectionIn ? rows : const []),
+    );
   }
 
   /// 「全部」档的读法（T84）：**两本账各读各的**，读径与收件档/发出档完全同一条
@@ -1956,6 +1979,34 @@ class _HistoryPageState extends State<HistoryPage> {
       _allOut = outRows;
       _allLoaded = true;
     });
+    unawaited(_loadCommandRecords(inRows));
+  }
+
+  /// 指令行的状态账（T141①）：按这批收件行的消息号一发批量查。
+  /// 空列表 = 这档没有收件行（发出档）⇒ 清账。读失败保持空 ——
+  /// 界面上那行退回「换了标题、不画状态」，与「记录还没有」同一形状。
+  Future<void> _loadCommandRecords(
+    List<FnthinkInboxMessage> incomingRows,
+  ) async {
+    final ids = [
+      for (final m in incomingRows)
+        if (m.messageId.isNotEmpty) m.messageId,
+    ];
+    if (ids.isEmpty) {
+      if (!mounted) return;
+      setState(() => _commandRecords = const {});
+      return;
+    }
+    final load =
+        widget.remoteCommandRecordsLoader ??
+        _dbHelper.remoteExecutionRecordsByMessageIds;
+    try {
+      final map = await load(ids);
+      if (!mounted) return;
+      setState(() => _commandRecords = map);
+    } catch (_) {
+      // 读不出来就不画状态；正文也不因此多出一句话。
+    }
   }
 
   void _setDirection(String value) {
@@ -1971,12 +2022,14 @@ class _HistoryPageState extends State<HistoryPage> {
             : kFnthinkDirectionIn;
         _inbox = const [];
         _inboxLoaded = false;
+        _commandRecords = const {};
       }
       if (nextIsAll) {
         // 同一条纪律：全部档也是"换账本"，只是它一次拿两本（收件 + 发出）。
         _allIn = const [];
         _allOut = const [];
         _allLoaded = false;
+        _commandRecords = const {};
       }
     });
     if (nextIsFnthink) unawaited(_loadInbox());
@@ -2048,10 +2101,19 @@ class _HistoryPageState extends State<HistoryPage> {
     required int total,
   }) {
     final peer = m.sender.isEmpty ? l10n.unknown : m.sender;
+    // T141①：指令行不再把信封原文当标题画出来（维护者 2026-10-17 拍板：界面要显示）。
+    // 「是不是指令」只有一个作者 = 包侧信封的 decode（lib/ 不出现前缀字面量，守卫钉着）；
+    // 状态/原因读的是判定层落的执行记录（按消息号关联）。读不到就只换标题、不画状态、
+    // 不编一句「还没执行」—— 存量行与刚落库未判定的那一瞬都是这个形状。
+    final command = outgoing ? null : RemoteCommandEnvelope.decode(m.body);
+    final record = command == null ? null : _commandRecords[m.messageId];
     return HistoryRowTile(
       keyNamespace: 'fnthink-inbox',
       identity: m.messageId,
-      title: m.title.isEmpty ? m.body : m.title,
+      title: command == null
+          ? (m.title.isEmpty ? m.body : m.title)
+          : '${l10n.fnthinkRemoteCommandRowTitle}'
+                ' · ${fnthinkRemoteActionLabel(l10n, command.item)}',
       // 时间此前混在那串散文里（`发件人 · 备用 · 03-01 12:00`），拆成自己的格子才有对齐的右列
       // —— 这是 T148 差异②（各页时间列不一致）里收件那一半。
       // ⚠ 发出档里 `receivedAt` 记的是本机**发出**的时刻（含义随方向变，与 `sender` 同一套两用）。
@@ -2082,7 +2144,10 @@ class _HistoryPageState extends State<HistoryPage> {
       ],
       // 本机报出去的那一串是**原话**（`delivered` / `rejected_*` / `failed_action`）：
       // 翻成人话属 T144 片2，那一版改的是这一格的来源，不改它的画法。
-      statusMessage: outgoing || m.ackResult.isEmpty ? null : m.ackResult,
+      // ⚠ 指令行不走这一格：它带的是判定层的状态词与理由（T141①），见上面那个 helper。
+      statusMessage: command != null
+          ? _remoteCommandStatusLine(l10n, record)
+          : (outgoing || m.ackResult.isEmpty ? null : m.ackResult),
       statusColor: AppColors.secondaryLabel(context),
       corner: index == 0
           ? (index == total - 1
@@ -2093,6 +2158,25 @@ class _HistoryPageState extends State<HistoryPage> {
                 : HistoryRowCorner.middle),
       onTap: () => _showInboxDetail(m, outgoing: outgoing),
     );
+  }
+
+  /// 指令行的状态那一句（T141①）。词只来自两张既有表的状态/理由作者，
+  /// 这里只做拼装：「状态词」+（有理由/结果时）「 · 那一句」。
+  /// 记录还没有（刚落库未判定/判定异常/存量行）⇒ null：不画，不编「还没执行」。
+  /// ⚠ 理由走 `remoteReasonText`（词表外原样带出，不编）——在页面里半翻
+  ///   会长出第二个词表，而"半翻"的表现是有些词翻了、有些没翻（T144 那句原话）。
+  String? _remoteCommandStatusLine(
+    AppLocalizations l10n,
+    FnthinkRemoteExecutionRecord? record,
+  ) {
+    if (record == null) return null;
+    var line = fnthinkRemoteExecutionStateWord(l10n, record.state);
+    if (record.reason.isNotEmpty) {
+      line = '$line · ${remoteReasonText(record.reason, l10n)}';
+    } else if (record.result.isNotEmpty) {
+      line = '$line · ${record.result}';
+    }
+    return line;
   }
 
   Widget _buildInboxView(AppLocalizations l10n) {

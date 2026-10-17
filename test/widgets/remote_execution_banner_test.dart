@@ -144,7 +144,7 @@ void main() {
 
     testWidgets('收了一条之后画出来，那一句带 item 与还剩几秒', (tester) async {
       await pumpBanner(tester);
-      await runner.run(accepted());
+      await runner.run(accepted(), messageId: '');
       // 横幅靠 Listenable 即时重画（新指令 `notifyListeners()`），而倒计时那一拍
       // 由 Ticker 驱动 —— 走一秒保证它已经画过一次。
       await tester.pump(const Duration(seconds: 1));
@@ -156,7 +156,7 @@ void main() {
 
     testWidgets('倒计时现算：时钟走了，横幅上那个数跟着走', (tester) async {
       await pumpBanner(tester);
-      await runner.run(accepted());
+      await runner.run(accepted(), messageId: '');
       // 横幅靠 Listenable 即时重画（新指令 `notifyListeners()`），而倒计时那一拍
       // 由 Ticker 驱动 —— 走一秒保证它已经画过一次。
       await tester.pump(const Duration(seconds: 1));
@@ -175,7 +175,7 @@ void main() {
     testWidgets('按「撤销」⇒ 真的撤掉，横幅随即消失', (tester) async {
       bool? reported;
       await pumpBanner(tester, onCancelled: (ok) => reported = ok);
-      await runner.run(accepted());
+      await runner.run(accepted(), messageId: '');
       // 横幅靠 Listenable 即时重画（新指令 `notifyListeners()`），而倒计时那一拍
       // 由 Ticker 驱动 —— 走一秒保证它已经画过一次。
       await tester.pump(const Duration(seconds: 1));
@@ -198,7 +198,7 @@ void main() {
     testWidgets('撤不掉时不假装成功，按钮收起来', (tester) async {
       bool? reported;
       await pumpBanner(tester, onCancelled: (ok) => reported = ok);
-      await runner.run(accepted());
+      await runner.run(accepted(), messageId: '');
       // 到点并手动点火：执行已经在跑 ⇒ `cancel` 按设计回 false。
       fired.single();
       await tester.pump();

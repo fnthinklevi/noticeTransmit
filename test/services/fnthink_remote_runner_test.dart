@@ -223,11 +223,48 @@ void main() {
     grantedKeys: grantedKeys,
   );
 
+  group('T141①：执行记录带消息关联', () {
+    test('窗口 0：pending 与终态两行都带同一个 messageId', () async {
+      windowSeconds = 0;
+      await runner().run(accepted(), messageId: 'm-42');
+      expect(saved, hasLength(2));
+      expect(saved[0].messageId, 'm-42');
+      expect(
+        saved[1].messageId,
+        'm-42',
+        reason: '终态经 _withState 重建，关联列丢了 ⇒ 收件行永远画不出状态',
+      );
+    });
+
+    test('sweepInterrupted 重建的行不丢 messageId', () async {
+      const row = FnthinkRemoteExecutionRecord(
+        execId: 'x',
+        direction: kFnthinkRemoteDirectionIn,
+        peerAddress: 'p',
+        level: 'L2',
+        item: 'listener:start',
+        argument: '',
+        state: RemoteExecutionStates.pending,
+        source: 'fnthink',
+        createdAt: 1,
+        messageId: 'm-7',
+      );
+      await runner().sweepInterrupted([row]);
+      expect(saved.single.messageId, 'm-7');
+      expect(saved.single.reason, 'interrupted');
+    });
+
+    test('本机触发那一路显式交空串（没有消息可关联）', () async {
+      await runner().run(accepted(), messageId: '');
+      expect(saved.single.messageId, '');
+    });
+  });
+
   group('次序：落一行 → 回第一段 → 到点 → 动手 → 回第二段', () {
     test('窗口 0 ⇒ 立刻动手，且回执两段各一次', () async {
       windowSeconds = 0;
       final r = runner();
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       expect(l2.calls, ['setListener(true)']);
       expect(receipts.length, 2);
       expect(receipts[0].state, isNull, reason: '第一段还没动手，没有终态');
@@ -245,12 +282,12 @@ void main() {
       // 而分不出时的错认领会造出一条假回执。对面唯一的依据就是这一枚。
       windowSeconds = 0;
       final r = runner();
-      await r.run(accepted(exec: 'RX-9'));
+      await r.run(accepted(exec: 'RX-9'), messageId: '');
       expect(receipts, hasLength(2));
       expect(receipts.map((x) => x.exec), ['RX-9', 'RX-9']);
       // 旧版发起端没带那一格 ⇒ 回执也不凭空编一枚（对面那一行留在 pending，与加键前相同）。
       final r2 = runner();
-      await r2.run(accepted());
+      await r2.run(accepted(), messageId: '');
       expect(receipts.last.exec, isEmpty);
     });
 
@@ -261,7 +298,7 @@ void main() {
         return Timer(const Duration(days: 1), () {});
       };
       final r = runner();
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       expect(receipts.length, 1, reason: '它在窗口走完之前就该到（10 秒的窗口谁也不该真等）');
       expect(receipts.single.state, isNull);
     });
@@ -273,7 +310,7 @@ void main() {
         return Timer(const Duration(days: 1), () {});
       };
       final r = runner();
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       expect(l2.calls, isEmpty, reason: '还在窗口里');
       expect(saved.single.state, RemoteExecutionStates.pending);
       expect(receipts.length, 1, reason: '第一段回执收到就发，不等窗口');
@@ -290,7 +327,7 @@ void main() {
         return Timer(const Duration(days: 1), () {});
       };
       final r = runner();
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       fired.single();
       fired.single();
       await Future<void>.delayed(Duration.zero);
@@ -302,14 +339,17 @@ void main() {
   group('两段回执', () {
     test('词与状态都取自契约，不写死', () async {
       windowSeconds = 0;
-      await runner().run(accepted());
+      await runner().run(accepted(), messageId: '');
       expect(receipts[0].result, contract.remoteExecutionReceipts['started']);
       expect(receipts[1].result, contract.remoteExecutionReceipts['finished']);
     });
 
     test('回执带得上 level/item，对面才能对回自己发的那一条', () async {
       windowSeconds = 0;
-      await runner().run(accepted(item: 'channel:toggle/webhook:acme:off'));
+      await runner().run(
+        accepted(item: 'channel:toggle/webhook:acme:off'),
+        messageId: '',
+      );
       expect(receipts.first.level, 'L2');
       // ⚠ item 是**带斜杠参数的整串**（历史那一行也存整串）：
       //   拆开成两处之后，对面按 item 匹配就会永远对不上。
@@ -319,7 +359,7 @@ void main() {
     test('送不出去不改执行状态（本机做完了就是做完了）', () async {
       windowSeconds = 0;
       receiptOk = false;
-      await runner().run(accepted());
+      await runner().run(accepted(), messageId: '');
       expect(saved.last.state, RemoteExecutionStates.done);
       expect(receipts.length, 2, reason: '两段都该试一次，失败不吞掉后续那一段');
     });
@@ -328,6 +368,7 @@ void main() {
       windowSeconds = 0;
       await runner().run(
         accepted(source: contract.remoteExecutionLocalTriggerSource),
+        messageId: '',
       );
       expect(l2.calls.length, 1, reason: '该动手还是要动手');
       expect(receipts, isEmpty, reason: '那一路上没有远端发送方可回');
@@ -343,7 +384,7 @@ void main() {
         return Timer(const Duration(days: 1), () {});
       };
       final r = runner();
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       expect(await r.cancel(id), isTrue);
       expect(l2.calls, isEmpty, reason: '撤了就不许动手');
       expect(saved.last.state, RemoteExecutionStates.cancelled);
@@ -368,7 +409,7 @@ void main() {
     test('已经做完的那一条 ⇒ false（做完就是终态，撤不回来）', () async {
       windowSeconds = 0;
       final r = runner();
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       expect(await r.cancel(id), isFalse);
     });
 
@@ -385,7 +426,7 @@ void main() {
       final gate = Completer<void>();
       l2.gate = gate;
       final r = runner();
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       // 先在窗口里撤得掉（对照组）：那时还没动手。
       expect(r.isUnsettled(id), isTrue);
 
@@ -414,14 +455,20 @@ void main() {
   group('分档派发', () {
     test('L3 ⇒ 走设置表；延时窗口走完就是那一次确认', () async {
       windowSeconds = 0;
-      await runner().run(accepted(level: 'L3', item: 'exact_alarm'));
+      await runner().run(
+        accepted(level: 'L3', item: 'exact_alarm'),
+        messageId: '',
+      );
       expect(l3.calls, ['grant(exact_alarm)']);
       expect(saved.last.state, RemoteExecutionStates.done);
     });
 
     test('L3 缺前置授权的那一项 ⇒ failed，理由逐字带上', () async {
       windowSeconds = 0;
-      await runner().run(accepted(level: 'L3', item: 'collect_inbox'));
+      await runner().run(
+        accepted(level: 'L3', item: 'collect_inbox'),
+        messageId: '',
+      );
       expect(l3.calls, isEmpty);
       expect(saved.last.state, RemoteExecutionStates.failed);
       expect(saved.last.reason, startsWith('missing-grant:'));
@@ -439,6 +486,7 @@ void main() {
           item: 'collect_inbox',
           grantedKeys: const {'collect_inbox'},
         ),
+        messageId: '',
       );
       expect(l3.calls, ['toggle(collect_inbox)']);
       expect(saved.last.state, RemoteExecutionStates.done);
@@ -447,14 +495,17 @@ void main() {
 
     test('L1 的 item 落在 L3 那张表上 ⇒ 照样走设置表（并集表）', () async {
       windowSeconds = 0;
-      await runner().run(accepted(level: 'L1', item: 'exact_alarm'));
+      await runner().run(
+        accepted(level: 'L1', item: 'exact_alarm'),
+        messageId: '',
+      );
       expect(l3.calls, ['grant(exact_alarm)']);
     });
 
     test('执行器说做不成 ⇒ failed，理由是它给的机器词', () async {
       windowSeconds = 0;
       l2.ok = false;
-      await runner().run(accepted());
+      await runner().run(accepted(), messageId: '');
       expect(saved.last.state, RemoteExecutionStates.failed);
       expect(saved.last.reason, 'nope');
       expect(receipts.last.state, RemoteExecutionStates.failed);
@@ -505,7 +556,7 @@ void main() {
         return Timer(const Duration(days: 1), () {});
       };
       final r = runner();
-      final id = await r.run(accepted());
+      final id = await r.run(accepted(), messageId: '');
       final swept = await r.sweepInterrupted([
         pendingRow(id, RemoteExecutionStates.pending),
       ]);
@@ -524,7 +575,7 @@ void main() {
         return Timer(const Duration(days: 1), () {});
       };
       final r = runner();
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       expect(r.waitingCount, 1);
       r.dispose();
       expect(r.waitingCount, 0);
@@ -537,7 +588,7 @@ void main() {
       windowSeconds = 0;
       l2.reportPayload = '07-12 09:31 微信 张三：晚上一起吃饭';
       final r = runner();
-      await r.run(accepted(item: 'notifications:report/10'));
+      await r.run(accepted(item: 'notifications:report/10'), messageId: '');
       expect(l2.calls, ['reportNotifications(10)']);
       expect(reports, [
         '8K3FJ6QPTM9WZ4VHNS|notifications:report|07-12 09:31 微信 张三：晚上一起吃饭',
@@ -550,7 +601,7 @@ void main() {
       l2.reportPayload = 'X';
       reportOk = false;
       final r = runner();
-      await r.run(accepted(item: 'notifications:report/10'));
+      await r.run(accepted(item: 'notifications:report/10'), messageId: '');
       expect(saved.last.state, RemoteExecutionStates.failed);
       expect(saved.last.reason, 'report-not-sent');
       expect(receipts.last.state, RemoteExecutionStates.failed);
@@ -560,7 +611,7 @@ void main() {
       windowSeconds = 0;
       l2.reportPayload = null;
       final r = runner();
-      await r.run(accepted(item: 'notifications:report/10'));
+      await r.run(accepted(item: 'notifications:report/10'), messageId: '');
       expect(reports, isEmpty);
       expect(saved.last.state, RemoteExecutionStates.failed);
       expect(saved.last.reason, 'report-failed');
@@ -569,7 +620,7 @@ void main() {
     test('没有产出的动作（listener:start）不许触发回传那一路', () async {
       windowSeconds = 0;
       final r = runner();
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       expect(reports, isEmpty, reason: 'payload 为空的 ok 结果不该借道回传');
     });
 
@@ -577,7 +628,7 @@ void main() {
       windowSeconds = 0;
       l2.smsResult = (payload: '07-12 09:31 10086 验证码 123456', reason: null);
       final r = runner();
-      await r.run(accepted(item: 'sms:search/验证码'));
+      await r.run(accepted(item: 'sms:search/验证码'), messageId: '');
       expect(l2.calls, ['searchSms(验证码)']);
       expect(
         reports.single,
@@ -589,7 +640,7 @@ void main() {
       windowSeconds = 0;
       l2.smsResult = (payload: null, reason: 'sms-search-disabled');
       final r = runner();
-      await r.run(accepted(item: 'sms:search/验证码'));
+      await r.run(accepted(item: 'sms:search/验证码'), messageId: '');
       expect(reports, isEmpty);
       expect(saved.last.state, RemoteExecutionStates.failed);
       expect(saved.last.reason, 'sms-search-disabled');
@@ -604,7 +655,7 @@ void main() {
   group('做成的那一条也要有读数（T144 片2 格①）', () {
     test('没有产出的动作做成 ⇒ result 写 performed，reason 仍留空', () async {
       windowSeconds = 0;
-      await runner().run(accepted());
+      await runner().run(accepted(), messageId: '');
       expect(saved.last.state, RemoteExecutionStates.done);
       expect(
         saved.last.result,
@@ -617,7 +668,10 @@ void main() {
     test('有产出且真送出去了 ⇒ 写的是 reported，不是泛泛的"做完了"', () async {
       windowSeconds = 0;
       l2.reportPayload = '07-12 09:31 微信 张三：晚上一起吃饭';
-      await runner().run(accepted(item: 'notifications:report/10'));
+      await runner().run(
+        accepted(item: 'notifications:report/10'),
+        messageId: '',
+      );
       expect(
         saved.last.result,
         kFnthinkRemoteOutcomeReported,
@@ -629,7 +683,10 @@ void main() {
       windowSeconds = 0;
       l2.reportPayload = 'X';
       reportOk = false;
-      await runner().run(accepted(item: 'notifications:report/10'));
+      await runner().run(
+        accepted(item: 'notifications:report/10'),
+        messageId: '',
+      );
       expect(
         saved.last.result,
         isEmpty,
@@ -639,7 +696,10 @@ void main() {
 
     test('L3 那一档做成 ⇒ 写的是 set（改到位这件事本身）', () async {
       windowSeconds = 0;
-      await runner().run(accepted(level: 'L3', item: 'exact_alarm'));
+      await runner().run(
+        accepted(level: 'L3', item: 'exact_alarm'),
+        messageId: '',
+      );
       expect(saved.last.state, RemoteExecutionStates.done);
       expect(saved.last.result, kFnthinkRemoteOutcomeSet);
     });
@@ -647,7 +707,7 @@ void main() {
     test('没做成 ⇒ 理由只在 reason 一处，同一个码不许再抄进 result', () async {
       windowSeconds = 0;
       l2.ok = false;
-      await runner().run(accepted());
+      await runner().run(accepted(), messageId: '');
       expect(saved.last.state, RemoteExecutionStates.failed);
       expect(saved.last.reason, 'nope');
       expect(
@@ -674,7 +734,7 @@ void main() {
       };
       final r = runner(statusBar: const _ThrowingNotifier());
 
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       expect(fire, isNotNull, reason: '窗口没排上 ⇒ 这一条根本没进入"到点"那一步');
       expect(saved.last.state, RemoteExecutionStates.pending);
 
@@ -694,7 +754,7 @@ void main() {
         return Timer(const Duration(days: 1), () {});
       };
       final r = runner(statusBar: const _ThrowingNotifier());
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       fire!();
       await Future<void>.delayed(Duration.zero);
       // ⚠ 这条与上一条**分开钉**，是因为 `_finish` 那条路会把理由写成 `illegal-move`
@@ -715,7 +775,7 @@ void main() {
         return Timer(const Duration(days: 1), () {});
       };
       final r = runner();
-      await r.run(accepted());
+      await r.run(accepted(), messageId: '');
       fire!();
       await Future<void>.delayed(Duration.zero);
       expect(saved.last.state, RemoteExecutionStates.done);

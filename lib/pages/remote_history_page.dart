@@ -9,6 +9,7 @@ import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution.dart';
+import '../services/fnthink_remote_execution_state_words.dart';
 import '../services/fnthink_remote_outcome_words.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
@@ -386,21 +387,14 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
 
   /// 状态词那一格。**存量出现词表外的状态时显示"不认得"**，不当它等于某个已知状态 ——
   /// 那是这一格最容易犯的一个错：把"读不出来"说成"执行完毕"。
-  String _stateText(AppLocalizations l10n, FnthinkRemoteExecutionRecord row) {
-    final contract = _contract;
-    if (contract != null &&
-        !contract.remoteExecutionStates.contains(row.state)) {
-      return l10n.remoteHistoryStateUnknown(row.state);
-    }
-    return switch (row.state) {
-      RemoteExecutionStates.pending => l10n.remoteHistoryPending,
-      RemoteExecutionStates.executing => l10n.remoteHistoryExecuting,
-      RemoteExecutionStates.done => l10n.remoteHistoryDone,
-      RemoteExecutionStates.failed => l10n.remoteHistoryFailed,
-      RemoteExecutionStates.cancelled => l10n.remoteHistoryCancelled,
-      _ => l10n.remoteHistoryStateUnknown(row.state),
-    };
-  }
+  /// ⚠ switch 本体已抽成唯一作者（T141①，收件历史页那一行也要用同一套词），
+  ///   这里只交出本页的契约漂移检查；本文件里不许再出现第二个状态 switch。
+  String _stateText(AppLocalizations l10n, FnthinkRemoteExecutionRecord row) =>
+      fnthinkRemoteExecutionStateWord(
+        l10n,
+        row.state,
+        knownStates: _contract?.remoteExecutionStates,
+      );
 }
 
 // （T148 片12）这一页原来在这里私有地搭了一枚 `_DirectionChip`：13px、`CupertinoButton`、
