@@ -89,6 +89,10 @@ app.use('/api/admin', alertRoutes);
 // 这些是会动的写操作，而"一键全部失效"的误点代价是一整个设备群失联。
 app.use('/api/admin', opsRoutes);
 app.use('/', versionRoutes);
+// T09：token 门控 echo 端点（generic 盖章用的收件方，维护者 2026-10-17 拍「加就行」）。
+// ⚠ `ECHO_TOKEN` 没配 ⇒ 请求进来一律 404，与未知路由同形 —— 新增公网入面默认
+//   不存在，比"存在但拒绝"更稳。token 在请求时读 env，测试逐条换环境不用重启。
+app.use('/api/echo', require('./routes/echo').createEchoRouter());
 // 幻念推送（fnthink-v1）的公网入口。⚠ 这一段必须"坏了也不连累别的端点"：
 // 契约文件默认在仓库根的 protocol/，而部署历来只上传 server/ —— 那种情况下 require 链会直接抛
 // ENOENT，冒到顶层被拖死的是 /api/version 与管理后台（所有设备的更新检查），
