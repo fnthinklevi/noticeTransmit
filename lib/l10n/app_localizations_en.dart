@@ -1981,6 +1981,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyDeliveryDetailTitle => 'Where this went';
 
   @override
+  String get historyChannelRepush => 'Resend this one';
+
+  @override
+  String get historyChannelRepushAll => 'Resend all';
+
+  @override
+  String historyChannelRepushGone(Object n) {
+    return '$n of these were removed and can\'t be resent';
+  }
+
+  @override
   String get privacyOverviewTitle => 'Privacy Policy Overview';
 
   @override

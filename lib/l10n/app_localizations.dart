@@ -3632,6 +3632,24 @@ abstract class AppLocalizations {
   /// **'这条推给了谁'**
   String get historyDeliveryDetailTitle;
 
+  /// No description provided for @historyChannelRepush.
+  ///
+  /// In zh, this message translates to:
+  /// **'重推此通道'**
+  String get historyChannelRepush;
+
+  /// No description provided for @historyChannelRepushAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部重推'**
+  String get historyChannelRepushAll;
+
+  /// No description provided for @historyChannelRepushGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'其中 {n} 条通道已删除，不能重推'**
+  String historyChannelRepushGone(Object n);
+
   /// No description provided for @privacyOverviewTitle.
   ///
   /// In zh, this message translates to:

@@ -320,4 +320,110 @@ void main() {
       );
     });
   });
+
+  // ── T154 片3：逐格那一发（子页里「重推此通道」/「全部重推」）─────────────────
+  //
+  // ⚠ 这一组与上面那组**不是同一个问题**，别把两者的判据混起来：
+  //   上面问「这一条该补哪几族」（`RepushIntent`，用户没指任何一格）；
+  //   这里问「用户指着的那一格，现在还发不发得出去」（服务只答"在不在"，
+  //   **状态那一半刻意不设限** —— 子页是"当场做一次决定"那一层，
+  //   而行内那一枚本来就含 success 与 intercepted）。
+  group('逐格重推的范围（T154 片3）', () {
+    /// 只剩通用那一条启用着（钉钉被删）。
+    Future<void> onlyGenericEnabled() =>
+        GetIt.instance<WebhookService>().saveChannels([
+          {
+            'id': 'wh_gen',
+            'name': '自建端点',
+            'url': 'https://example.com/hook',
+            'secret': '',
+            'channelType': 'generic',
+            'enabled': true,
+          },
+        ]);
+
+    test('可用性只答"这一族现在还配着没有"，与那一格的状态无关', () async {
+      await twoChannels();
+      final service = NotificationService();
+
+      expect(service.canRepushChannelIndividually('chan:dingtalk'), isTrue);
+      expect(
+        service.canRepushChannelIndividually('chan:deleted'),
+        isFalse,
+        reason: '删掉的通道没有配置在案 —— 原生只对配着的通道扇出',
+      );
+    });
+
+    test('已送达的那一格同样可逐格重推（不按状态设限）', () async {
+      await twoChannels();
+      final service = NotificationService();
+      final record = NotificationRecord.fromMap({
+        ...rec(),
+        'id': 'n_done_1',
+        'channels': ['chan:dingtalk', 'chan:generic'],
+        'deliveryStatus': <String, dynamic>{
+          'chan:dingtalk': {'status': 'success', 'message': 'ok'},
+          'chan:generic': {'status': 'success', 'message': 'ok'},
+        },
+      });
+
+      await service.repushChannels(record, ['chan:generic']);
+
+      expect(
+        (pushedSlugsArg()['onlySlugs'] as List).cast<String>(),
+        ['generic'],
+        reason:
+            '子页是"对着这一格做一次决定"那一层。若这里按 success 设限，界面上就会出现'
+            '"我能一次重推全部，却不能只重推其中一条" —— 与本片要修的那条是同一个反方向',
+      );
+    });
+
+    test('逐格那一发只发用户指着的那一格，其余通道的结论原样保留', () async {
+      final (service, record) = await failedAndServed();
+
+      await service.repushChannels(record, ['chan:generic']);
+
+      expect((pushedSlugsArg()['onlySlugs'] as List).cast<String>(), [
+        'generic',
+      ]);
+      expect(
+        service.records.first.deliveryStatus['chan:dingtalk']['status'],
+        'failed',
+        reason: '点的是邮件那一格 ⇒ 钉钉那格不许被抹成 pending（整表重建的害处，见上方头注释）',
+      );
+    });
+
+    test('指着一条已删除的通道 ⇒ 一个字节都不发（fail-closed）', () async {
+      final (service, record) = await failedAndServed();
+      await onlyGenericEnabled();
+
+      await service.repushChannels(record, ['chan:dingtalk']);
+
+      expect(
+        calls.where((c) => c.method == 'pushRecordNow'),
+        isEmpty,
+        reason:
+            '放行一枚按了不动的钮 = 那一格被写成 pending 且永远没有回执 ⇒'
+            '"一直发送中"。T150 片1 修的正是这一族，不许从另一个方向再装回来',
+      );
+      expect(
+        service.records.first.deliveryStatus['chan:dingtalk']['status'],
+        'failed',
+        reason: '留着"失败"才是真话（这一族已经不发了）',
+      );
+    });
+
+    test('一批里混着已删除的 ⇒ 只发还在的那些（交集，不是全否）', () async {
+      final (service, record) = await failedAndServed();
+      await onlyGenericEnabled();
+
+      await service.repushChannels(record, ['chan:dingtalk', 'chan:generic']);
+
+      expect(
+        (pushedSlugsArg()['onlySlugs'] as List).cast<String>(),
+        ['generic'],
+        reason: '一格不可用就把整批否掉，等于让一枚按不动的钮把旁边那枚也废了',
+      );
+    });
+  });
 }

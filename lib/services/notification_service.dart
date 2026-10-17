@@ -631,6 +631,37 @@ class NotificationService {
     );
   }
 
+  /// 逐格那一枚「重推此通道」的**可用性**（T154 片3，唯一作者）。
+  ///
+  /// ⚠ 判据是**这一族现在还配着没有**，不是那一格的状态 —— 状态那一半在这里
+  /// **刻意不设限**：子页是「用户当场对着这一格做一次决定」那一层，而行内那一枚
+  /// （[RepushIntent.again]）本来就含 `success` 与 `intercepted`。逐格比行内更严的话，
+  /// 界面上会出现「我能一次重推全部，却不能只重推其中一条」——
+  /// 那是本片要修的那条形状的**反方向**，与本片同一句话的两半。
+  ///
+  /// ⚠ 为什么不设限的那一半**仍必须先答「还在不在」**：[_mergePendingOnly] 会把那一格写成
+  /// `pending`，而原生只对**配着的**通道扇出（`routeChannels` 里逐族 `inScope(...)`）
+  /// ⇒ 给一枚按了不动的钮，恰好会造出「那一格永远停在发送中」——
+  /// T150 片1 修的正是这一族，本片不许把它从另一个方向再装回来。
+  bool canRepushChannelIndividually(String channel) {
+    return _getActiveChannels().contains(channel);
+  }
+
+  /// 逐格／逐子页「全部重推」那一发的落口（T154 片3）：范围就是 [channels] 那几格，一格不多。
+  ///
+  /// ⚠ 与 [repushRecord] 的差别只有「范围从哪来」：那边由 [RepushIntent] 算出来，
+  ///   这边由用户指着的那几格给定。交集与空集那两句判据**不重写一遍**——
+  ///   仍走 [pushRecordNow]（空集 = 谁都不发，与「不限定」是两件事）。
+  /// ⚠ 与行内那一枚共用这一发：批量那一圈同样是反复调它、每次给一格。
+  Future<void> repushChannels(
+    NotificationRecord record,
+    List<String> channels,
+  ) async {
+    final keys = channels.where(canRepushChannelIndividually).toList();
+    if (keys.isEmpty) return;
+    await pushRecordNow(record, onlyDeliveryKeys: keys);
+  }
+
   /// 窄口径合并：只把 [keys] 那几位置为待发，其余条目原样保留。
   ///
   /// 这几位上一轮的 `viaBackup` 标记会被**清掉**：那是"上一轮走了备用"的陈述，

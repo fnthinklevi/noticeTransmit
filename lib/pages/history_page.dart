@@ -85,6 +85,18 @@ class HistoryPage extends StatefulWidget {
   // 历史记录"现在推送"：暂停状态下未实际发送的消息可手动补推
   final Future<void> Function(NotificationRecord record)? onPushNow;
 
+  /// 送达详情子页里「重推此通道」逐格那一枚的**可用性**（T154 片3）。
+  ///
+  /// null = 一律可用。判据住在服务层（`canRepushChannelIndividually`：这一族现在还配着没有），
+  /// 页面只把它读出来画成灰的或可点的 —— **不自己判「这一族还在不在」**。
+  final bool Function(String channel)? channelRepushAvailable;
+
+  /// 逐格／子页底部「全部重推」那一发（T154 片3）。范围是**用户指着的那几格**，
+  /// 与当前启用通道的交集由服务层算（`repushChannels`）——
+  /// 页面不在这一层判断"哪些真的发得出去"，否则两处判据迟早漂开。
+  final Future<void> Function(NotificationRecord record, List<String> channels)?
+  onPushChannels;
+
   /// 收件（幻念）那一档的数据来源。默认走 `FnthinkInboxService`，测试注入内存列表 ——
   /// 让 widget 测试**不必去开 sqlite**：那条路在 flutter_test 绑定下要向平台通道要真实库路径，
   /// 桩答 null 就永远等不到（实测整份用例卡死在 00:00，与页面逻辑无关）。
@@ -147,6 +159,8 @@ class HistoryPage extends StatefulWidget {
     required this.onClearToday,
     required this.onClearLastN,
     this.onPushNow,
+    this.channelRepushAvailable,
+    this.onPushChannels,
     this.inboxLoader,
     this.sentLoader,
     this.inboxMarkRead,
@@ -879,6 +893,18 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
+  /// 这一条「有哪些通道格可看」（**唯一作者**：行内那一行与子页共用一份，T154 片3 立）。
+  ///
+  /// ⚠ `channels` 为空时回退到 `deliveryStatus` 的键，这不是边角料：**老记录**与
+  ///   「一条真实通道都没有、只留了拦截标记」那一类（迁移注释里点名的那一种）就是这个形状。
+  ///   不回退 ⇒ 子页顶上一句「共 1 条通道」而下面一格都不画 —— 自己跟自己打架，
+  ///   且「全部重推」会拿到一个空范围却仍显示成可按。
+  List<String> _channelRowsOf(NotificationRecord record) {
+    return record.channels.isNotEmpty
+        ? record.channels
+        : record.deliveryStatus.keys.toList();
+  }
+
   /// 送达详情子页（T154 片2）：这一条到底推给了谁、每一格现在是什么。
   ///
   /// 内容就是此前摊在行内那一串 chip（一个字没少）—— 排法仍是
@@ -888,10 +914,15 @@ class _HistoryPageState extends State<HistoryPage> {
   Future<void> _showDeliveryDetailSheet(NotificationRecord record) async {
     final l10n = AppLocalizations.of(context);
     final ordered = orderChannelsByAttention(
-      record.channels,
+      _channelRowsOf(record),
       record.deliveryStatus,
     );
     final tally = tallyDelivery(record.deliveryStatus);
+    // 片3：把"哪几格按了不会动"算在**开弹层那一次**，不在 build 里数 ——
+    // 底部那一枚与逐格那 N 枚读的是同一个数，两处各数一遍就会打架。
+    final push = widget.onPushChannels;
+    final repushable = ordered.where(_canRepushChannel).toList();
+    final gone = ordered.length - repushable.length;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -938,15 +969,98 @@ class _HistoryPageState extends State<HistoryPage> {
                     runSpacing: 8,
                     children: [
                       for (final c in ordered)
-                        _buildChannelChipFor(record, c, l10n),
+                        _buildChannelDetailRow(record, c, l10n),
                     ],
                   ),
+                ),
+              ),
+              // ⚠ 这一句放**底部单行**，不在每一格旁边重复 —— 同一件事说 N 遍
+              //   就是"像论文"那一族（§1 视觉口径②）。
+              if (gone > 0) ...[
+                const SizedBox(height: 10),
+                Text(
+                  l10n.historyChannelRepushGone(gone),
+                  key: const ValueKey('history-delivery-gone-note'),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.tertiaryLabel(context),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: PrimaryActionButton(
+                  key: const ValueKey('history-delivery-repush-all'),
+                  label: l10n.historyChannelRepushAll,
+                  // 一格都不可再发时**置灰留着**，不藏起来（藏掉=用户读到"这里没这个功能"）。
+                  // ⚠ 两道闸都要看：`onPushChannels` 没接上时同样置灰 —— 那一页
+                  //   根本不接补推，而「能按」在屏上等于给用户一个按了没反应的地方。
+                  onPressed: (push == null || repushable.isEmpty)
+                      ? null
+                      : () => _repushChannelsFromSheet(record, repushable),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// 这一格此刻还能不能被指着重发一次（**只转发判据**，T154 片3）。
+  ///
+  /// ⚠ null 回调 = 一律可用：判据住在服务层，页面这一格只负责读它。
+  /// 页面自己判「这一族还在不在」就是第二个作者 —— 而那一判据判错的方向很贵：
+  /// 放行一枚按了不动的钮 = 那一格被写成 pending 且永远没有回执（T150 片1 修的那一族）。
+  bool _canRepushChannel(String channel) {
+    final available = widget.channelRepushAvailable;
+    return available == null || available(channel);
+  }
+
+  /// 子页里逐格／全部那一发的共同落口（T154 片3）：先关弹层，再发。
+  ///
+  /// ⚠ **先关**是刻意的：这一发之后那一行会变成「发送中」，留在屏上给的是发之前那一帧的
+  /// 读数 —— 用户看着一个不会变的「已送达」以为没按，比弹层直接消失更难解释。
+  /// ⚠ 发完要 `setState`：行的读数来自 `record.deliveryStatus`，不回帧就一直画旧的。
+  Future<void> _repushChannelsFromSheet(
+    NotificationRecord record,
+    List<String> channels,
+  ) async {
+    final push = widget.onPushChannels;
+    if (push == null) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    await push(record, channels);
+    if (mounted) setState(() {});
+  }
+
+  /// 子页里每一格：chip + 一枚「重推此通道」（T154 片3）。
+  ///
+  /// ⚠ 这一枚**不在** `_buildChannelChip` 里 —— chip 本体是状态标记，那条守卫
+  /// （`history_chip_family_test` ②）不许它长出点击；逐格这一枚是另一个成员、另一个宿主。
+  /// ⚠ 走 `FnthinkInlineAction`：这是"对行里那一格做点什么"，与页脚那一枚全宽主操作
+  /// 不同族（那一族是"这一页要办的事"）。两枚别混用，否则一高一矮。
+  Widget _buildChannelDetailRow(
+    NotificationRecord record,
+    String channel,
+    AppLocalizations l10n,
+  ) {
+    final push = widget.onPushChannels;
+    final enabled = push != null && _canRepushChannel(channel);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildChannelChipFor(record, channel, l10n),
+        FnthinkInlineAction(
+          key: ValueKey('history-channel-repush-${record.id}-$channel'),
+          tone: FnthinkActionTone.action,
+          label: l10n.historyChannelRepush,
+          onPressed: enabled
+              ? () => _repushChannelsFromSheet(record, [channel])
+              : null,
+        ),
+      ],
     );
   }
 
@@ -2542,9 +2656,7 @@ class _HistoryPageState extends State<HistoryPage> {
     // T148 片2：这些是**推送特有**的行内容，按通用件的规矩从 `lines` 挂进去 ——
     // 件不认得"通道"，正如它不该认得"远程执行"。反过来标题/时间/正文/来源四格
     // 从此不再在这一页各拼一份（差异①③⑤⑥的基座那一半就在这一步收掉）。
-    final rows = record.channels.isNotEmpty
-        ? record.channels
-        : record.deliveryStatus.keys.toList();
+    final rows = _channelRowsOf(record);
     // 行内出口不再有条件（T133 片9 走 (b)）：每一条转发行都给，说的话由 `repushIntentOf` 挑。
     // 以前那句 `recordNeedsRepush(...)` 当闸门 ⇒ 一条已全送出的记录在单条这一层没有任何入口，
     // 用户要"就再发一次"只能去开批量模式，而批量那一档仍按"补缺"选人（选不中它）。

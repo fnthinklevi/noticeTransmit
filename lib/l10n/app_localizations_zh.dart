@@ -1905,6 +1905,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historyDeliveryDetailTitle => '这条推给了谁';
 
   @override
+  String get historyChannelRepush => '重推此通道';
+
+  @override
+  String get historyChannelRepushAll => '全部重推';
+
+  @override
+  String historyChannelRepushGone(Object n) {
+    return '其中 $n 条通道已删除，不能重推';
+  }
+
+  @override
   String get privacyOverviewTitle => '隐私政策概述';
 
   @override

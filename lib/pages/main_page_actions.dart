@@ -213,6 +213,15 @@ extension _MainPageActions on _MainPageState {
           await _notificationService.repushRecord(record);
           if (mounted) setState(() {});
         },
+        // T154 片3：子页里「重推此通道」与底部「全部重推」走同一条落口。
+        // ⚠ 可用性与「与当前启用通道取交集」都在 service
+        //   （`canRepushChannelIndividually` / `repushChannels`），页面只交"哪几格"
+        //   —— 它不判"哪些真的发得出去"，那会是第二个作者。
+        channelRepushAvailable:
+            _notificationService.canRepushChannelIndividually,
+        onPushChannels: (record, channels) async {
+          await _notificationService.repushChannels(record, channels);
+        },
       ),
       // 返回时重取未读数：在收件档里点开读过的那几条，未读数必须跟着下来，
       // 否则首页那一格会一直举着一个已经不存在的数字（"3 条未读"点进去一条都没有）。
