@@ -1,12 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/services/delivery_display.dart';
 import 'package:notice_transmit/services/fnthink_fanout_entrypoint.dart';
-import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
 
 /// 幻念设备档转发的**回执链**（T154 片1）。
@@ -178,28 +176,8 @@ void main() {
         reported.add((id, outcome));
         if (id == 'rec-1') throw StateError('写库失败');
       };
-      final parsed = parseFanoutBatch(
-        jsonEncode([
-          {
-            'id': 'rec-1',
-            'title': 't1',
-            'content': 'b1',
-            'appName': 'a',
-            'targets': [
-              {'target': 'DEV-A'},
-            ],
-          },
-          {
-            'id': 'rec-2',
-            'title': 't2',
-            'content': 'b2',
-            'appName': 'a',
-            'targets': [
-              {'target': 'DEV-A'},
-            ],
-          },
-        ]),
-      );
+      // ⚠ 这里**不**走 `parseFanoutBatch`（上面那条已经在钉解析层）：本条的主体是
+      // 「回执自己抛异常」，夹一层解析只会让失败时多一个嫌疑对象。
       await _runItem(_item('rec-1', ['DEV-A']));
       await _runItem(_item('rec-2', ['DEV-A']));
 
