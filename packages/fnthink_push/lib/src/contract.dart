@@ -145,6 +145,24 @@ class FnthinkContract {
 
   int get contractVersion => intOf(const ['contractVersion']) ?? -1;
 
+  /// T155：每发请求时顶层带上的那枚关联键的**名字**（值恒为 [contractVersion]）。
+  ///
+  /// ⚠ 从契约读，不手打：它与服务端 `contract.js` 的 `versionEchoSpec` 取的是同一个键，
+  ///   而这一对只要有一侧改了字面量，表现是「客户端带了、服务端没看见」——
+  ///   然后 `/health` 恒回 `null`（= 还没收到过），**永远不会报不一致**。
+  ///   那是本条最坏的坏法：守卫全绿，而它要抓的那件事正在发生。
+  ///
+  /// ⚠ 缺这一格时回**空串**而不是某个默认键名：空串会让那一枚被带成一个空值键，
+  ///   服务端读出来是 `unreadable` —— 那是个能看见的错，而"猜一个名字"不是。
+  String get versionEchoField => str(const ['versionEcho', 'field']) ?? '';
+
+  /// `/health` 上那一格的键名（与 [versionEchoField] 同一个 `versionEcho` 段）。
+  ///
+  /// ⚠ 缺段时回**空串**：界面据此**不画**那一格，而不是画一个说"一致"的假绿 ——
+  ///   服务器没部署关联键时，「没这一格」与「一致」在屏幕上不能长得一样。
+  String get versionEchoHealthKey =>
+      str(const ['versionEcho', 'healthKey']) ?? '';
+
   /// 签名字节里 `version` 那一段的取值（向量与两端实现都用它，例如 `fnthink-v1` ⇒ `'1'`）。
   ///
   /// ⚠ 服务端**不读这个值的内容**（它按契约顺序重算整串再验签），所以这里错了不会当场报错，

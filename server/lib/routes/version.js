@@ -16,6 +16,15 @@ const { authMiddleware } = require('../middleware');
 // 自己另抄一份 SUPPORTED_MAJOR 就是第二份真值，而它错配时不会报错，只会让自部署者
 // 看到「版本号对但连不上」这类查不出来的现象。
 const contractModule = require('../fnthink/contract');
+// T155：那一格的值在 `fnthink/routes` 的入口中间件里记下（**只在那边记一次**），
+// 存在这个独立小模块里。⚠ 这里**只取不记**：复制一份记逻辑就是「不一致」的第二个作者。
+// ⚠⚠ 刻意**不 require `fnthink/routes`**（第一版就是这么写的，当场把
+//   `test/fnthink-contract-shape.test.js` 打红）：`routes.js` 的模块顶层要构造
+//   `createSenderQuota()`，那一构造要读契约的 `alerts` 段 ⇒ 「protocol/ 还是上一批
+//   那份」的部署下，本文件会在 `app.js` 那道 try/catch **之外**崩掉，
+//   把 A1 那次事故修好的「只降级协议面、更新面照常」从背后绕过去。
+//   `version_echo` 什么都不 require，契约读不动时照样能加载。
+const versionEcho = require('../fnthink/version_echo');
 
 const router = express.Router();
 
@@ -457,13 +466,24 @@ router.get('/health', (req, res) => {
   let contractVersion = null;
   let protocolVersion = null;
   let contractError = null;
+  let healthKey = 'clientContractVersionMismatch';
   try {
     const contract = contractModule.assertSupported(contractModule.loadContract());
     contractVersion = contract.contractVersion;
     protocolVersion = contract.protocol;
+    healthKey = contractModule.versionEchoSpec(contract).healthKey;
   } catch (e) {
     contractError = e && e.code ? e.code : 'CONTRACT_UNREADABLE';
   }
+  // T155：客户端那枚关联键的比对结论。
+  // ⚠ **不一致时这一发照常回 200**：它只报，不拦 —— 拦就是 A1 那次部署事故本身
+  //   （新代码配旧契约 ⇒ 协议面 503，崩启动还连带 `/api/version` 与管理后台）。
+  // ⚠ 从 `fnthink/routes` 取而不是自己重算：那个值只在路由入口那一发里被记下；
+  //   自己再比一次得到的是「这份进程加载的契约 vs 此刻这个请求里的数」，
+  //   与「这台服务器见到的客户端」不是同一件事。
+  // ⚠ 三档：`null` = 还没收到过带版本的请求（不是 `false`）；
+  //   `'mismatch'` = 有一台带着旧版来过；`'unreadable'` = 带了但不是可比的形状。
+  const clientEcho = versionEcho.read();
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -471,6 +491,7 @@ router.get('/health', (req, res) => {
     supportedMajor: contractModule.SUPPORTED_MAJOR,
     contractVersion,
     protocolVersion,
+    [healthKey]: clientEcho ? clientEcho.verdict : null,
     ...(contractError ? { contractError } : {}),
   });
 });

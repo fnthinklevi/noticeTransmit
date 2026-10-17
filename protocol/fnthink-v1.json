@@ -1,6 +1,18 @@
 {
   "protocol": "fnthink-v1",
   "contractVersion": 1,
+  "versionEcho": {
+    "_why": "客户端每发一个请求都在**顶层**带上它手上那枚 contractVersion（不进签名链 —— signature.canonicalOrder 是固定的六键，加一格就是协议变更）。服务端拿自己那份对一下，**不一致时照常服务**，只把结论挂到 /health 的 clientContractVersionMismatch 上。",
+    "_whyTopLevelNotSigned": "签名链那六个键（version/type/target/ts/nonce/body）一个都不能动，而这条关联键要的就是「逐请求带一次」；放顶层是与 register 的 publicKey/name 同一形状（那两枚也不在签名里）。⚠ 它的强度因此只有「客户端自报」那一层 —— 而够用了：要抓的失效是「服务器上那份是旧的」，那与谁在撒谎无关。",
+    "_whyServeAnyway": "不一致时降级就是 A1 那次部署事故本身（新代码配旧契约 ⇒ 协议面 503，而崩启动会连带 /api/version 与管理后台）。本条的用途恰恰是**让这件事可见而不是不可见**。",
+    "_whyInMemoryOnly": "收件箱只存在进程内存里，不落盘：它答的是「此刻这台服务器见到的是什么」，不是账本。落盘会把「三天前有一台旧客户端来过」读成「现在不一致」。",
+    "_nullIsNotFalse": "没收到过任何带版本的请求时 /health 回 null 而不是 false ——「还没见过」与「见过且一致」是两件事，折成 false 就与「见过且不一致」同形了。",
+    "_threeVerdicts": "三档：match / mismatch / unreadable。第三档是「带了但不是可比的形状」（字符串、null、对象）—— 折进 mismatch 就与「客户端在说谎」分不开了。",
+    "_whySeparateModule": "收件箱单独一个模块（server/lib/fnthink/version_echo.js），不放在 routes.js 里让 /health 那边去 require 它：routes.js 的模块顶层要读契约 alerts 段 ⇒ 旧契约部署下会把 A1 修好的「只降级协议面」从背后绕过去。",
+    "field": "contractVersion",
+    "healthKey": "clientContractVersionMismatch",
+    "reportOn": "/health"
+  },
   "_comment": "幻念推送的单一协议契约（T71）。Dart 与 Node 两侧各自读这一份文件跑契约测试：任何一侧偷偷改自己的常量都会红。规则来源见 docs/roadmap.md 的 W3a–W3g（T26–T60）与 §2 实现红线。",
   "identity": {
     "addressCode": {

@@ -37,6 +37,7 @@ class FnthinkSettingsDeps {
     required this.identity,
     this.healthOf,
     this.probeHosts,
+    this.onHealthBody,
     this.recordHealth,
   });
 
@@ -69,7 +70,22 @@ class FnthinkSettingsDeps {
   final ChannelHealth? Function(String host)? healthOf;
 
   /// 探这几台，回到得了的那些的时延。
-  final Future<Map<String, Duration>> Function(List<String> hosts)? probeHosts;
+  ///
+  /// ⚠ [onHealthBody] 是**可选**的第二个口（T155 加的）：主判据的返回值形状一个字没动，
+  /// 而"顺便从 `/health` 正文里看见的东西"另走一条。往返回值里加第二个维度就得改
+  /// 所有调用方与所有用例 —— 而顺带看见的东西不该逼着主判据改形状。
+  final Future<Map<String, Duration>> Function(
+    List<String> hosts, {
+    void Function(String host, Map<String, Object?> body)? onHealthBody,
+  })?
+  probeHosts;
+
+  /// T155：探测期间顺手把 `/health` 正文交给页面（`onHealthBody` 那个口）。
+  /// ⚠ **单独一个口，不塞进 [probeHosts] 的返回值**：那一发已经有一个契约形状
+  /// （`Map<host, Duration>`），往里加第二个维度就得改所有调用方与所有用例 ——
+  /// 而「顺带看见的东西」不该逼着主判据改形状。
+  /// null = 不接（界面据���**不画**那一格，而不是画一句"一致"）。
+  final void Function(String host, Map<String, Object?> body)? onHealthBody;
 
   /// 把一次探测结果写进健康度单点（与协调者那条 `recordHealth` 同一个口）。
   /// 回 Future 是要被 await 的：换台之前那行徽标必须已经落好，否则界面与 prefs
@@ -156,6 +172,12 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
   bool _identityUnavailable = false;
 
   String _host = '';
+
+  /// T155：服务器报上来的「客户端契约版本」那一格结论。
+  /// ⚠ `null` 有**两个**来路（都没收到过 / 没装配 `onHealthBody`），而界面上
+  ///   **都不画**那一格 —— 分开它们对用户没有意义，而把"没有读数"画成"一致"
+  ///   才是凭空报功。
+  String? _contractVerdict;
 
   /// 改地址失败的原因（校验在 `FnthinkSettings` 那一处，这里只显示）。
   String? _hostError;
@@ -412,8 +434,31 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     final record = _deps.recordHealth;
     if (probe == null || record == null || hosts.isEmpty) return;
     final Map<String, Duration> latencies;
+    // T155：顺手收下 `/health` 正文里那一格（**只在探当前这台时**记 ——
+    // 别人的那台上有什么，与这台屏幕上的那一格无关）。
+    final sink = _deps.onHealthBody;
+    // ⚠ **对候选里的每一台都记**，不只记当前那台 —— 这一格说的是
+    //   「刚才探过的那些服务器里，有没有一份拿着旧协议」，而打开「切换服务」
+    //   那一格探的就是**候选全集**（§6 的口径：不按探不通过滤，
+    //   探测不通该显示"不可用"而不是把那一档从候选里拿走）。
+    //   只记 `_host` 那一台的话：① 用户还没换地址、而当前那台不在候选里（自部署
+    //   填的第三个地址）⇒ 永远记不到；② 两台里只有一台旧的话什么都说不出 ——
+    //   而那恰恰是最该说的话（用户正要挑一台换过去）。
+    // ⚠ 取**最坏**那一档而不是最后一档：候选的遍历顺序是契约声明顺序，
+    //   「最后读到的那台」只是声明顺序里的最后一个，与严重程度无关。
+    void capture(String host, Map<String, Object?> body) {
+      sink?.call(host, body);
+      // 键名由**手上已经握着契约的那一侧**交进来（`_settings.contract`），页面
+      // 自己在 `_load()` 里读过它 —— 探针不自己找一份（`readFile` 那条路在设备
+      // 沙箱里不存在，见 `readClientContractVerdict` 的注释）。
+      final healthKey = _settings?.contract.versionEchoHealthKey ?? '';
+      final verdict = readClientContractVerdict(body, healthKey);
+      if (verdict == null) return;
+      _contractVerdict = _worseVerdict(_contractVerdict, '$verdict');
+    }
+
     try {
-      latencies = await probe(hosts);
+      latencies = await probe(hosts, onHealthBody: capture);
     } catch (e) {
       debugPrint('幻念推送：切换服务前的健康度探测失败 $e');
       return;
@@ -429,6 +474,23 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     if (!mounted) return;
     // 卡片上那枚徽标读的就是这一轮：不刷新就会画着上一轮的数，而用户刚看着它做完决定。
     setState(() {});
+  }
+
+  /// 两档合并成**更坏**的那一档（T155，纯函数）。
+  ///
+  /// ⚠ 顺序有讲究：`unreadable` 比 `mismatch` 更坏吗？—— **更坏**。
+  /// `mismatch` 说的是"确知不一致"（用户能照它做事：等运维上传新契约）；
+  /// `unreadable` 说的是"连它是什么都读不出来"（连这句话都不可信）。
+  /// ⚠ `null` 是"还没见过"，比两者都轻 —— 它不该把已知的结论抹掉。
+  /// ⚠ 同档返回 `a`（输入顺序不影响结果）—— 免得"探的顺序"变成一个隐形维度。
+  String? _worseVerdict(String? current, String incoming) {
+    // ⚠ `match` 与 `null` 都不在表里：`match` 是"没事"（不该覆盖已知的坏消息），
+    //   `null` 是"还没见过"（同上，且比"没事"更轻）。
+    const rank = {'unreadable': 2, 'mismatch': 1};
+    final mine = rank.containsKey(current ?? '') ? rank[current!]! : 0;
+    final theirs = rank[incoming];
+    if (theirs == null || mine >= theirs) return current;
+    return incoming;
   }
 
   /// 这一台今天怎么样 —— 与徽标**同一条判定**（`channelHealthStateForDisplay`）。
@@ -791,6 +853,32 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
         // 它说的是"最近一次对着这台试过"：收货链路的真实发送会写它，打开「切换服务」
         // 那一格时的探测也会写它（`_probeDeclaredHosts`）。
         ChannelHealthBadge(health: _deps.healthOf?.call(_host)),
+        // T155：服务器手上的契约是**旧的那一份**时，那一句在这里。
+        // ⚠ 只在 `mismatch` / `unreadable` 两档画 —— 一致与"还没收到过带版本的请求"
+        //   **都不画**：后者是"没有读数"，画一句"一致"就是凭空报功
+        //   （与本仓那三件「没读到／还没看／真的没有」的同一族纪律）。
+        // ⚠ 这句话是给**维护者**看的那种技术事实，不是用户能自己解决的事：
+        //   它由服务端答，而服务端只能靠重新上传 `protocol/` 修好。
+        if (_contractVerdict == 'mismatch' || _contractVerdict == 'unreadable')
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: FnthinkStatusRow(
+              // ⚠ 换签名时把这一枚 key 掉了，页面级用例因此一直是"找不到那一格"
+              //   —— 而正向与负向一起红，正是"判据量的是一件不存在的东西"的形状。
+              //   教训与本仓同族那几次一致：**换构造签名时逐字对一遍参数表**。
+              key: const ValueKey('fnthink-contract-version-row'),
+              keyName: 'fnthink-contract-version',
+              // ⚠ 灰点（`dot: false`），不是红点 —— 这一枚公共件只有绿/灰两色，
+              //   而绿在本页读作「正常」。对一个在说「服务器那份协议是旧的」的行
+              //   画绿点就是撒谎，而把它扩成三色是给公共件加功能（另一件事）。
+              // ⚠ 代价如实登记：灰点与「没读数」（那一档根本不画这一格）在外形上
+              //   区分度不高 ⇒ 真正的区分靠那行字本身，不靠圆点。
+              dot: false,
+              text: _contractVerdict == 'mismatch'
+                  ? l10n.fnthinkContractVersionMismatch
+                  : l10n.fnthinkContractVersionUnreadable,
+            ),
+          ),
         Text(
           l10n.fnthinkHostDesc,
           style: TextStyle(

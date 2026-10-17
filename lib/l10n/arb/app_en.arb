@@ -1698,6 +1698,8 @@
   "fnthinkHostRegionMainland": "Mainland China (Chengdu)",
   "fnthinkHostNoCandidates": "The contract declares no selectable service address",
   "fnthinkHostUpdateNote": "Update checks use a different server and do not follow this setting.",
+  "fnthinkContractVersionMismatch": "The server runs an older copy of the protocol — some messages won't go out",
+  "fnthinkContractVersionUnreadable": "Can't tell whether the server's copy of the protocol is current",
   "fnthinkBoundary": "With receiving on, message content passes through the server, which can then read the body and metadata.",
   "fnthinkContractUnavailable": "The bundled protocol contract cannot be read, so nothing here can be changed yet: {reason}",
   "@fnthinkContractUnavailable": {

@@ -6302,6 +6302,18 @@ abstract class AppLocalizations {
   /// **'检查更新走的是另一条链路，不随这里切换。'**
   String get fnthinkHostUpdateNote;
 
+  /// No description provided for @fnthinkContractVersionMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器上的协议是旧的那一份，部分消息会发不出去'**
+  String get fnthinkContractVersionMismatch;
+
+  /// No description provided for @fnthinkContractVersionUnreadable.
+  ///
+  /// In zh, this message translates to:
+  /// **'读不出服务器那份协议是新的还是旧的'**
+  String get fnthinkContractVersionUnreadable;
+
   /// No description provided for @fnthinkBoundary.
   ///
   /// In zh, this message translates to:

@@ -35,6 +35,8 @@ const {
   statusCode,
   canonicalOrder,
   shapeError,
+  versionEchoSpec,
+  compareClientContractVersion,
 } = require('./contract');
 const { alphabetFromContract, normalize } = require('./credentials');
 const { acceptIncoming } = require('./verify');
@@ -96,6 +98,7 @@ const {
   saveMessages,
 } = require('./messagestore');
 const { createEndpointIngress, readIngress } = require('./endpointintake');
+const versionEcho = require('./version_echo');
 
 const contract = assertSupported(loadContract());
 const router = express.Router();
@@ -104,6 +107,15 @@ const router = express.Router();
 // 把受害者顶到 429）。所以它出现在下面每条路由的 `auth.ok` 之后、业务副作用之前。
 // 数字与名单全部来自契约（经 ratelimit.windowsFor），这里不写第二个数。
 const rejectIfOverQuota = createSenderQuota();
+
+// 关联键只在这里记一次，**不散进 13 个 handler**：
+// 散进去就会漏掉某一条路，而「漏掉的那条路恰好不打这个标记」与「没有不一致」
+// 在 `/health` 上长得一模一样 —— 那正是本条要抓的那种失效自己藏起来的形状。
+// ⚠ 挂在 `router.use` 而不是第一条路由上：漏挂的那一路照样会被这一格照到。
+router.use((req, _res, next) => {
+  if (req.method === 'POST') noteClientContractVersion(req.body);
+  next();
+});
 
 /// 只取契约 `signature.canonicalOrder` 承认的那几个键。
 /// 少一个键 ⇒ 下游 `canonicalBytes` 抛（"没填"与"填了空值"必须签出不同的字节）；
@@ -206,6 +218,24 @@ function freshState() {
 
 function text(value) {
   return typeof value === 'string' ? value : '';
+}
+
+// ── 客户端契约版本关联键（T155：让「服务器上那份是旧的」可见）────────────────
+//
+// ⚠ 这一段**只观察，不干预**：比对结果只进 `/health`，请求照常走它自己的那一套
+//   判据。不一致时抛错/降级就是 A1 那次部署事故本身（新代码配旧契约 ⇒ 协议面 503，
+//   崩启动还会连带 `/api/version` 与管理后台）—— 那正是本条要避免的结果。
+//
+// ⚠ 存进 `version_echo.js` 而不是本文件的模块变量：第一版就存在这里，
+//   而 `/health` 那一侧（`lib/routes/version.js`）为此 require 了本文件 ——
+//   本文件顶层会构造 `createSenderQuota()`，那一构造要读契约的 `alerts` 段 ⇒
+//   「protocol/ 还是上一批那份」的部署下 `version.js` 崩在启动，
+//   把 A1 那次事故修好的「只降级协议面」从背后绕了过去。
+//   `version_echo` 什么都不 require，契约读不动时它照样能加载。
+function noteClientContractVersion(body) {
+  const { field } = versionEchoSpec(contract);
+  const source = body && typeof body === 'object' ? body : {};
+  return versionEcho.note(compareClientContractVersion(contract, body), source[field]);
 }
 
 function sendFailure(res, status, receipt) {

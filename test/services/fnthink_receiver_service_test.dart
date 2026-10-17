@@ -58,6 +58,117 @@ void main() {
       // host 与 scheme 来自传进来的 base，不是写死的某个官方实例
       expect(rec.requests.first.url.host, 'push.example.com');
     });
+  });
+
+  // ── T155：每发请求顶层带上契约版本（让「服务器上那份是旧的」可见）──────────
+  group('契约版本关联键', () {
+    test('每一发都在**顶层**带上包内那份的 contractVersion', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[],"receipts":[],"pending":0,"serverTime":1800000000000}',
+          '{"receipt":"delivered","state":"delivered"}',
+        ],
+      );
+      final service = build(contract, rec, _Signer());
+      await service.pollOnce();
+      await service.ack(messageId: 'm_1', result: 'displayed');
+
+      expect(contract.versionEchoField, isNotEmpty);
+      for (final request in rec.requests) {
+        final body = jsonDecode(request.body) as Map<String, Object?>;
+        expect(
+          body[contract.versionEchoField],
+          contract.contractVersion,
+          reason:
+              '这一发没带或带错了版本 ⇒ 服务器上看不出「它手上的契约是旧的」'
+              '—— 那正是本条要抓的那件事，而缺了它表现是**一切照常**',
+        );
+      }
+    });
+
+    test('⚠ 它在顶层而**不在签名载荷里**（canonicalOrder 是固定的六键）', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[],"receipts":[],"pending":0,"serverTime":1800000000000}',
+        ],
+      );
+      await build(contract, rec, _Signer()).pollOnce();
+
+      final body = jsonDecode(rec.requests.single.body) as Map<String, Object?>;
+      final signed = (body['fields'] as Map).keys.cast<String>().toSet();
+      expect(
+        signed.contains(contract.versionEchoField),
+        isFalse,
+        reason:
+            '关联键混进签名载荷 ⇒ 它就成了协议的一部分：'
+            '`signature.canonicalOrder` 一个键都不能加，而两端版本不同时签名直接失败 —— '
+            '那样就不是「可见」而是「全挂」，与本条要抓的形状正好相反',
+      );
+    });
+
+    test('别的一律不动：顶层只多出关联键那一个', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[],"receipts":[],"pending":0,"serverTime":1800000000000}',
+        ],
+      );
+      await build(contract, rec, _Signer()).pollOnce();
+
+      final body = jsonDecode(rec.requests.single.body) as Map<String, Object?>;
+      final keys = body.keys.toSet();
+      expect(
+        keys.contains(contract.versionEchoField),
+        isTrue,
+        reason: '前置：这一发带着关联键',
+      );
+      // ⚠ 判据是"**只**多出它一个"，不是逐字列全量键：载荷其余部分的形状由
+      //   上面那组既有用例钉（路径/host/签名），这一条只量"我有没有顺手多带别的"。
+      //   列全量键会让契约将来合法地加一个顶层键时这条假红 —— 那是"尺窄于被量之物"。
+      expect(
+        keys.where((k) => k != contract.versionEchoField).toSet(),
+        keys.toSet()..remove(contract.versionEchoField),
+        reason: '反向自证：去掉关联键后集合不变（否则上面那句是恒真）',
+      );
+      for (final k in ['privateKey', 'endpointSecret', 'pairingCode']) {
+        expect(
+          keys.contains(k),
+          isFalse,
+          reason: '顶层带着 $k —— 契约 `mayNotCarry` 明令不得携带的三枚之一',
+        );
+      }
+    });
+
+    test('契约缺 versionEcho 段时不发这一枚（空键名会被读成 unreadable）', () async {
+      // 少一段契约 ⇒ 服务端读出来是「带了但读不出来」，那是个能看见的错；
+      // 而猜一个键名会让它恒 `null` —— 最坏的一种（看不见）。
+      expect(contract.versionEchoField, isNotEmpty, reason: '前置：仓库那份契约有这一段');
+
+      final decoded =
+          jsonDecode(File(fnthinkContractPath).readAsStringSync())
+              as Map<String, Object?>;
+      final stripped = Map<String, Object?>.from(decoded)
+        ..remove('versionEcho');
+      final bare = FnthinkContract.parse(jsonEncode(stripped));
+      expect(
+        bare.versionEchoField,
+        isEmpty,
+        reason: '前置：那份契约真的缺这一段（`parse` 不补默认值）',
+      );
+
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[],"receipts":[],"pending":0,"serverTime":1800000000000}',
+        ],
+      );
+      await build(bare, rec, _Signer()).pollOnce();
+
+      final body = jsonDecode(rec.requests.single.body) as Map<String, Object?>;
+      expect(
+        body.containsKey(''),
+        isFalse,
+        reason: '发了一个空键名 ⇒ 服务端读到 `unreadable`，把一个"契约缺段"读成"客户端在说谎"',
+      );
+    });
 
     test('实现里不出现第二条拼出来的路径（只允许经契约取）', () {
       final code = File('lib/services/fnthink_receiver_service.dart')
@@ -234,13 +345,22 @@ void main() {
       expect(result.reason, contains('502'));
     });
 
-    test('请求体恰好三键，而 summary 里不含签名', () async {
+    test('请求体只有那几键（签名三件套 + 契约版本关联键），而 summary 里不含签名', () async {
       final rec = _Recorder();
       final service = build(contract, rec, _Signer());
       final result = await service.pollOnce();
       final decoded =
           jsonDecode(rec.requests.first.body) as Map<String, Object?>;
-      expect(decoded.keys.toSet(), {'sender', 'signature', 'fields'});
+      // ⚠ T155 起是**四**键：`contractVersion`（契约声明的那枚关联键，顶层、
+      //   不在签名里）随每一发出去，让服务器能看出「客户端手上那份是旧的」。
+      //   这一条量的仍是"没有多余字段" —— 私钥/端点口令那几枚一个都不许出现
+      //   （`mayNotCarry` 钉的就是它们），而关联键是契约明写的那一个。
+      expect(decoded.keys.toSet(), {
+        'sender',
+        'signature',
+        'fields',
+        contract.versionEchoField,
+      });
       expect(decoded['sender'], address);
       expect(
         (decoded['fields']! as Map).keys.toSet(),
@@ -482,7 +602,13 @@ void main() {
       expect(result.messageId, 'm_7');
       expect(rec.requests.single.url.path, contract.apiPath('message'));
       final sent = jsonDecode(rec.requests.single.body) as Map<String, Object?>;
-      expect(sent.keys.toSet(), {'sender', 'signature', 'fields'});
+      expect(sent.keys.toSet(), {
+        'sender',
+        'signature',
+        'fields',
+        // T155：关联键随每一发出去（顶层、不在签名里）—— 见上面那条同款注。
+        contract.versionEchoField,
+      });
       final fields = sent['fields']! as Map<String, Object?>;
       expect(fields['target'], peer);
       expect(fields['type'], 'notice');

@@ -3385,6 +3385,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHostUpdateNote => '检查更新走的是另一条链路，不随这里切换。';
 
   @override
+  String get fnthinkContractVersionMismatch => '服务器上的协议是旧的那一份，部分消息会发不出去';
+
+  @override
+  String get fnthinkContractVersionUnreadable => '读不出服务器那份协议是新的还是旧的';
+
+  @override
   String get fnthinkBoundary => '开着接收之后，通知内容会经过服务器中转：服务器那一侧看得见消息正文与元数据。';
 
   @override

@@ -3540,6 +3540,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Update checks use a different server and do not follow this setting.';
 
   @override
+  String get fnthinkContractVersionMismatch =>
+      'The server runs an older copy of the protocol — some messages won\'t go out';
+
+  @override
+  String get fnthinkContractVersionUnreadable =>
+      'Can\'t tell whether the server\'s copy of the protocol is current';
+
+  @override
   String get fnthinkBoundary =>
       'With receiving on, message content passes through the server, which can then read the body and metadata.';
 

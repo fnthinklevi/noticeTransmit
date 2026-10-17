@@ -166,7 +166,11 @@ void main() {
     // T95 片5：打开「切换服务」那一格时的**探测**与**记账**两个口。
     // 用例里让它们指向同一个真 ChannelHealthStore —— 这样"探完写的"与"选项读的"
     // 必须是同一份，漏接任何一边都当场看得见（页面自己判 reachable 会退成第二份口径）。
-    Future<Map<String, Duration>> Function(List<String> hosts)? probeHosts,
+    Future<Map<String, Duration>> Function(
+      List<String> hosts, {
+      void Function(String host, Map<String, Object?> body)? onHealthBody,
+    })?
+    probeHosts,
     Future<void> Function({
       required String host,
       required bool reachable,
@@ -1212,8 +1216,13 @@ void main() {
         final probed = <String>[];
         final h = harness(
           healthOf: (host) => store.of(kFnthinkServerFamily, host),
-          probeHosts: (hosts) async {
+          probeHosts: (hosts, {onHealthBody}) async {
             probed.addAll(hosts);
+            // ⚠ T155：正文按**契约声明的那个键**给（`onHealthBody` 收到的是
+            //   `/health` 的整份 JSON）—— 这里用真契约取键名，不写一个字面量。
+            for (final h in hosts) {
+              onHealthBody?.call(h, {contract.versionEchoHealthKey: 'match'});
+            }
             // 只有第一台答（第二台探不通）。
             return {hosts.first: const Duration(milliseconds: 40)};
           },
@@ -3770,7 +3779,14 @@ void main() {
       final request = h.sendAsked().single;
       expect(request.url.path, contract.apiPath('message'));
       final envelope = jsonDecode(request.body) as Map<String, Object?>;
-      expect(envelope.keys.toSet(), {'sender', 'signature', 'fields'});
+      expect(envelope.keys.toSet(), {
+        'sender',
+        'signature',
+        'fields',
+        // T155：契约版本关联键（顶层、不在签名里）随每一发出去 ——
+        // 三键一个字没动，而这一条量的仍是「没有多余字段」。
+        contract.versionEchoField,
+      });
       final fields = envelope['fields']! as Map<String, Object?>;
       expect(fields['target'], peerAddress);
       expect('${fields['body']}', contains('到家了'));
@@ -4194,7 +4210,13 @@ void main() {
         reason: '那一发要打在契约声明的门上，而不是页面自己拼的某条路径',
       );
       final envelope = jsonDecode(request.body) as Map<String, Object?>;
-      expect(envelope.keys.toSet(), {'sender', 'signature', 'fields'});
+      expect(envelope.keys.toSet(), {
+        'sender',
+        'signature',
+        'fields',
+        // T155：同上那条注（契约版本关联键，顶层）。
+        contract.versionEchoField,
+      });
       final fields = envelope['fields']! as Map<String, Object?>;
       expect(fields['target'], peerAddress, reason: '这一发签的是"关于别人"，target 不是本机');
       expect(envelope['sender'], validAddress);

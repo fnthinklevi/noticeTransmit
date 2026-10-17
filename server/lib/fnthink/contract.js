@@ -111,6 +111,36 @@ function assertSupported(contract) {
   return contract;
 }
 
+/// 客户端那枚关联键的读法（键名与 `/health` 上那个键名都取自契约 `versionEcho`）。
+///
+/// ⚠ **不一致时不抛、不降级**：本函数唯一的用途是让「服务器上那份契约是旧的」
+/// 这件事**可见**。降级就是 A1 那次部署事故本身（新代码配旧契约 ⇒ 协议面 503，
+/// 而崩启动会连带 `/api/version` 与管理后台）—— 那正是我们要避免的结果。
+///
+/// ⚠ 三档分开报，不折成 `null`：
+/// - `match` —— 对得上（或客户端没带，那是老客户端，不该算成不一致）；
+/// - `mismatch` —— 带的那个与服务端这份不是同一个数；
+/// - `unreadable` —— 带了但不是可比的形状（字符串 / null / 对象）。
+///   折成一个布尔的话，"客户端在说谎"与"客户端那枚读不出来"长得一模一样。
+function versionEchoSpec(contract) {
+  const spec = contract.versionEcho || {};
+  const field = typeof spec.field === 'string' ? spec.field : 'contractVersion';
+  const healthKey =
+    typeof spec.healthKey === 'string' ? spec.healthKey : 'clientContractVersionMismatch';
+  return { field, healthKey };
+}
+
+function compareClientContractVersion(contract, body) {
+  const { field } = versionEchoSpec(contract);
+  const source = body && typeof body === 'object' ? body : {};
+  if (!Object.prototype.hasOwnProperty.call(source, field)) return 'match';
+  const theirs = source[field];
+  // 老客户端不带这一格 ⇒ 不算不一致（它压根不知道有这回事）。
+  if (theirs === undefined || theirs === null) return 'match';
+  if (typeof theirs !== 'number' || !Number.isInteger(theirs)) return 'unreadable';
+  return theirs === contract.contractVersion ? 'match' : 'mismatch';
+}
+
 /// 同步响应码表（`_` 开头的说明键与 `indistinguishable` 都不算码）。
 function statusCodes(contract) {
   const table = contract.statusCodes || {};
@@ -244,4 +274,6 @@ module.exports = {
   aliasesFor,
   pickField,
   onlineThresholdMs,
+  versionEchoSpec,
+  compareClientContractVersion,
 };

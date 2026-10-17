@@ -128,11 +128,26 @@ class FnthinkReceiverService {
   }
 
   Future<FnthinkReply> _transport(Map<String, Object?> envelope) async {
+    // T155：把本机手上那枚契约版本**顶层**告诉服务器（不进签名链 ——
+    // `signature.canonicalOrder` 是固定的六键，加一格就是协议变更）。
+    // ⚠ 取值一律走 [FnthinkContract.contractVersion]，**不许手打数字**：这枚数要是能被
+    //   在页面或服务里另写一份，它就会与包内那份漂开，而漂开的方向恰好是
+    //   「报一致而实际不一致」—— 那一格存在的意义就没了。
+    // ⚠ 只加**这一个键**：`envelope` 里的其它内容一个都不动，
+    //   签名载荷与 canonicalOrder 那一圈完全不受影响。
+    // ⚠ 键名为空（契约缺 `versionEcho` 段）时**就不发这一枚**，而不是发一个空键名：
+    //   空键名会被服务端读成 `unreadable` —— 那是个能看见的错，
+    //   而「猜一个名字」会让它连错都报不出来（恒 `null`，最坏的一种）。
+    final versionField = contract.versionEchoField;
+    final payload = versionField.isEmpty
+        ? envelope
+        : (Map<String, Object?>.of(envelope)
+            ..[versionField] = contract.contractVersion);
     final response = await _client
         .post(
           baseUri.resolve(_pathForEnvelope(envelope)),
           headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode(envelope),
+          body: jsonEncode(payload),
         )
         .timeout(timeout);
     Map<String, Object?> body = const {};
