@@ -4,6 +4,8 @@ import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/locale_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/source_guards.dart';
+
 /// 通道身份（送达键）与显示名的契约测试。
 ///
 /// 两条不可让的不变式：
@@ -195,7 +197,6 @@ void main() {
       expect(channelTypeDisplayName('email'), '邮件');
       expect(channelTypeDisplayName('sms'), '过滤拦截');
       expect(channelTypeDisplayName('merge'), '合并推送');
-      expect(channelTypeDisplayName('unknown'), '通用 Webhook');
       for (final name in [
         '企业微信',
         '钉钉',
@@ -234,8 +235,116 @@ void main() {
       expect(channelTypeDisplayName('dingtalk'), 'DingTalk');
       expect(channelTypeDisplayName('wecom_app'), 'WeCom App');
       expect(channelTypeDisplayName('email'), 'Email');
-      expect(channelTypeDisplayName('unknown'), 'Generic Webhook');
       expect(channelDeliveryKey('DINGTALK'), 'chan:dingtalk');
+    });
+
+    // ── 认不出就说得出来，不许编一个族名（T154 片4）─────────────────────────
+    //
+    // ⚠ 这组**改掉了本文件两条旧断言**（原来 `unknown` → 「通用 Webhook」）。
+    //   那是 `channelKey` 的存储兜底被顺手带进了显示层：一条早就下架的通道，
+    //   用户看到的是"我明明配的是邮件，它说通用 Webhook"。
+    //   判据与同文件 `channelFamilyName`「未登记的族原样返回，不猜成 webhook」同源 ——
+    //   这一族自己不该有两种口径。
+    // ⚠ 两件事必须分开：**存储键仍然兜底**（认不出的老数据也得有稳定落点），
+    //   **显示名不兜底**。下面 `channelKey` 那两条就是这个分岔。
+    group('认不出的键：显示名不猜，存储键照旧兜底', () {
+      tearDown(() => GetIt.instance.reset());
+
+      test('显示名原样给出那一段 token（剥掉存储前缀）', () {
+        expect(channelTypeDisplayName('chan:retired_family'), 'retired_family');
+        expect(channelTypeDisplayName('retired_family'), 'retired_family');
+        expect(
+          channelTypeDisplayName('chan:Old_Weird_Slug'),
+          'Old_Weird_Slug',
+          reason:
+              '**原样**给出，不做大小写归一 —— 那是存储层的事。'
+              '这里 lowercase 一遍等于又造了第二种拼写：'
+              '同一条老记录按大小写不同会显示成两个名字，而它本来只有一个',
+        );
+        expect(
+          channelTypeDisplayName('chan:sms'),
+          '过滤拦截',
+          reason:
+              '反向自证：`sms` **认得出**（别名表里 `sms` → `blocked`），'
+              '所以它必须仍显示「过滤拦截」而不是 token —— '
+              '否则下面那几条就是在"什么都认不出"的前提下假绿',
+        );
+      });
+
+      test('英文环境同样不猜（不因换语言就换成一个编出来的族名）', () async {
+        SharedPreferences.setMockInitialValues({});
+        final localeService = LocaleService();
+        GetIt.instance.registerSingleton<LocaleService>(localeService);
+        await localeService.setLanguage(AppLanguage.en);
+
+        expect(channelTypeDisplayName('chan:retired_family'), 'retired_family');
+      });
+
+      test('空串回空串：那不是"通用"，那是什么都没有', () {
+        expect(channelTypeDisplayName(''), '');
+        expect(
+          channelTypeDisplayName('chan:'),
+          '',
+          reason: '只有前缀没有内容 ⇒ 剥完是空的，不该回一个编出来的名字',
+        );
+      });
+
+      test('存储键那一侧分毫不动：认不出仍落 generic（老数据要读得进来）', () {
+        expect(channelKey('chan:retired_family'), 'generic');
+        expect(channelKey(''), 'generic');
+        expect(channelDeliveryKey('chan:retired_family'), 'chan:generic');
+        expect(
+          channelKey('sms'),
+          'blocked',
+          reason: '认得出的照旧认得出 —— 这一条钉的是"兜底只发生在认不出时"',
+        );
+      });
+
+      // ⚠ 这一条是本片**真实要护住的后果**：显示名那一改，`normalizeDeliveryKeys`
+      //   读旧数据的归一也走同一层。认不出的老键落 `generic` 之后，
+      //   历史页那一格会显示成「通用 Webhook」—— 这正是本片改掉的那种撒谎，
+      //   所以它必须在**归一之后**仍然看得见，而不是在归一时被抹平。
+      //   钉的是"键归一了、但显示名那一侧仍不猜"两件事同时成立。
+      test('归一之后仍不撒谎：老键落进存储，显示名那一格仍说得出它认不出', () {
+        final out = normalizeDeliveryKeys({
+          'retired_family': {'status': 'failed', 'message': '超时'},
+        });
+        expect(
+          out.keys.single,
+          'chan:generic',
+          reason: '存储键那侧照旧兜底 —— 老数据要读得进来',
+        );
+        expect(
+          channelTypeDisplayName(out.keys.single),
+          '通用 Webhook',
+          reason:
+              '⚠ 这是本片**认下的残余代价**，不是漏网：键一旦归一成 `chan:generic`，'
+              '显示层就再也分不出"它本来就是通用"与"它本来是别的一族、只是认不出了"。'
+              '归一那一步是有意的（老数据要能读），所以这一格只能显示成通用。'
+              '换句话说：**本片治的是"还没归一、还看得到原键"的那条路**'
+              '（`record.channels` 与送达日志 tag 直接给原键），'
+              '而这一条属于"已经归一、线索没了"的那条 —— 要治它得让归一保留原键，'
+              '那是动存储形状，不在本片范围内。写在这里免得后人读成"漏了一个"。',
+        );
+      });
+
+      test('反向自证：兜底那一句删掉就会红（尺不是恒真）', () {
+        final src = librarySource(
+          projectRoot(),
+          'lib/services/channel_display.dart',
+        );
+        expect(
+          stripComments(
+            src,
+          ).contains("_resolveSlugOrNull(rawType) ?? 'generic'"),
+          isTrue,
+          reason:
+              '存储兜底没了 ⇒ 认不出的键在写侧就会返回 null，'
+              '而 `channelDeliveryKey` 会拼出 "chan:null" —— 那是比撒谎更坏的一种。'
+              '⚠ 必须剥注释再找：那串字面量就写在「不许顺手带进显示层」那段注释里，'
+              '不剥就会靠注释让这条恒绿。',
+        );
+      });
     });
   });
 

@@ -137,18 +137,32 @@ final Map<String, String> _slugByDisplayName = {
   for (final e in _channelNames.entries) e.value.$2.toLowerCase(): e.key,
 };
 
-/// 任意来源的通道标识 → 规范 slug。未知值回退 `generic`（与旧显示兜底同口径）。
+/// 归一但**不兜底**：认得出就返回规范 slug，认不出返回 `null`。
+///
+/// ⚠ 这一层是 [channelKey] 与 [channelTypeDisplayName] 的**分岔点**，两边的差别不是
+/// "一个严谨一个随意"，而是**它们回答的不是同一个问题**：
+/// - [channelKey] 答「这一格的存储键写成什么」→ 认不出也得给一个稳定落点，否则老数据读不进来。
+/// - [channelTypeDisplayName] 答「这一格**是什么**」→ 认不出就没有名字可给，编一个就是撒谎。
 ///
 /// 输入可为：`chan:` 键（幂等）、Kotlin 枚举名（`WECHAT_WORK`）、DB 值
 /// （`wechat_work`）、驼峰（`wechatWork`）、早期数字（`'0'`）、
 /// 旧版本地化显示串（`webhook:企业微信` / `App:WeCom App`）、裸显示名（`企业微信`）。
-String channelKey(String rawType) {
+String? _resolveSlugOrNull(String rawType) {
   var v = rawType.trim();
   // 剥掉前缀：chan:（自身幂等）与历史把显示名当前缀的写法（webhook:/应用:/App:/自建应用:）
   final colon = v.indexOf(':');
   if (colon > 0) v = v.substring(colon + 1);
   v = v.toLowerCase();
-  return _slugAliases[v] ?? _slugByDisplayName[v] ?? 'generic';
+  return _slugAliases[v] ?? _slugByDisplayName[v];
+}
+
+/// 任意来源的通道标识 → 规范 slug。未知值回退 `generic`（**只用于存储键**）。
+///
+/// ⚠ 那个 `generic` 兜底**不许**顺手带进显示层：`channelTypeDisplayName` 认不出时
+/// 显示「通用 Webhook」，等于替一条早就下线的通道编了一个族名。同文件的
+/// [channelFamilyName] 对未知族「原样返回，不猜成 webhook」—— 这一族自己就不该有两种口径。
+String channelKey(String rawType) {
+  return _resolveSlugOrNull(rawType) ?? 'generic';
 }
 
 /// 存储键：`deliveryStatus` 的键、`webhook_delivery_log.tag` 都用它。幂等。
@@ -215,9 +229,30 @@ String channelTargetLabel(String raw) {
 }
 
 /// 通道显示名（语言感知）。输入同 [channelKey]，因此把键直接喂进来也能得到名字。
+///
+/// ⚠ **认不出就原样给出那一段 token，不猜成「通用 Webhook」**（T154 片4 落账）。
+/// 判据与 [channelFamilyName] 同源：没读到要说得出来，不许替它编一个。**这条能发生的
+/// 形状就一条**：某一族被下架/改名后，老记录里那个键已经不在 [_channelNames] 里了
+/// —— 那时把它读成「通用 Webhook」，用户看到的是"我明明配的是邮件"。
+///
+/// ⚠ 键前缀仍然要剥（[`chan:`] 与历史的 `webhook:/应用:/App:`）：那两段是**存储形状**，
+/// 混进显示名正是本文件头 v1.62 第 2 步修掉的缺陷第 3 条。
+/// ⚠ 但**剥完是空的**（入参就是空串）就回空串，不回「通用 Webhook」——
+/// 那一行本来就缺信息，回一个编出来的名字比留空更误导。
 String channelTypeDisplayName(String rawType) {
-  final names = _channelNames[channelKey(rawType)]!;
+  final slug = _resolveSlugOrNull(rawType);
+  if (slug == null) return _stripStoragePrefix(rawType);
+  final names = _channelNames[slug];
+  if (names == null) return _stripStoragePrefix(rawType);
   return _isEnglishLocale() ? names.$2 : names.$1;
+}
+
+/// 只剥存储前缀，保留其余原样 —— 显示层给"看得见的缺"时用这一句。
+String _stripStoragePrefix(String rawType) {
+  final v = rawType.trim();
+  final colon = v.indexOf(':');
+  final body = colon > 0 ? v.substring(colon + 1) : v;
+  return body.trim();
 }
 
 bool _isEnglishLocale() {
