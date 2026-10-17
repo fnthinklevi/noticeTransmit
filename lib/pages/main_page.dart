@@ -416,6 +416,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       unawaited(_refreshFnthinkChannels());
       // 通道健康度同理（#174）：6h 时效一过，"上次成功"会被判成「未知」，而此前只有
       // 进那三个族页才会重探 —— 首页这张卡/状态页会一直挂着"未知"没人管。
+      // T147 片2：**回前台补一次收尾**。启动链那一发（`addPostFrameCallback`）只在冷启动跑，
+      // 而"进程被杀/窗口被系统回收"这条形状**也**会出现在"从后台切回来"这一刻 ——
+      // 那些行还写着「待执行」，而工作集里已经没有它们（`sweepInterrupted` 只收
+      // 不在工作集里的那些，判据在 runner 内部）。
+      // ⚠ 启动链那一发**不能**撤：冷启动时首帧后还没有 `resumed`，撤了就没有下一次。
+      // ⚠ 与"回前台重取各页读数"同族同理由：那些事实都是在后台期间变的。
+      unawaited(_sweepInterruptedRemoteExecutions());
       // 通道健康度同理（#174 → #183）：时效一过，"上次成功"会被判成「未知」，而此前只有
       // 走进那三个族页才会重探 —— 首页这张卡/通道状态页会一直挂着"未知"没人管。
       // 打开软件（含回前台）立刻探一轮，顺带把定时器重新起起来。
@@ -516,13 +523,23 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     await getIt<RemoteCommandWiring>().drainLocalCommands();
   }
 
-  /// 进程被杀之后那一次重启，把还写着「待执行」的那些行收一次尾（T147 ③）。
+  /// 把还写着「待执行」的那些行收一次尾（T147 ③ / 片2）。
+  ///
+  /// ⚠ **两个调用点不是冗余，是两条不同的路**：
+  ///   - 启动链（`addPostFrameCallback`）：冷启动，进程被杀之后第一次进来；
+  ///   - `resumed`：**从后台切回来**。系统回收后台进程后用户切回来就是这一格，
+  ///     而那一发 `_postInit` 不会再跑（首帧已经过了）⇒ 那些行会一直写着
+  ///     「待执行」，工作集里已经没有它们。
+  ///   少任何一条，那条形状就复现一次。
   ///
   /// ⚠ 判据与上面同一条：**契约没读到就直接返回**。runner 的注册闭包里读 `cached!`，
   ///   把这一发放进 `setupLocator` 会在装配那一刻崩（#178 片1b 真机那颗），
   ///   而这一串跑在「首帧后回调」里，崩一次现场没有任何线索指向契约加载顺序。
   /// ⚠ 只收**不在本进程工作集里**的那些（判据在 `sweepInterrupted` 内部）——
   ///   本进程刚收下、正在等窗口的那一条不该被这一刀砍掉。
+  ///   **这一格也是片2 那个 `dispose` 接线必须留在容器拆卸上的理由**：
+  ///   挂到 `paused` 上会撤掉正在等的窗口，于是那一行既没有回执也不在工作集里 ——
+  ///   两头都够不着，它就永远停在「待执行」。
   /// 收不了的后果是那几行下次进来再收，不是丢消息。
   Future<void> _sweepInterruptedRemoteExecutions() async {
     if (getIt<FnthinkContractLoader>().cached == null) return;

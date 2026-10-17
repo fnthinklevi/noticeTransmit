@@ -1389,6 +1389,112 @@ void main() {
             '现场没有任何线索指向契约加载顺序（#178 片1b 那颗）',
       );
     });
+
+    // ── T147 片2：`dispose` 那一发接上容器拆卸 + `resumed` 补 sweep ────────────
+    //
+    // ⚠ 这一组钉的是**两处接缝与一个"不许接的地方"**。第三条最要紧：
+    //   `dispose` 撤掉的是**还在延时窗口里的 Timer**，挂到 `AppLifecycleState.paused`
+    //   上会让「用户切一下别的 App ⇒ 一条 10 秒后要执行的指令被静默取消，
+    //   而那一行永远停在「待执行」」—— T147 立行要治的病换个入口复发。
+    test('片2：dispose 接到容器拆卸（get_it 的 dispose: 参数），不是生命周期回调', () {
+      final locator = stripComments(
+        librarySource(root, 'lib/di/service_locator.dart'),
+      );
+      // ⚠ **不能用 `blockAfter`**（第一版就是这么写的，当场红）：它按签名后第一个
+      //   `{` 起配对，而这一块的第一个 `{` 是 `sendReport:` 那个 async 闭包的函数体 ——
+      //   于是取到的那一截在闭包结束处就断了，`dispose:`（在闭包之后）根本不在里面。
+      //   读数长这样：`... contract: getIt<...>().cached!,\n      \n`（截在闭包前一行）。
+      //   判据对着一截别人的代码恒真/恒假都毫无信息量 ⇒ 换成按**下一个注册点**切。
+      const anchor = 'getIt.registerLazySingleton<RemoteCommandRunner>(';
+      final start = locator.indexOf(anchor);
+      expect(start, greaterThan(-1), reason: '找不到 runner 的注册点 —— 它被改名了？');
+      final next = locator.indexOf('getIt.register', start + anchor.length);
+      expect(
+        next,
+        greaterThan(start),
+        reason: 'runner 那一块之后没有下一个注册点 ⇒ 尺取不到边界，先确认 DI 文件没被拆',
+      );
+      final runnerBlock = locator.substring(start, next);
+      expect(
+        runnerBlock,
+        contains('dispose: (runner) => runner.dispose()'),
+        reason:
+            '这一发仍然只有测试在调 ⇒ 装配真的在拆卸时，那些还在等窗口的 Timer '
+            '没人撤（`dispose` 的注释原话就是「装配拆卸时用」）',
+      );
+      // ⚠ 尺的形状：数**全文件**里有几处 `dispose:`，而不是"搜得到就算过" ——
+      //   新增单例接线时必须回来改这一条，不许靠"全文件搜得到"蒙过去。
+      expect(
+        RegExp(r'dispose:\s*\(').allMatches(locator).length,
+        1,
+        reason:
+            'DI 文件里出现了第二处 `dispose:`。这一条钉的是"接缝就在 runner 那一处"；'
+            '新增接线要显式改这里。⚠ 若将来确有第二个单例该这么接，'
+            '把它改成**按注册点逐个数**（与 T133 的按键前缀清点同一条工法），'
+            '不要把这条退化成"总数 == 1"',
+      );
+    });
+
+    test('片2：dispose 不许挂到 paused/hidden（那会撤掉正在等的窗口）', () {
+      final main = stripComments(
+        librarySource(root, 'lib/pages/main_page.dart'),
+      );
+      final lifecycle = blockAfter(
+        main,
+        'void didChangeAppLifecycleState(AppLifecycleState state) async {',
+      );
+      for (final bad in [
+        'RemoteCommandRunner',
+        'runner.dispose',
+        '.dispose()',
+      ]) {
+        expect(
+          lifecycle.contains(bad),
+          isFalse,
+          reason:
+              '`didChangeAppLifecycleState` 里出现了 $bad。'
+              '切后台 ≠ 装配拆卸：撤掉正在等的窗口 ⇒ 那一行既没有回执也不在工作集里，'
+              '两头都够不着，永远停在「待执行」。容器拆卸由 get_it 那一格负责，不在这里',
+        );
+      }
+      // 正面对照：paused 那一支**仍然**在撤健康度定时器 —— 那一枚撤了是对的
+      //（后台不该留网络轮询，§4-9 那颗闹钟负责下一轮）。
+      // 少了它，上面那串负向断言就成了"这个方法里什么都没有"的假绿。
+      expect(
+        lifecycle.contains('_healthProbeTimer?.cancel()'),
+        isTrue,
+        reason: '反向自证：这一支本来就在撤东西，负向断言量的是"撤错了哪一枚"',
+      );
+    });
+
+    test('片2：回前台补一次收尾（启动链那一发只在冷启动跑）', () {
+      final main = stripComments(
+        librarySource(root, 'lib/pages/main_page.dart'),
+      );
+      final lifecycle = blockAfter(
+        main,
+        'void didChangeAppLifecycleState(AppLifecycleState state) async {',
+      );
+      expect(
+        lifecycle,
+        contains('unawaited(_sweepInterruptedRemoteExecutions())'),
+        reason:
+            '系统回收后台进程后用户切回来，那些行还写着「待执行」而工作集里已经没有它们。'
+            '启动链那一发在首帧后跑，回前台时首帧早已过了 ⇒ 少这一发那条形状就复现一次。'
+            '⚠ 尺必须落在"这一发"上而不是方法名（与上面 Q5 那条同一条教训）',
+      );
+      // 两处调用点是**两条不同的路**，不是冗余：一条管冷启动、一条管切回来。
+      // 只剩一处时这一条会红 —— 而它红的时候正是少了一类形状。
+      expect(
+        RegExp(
+          r'unawaited\(_sweepInterruptedRemoteExecutions\(\)\)',
+        ).allMatches(main).length,
+        2,
+        reason:
+            '调用点恰好 2 处（启动链 + `resumed`）。多出来的那一处要么是重复接线，'
+            '要么是有人把它搬到了别处 —— 两种都要知道',
+      );
+    });
     test('装配点把执行链的事件源接上了页面（漏传 = 那一页永远不动）', () {
       final page = read('lib/pages/fnthink_remote_page.dart');
       expect(

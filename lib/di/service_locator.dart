@@ -371,6 +371,21 @@ void setupLocator() {
       statusBar: getIt<RemoteExecutionNotifier>(),
       now: DateTime.now,
     ),
+    // T147 片2：`dispose` 那一发接到**容器拆卸**上。
+    //
+    // ⚠ 为什么是这里而不是 `AppLifecycleState.paused`（切后台）：
+    //   `dispose` 撤的是**还在延时窗口里的 Timer**，而撤 Timer 这件事只在
+    //   "装配真的在拆卸"时才是真话 —— 进程一走，那个窗口本来就不存在了。
+    //   挂到 `paused` 上的表现是：用户切一下别的 App，一条 10 秒后要执行的指令
+    //   被静默取消，而界面上那一行**永远停在「待执行」**（`sweepInterrupted`
+    //   只在启动链跑，回前台不跑）—— 那正是 T147 立行要治的病，换个入口复发。
+    //   ⚠ 同族两枚（`NotificationService.dispose` / `FnthinkReceiverService.dispose`）
+    //   也都还只有测试在调；**本片只动这一枚**，不顺手扩 —— 那是另一条尾账。
+    //
+    // ⚠ 不选生命周期回调的第二个理由：**get_it 自己的容器生命周期就是那一件**，
+    //   再在 `main_page` 里手写一遍"什么时候算拆卸"就是第二个作者。
+    //   `GetIt.reset()`（测试）与进程销毁（真机）都走这一格。
+    dispose: (runner) => runner.dispose(),
   );
   // 收货循环那一格与判定层之间那一段。
   getIt.registerLazySingleton<RemoteCommandWiring>(
