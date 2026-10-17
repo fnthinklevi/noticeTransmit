@@ -46,7 +46,7 @@ void main() {
     'pages/permission_settings_page.dart': 5,
     'pages/update_server_page.dart': 2,
     'pages/history_page.dart': 3,
-    'pages/fnthink_settings_page.dart': 6,
+    'pages/fnthink_settings_page.dart': 7,
     'pages/fnthink_peers_page.dart': 1,
     'pages/fnthink_send_page.dart': 1,
   };

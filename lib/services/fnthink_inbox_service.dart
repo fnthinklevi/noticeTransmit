@@ -1,5 +1,9 @@
+import 'package:flutter/foundation.dart';
+import 'package:fnthink_push/fnthink_push.dart';
+
 import '../database/database_helper.dart';
 import '../models/fnthink_inbox_message.dart';
+import '../services/fnthink_settings.dart';
 
 /// 收件（别人推给本机的消息）的读写咽喉（T48 的数据层半边）。
 ///
@@ -19,9 +23,38 @@ import '../models/fnthink_inbox_message.dart';
 ///  - 页面读侧退回直连表 ⇒ 红在「历史页的收件档走服务层」；写侧退回 ⇒ 红在同一条。
 ///  - 在这层里加一枚自己的排序常量（= 口径长出第二份）⇒ 红在「服务层只转发，没把查询自己抄一份」。
 class FnthinkInboxService {
-  FnthinkInboxService({DatabaseHelper? db}) : _db = db ?? DatabaseHelper();
+  FnthinkInboxService({DatabaseHelper? db, this.contract})
+    : _db = db ?? DatabaseHelper();
 
   final DatabaseHelper _db;
+
+  /// T47 的 prune 要经 `FnthinkSettings` 读保留档位，而后者构造要契约。
+  /// 生产装配从契约装载器拿；测试不传 ⇒ pruneRetention 会跳过并记日志
+  /// （不崩 —— 裁剪是维护性动作，协议没装载不该把它变成收货故障）。
+  final FnthinkContract? contract;
+
+  /// T47：按保留策略裁收件表。唯一调用点 = 首页启动/回前台那一发
+  /// （`main_page_actions._startHealthProbeCadence` 同批）—— 不放进收货循环每一轮：
+  /// prune 是一张表的删除扫描，5–60 秒一轮的频率对它毫无意义，而保留下界
+  /// 也不需要那个频率。失败只记日志：裁不动这一轮下一轮还会再来，
+  /// 断在收货链上才是事故。
+  Future<({int byAge, int byCap})> pruneRetention() async {
+    final c = contract;
+    if (c == null) {
+      debugPrint('[fnthink] 收件保留裁剪跳过：契约未装载');
+      return (byAge: 0, byCap: 0);
+    }
+    final days = await FnthinkSettings(contract: c).retentionDays();
+    try {
+      return await _db.pruneFnthinkInbox(
+        olderThanDays: days,
+        maxRows: FnthinkSettings.inboxMaxRows,
+      );
+    } catch (e) {
+      debugPrint('[fnthink] 收件保留裁剪失败（下一轮再来）: $e');
+      return (byAge: 0, byCap: 0);
+    }
+  }
 
   /// 收件列表，新到的在前。`limit`/`offset` 的口径与推送历史一致。
   Future<List<FnthinkInboxMessage>> list({

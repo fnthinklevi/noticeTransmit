@@ -5212,6 +5212,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkRemoteCommandRowTitle => 'A remote command';
 
   @override
+  String get fnthinkRetentionLabel => 'Inbox retention';
+
+  @override
+  String get fnthinkRetentionDaysUnit => ' days';
+
+  @override
+  String get fnthinkRetentionDefault => 'Default';
+
+  @override
+  String get fnthinkRetentionPick => 'Change';
+
+  @override
   String get remoteHistoryPending => 'Waiting';
 
   @override

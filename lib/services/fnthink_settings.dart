@@ -210,6 +210,38 @@ class FnthinkSettings {
     await prefs.remove(keyPollSeconds);
   }
 
+  /// 收件保留天数（T47，维护者 2026-10-17 按会话推荐拍）。**档位与缺省都住这里**：
+  /// 界面的选项表与 prune 各读同一份，另抄一份就是两处各变一半。
+  /// 存的是「选过那一档」这个事实；盘上读到非法值一律按缺省读 ——
+  /// 把坏值当 0 执行等于清空收件表（pruneFnthinkInbox 会当场抛，那是它该做的）。
+  static const keyRetentionDays = 'fnthink.inbox_retention_days';
+
+  /// 进界面的四档。
+  static const List<int> retentionChoices = [7, 30, 90, 365];
+
+  /// 缺省 30 天：本机收件常是验证码类正文，无界保留与 T34「不无谓留」相抵；
+  /// 30 天足够人回过头去查一条通知。
+  static const int retentionDefaultDays = 30;
+
+  /// **条数是资源闸，不进界面**：与 T133 片5 MAX_QUEUE_BYTES 同一口径 ——
+  /// 它兜的是「天数档位被设到最大之后表还能不能有界」，不是给用户拧的旋钮。
+  static const int inboxMaxRows = 20000;
+
+  Future<int> retentionDays() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getInt(keyRetentionDays);
+    if (stored == null) return retentionDefaultDays;
+    return retentionChoices.contains(stored) ? stored : retentionDefaultDays;
+  }
+
+  Future<void> setRetentionDays(int days) async {
+    if (!retentionChoices.contains(days)) {
+      throw FnthinkSettingsInvalid('retention-days-not-a-choice:$days');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(keyRetentionDays, days);
+  }
+
   /// 现在真正该用的那一档秒数（用户选的那一档，没选过就是契约的 default）。
   /// 读数处只有这一句 + 契约那一份数，闹钟与收货循环都从这里取值。
   Future<int> effectivePollSeconds() async =>

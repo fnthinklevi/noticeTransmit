@@ -8941,6 +8941,30 @@ abstract class AppLocalizations {
   /// **'一条远程指令'**
   String get fnthinkRemoteCommandRowTitle;
 
+  /// No description provided for @fnthinkRetentionLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'收件保留'**
+  String get fnthinkRetentionLabel;
+
+  /// No description provided for @fnthinkRetentionDaysUnit.
+  ///
+  /// In zh, this message translates to:
+  /// **'天'**
+  String get fnthinkRetentionDaysUnit;
+
+  /// No description provided for @fnthinkRetentionDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'缺省档'**
+  String get fnthinkRetentionDefault;
+
+  /// No description provided for @fnthinkRetentionPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择档位'**
+  String get fnthinkRetentionPick;
+
   /// No description provided for @remoteHistoryPending.
   ///
   /// In zh, this message translates to:

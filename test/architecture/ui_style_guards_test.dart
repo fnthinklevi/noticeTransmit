@@ -1187,9 +1187,10 @@ class FnthinkStatusMark extends StatelessWidget {
       // 换服务器 ＋ 恢复默认 = 7 枚），所以它整格从台账里删掉。
       // T119 又加了第 8 枚：**撤销中转同意**（破坏性档）—— 台账跟着 +1，
       // 少一枚就是有人把它改回默认蓝或自己搭了个 TextButton。
+      // T47 加了第 9 枚：**收件保留选档**（中性档；不走 l10n.edit，那一句是宿主行的）。
       expect(
         n('lib/pages/fnthink_settings_page.dart', 'FnthinkInlineAction('),
-        8,
+        9,
       );
       expect(
         n('lib/pages/fnthink_endpoint_page.dart', 'FnthinkInlineAction('),

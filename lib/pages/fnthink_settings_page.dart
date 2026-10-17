@@ -173,6 +173,9 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
 
   String _host = '';
 
+  /// 收件保留那一档（T47）。缺省值住 FnthinkSettings（唯一作者），这里只存画面上的读数。
+  int _retentionDays = FnthinkSettings.retentionDefaultDays;
+
   /// T155：服务器报上来的「客户端契约版本」那一格结论。
   /// ⚠ `null` 有**两个**来路（都没收到过 / 没装配 `onHealthBody`），而界面上
   ///   **都不画**那一格 —— 分开它们对用户没有意义，而把"没有读数"画成"一致"
@@ -221,11 +224,13 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     // T119：这一页也要说得出"这台同没同意中转"，因为它现在是撤销那一步的两个入口之一。
     // 读的是 prefs 那一枚版本号（与协调者、接收页同一个判据），不在这里另算一遍。
     final consented = await settings.hasRelayConsent();
+    final retentionDays = await settings.retentionDays();
     if (!mounted) return;
     setState(() {
       _settings = settings;
       _credentials = credentials;
       _host = host;
+      _retentionDays = retentionDays;
       _addressCode = addressCode;
       _pairing = pairing;
       _identity = identity;
@@ -818,6 +823,35 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     return '${(age / 1000).floor()}s';
   }
 
+  /// T47：收件保留的选档弹层（与换服务器同一件形状：标题 + 若干行 + 选中回一个值）。
+  /// 取消 ⇒ 什么都不写；写到盘的是"选过那一档"，非法值在 settings 那一格当场抛。
+  Future<void> _pickRetention() async {
+    final l10n = AppLocalizations.of(context);
+    final settings = _settings;
+    if (settings == null) return;
+    final current = await settings.retentionDays();
+    if (!mounted) return;
+    final picked = await showIosOptionPicker<int>(
+      context,
+      title: l10n.fnthinkRetentionLabel,
+      selectedValue: current,
+      options: [
+        for (final d in FnthinkSettings.retentionChoices)
+          IosPickerOption<int>(
+            value: d,
+            label: '$d${l10n.fnthinkRetentionDaysUnit}',
+            description: d == FnthinkSettings.retentionDefaultDays
+                ? l10n.fnthinkRetentionDefault
+                : null,
+          ),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    await settings.setRetentionDays(picked);
+    if (!mounted) return;
+    setState(() => _retentionDays = picked);
+  }
+
   Widget _buildServerCard(AppLocalizations l10n) {
     return FnthinkCard(
       title: l10n.fnthinkServerSection,
@@ -853,6 +887,30 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
         // 它说的是"最近一次对着这台试过"：收货链路的真实发送会写它，打开「切换服务」
         // 那一格时的探测也会写它（`_probeDeclaredHosts`）。
         ChannelHealthBadge(health: _deps.healthOf?.call(_host)),
+        // T47：收件保留。天数进界面（四档，缺省 30），条数是资源闸不进 ——
+        // 见 FnthinkSettings 那两条常量与它们的注释。
+        FnthinkRowLabel(
+          label: l10n.fnthinkRetentionLabel,
+          keyName: 'fnthink-retention',
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '$_retentionDays${l10n.fnthinkRetentionDaysUnit}',
+                key: const ValueKey('fnthink-retention-value'),
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+            FnthinkInlineAction(
+              key: const ValueKey('fnthink-retention-pick'),
+              // ⚠ 不用 l10n.edit：那一句是宿主行（改地址）那枚的 —— 同页两句「编辑」
+              //   既让按文案找的用例撞 Too many elements，也让读者分不清哪枚改哪格。
+              label: l10n.fnthinkRetentionPick,
+              onPressed: _pickRetention,
+            ),
+          ],
+        ),
         // T155：服务器手上的契约是**旧的那一份**时，那一句在这里。
         // ⚠ 只在 `mismatch` / `unreadable` 两档画 —— 一致与"还没收到过带版本的请求"
         //   **都不画**：后者是"没有读数"，画一句"一致"就是凭空报功

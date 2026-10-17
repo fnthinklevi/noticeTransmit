@@ -67,6 +67,14 @@ extension _MainPageActions on _MainPageState {
   /// ④ **两发都带 [onUpdated]**（T114）：这一轮是"探完就完"的 `unawaited`，外面没有人等它，
   ///    不挂重画就会长出「数据新了、屏幕旧的」那一档 —— 立刻那一发与周期那一发少任何一发都不对。
   void _startHealthProbeCadence() {
+    // T47：收件保留裁剪同批跑（启动 + 每次回前台各一次）。不放进收货循环每一轮：
+    // prune 是一张表的删除扫描，5–60 秒一轮的频率对它毫无意义，而保留下界
+    // 也不需要那个频率。失败在 service 那一格已吞（只记日志）。
+    unawaited(
+      FnthinkInboxService(
+        contract: GetIt.instance<FnthinkContractLoader>().cached,
+      ).pruneRetention(),
+    );
     unawaited(probeChannelsAcrossFamilies(onUpdated: _onHealthRecorded));
     _healthProbeTimer?.cancel();
     _healthProbeTimer = Timer.periodic(

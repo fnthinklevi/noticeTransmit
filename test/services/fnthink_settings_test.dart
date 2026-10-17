@@ -293,4 +293,41 @@ void main() {
       }
     });
   });
+
+  group('T47：收件保留档位', () {
+    setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+
+    test('没选过 ⇒ 缺省 30 天（不把 default 写进盘）', () async {
+      final settings = FnthinkSettings(contract: contract);
+      expect(await settings.retentionDays(), 30);
+      expect(
+        (await SharedPreferences.getInstance()).getInt(
+          FnthinkSettings.keyRetentionDays,
+        ),
+        isNull,
+        reason: '缺省写进盘 = 哪天缺省调了，这台跟不上',
+      );
+    });
+
+    test('选过 ⇒ 原样读回；盘上坏值 ⇒ 按缺省读（不当 0 执行）', () async {
+      final settings = FnthinkSettings(contract: contract);
+      await settings.setRetentionDays(90);
+      expect(await settings.retentionDays(), 90);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(FnthinkSettings.keyRetentionDays, 13);
+      expect(
+        await settings.retentionDays(),
+        30,
+        reason: '坏值当 0 执行 = 清空收件表；按缺省读才是 fail-safe 的方向',
+      );
+    });
+
+    test('档位表外的写入当场抛（不静默夹到邻档）', () async {
+      final settings = FnthinkSettings(contract: contract);
+      expect(
+        () => settings.setRetentionDays(13),
+        throwsA(isA<FnthinkSettingsInvalid>()),
+      );
+    });
+  });
 }

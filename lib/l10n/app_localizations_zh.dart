@@ -4938,6 +4938,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkRemoteCommandRowTitle => '一条远程指令';
 
   @override
+  String get fnthinkRetentionLabel => '收件保留';
+
+  @override
+  String get fnthinkRetentionDaysUnit => '天';
+
+  @override
+  String get fnthinkRetentionDefault => '缺省档';
+
+  @override
+  String get fnthinkRetentionPick => '选择档位';
+
+  @override
   String get remoteHistoryPending => '等执行';
 
   @override
