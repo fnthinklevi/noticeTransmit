@@ -645,7 +645,9 @@ Future<({String? payload, String? reason})> _fnthinkGetLocationOnce() async {
 ///  ③ 这台**没有可见界面** ⇒ `camera-snap-no-foreground`（Android 9+ 后台不许开相机、
 ///     11+ 前台服务开相机还要专门类型与 while-in-use 许可 —— 那是另一条权限面，不顺手开）；
 ///  ④ 拍/存失败 ⇒ `camera-snap-failed`。
-/// ⚠ 画面不回传（图像传输＋收件端渲染是另一个子系统）：产出是"拍到了、存在这台哪里"那段文字。
+/// ⚠ 画面这一发回传（T124②）：契约声明 image 形态时，payload 是
+///   `{text, imageBase64}`（超限则 `{text, imageOmitted: too-large}`）的 JSON；
+///   收件端渲染与隐私披露是下一片，本片只把字节交出去。
 Future<({String? payload, String? reason})> _fnthinkSnapPhotoOnce() async {
   try {
     if (!await fnthinkReadCameraEnabled()) {
@@ -666,11 +668,15 @@ Future<({String? payload, String? reason})> _fnthinkSnapPhotoOnce() async {
             : 'camera-snap-failed',
       );
     }
-    final text = formatFnthinkPhotoReport(snap);
-    if (text.isEmpty) {
+    final contract = getIt<FnthinkContractLoader>().cached;
+    if (contract == null) {
       return (payload: null, reason: 'camera-snap-failed');
     }
-    return (payload: text, reason: null);
+    final payload = formatFnthinkPhotoPayload(snap, contract, 'camera:snap');
+    if (payload.isEmpty) {
+      return (payload: null, reason: 'camera-snap-failed');
+    }
+    return (payload: payload, reason: null);
   } catch (e) {
     return (payload: null, reason: 'camera-snap-failed');
   }

@@ -43,7 +43,9 @@ import java.util.concurrent.TimeUnit
  *     ⚠ 所以回传正文**不写"已保存到相册"**（那句在 24–28 上会是假的）。
  *  ④ **没权限回 null、没界面/拍失败回 `{snap:false, why}`**：三种下场在对面读起来不同。
  *
- * ⚠ 画面不回传（图像传输＋收件端渲染是另一个子系统）；本机开关（默认关）在 Dart 侧先判。
+ * ⚠ T124②：**画面字节随 snap 一起回传**（`imageBytes` 是原始 JPEG）；原始字节上限由
+ *   Dart 侧读契约 `l2.reports["camera:snap"].maxImageBytes` 判 —— 原生不写第二个数。
+ *   收件端渲染另立片；本机开关（默认关）在 Dart 侧先判。
  */
 object CameraSnap {
     private const val TAG = "CameraSnap"
@@ -77,7 +79,7 @@ object CameraSnap {
 
     /**
      * 拍一张。回 null = **没权限**；回 `{snap:false, why}` = 有条件不满足（见文件头 ④）；
-     * 回 `{snap:true, name, width, height, timeMillis}` = 成了。
+     * 回 `{snap:true, name, width, height, timeMillis, imageBytes}` = 成了（imageBytes 是原始 JPEG）。
      * 不抛：一次拍摄失败不该让整轮收货崩在半路（与三份"搜/读"同一纪律）。
      */
     fun snap(context: Context): Map<String, Any?>? {
@@ -105,6 +107,7 @@ object CameraSnap {
                 "width" to pick.first,
                 "height" to pick.second,
                 "timeMillis" to now,
+                "imageBytes" to jpeg,
             )
         } catch (e: SecurityException) {
             android.util.Log.w(TAG, "相机权限被拒", e)

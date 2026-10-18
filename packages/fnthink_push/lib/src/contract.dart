@@ -444,6 +444,50 @@ class FnthinkContract {
     return value is int ? value : null;
   }
 
+  /// 回传结果的形状（T124②）：`text`（缺省）或 `image`。
+  ///
+  /// ⚠ 缺省是 text 而不是 null：没有这一格的旧动作就是文本回传；给 null 会让每个调用方
+  /// 自己补默认值，而"默认是什么"就长出第二份作者。
+  String l2ReportResultKind(String action) {
+    final value = l2Reports[action]?['resultKind'];
+    return value is String && value.isNotEmpty ? value : 'text';
+  }
+
+  /// image 结果那一行事实文字放在哪个字段（text 结果不用）。
+  String? l2ReportTextField(String action) {
+    final value = l2Reports[action]?['textField'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// image 结果里图像 base64 放在哪个字段（text 结果不用）。
+  String? l2ReportImageField(String action) {
+    final value = l2Reports[action]?['imageField'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  String? l2ReportImageMime(String action) {
+    final value = l2Reports[action]?['mimeType'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// 原始图像字节的上限（base64 **之前**）；不是 image 结果 ⇒ null。
+  int? l2ReportMaxImageBytes(String action) {
+    final value = l2Reports[action]?['maxImageBytes'];
+    return value is int && value > 0 ? value : null;
+  }
+
+  /// 图像放不进去时，payload 里那一格的字段名（超限不截断，只写这一格）。
+  String? l2ReportOmittedField(String action) {
+    final value = l2Reports[action]?['omittedField'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// 图像放不进去时那一格的取值（今天只有 `too-large`）。
+  String? l2ReportOmittedValue(String action) {
+    final value = l2Reports[action]?['omittedValue'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
   // ── 勾选项的整串语法（T134 片4，粒度＝参数级）───────────────────────────
   //
   // 这一族 getter 只有一个消费者族：同意屏（画哪几行、每行要不要收参数）与逐条判据
@@ -2278,6 +2322,80 @@ class FnthinkContract {
           'capabilities.l2.reports.${entry.key}.title 若写了就必须是非空、不含斜杠的串'
           '（它是回传那条消息的标题，斜杠会与 item 的形状撞在读法上）：$spec',
         );
+      }
+      // T124②：回传结果的形状（text 缺省 / image）。image 那一格必须把
+      // 「文字字段／图像字段／MIME／原始字节上限」四件都说清，且 base64 最坏长度加
+      // 信封余量必须落在 limits.requestBodyMaxBytes 之内 —— 否则客户端能拼出一个
+      // 自己都发不出去的"合法"回传，而失败只在真机上以 413 现形。
+      final resultKind = spec is Map ? (spec['resultKind'] ?? 'text') : 'text';
+      need(
+        resultKind == 'text' || resultKind == 'image',
+        'capabilities.l2.reports.${entry.key}.resultKind 只能是 text 或 image：$spec',
+      );
+      if (resultKind == 'image') {
+        need(
+          spec is Map && spec['title'] is String,
+          'capabilities.l2.reports.${entry.key} 是 image ⇒ title 必写（没有标题就发不出去）',
+        );
+        final textField = spec is Map ? spec['textField'] : null;
+        final imageField = spec is Map ? spec['imageField'] : null;
+        final mime = spec is Map ? spec['mimeType'] : null;
+        final maxImage = spec is Map ? spec['maxImageBytes'] : null;
+        final omittedField = spec is Map ? spec['omittedField'] : null;
+        final omittedValue = spec is Map ? spec['omittedValue'] : null;
+        need(
+          textField is String && textField.isNotEmpty,
+          'capabilities.l2.reports.${entry.key}.textField 必须是非空串',
+        );
+        need(
+          imageField is String &&
+              imageField.isNotEmpty &&
+              imageField != textField,
+          'capabilities.l2.reports.${entry.key}.imageField 必须是非空串且与 textField 不同',
+        );
+        need(
+          mime == 'image/jpeg',
+          'capabilities.l2.reports.${entry.key}.mimeType 今日只认 image/jpeg：$mime',
+        );
+        need(
+          maxImage is int && maxImage > 0,
+          'capabilities.l2.reports.${entry.key}.maxImageBytes 必须是正整数',
+        );
+        need(
+          omittedField is String &&
+              omittedField.isNotEmpty &&
+              omittedField != textField &&
+              omittedField != imageField,
+          'capabilities.l2.reports.${entry.key}.omittedField 必须是非空串、且与 '
+          'textField／imageField 都不同：$omittedField',
+        );
+        need(
+          omittedValue is String && omittedValue.isNotEmpty,
+          'capabilities.l2.reports.${entry.key}.omittedValue 必须是非空串：$omittedValue',
+        );
+        final bodyCap = intOf(const ['limits', 'requestBodyMaxBytes']) ?? 0;
+        final imageCap = maxImage as int;
+        final base64Worst = (imageCap + 2) ~/ 3 * 4;
+        need(
+          bodyCap > 0 && base64Worst + 4096 <= bodyCap,
+          'capabilities.l2.reports.${entry.key}.maxImageBytes=$imageCap ⇒ base64 最坏 '
+          '$base64Worst 字节 + 4096 字节信封余量超过 limits.requestBodyMaxBytes=$bodyCap：'
+          '这一发会永远 413',
+        );
+      } else {
+        for (final stray in const [
+          'textField',
+          'imageField',
+          'mimeType',
+          'maxImageBytes',
+          'omittedField',
+          'omittedValue',
+        ]) {
+          need(
+            !(spec is Map && spec.containsKey(stray)),
+            'capabilities.l2.reports.${entry.key}.$stray 只属于 image 结果：$spec',
+          );
+        }
       }
     }
     // ── 勾选项的整串语法（T134 片4，粒度＝参数级）────────────────────────────

@@ -627,7 +627,15 @@
         },
         "camera:snap": {
           "argumentKind": "none",
-          "title": "camera-snap"
+          "title": "camera-snap",
+          "resultKind": "image",
+          "textField": "text",
+          "imageField": "imageBase64",
+          "mimeType": "image/jpeg",
+          "maxImageBytes": 32768,
+          "omittedField": "imageOmitted",
+          "omittedValue": "too-large",
+          "_resultWhy": "拍照的产出是一张 JPEG ＋ 一行事实文字（T124②）。imageBase64 是**原始 JPEG 字节**的 base64：上限 32768 字节 ⇒ base64 最坏约 43.7 KiB，连同消息信封仍落在 limits.requestBodyMaxBytes=65536 之内（包侧 validate 会把这条关系算一遍，不是写在注释里）。text 是原来那行文件名/尺寸/时间 —— 旧渲染端不认识 imageBase64 时至少还能显示 text。⚠ 上限住在这里，原生不写第二个数：Dart 侧读这一格判；超限不截断，回 omittedField=omittedValue 那一对（今天就是 imageOmitted=too-large —— 字段名与取值也住在这里，不靠这段说明当第二份真值）。"
         },
         "contacts:search": {
           "argumentKind": "keyword",

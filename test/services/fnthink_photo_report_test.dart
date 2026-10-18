@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/services/fnthink_photo_report.dart';
 
@@ -71,6 +75,142 @@ void main() {
         formatFnthinkPhotoReport(const {'name': 'N.jpg', 'width': 640}),
         'N.jpg',
       );
+    });
+  });
+
+  group('拍照回传的图像形态（T124②）', () {
+    const name = 'NT_20261010_093100.jpg';
+
+    /// 只把 `camera:snap` 那一格改掉、其余原样 —— 红的只可能是被改的那一维。
+    FnthinkContract photoContract([Map<String, Object?> patch = const {}]) {
+      final root =
+          jsonDecode(jsonEncode(FnthinkContract.readFile().raw))
+              as Map<String, dynamic>;
+      final spec =
+          root['capabilities']['l2']['reports']['camera:snap']
+              as Map<String, dynamic>;
+      spec.addAll(patch);
+      return FnthinkContract.parse(jsonEncode(root));
+    }
+
+    Map<String, Object?> snapWith(List<int>? bytes) => {
+      'snap': true,
+      'name': name,
+      'width': 640,
+      'height': 480,
+      'timeMillis': 1752205200000,
+      if (bytes != null) 'imageBytes': Uint8List.fromList(bytes),
+    };
+
+    test('契约说 image ⇒ 正文是 JSON：事实文字 + base64（字段名从契约来）', () {
+      final contract = photoContract();
+      final bytes = [0xFF, 0xD8, 0xFF, 0xD9];
+      final payload = formatFnthinkPhotoPayload(
+        snapWith(bytes),
+        contract,
+        'camera:snap',
+      );
+      final map = jsonDecode(payload) as Map<String, dynamic>;
+      expect(map.keys, unorderedEquals(['text', 'imageBase64']));
+      expect(map['text'], contains(name));
+      expect(base64Decode(map['imageBase64'] as String), bytes);
+      expect(contract.l2ReportImageMime('camera:snap'), 'image/jpeg');
+    });
+
+    test('字段名不是写死的：契约改名 ⇒ payload 跟着改', () {
+      final contract = photoContract(const {
+        'textField': 'caption',
+        'imageField': 'photo',
+        'omittedField': 'photoSkipped',
+      });
+      final payload = formatFnthinkPhotoPayload(
+        snapWith([1, 2, 3]),
+        contract,
+        'camera:snap',
+      );
+      final map = jsonDecode(payload) as Map<String, dynamic>;
+      expect(map.keys, unorderedEquals(['caption', 'photo']));
+      expect(map['caption'], contains(name));
+    });
+
+    test('恰好在上限上 ⇒ 还是带图（上限是「≤」）', () {
+      final contract = photoContract();
+      final cap = contract.l2ReportMaxImageBytes('camera:snap')!;
+      final payload = formatFnthinkPhotoPayload(
+        snapWith(List<int>.filled(cap, 7)),
+        contract,
+        'camera:snap',
+      );
+      final map = jsonDecode(payload) as Map<String, dynamic>;
+      expect((map['imageBase64'] as String).isNotEmpty, isTrue);
+    });
+
+    test('超过上限 ⇒ 不截断：没有图像，只有契约声明的那一对', () {
+      final contract = photoContract();
+      final cap = contract.l2ReportMaxImageBytes('camera:snap')!;
+      final payload = formatFnthinkPhotoPayload(
+        snapWith(List<int>.filled(cap + 1, 7)),
+        contract,
+        'camera:snap',
+      );
+      final map = jsonDecode(payload) as Map<String, dynamic>;
+      expect(map.containsKey('imageBase64'), isFalse);
+      expect(map['imageOmitted'], 'too-large');
+      expect(map['text'], contains(name));
+      // 截断的照片解不开、而发的人以为发出去了 —— 这一发宁可说"太大"
+      expect(map.values.any((v) => v is String && v.length > cap), isFalse);
+    });
+
+    test('超限那一对与上限也从契约读：改上限/改取值 ⇒ 跟着变', () {
+      final contract = photoContract(const {
+        'maxImageBytes': 8,
+        'omittedField': 'skipped',
+        'omittedValue': 'nope',
+      });
+      final over =
+          jsonDecode(
+                formatFnthinkPhotoPayload(
+                  snapWith(List<int>.filled(9, 1)),
+                  contract,
+                  'camera:snap',
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(over['skipped'], 'nope');
+      expect(over.containsKey('imageBase64'), isFalse);
+      final ok =
+          jsonDecode(
+                formatFnthinkPhotoPayload(
+                  snapWith(List<int>.filled(8, 1)),
+                  contract,
+                  'camera:snap',
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(ok.containsKey('imageBase64'), isTrue);
+    });
+
+    test('字节缺失或为空 ⇒ 退回纯文字（旧渲染端至少还能读）', () {
+      final contract = photoContract();
+      for (final bytes in [null, const <int>[]]) {
+        final text = formatFnthinkPhotoPayload(
+          snapWith(bytes),
+          contract,
+          'camera:snap',
+        );
+        expect(text, contains(name));
+        expect(text.startsWith('{'), isFalse);
+      }
+    });
+
+    test('契约不是 image 的动作 ⇒ 即便带了字节也只回文字', () {
+      final text = formatFnthinkPhotoPayload(
+        snapWith([1, 2, 3]),
+        photoContract(),
+        'notifications:report',
+      );
+      expect(text, contains(name));
+      expect(text.startsWith('{'), isFalse);
     });
   });
 }

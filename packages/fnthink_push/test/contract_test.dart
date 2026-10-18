@@ -3051,6 +3051,109 @@ void main() {
       expect(c.l2ReportMaxItems('nope'), isNull);
     });
 
+    const imageSpec = {
+      'argumentKind': 'none',
+      'title': 'camera-snap',
+      'resultKind': 'image',
+      'textField': 'text',
+      'imageField': 'imageBase64',
+      'mimeType': 'image/jpeg',
+      'maxImageBytes': 32768,
+      'omittedField': 'imageOmitted',
+      'omittedValue': 'too-large',
+    };
+
+    FnthinkContract imageContract([Map<String, Object?> patch = const {}]) =>
+        withL2(
+          reports: {
+            'camera:snap': {...imageSpec, ...patch},
+          },
+        );
+
+    test('真契约：拍照那一条是 image，五格形状 + 超限那一对都读得出', () {
+      expect(c.l2ReportResultKind('camera:snap'), 'image');
+      expect(c.l2ReportTextField('camera:snap'), 'text');
+      expect(c.l2ReportImageField('camera:snap'), 'imageBase64');
+      expect(c.l2ReportImageMime('camera:snap'), 'image/jpeg');
+      expect(c.l2ReportMaxImageBytes('camera:snap'), 32768);
+      expect(c.l2ReportOmittedField('camera:snap'), 'imageOmitted');
+      expect(c.l2ReportOmittedValue('camera:snap'), 'too-large');
+      // 没写 resultKind 的旧动作就是文本回传（缺省不是 null，也不是「未知」）
+      expect(c.l2ReportResultKind('notifications:report'), 'text');
+      expect(c.l2ReportMaxImageBytes('notifications:report'), isNull);
+    });
+
+    test('image 形状：成形的过；resultKind 只认 text/image', () {
+      expect(imageContract().validate(), isEmpty);
+      expect(
+        withL2(
+          reports: {
+            'camera:snap': {...imageSpec, 'resultKind': 'video'},
+          },
+        ).validate(),
+        anyElement(contains('resultKind 只能是 text 或 image')),
+      );
+    });
+
+    test('image 的五个形状各坏一处 ⇒ 各报各的', () {
+      expect(
+        imageContract().validate(),
+        isEmpty,
+        reason: '先确认真契约这一格本身是绿的，下面每条红只可能是被改的那一处',
+      );
+      final cases = <Map<String, Object?>, String>{
+        {'imageField': 'text'}: 'imageField 必须是非空串且与 textField 不同',
+        {'mimeType': 'image/png'}: 'mimeType 今日只认 image/jpeg',
+        {'maxImageBytes': 0}: 'maxImageBytes 必须是正整数',
+        {'omittedField': 'imageBase64'}: 'omittedField 必须是非空串、且与',
+        {'omittedValue': ''}: 'omittedValue 必须是非空串',
+      };
+      cases.forEach((patch, message) {
+        expect(
+          imageContract(patch).validate(),
+          anyElement(contains(message)),
+          reason: '改了 $patch 却没报「$message」',
+        );
+      });
+    });
+
+    test('图像上限与请求体上限的关系：算的是 base64 最坏长度，不是原字节', () {
+      // 65536 − 4096(信封余量) = 61440；ceil(n/3)*4 ≤ 61440 ⇒ n ≤ 46080。
+      // 边界两侧各一格：46080 合法，46082 必须报（差 2 字节也要报 —— 这正是在
+      // 用 floor(n/3)*4 少算时会被放过去的那个形状）。
+      expect(
+        imageContract({'maxImageBytes': 46080}).validate(),
+        isEmpty,
+        reason: '46080 的 base64 最坏 61440，加上 4096 恰好等于 65536',
+      );
+      expect(
+        imageContract({'maxImageBytes': 46082}).validate(),
+        anyElement(contains('会永远 413')),
+        reason: '46082 的 base64 最坏 61444，超了 4 字节',
+      );
+    });
+
+    test('text 结果带了 image 那几格 ⇒ 报（一处说文本、一处说图像）', () {
+      for (final stray in [
+        'textField',
+        'imageField',
+        'mimeType',
+        'maxImageBytes',
+        'omittedField',
+        'omittedValue',
+      ]) {
+        expect(
+          withL2(
+            reports: {
+              'notifications:report': {...okSpec, stray: 'x'},
+            },
+          ).validate(),
+          anyElement(contains('$stray 只属于 image 结果')),
+          reason: 'text 结果挂着 $stray 却没报',
+        );
+      }
+    });
+
     test('表里有不在 actions 里的动作 ⇒ 报出来', () {
       final broken = withL2(reports: {'ghost:report': okSpec});
       expect(broken.validate(), anyElement(contains('不在 actions 里')));
