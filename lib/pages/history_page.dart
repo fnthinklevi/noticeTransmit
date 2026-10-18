@@ -164,6 +164,12 @@ class HistoryPage extends StatefulWidget {
   /// 不许悄悄停在列表 —— 用户盯着列表却什么都没发生，只会读成"App 坏了"。
   final String? focusMessageId;
 
+  /// 收件详情拆回传正文（文字／图像）用的契约（T124② 片2）。
+  ///
+  /// null = 生产默认（`FnthinkContractLoader.cached`）；测试注入，免得为一张图去起 loader。
+  /// 契约没就绪时详情退回"正文原样显示"，不把一条消息藏起来。
+  final FnthinkContract? reportContract;
+
   const HistoryPage({
     super.key,
     this.forwardedLoader,
@@ -185,6 +191,7 @@ class HistoryPage extends StatefulWidget {
     this.remoteCommandRecordsLoader,
     this.initialDirection = 'forwarded',
     this.focusMessageId,
+    this.reportContract,
   });
 
   @override
@@ -1701,6 +1708,15 @@ class _HistoryPageState extends State<HistoryPage> {
   FnthinkInboxService get _inboxService =>
       GetIt.instance<FnthinkInboxService>();
 
+  /// 收件详情拆回传正文用的契约（T124② 片2）。注入优先；生产取 loader 的缓存，
+  /// 还没加载好就返回 null（详情退化成正文原样显示，不藏消息）。
+  FnthinkContract? _reportContract() {
+    final injected = widget.reportContract;
+    if (injected != null) return injected;
+    if (!GetIt.instance.isRegistered<FnthinkContractLoader>()) return null;
+    return GetIt.instance<FnthinkContractLoader>().cached;
+  }
+
   /// 名单与发送都是**注入优先、生产默认取 DI 那一份**：页面自己不许拼 HTTP、也不许直连
   /// `fnthink_peers`（名单只有一个读口，两本账的表现是"名单里删了那一行，这里还能回复"）。
   Future<FnthinkPeer?> _findPeerInRoster(String address) async {
@@ -2358,6 +2374,18 @@ class _HistoryPageState extends State<HistoryPage> {
     bool outgoing = false,
   }) async {
     final l10n = AppLocalizations.of(context);
+    // T124② 片2：回传正文可能是契约声明的图像形态 JSON。拆得开就画图、画事实文字；
+    // 拆不开（旧消息/契约没就绪/坏载荷）就原样显示正文 —— 详情从不因为解析失败而变空。
+    final contract = _reportContract();
+    final reportPayload = contract == null
+        ? null
+        : parseFnthinkReportPayload(
+            contract,
+            title: message.title,
+            body: message.body,
+          );
+    final displayText = reportPayload?.text ?? message.body;
+    final imageBytes = reportPayload?.imageBytes;
     // 「回复 / 重发」只在**这条的发送方还在本机名单里**时给入口：名单是本机唯一一本"同意过谁"的
     // 账（服务端投递时也按 grantsBy 判），不在册的那台给入口就是一个必然 403 的按钮。
     // ⚠ 这条判断放在**弹层起来之前**：入口不出现与"点了才知道不行"是两种体验，前者是实话。
@@ -2387,7 +2415,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    message.title.isEmpty ? message.body : message.title,
+                    message.title.isEmpty ? displayText : message.title,
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -2397,13 +2425,56 @@ class _HistoryPageState extends State<HistoryPage> {
                   const SizedBox(height: 8),
                   Flexible(
                     child: SingleChildScrollView(
-                      child: SelectableText(
-                        message.body,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                          color: AppColors.primaryLabel(sheetContext),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (displayText.isNotEmpty)
+                            SelectableText(
+                              displayText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 1.5,
+                                color: AppColors.primaryLabel(sheetContext),
+                              ),
+                            ),
+                          if (imageBytes != null) ...[
+                            const SizedBox(height: 8),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 320),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.memory(
+                                  imageBytes,
+                                  key: ValueKey(
+                                    'fnthink-inbox-image-${message.messageId}',
+                                  ),
+                                  fit: BoxFit.contain,
+                                  semanticLabel: l10n.fnthinkPhotoLabel,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Text(
+                                        l10n.fnthinkPhotoBroken,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.secondaryLabel(
+                                            sheetContext,
+                                          ),
+                                        ),
+                                      ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (reportPayload?.imageOmitted == true) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              l10n.fnthinkPhotoOmitted,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.secondaryLabel(sheetContext),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),

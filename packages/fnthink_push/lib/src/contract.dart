@@ -415,6 +415,18 @@ class FnthinkContract {
     return value is String && value.isNotEmpty ? value : null;
   }
 
+  /// 按回传消息的标题反查动作名（T124② 收件端渲染的唯一入口）。
+  ///
+  /// 收件端手里只有 `title` 与 `body`，得凭标题找到那条动作的 `textField`/`imageField`；
+  /// 标题不唯一时这个反查就有两个答案（validate 把重复标题判成问题）。
+  String? l2ReportActionByTitle(String title) {
+    if (title.isEmpty) return null;
+    for (final entry in l2Reports.entries) {
+      if (entry.value['title'] == title) return entry.key;
+    }
+    return null;
+  }
+
   /// 这条回传动作的参数是哪种形态（`count` = 要几条；`keyword` = 搜什么词）。
   /// 不是回传动作或缺项 ⇒ null（**不猜**：没声明的参数形态一律不放行，见 [reportArgumentProblem]）。
   String? l2ReportKind(String action) {
@@ -2225,6 +2237,9 @@ class FnthinkContract {
     // requiresArgumentFrom；none（T124 片C-2 起）是**无参数的**回传动作 —— 它列进去反而
     // 自相矛盾（一处说必填、一处说没有）。
     final l2Reports = map(const ['capabilities', 'l2', 'reports']) ?? const {};
+    // 收件端按 title 反查动作（T124②）：两个动作共用一个 title 时，反查只能取到
+    // 先声明的那一条 —— 另一条的字段名永远读不到，而两边的用例各自都绿。
+    final reportTitles = <String>{};
     for (final entry in l2Reports.entries) {
       final spec = entry.value;
       need(
@@ -2322,6 +2337,13 @@ class FnthinkContract {
           'capabilities.l2.reports.${entry.key}.title 若写了就必须是非空、不含斜杠的串'
           '（它是回传那条消息的标题，斜杠会与 item 的形状撞在读法上）：$spec',
         );
+        if (reportTitle is String && reportTitle.isNotEmpty) {
+          need(
+            reportTitles.add(reportTitle),
+            'capabilities.l2.reports 的 title 重复：$reportTitle'
+            '（收件端按标题反查动作，重复就只能取到先声明的那一条）',
+          );
+        }
       }
       // T124②：回传结果的形状（text 缺省 / image）。image 那一格必须把
       // 「文字字段／图像字段／MIME／原始字节上限」四件都说清，且 base64 最坏长度加

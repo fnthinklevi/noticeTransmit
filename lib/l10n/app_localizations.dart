@@ -935,7 +935,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyBody.
   ///
   /// In zh, this message translates to:
-  /// **'• 通知内容在设备本地完成规则匹配与过滤，仅按您的配置转发到您指定的 Webhook、邮件地址或幻念设备\n• 幻念推送的消息会经您选定的服务器中转送达对端；不使用幻念推送时，通知内容始终不出本机\n• 推送历史记录使用 AES-256 加密存储在本地数据库\n• 通道配置（Webhook/邮件）使用 AndroidKeyStore 加密存储\n• 崩溃上报（腾讯 Bugly）默认关闭，仅在你于设置中主动开启后收集必要的崩溃日志用于修复应用问题，不采集个人身份信息'**
+  /// **'• 通知内容在设备本地完成规则匹配与过滤，仅按您的配置转发到您指定的 Webhook、邮件地址或幻念设备\n• 幻念推送的消息会经您选定的服务器中转送达对端；不使用幻念推送时，通知内容始终不出本机\n• 推送历史记录使用 AES-256 加密存储在本地数据库\n• 通道配置（Webhook/邮件）使用 AndroidKeyStore 加密存储\n• 崩溃上报（腾讯 Bugly）默认关闭，仅在你于设置中主动开启后收集必要的崩溃日志用于修复应用问题，不采集个人身份信息\n• 拍照回传（默认关闭）：在你于本机打开「拍照」并授权相机后，已配对的设备可让这台拍一张；照片文件保存在本机，图像随回传消息经你选定的服务器中转发给对端，并保存在双方的消息历史里'**
   String get privacyBody;
 
   /// No description provided for @privacyGateLinkAfter.
@@ -3671,7 +3671,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyInfoContent.
   ///
   /// In zh, this message translates to:
-  /// **'本应用遵循\"最小必要\"原则，仅收集实现核心功能所必需的信息：\n\n1. 通知内容（本地处理）\n   - 应用通过系统通知监听服务读取通知内容\n   - 通知内容在设备本地完成规则匹配与关键词过滤，只按您自行配置的目标转发：Webhook、邮件地址或幻念设备\n   - 除您指定的这些目标外，通知内容不会上传至任何其他服务器；其中「幻念设备」这一路经你选定的中转服务器投递，详见第 7 项\n\n2. 崩溃统计信息（腾讯 Bugly，默认关闭）\n   - 仅当你在「更多 → 崩溃上报」主动开启后，才收集应用崩溃时的堆栈信息、设备型号、系统版本、应用版本号、CPU 架构\n   - 未开启时 SDK 不初始化、数据不出网；开启后仅用于定位和修复崩溃问题，提升应用稳定性\n\n3. 推送统计与历史记录（本地存储）\n   - 通知记录、推送状态、每日统计等数据使用 AES-256 加密存储在本地数据库\n   - 这些数据仅保存在您的设备上，不会对外发送\n\n4. 延迟推送队列（本地存储）\n   - 规则约束产生的延迟/定时推送任务持久化保存在本机，重启后不丢失\n\n5. 电池状态（本地监控）\n   - 电量及充电状态监控仅在本机采集，用于首页展示，不对外发送\n\n6. 已安装应用列表（本地使用）\n   - 用于规则约束的条件配置与应用过滤，仅在本机使用\n\n7. 幻念推送（设备互推 / 第三方经接入端点推给手机，需你显式同意）\n   - 仅在你使用「幻念推送」并在应用内一次性显式同意后，消息才会经你选定的服务器中转送达目标设备；不使用或不同意时，通知内容始终不出本机\n   - 未送达期间，消息正文在服务器端加密暂存、最长保留 7 天，送达或到期后立即删除\n   - 配对口令与身份私钥不上传，服务器与审计日志只保存投递所需的元数据（不含正文）\n   - 若你选择自行部署幻念推送服务器，上述中转与保留规则由你自己的服务器执行，数据处于你掌控的基础设施内\n   - 远程读取（默认关、单独开）：你在「可被远程读取的内容」里为某一项单独打开开关并授予系统权限后，已配对的设备才能经同一条中转链路读回那一项的数据（例如按关键词搜到的那几条通话记录、最近一次定位、让这台拍的一张照片、按姓名或号码搜到的联系人）；关掉即失效\n   - 「搜短信」还可以把这台已监听的留存一起搜进去（默认关）：那一格存的是监听短信时落进本机库的正文，这一枚只决定对面能不能搜它；关掉时只查系统短信库\n   - ⚠ 你选的如果是别人运营的实例：那台服务器用它自己的密钥做落盘加密，「服务器不落明文正文」讲的是存储形态，不等于对方读不到；投递元数据与运维日志也在它手里。这和配置一个 webhook 转发目标是同一类决定 —— 请只连你信得过的实例'**
+  /// **'本应用遵循\"最小必要\"原则，仅收集实现核心功能所必需的信息：\n\n1. 通知内容（本地处理）\n   - 应用通过系统通知监听服务读取通知内容\n   - 通知内容在设备本地完成规则匹配与关键词过滤，只按您自行配置的目标转发：Webhook、邮件地址或幻念设备\n   - 除您指定的这些目标外，通知内容不会上传至任何其他服务器；其中「幻念设备」这一路经你选定的中转服务器投递，详见第 7 项\n\n2. 崩溃统计信息（腾讯 Bugly，默认关闭）\n   - 仅当你在「更多 → 崩溃上报」主动开启后，才收集应用崩溃时的堆栈信息、设备型号、系统版本、应用版本号、CPU 架构\n   - 未开启时 SDK 不初始化、数据不出网；开启后仅用于定位和修复崩溃问题，提升应用稳定性\n\n3. 推送统计与历史记录（本地存储）\n   - 通知记录、推送状态、每日统计等数据使用 AES-256 加密存储在本地数据库\n   - 这些数据仅保存在您的设备上，不会对外发送\n\n4. 延迟推送队列（本地存储）\n   - 规则约束产生的延迟/定时推送任务持久化保存在本机，重启后不丢失\n\n5. 电池状态（本地监控）\n   - 电量及充电状态监控仅在本机采集，用于首页展示，不对外发送\n\n6. 已安装应用列表（本地使用）\n   - 用于规则约束的条件配置与应用过滤，仅在本机使用\n\n7. 幻念推送（设备互推 / 第三方经接入端点推给手机，需你显式同意）\n   - 仅在你使用「幻念推送」并在应用内一次性显式同意后，消息才会经你选定的服务器中转送达目标设备；不使用或不同意时，通知内容始终不出本机\n   - 未送达期间，消息正文在服务器端加密暂存、最长保留 7 天，送达或到期后立即删除\n   - 配对口令与身份私钥不上传，服务器与审计日志只保存投递所需的元数据（不含正文）\n   - 若你选择自行部署幻念推送服务器，上述中转与保留规则由你自己的服务器执行，数据处于你掌控的基础设施内\n   - 远程读取（默认关、单独开）：你在「可被远程读取的内容」里为某一项单独打开开关并授予系统权限后，已配对的设备才能经同一条中转链路读回那一项的数据（例如按关键词搜到的那几条通话记录、最近一次定位、让这台拍的一张照片、按姓名或号码搜到的联系人）；关掉即失效\n   - 拍照回传：照片文件保存在拍摄那台（Android 10 及以上进相册，9 及以下进本应用图片目录）；图像随回传消息经你选定的服务器中转发给发起的那台，并保存在双方的消息历史里。这一项与其它远程读取一样默认关、单独开，关掉即不再执行\n   - 「搜短信」还可以把这台已监听的留存一起搜进去（默认关）：那一格存的是监听短信时落进本机库的正文，这一枚只决定对面能不能搜它；关掉时只查系统短信库\n   - ⚠ 你选的如果是别人运营的实例：那台服务器用它自己的密钥做落盘加密，「服务器不落明文正文」讲的是存储形态，不等于对方读不到；投递元数据与运维日志也在它手里。这和配置一个 webhook 转发目标是同一类决定 —— 请只连你信得过的实例'**
   String get privacyInfoContent;
 
   /// No description provided for @privacyNoCollectTitle.
@@ -3731,7 +3731,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyPermContent.
   ///
   /// In zh, this message translates to:
-  /// **'本应用遵循最小权限原则，以下为完整权限清单及用途说明：\n\n核心权限（必需）：\n• 通知使用权（Notification Listener）：读取通知内容，实现转发与规则约束功能\n• 网络访问（INTERNET）：Webhook/邮件推送与版本更新检查\n• 前台服务（FOREGROUND_SERVICE 等）：保持通知监听服务常驻，确保消息及时推送\n• 开机自启动（RECEIVE_BOOT_COMPLETED）：设备重启后自动恢复通知监听服务\n• 通知发送（POST_NOTIFICATIONS）：发送本地通知提示\n• 唤醒锁（WAKE_LOCK）：延迟/定时推送到点唤醒设备\n\n辅助权限（可选）：\n• 电量优化白名单（REQUEST_IGNORE_BATTERY_OPTIMIZATIONS）：避免系统限制后台服务\n• 短信（RECEIVE_SMS/READ_SMS）：可选，用于短信通知识别与转发\n• 本机短信留存（通知监听落库的那一份）：不需要额外系统权限；仅在「可被远程读取的内容」打开这一枚后，允许已配对的设备按关键词搜这一格（关掉时连这一格都不查）\n• 电话状态（READ_PHONE_STATE）：可选，用于来电通知识别\n• 通话记录（READ_CALL_LOG）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备按关键词搜本机通话记录\n• 位置（ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备读本机最近一次定位（只读，不发起新的定位）\n• 相机（CAMERA）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备让这台拍一张（照片存在本机、不回传；且要求本软件界面正开着）\n• 通讯录（READ_CONTACTS）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备按姓名或号码搜本机通讯录（只读，不写）\n• 存储（READ/WRITE_EXTERNAL_STORAGE）：导出推送历史 JSON、保存更新 APK\n• 安装未知应用（REQUEST_INSTALL_PACKAGES）：应用内在线更新时安装 APK\n• 查询已安装应用（QUERY_ALL_PACKAGES）：规则约束的条件配置与应用过滤\n• 振动（VIBRATE）：推送提示振动\n• 网络状态（ACCESS_NETWORK_STATE）：检测网络连接状态\n\n以上辅助权限均在您主动授权后使用，可随时在系统设置中关闭。'**
+  /// **'本应用遵循最小权限原则，以下为完整权限清单及用途说明：\n\n核心权限（必需）：\n• 通知使用权（Notification Listener）：读取通知内容，实现转发与规则约束功能\n• 网络访问（INTERNET）：Webhook/邮件推送与版本更新检查\n• 前台服务（FOREGROUND_SERVICE 等）：保持通知监听服务常驻，确保消息及时推送\n• 开机自启动（RECEIVE_BOOT_COMPLETED）：设备重启后自动恢复通知监听服务\n• 通知发送（POST_NOTIFICATIONS）：发送本地通知提示\n• 唤醒锁（WAKE_LOCK）：延迟/定时推送到点唤醒设备\n\n辅助权限（可选）：\n• 电量优化白名单（REQUEST_IGNORE_BATTERY_OPTIMIZATIONS）：避免系统限制后台服务\n• 短信（RECEIVE_SMS/READ_SMS）：可选，用于短信通知识别与转发\n• 本机短信留存（通知监听落库的那一份）：不需要额外系统权限；仅在「可被远程读取的内容」打开这一枚后，允许已配对的设备按关键词搜这一格（关掉时连这一格都不查）\n• 电话状态（READ_PHONE_STATE）：可选，用于来电通知识别\n• 通话记录（READ_CALL_LOG）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备按关键词搜本机通话记录\n• 位置（ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备读本机最近一次定位（只读，不发起新的定位）\n• 相机（CAMERA）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备让这台拍一张（照片文件保存在本机，图像随回传消息经服务器中转发给发起的那台、双方消息历史各存一份；且要求本软件界面正开着）\n• 通讯录（READ_CONTACTS）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备按姓名或号码搜本机通讯录（只读，不写）\n• 存储（READ/WRITE_EXTERNAL_STORAGE）：导出推送历史 JSON、保存更新 APK\n• 安装未知应用（REQUEST_INSTALL_PACKAGES）：应用内在线更新时安装 APK\n• 查询已安装应用（QUERY_ALL_PACKAGES）：规则约束的条件配置与应用过滤\n• 振动（VIBRATE）：推送提示振动\n• 网络状态（ACCESS_NETWORK_STATE）：检测网络连接状态\n\n以上辅助权限均在您主动授权后使用，可随时在系统设置中关闭。'**
   String get privacyPermContent;
 
   /// No description provided for @privacyChildTitle.
@@ -8596,7 +8596,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkReadCameraSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'允许已配对的设备让这台拍一张（照片存在这台设备上；要求这台软件的界面正开着）'**
+  /// **'允许已配对的设备让这台拍一张（照片文件保存在本机，图像随回传消息经中转服务器发回给发起的那台；要求这台软件的界面正开着）'**
   String get fnthinkReadCameraSubtitle;
 
   /// No description provided for @fnthinkReadCameraDenied.
@@ -8604,6 +8604,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'没拿到相机权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。'**
   String get fnthinkReadCameraDenied;
+
+  /// No description provided for @fnthinkPhotoLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'照片'**
+  String get fnthinkPhotoLabel;
+
+  /// No description provided for @fnthinkPhotoBroken.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张照片没能显示出来'**
+  String get fnthinkPhotoBroken;
+
+  /// No description provided for @fnthinkPhotoOmitted.
+  ///
+  /// In zh, this message translates to:
+  /// **'照片太大，没有随这条消息发出'**
+  String get fnthinkPhotoOmitted;
 
   /// No description provided for @fnthinkReadLocationTitle.
   ///

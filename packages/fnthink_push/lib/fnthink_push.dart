@@ -17,6 +17,7 @@ export 'src/endpoint_ingress.dart';
 export 'src/pairing.dart';
 export 'src/receive_kernel.dart';
 export 'src/remote_command.dart';
+export 'src/report_payload.dart';
 export 'src/send_kernel.dart';
 export 'src/title_envelope.dart';
 export 'src/crockford.dart';

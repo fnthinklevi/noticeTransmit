@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -108,6 +110,8 @@ void main() {
         home: HistoryPage(
           initialDirection: initialDirection,
           focusMessageId: focusMessageId,
+          // T124② 片2：详情拆回传正文用的契约。生产取 loader 缓存，这里直接给真契约。
+          reportContract: FnthinkContract.readFile(),
           forwardedLoader: fakeForwardedLoader(const []),
           forwardedCountLoader: () async => 0,
           onClear: () async {},
@@ -737,6 +741,73 @@ void main() {
 
       expect(find.textContaining('一条远程指令'), findsNothing);
       expect(find.text('机箱温度'), findsOneWidget);
+    });
+  });
+
+  group('T124② 片2：收件详情把回传图像画出来', () {
+    // 1x1 透明 PNG：让 Image.memory 真的解得出（坏字节会走 errorBuilder，测的就不是这一格）。
+    const png =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8'
+        '/x8AAusB9Y9Z1ZkAAAAASUVORK5CYII=';
+
+    testWidgets('标题是 camera-snap、正文是图像 JSON ⇒ 画图 + 画事实文字，不把 JSON 原文摊开', (
+      tester,
+    ) async {
+      table = [
+        row(
+          'm_photo',
+          title: 'camera-snap',
+          body: jsonEncode({
+            'text': '2026-10-18 12:00 1x1 NT_20261018_120000.jpg',
+            'imageBase64': png,
+          }),
+        ),
+      ];
+      await pump(tester, initialDirection: 'received');
+      await tester.tap(find.byKey(const ValueKey('fnthink-inbox-row-m_photo')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-inbox-image-m_photo')),
+        findsOneWidget,
+        reason: '收件详情没把契约声明的那张图渲染出来',
+      );
+      expect(
+        find.text('2026-10-18 12:00 1x1 NT_20261018_120000.jpg'),
+        findsOneWidget,
+        reason: '事实文字要显示（旧渲染端不认识图像时至少还有这一行）',
+      );
+      expect(
+        find.textContaining('imageBase64'),
+        findsNothing,
+        reason: '解析成功后不该把 JSON 原文摊在详情里',
+      );
+    });
+
+    testWidgets('发送端说太大 ⇒ 详情明说没有随这条发出，不画空图', (tester) async {
+      table = [
+        row(
+          'm_big',
+          title: 'camera-snap',
+          body: jsonEncode({
+            'text': '2026-10-18 12:00 NT_big.jpg',
+            'imageOmitted': 'too-large',
+          }),
+        ),
+      ];
+      await pump(tester, initialDirection: 'received');
+      await tester.tap(find.byKey(const ValueKey('fnthink-inbox-row-m_big')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(l10n(tester).fnthinkPhotoOmitted),
+        findsOneWidget,
+        reason: '发送端明确说没发图像，详情不能画一张空图让用户以为拿到了',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-inbox-image-m_big')),
+        findsNothing,
+      );
     });
   });
 }

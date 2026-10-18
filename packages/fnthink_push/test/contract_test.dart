@@ -3133,6 +3133,25 @@ void main() {
       );
     });
 
+    test('回传标题重复 ⇒ 报（收件端按标题反查只能取到先声明的那一条）', () {
+      final broken = withL2(
+        reports: {
+          'notifications:report': {...okSpec, 'title': 'dup-title'},
+          'app:launch': {
+            'argumentKind': 'keyword',
+            'minChars': 1,
+            'maxChars': 32,
+            'title': 'dup-title',
+          },
+        },
+      );
+      expect(
+        broken.validate(),
+        anyElement(contains('title 重复')),
+        reason: '两个动作共用一个标题时，另一条的字段名永远读不到',
+      );
+    });
+
     test('text 结果带了 image 那几格 ⇒ 报（一处说文本、一处说图像）', () {
       for (final stray in [
         'textField',

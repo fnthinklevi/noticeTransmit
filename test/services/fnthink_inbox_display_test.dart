@@ -76,6 +76,23 @@ void main() {
     },
   );
 
+  test('displayBody 只换通知栏那一行，不新增通道键、也不碰存库正文', () async {
+    mock((_) => true);
+    await display.show(
+      row(body: '{"text":"一行事实","imageBase64":"AQID"}'),
+      displayBody: '一行事实',
+    );
+    final args = calls.single.arguments as Map<Object?, Object?>;
+    expect(args['body'], '一行事实');
+    expect(args.keys.toSet(), {
+      'messageId',
+      'sender',
+      'title',
+      'body',
+      'unreadCount',
+    }, reason: '覆盖走的是既有 body 键；多一枚键 = 原生不读的那一份误导后人');
+  });
+
   // ── T55 ③ 角标那个数 ───────────────────────────────────────────────
   // 断的是**转发与归一**：数从调用方一路到那份 map，中间不许被丢成 null 或原样传负数。
   group('T55 角标那个数（unreadCount）', () {

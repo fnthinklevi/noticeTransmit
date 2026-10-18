@@ -130,7 +130,24 @@ void setupLocator() {
         // `countFnthinkInboxUnread` 一处，与首页入口卡同源（不另写 list().length：
         // 那条列表带 limit，收到第 51 条起它就会开始少报）。
         final unread = await DatabaseHelper().countFnthinkInboxUnread();
-        return FnthinkInboxDisplay().show(message, unreadCount: unread);
+        // T124② 片2：图像回传的正文是 JSON，通知栏只放契约里那行事实文字；
+        // 拆不开就原样显示（旧消息/旧契约），库里的原文不动。
+        final contract = getIt<FnthinkContractLoader>().cached;
+        final payload = contract == null
+            ? null
+            : parseFnthinkReportPayload(
+                contract,
+                title: message.title,
+                body: message.body,
+              );
+        final displayBody = payload == null
+            ? message.body
+            : (payload.text.isNotEmpty ? payload.text : message.title);
+        return FnthinkInboxDisplay().show(
+          message,
+          unreadCount: unread,
+          displayBody: displayBody,
+        );
       },
       // 回执那一列的作者。缺它 ⇒ `ack_result`/`acked_at` 永远空着，而 T48 的收件详情
       // 一旦显示这一列就是在猜（任务 #155 那条"只有漏接才现形"的形状）。

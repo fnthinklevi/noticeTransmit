@@ -182,6 +182,75 @@ void main() {
     }
   });
 
+  /// T124② 片2：拍照回传从「照片只存在本机」变成「图像随回传消息经中转发出」——
+  /// 这是同一句话在三处的真值变化：说明页、权限清单、拍一行的副标题。
+  /// 只改代码不改这三处，用户读到的是「不回传」，而照片已经在网线上跑了一圈。
+  test('拍照回传的图像中转在说明页/权限清单/意见门/副标题四处两个语言都写明', () {
+    for (final fact in ['拍照回传', '图像随回传消息', '消息历史', '默认关']) {
+      expect(zhBody, contains(fact), reason: '中文说明页漏了「$fact」');
+      expect(zhGate, contains(fact), reason: '中文同意门漏了「$fact」');
+    }
+    for (final fact in [
+      'Photo capture',
+      'image is relayed',
+      'message history',
+      'off by default',
+    ]) {
+      expect(enBody, contains(fact), reason: '英文说明页漏了「$fact」');
+      expect(enGate, contains(fact), reason: '英文同意门漏了「$fact」');
+    }
+    for (final fact in ['照片文件保存在本机', '图像随回传消息']) {
+      expect(
+        zh['privacyPermContent'] as String,
+        contains(fact),
+        reason: '中文权限清单漏了「$fact」',
+      );
+      expect(
+        zh['fnthinkReadCameraSubtitle'] as String,
+        contains(fact),
+        reason: '中文拍照副标题漏了「$fact」',
+      );
+    }
+    for (final fact in [
+      'photo file stays on this device',
+      'image is relayed',
+    ]) {
+      expect(
+        en['privacyPermContent'] as String,
+        contains(fact),
+        reason: 'English permission list is missing "$fact"',
+      );
+    }
+    expect(
+      en['fnthinkReadCameraSubtitle'] as String,
+      contains('image is sent back'),
+      reason:
+          'English camera subtitle still says the photo never leaves the device',
+    );
+    // 旧口径的反面：这三处都不许再留着「照片只在本机、不回传」。
+    expect(
+      zh['privacyPermContent'] as String,
+      isNot(contains('不回传')),
+      reason: '权限清单还写着「不回传」＝与实现相反',
+    );
+    expect(
+      en['privacyPermContent'] as String,
+      isNot(contains('not sent back')),
+      reason: 'English permission list still claims the photo is not sent back',
+    );
+    expect(
+      zh['fnthinkReadCameraSubtitle'] as String,
+      isNot(contains('照片存在这台设备上')),
+      reason: '拍照那一行的副标题还写着照片只在这台',
+    );
+    expect(
+      en['fnthinkReadCameraSubtitle'] as String,
+      isNot(contains('photo stays on this device')),
+      reason:
+          'English camera subtitle still says the photo stays on this device',
+    );
+  });
+
   test('main.dart 里那个链接真的通向全文页（同一函数体内 onOpenPolicy ⇒ push 全文页）', () {
     final src = File('lib/main.dart').readAsStringSync();
     // 先验主语在场：否则下面每条都是空转（"文件里根本没有这个东西"不能当成"它是对的"）。

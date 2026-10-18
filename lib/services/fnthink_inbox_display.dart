@@ -25,14 +25,22 @@ class FnthinkInboxDisplay {
   /// 数法只有 `DatabaseHelper.countFnthinkInboxUnread` 一处（首页入口卡与这里说的是同一个数），
   /// 在显示层再数一遍就是第二个作者，而"角标 3、首页写 5"是用户当场能看见的不一致。
   /// 不给按 0 算：角标不是这条通知的身份，少一个数不该让整条通知显示失败。
-  Future<bool> show(FnthinkInboxMessage message, {int unreadCount = 0}) async {
+  ///
+  /// [displayBody] 只改**通知栏里那一行字**，不改表里存的正文（T124② 片2）：
+  /// 图像回传的线上正文是 JSON，直接丢进通知栏会是一串 `{"text":...}`；
+  /// 调用方把契约里那行事实文字拆出来传进来，存库的原文仍留给详情与重发。
+  Future<bool> show(
+    FnthinkInboxMessage message, {
+    int unreadCount = 0,
+    String? displayBody,
+  }) async {
     if (message.messageId.isEmpty) return false;
     try {
       final shown = await _channel.invokeMethod<bool>('showFnthinkInbox', {
         'messageId': message.messageId,
         'sender': message.sender,
         'title': message.title,
-        'body': message.body,
+        'body': displayBody ?? message.body,
         'unreadCount': unreadCount < 0 ? 0 : unreadCount,
       });
       return shown ?? false;
