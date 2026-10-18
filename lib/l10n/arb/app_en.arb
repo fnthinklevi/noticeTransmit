@@ -271,6 +271,20 @@
       }
     }
   },
+  "historyGroupMerge": "Merged push",
+  "historyGroupDelay": "Delayed push",
+  "historyGroupBadge": "Group",
+  "historyGroupTally": "Fan-out {n} · failed {failed}",
+  "@historyGroupTally": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "exportJson": "Export JSON",
   "clearRecords": "Clear Records",
   "clearToday": "Clear Today",

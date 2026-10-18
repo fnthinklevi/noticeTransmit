@@ -539,6 +539,20 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get historyGroupMerge => '聚合推送';
+
+  @override
+  String get historyGroupDelay => '延迟推送';
+
+  @override
+  String get historyGroupBadge => '组';
+
+  @override
+  String historyGroupTally(int n, int failed) {
+    return '扇出 $n · 失败 $failed';
+  }
+
+  @override
   String get exportJson => '导出 JSON';
 
   @override

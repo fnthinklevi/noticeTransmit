@@ -1058,6 +1058,30 @@ abstract class AppLocalizations {
   /// **'历史记录 ({n})'**
   String historyTitle(int n);
 
+  /// No description provided for @historyGroupMerge.
+  ///
+  /// In zh, this message translates to:
+  /// **'聚合推送'**
+  String get historyGroupMerge;
+
+  /// No description provided for @historyGroupDelay.
+  ///
+  /// In zh, this message translates to:
+  /// **'延迟推送'**
+  String get historyGroupDelay;
+
+  /// No description provided for @historyGroupBadge.
+  ///
+  /// In zh, this message translates to:
+  /// **'组'**
+  String get historyGroupBadge;
+
+  /// No description provided for @historyGroupTally.
+  ///
+  /// In zh, this message translates to:
+  /// **'扇出 {n} · 失败 {failed}'**
+  String historyGroupTally(int n, int failed);
+
   /// No description provided for @exportJson.
   ///
   /// In zh, this message translates to:

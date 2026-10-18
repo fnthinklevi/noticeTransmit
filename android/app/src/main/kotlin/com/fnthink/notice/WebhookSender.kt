@@ -179,7 +179,17 @@ class WebhookSender(private val context: Context) {
             WebhookResponseParser.DeliveryStatus.NETWORK_FAIL -> 5
         }
 
-    fun sendBroadcast(info: NotificationInfo) {
+    /**
+     * @param historyGroupId 这条通知属于哪个规则扇出组（T147②）。空 = 不进组。
+     *   只给 Dart 侧做历史组行的映射，不参与投递；merge 用 `{key}:merge:{windowEnd}`，
+     *   delay 用 `delay:{fireAt}`。
+     * @param historyGroupKind `merge` / `delay`（组行的种类词，只有这两种）。
+     */
+    fun sendBroadcast(
+        info: NotificationInfo,
+        historyGroupId: String = "",
+        historyGroupKind: String = "",
+    ) {
         try {
             val json = JSONObject().apply {
                 put("id", info.id)
@@ -194,6 +204,10 @@ class WebhookSender(private val context: Context) {
                 put("deviceName", info.deviceName)
                 put("priority", info.priority)
                 put("timestamp", System.currentTimeMillis())
+                if (historyGroupId.isNotEmpty()) {
+                    put("historyGroupId", historyGroupId)
+                    put("historyGroupKind", historyGroupKind)
+                }
             }
             // 同步写入离线缓存：即使 MainActivity 被销毁，Flutter 重启后也能从缓存拉取
             HistoryCache.append(context, json)

@@ -152,7 +152,8 @@ class DailyPushCounterTest {
         val src = stripComments(
             appFile("src/main/kotlin/com/fnthink/notice/WebhookSender.kt").readText(),
         )
-        val body = methodBody(src, "fun sendBroadcast(info: NotificationInfo)")
+        // T147② 起签名多了组 id 两个可选参数（会折行）⇒ 锚点收成方法名本身。
+        val body = methodBody(src, "fun sendBroadcast(")
         assertFalse(
             "sendBroadcast 是「写历史」那一发，被规则拦下的通知也走它 —— 在这里累加" +
                 "就等于把记录数冒充推送数",

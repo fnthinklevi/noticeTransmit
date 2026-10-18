@@ -568,6 +568,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get historyGroupMerge => 'Merged push';
+
+  @override
+  String get historyGroupDelay => 'Delayed push';
+
+  @override
+  String get historyGroupBadge => 'Group';
+
+  @override
+  String historyGroupTally(int n, int failed) {
+    return 'Fan-out $n · failed $failed';
+  }
+
+  @override
   String get exportJson => 'Export JSON';
 
   @override

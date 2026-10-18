@@ -138,7 +138,10 @@ class QueueNoSilentDropContractTest {
         )
         val body = functionBody(merge, "fun append(")
         assertTrue("摘成员那一步必须走那份纯算术", body.contains("MergePushLogic.appendMember("))
-        assertTrue("两堆都得交回去", body.contains("AppendResult(toFlush, dropped)"))
+        assertTrue(
+            "两堆都得交回去（T147② 起多交一个组 id）",
+            body.contains("AppendResult(toFlush, dropped, memberGroupId)"),
+        )
         assertTrue(
             "解析不出载荷时要喊出来，不许静默少一条（拿不到 record id 就给不了送达说法）",
             body.contains("解析失败")

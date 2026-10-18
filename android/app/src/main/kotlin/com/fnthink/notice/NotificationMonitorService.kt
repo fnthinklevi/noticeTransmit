@@ -640,8 +640,13 @@ class NotificationMonitorService : NotificationListenerService() {
                                 Log.d(TAG, "Notification recorded only: ${info.appName}")
                             }
                             is RuleEngine.Decision.Delay -> {
-                                // 立即写入历史（pending 状态），到点后补推 webhook
-                                webhookSender.sendBroadcast(info)
+                                // 立即写入历史（pending 状态），到点后补推 webhook。
+                                // 同一 fireAt 的延迟推送在历史里是同一批（T147② 组行）。
+                                webhookSender.sendBroadcast(
+                                    info,
+                                    "delay:${decision.fireAt}",
+                                    "delay",
+                                )
                                 // T150 片2：上限挤出来的那几条**不是垃圾**，它们同样是"还没发的通知"。
                                 // 旧写法在写盘时把它们筛掉（静默丢），于是那一行永远停在「发送中」；
                                 // 现在交回这里，走与到点同一条推送路径（回执会自己把它推离 pending）。
@@ -654,7 +659,6 @@ class NotificationMonitorService : NotificationListenerService() {
                                 // P2 聚合推送：成员先各自记录历史（独立可见），窗口结束时
                                 // 由 MergePushManager 合并为一条聚合推送；成员的送达结果
                                 // 到点以 MERGE 伪通道补标（见 MergePushManager 风险标注 3）
-                                webhookSender.sendBroadcast(info)
                                 // append 返回「需立即推送的组」（队列超限移出的最旧组 /
                                 // F3 达到 maxItems 提前触发的当前组），需在**锁外**推送。
                                 // 不能在 MergePushManager 内部自行推送：那里处于 @Synchronized
@@ -665,6 +669,13 @@ class NotificationMonitorService : NotificationListenerService() {
                                     decision.windowMs,
                                     decision.maxItems,
                                     decision.groupByTitle,
+                                )
+                                // ⚠ 必须 append 之后才广播：组 id 由 append 决定（新开窗还是并入
+                                //   已有组）。广播在 flush 之前，成员行先落历史，聚合推送再发。
+                                webhookSender.sendBroadcast(
+                                    info,
+                                    appendResult.memberGroupId,
+                                    "merge",
                                 )
                                 for (group in appendResult.toFlush) {
                                     flushMergedGroup(group)

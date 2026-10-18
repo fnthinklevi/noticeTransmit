@@ -7,6 +7,7 @@ import 'channel_display.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
+import 'history_group_store.dart';
 import 'platform_channel.dart';
 import 'active_channels.dart';
 import 'repush_eligibility.dart';
@@ -317,6 +318,18 @@ class NotificationService {
   }
 
   void addRecord(Map<String, dynamic> record) {
+    // T147②：原生随广播带来的组 id（只有 delay/merge 两条路有）。这里只记映射，
+    // 不往 notifications 表加列 —— 历史页把成员行折叠成一条组行。
+    final groupId = '${record['historyGroupId'] ?? ''}'.trim();
+    if (groupId.isNotEmpty) {
+      unawaited(
+        HistoryGroupStore().noteMember(
+          groupId: groupId,
+          kind: '${record['historyGroupKind'] ?? ''}',
+          record: record,
+        ),
+      );
+    }
     record['channels'] = _getActiveChannels();
     record['deliveryStatus'] = _buildInitialDeliveries(record['channels']);
     final notificationRecord = NotificationRecord.fromMap(record);

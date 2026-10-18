@@ -271,6 +271,20 @@
       }
     }
   },
+  "historyGroupMerge": "聚合推送",
+  "historyGroupDelay": "延迟推送",
+  "historyGroupBadge": "组",
+  "historyGroupTally": "扇出 {n} · 失败 {failed}",
+  "@historyGroupTally": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "exportJson": "导出 JSON",
   "clearRecords": "清除记录",
   "clearToday": "清除今日",

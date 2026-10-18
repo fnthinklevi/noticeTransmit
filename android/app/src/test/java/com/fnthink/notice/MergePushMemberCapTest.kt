@@ -27,6 +27,16 @@ class MergePushMemberCapTest {
         (0 until arr.length()).map { arr.getJSONObject(it).optString("title") }
 
     @Test
+    fun memberGroupId_isTheOneShapeHistoryRowsRead() {
+        assertEquals("com.a:merge:123", MergePushLogic.memberGroupId("com.a", 123))
+        assertEquals(
+            "groupByTitle 的 key 里可以有竖线，组 id 仍是 key + 固定尾段",
+            "com.a|张三:merge:456",
+            MergePushLogic.memberGroupId("com.a|张三", 456),
+        )
+    }
+
+    @Test
     fun appendMember_appendsAndReturnsNoDropped_whenBelowCap() {
         val items = itemsOf("a", "b")
         val (next, dropped) = MergePushLogic.appendMember(items, JSONObject().put("title", "c"), max = 5)

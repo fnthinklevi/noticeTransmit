@@ -2067,6 +2067,24 @@ class DatabaseHelper
     return rows.isEmpty ? null : rows.first;
   }
 
+  /// 按 id 批量读（T147② 组行算「扇出 X·失败 Y」用）。
+  ///
+  /// 组映射只存成员 id；成员可能不在当前分页里，所以按 id 回表取送达状态。
+  /// `IN (?, ?, …)` 的参数仍走 whereArgs（不拼字符串）。
+  Future<List<Map<String, dynamic>>> getNotificationsByIds(
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return const <Map<String, dynamic>>[];
+    final db = await database;
+    final placeholders = List<String>.filled(ids.length, '?').join(',');
+    final rows = await db.query(
+      'notifications',
+      where: 'id IN ($placeholders)',
+      whereArgs: ids,
+    );
+    return rows;
+  }
+
   Future<void> updateNotificationDelivery(
     String id,
     Map<String, dynamic> delivery,

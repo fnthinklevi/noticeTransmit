@@ -244,7 +244,8 @@ const List<RowAffordance> kRowAffordanceLedger = [
   RowAffordance(
     kind: '幻念收件／发出行',
     file: 'pages/history_page.dart',
-    start: '    return HistoryRowTile(',
+    // T147② 起 `return HistoryRowTile(` 在组行里也有一处 ⇒ 起点改取这一行（唯一）。
+    start: '    final peer = m.sender.isEmpty ? l10n.unknown : m.sender;',
     end: '  Widget _buildInboxView(AppLocalizations l10n) {',
     tapRow: true,
     tapWhat: '打开收件详情（全文可读 + 对端在册时给回复／重发）；收件档点开即标已读',
@@ -255,6 +256,19 @@ const List<RowAffordance> kRowAffordanceLedger = [
     gap:
         '⚠ 待拍（2026-10-13 登记）：要不要给这一类补长按菜单。补之前要先回答"长按出什么"'
         '—— 本机今天只有详情里那两枚（回复／重发），所以这一格欠的是产品判断，不是搬运。',
+  ),
+  RowAffordance(
+    kind: '规则扇出组行（T147②）',
+    file: 'pages/history_page.dart',
+    start: '    final group = view.group;',
+    end: '  Widget _buildRecordItem(',
+    tapRow: false,
+    tapWhat: '不给：组行是摘要（时间／X／Y），没有一条可打开的记录；成员行各自可点',
+    longPressRow: false,
+    longPressWhat: '不给：组行不对应某一条可处置的通知，长按菜单没有主语',
+    inlineProbe: null,
+    inlineWhat: '不给：行上没有动作件（「组」是徽标，不是动作）；逐条重推按 T147 ④ 不做',
+    gap: '三格都不给是设计：组行只回答「这批发了多少、几条没成」，不替成员行加第二个入口。',
   ),
   RowAffordance(
     kind: '远程执行行',

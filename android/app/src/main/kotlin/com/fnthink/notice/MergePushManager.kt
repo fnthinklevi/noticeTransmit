@@ -79,6 +79,9 @@ object MergePushLogic {
      * 会改产品的发送次数口径（用户设的是聚合，看到的却是 N+1 发）。报失败并把理由说清，
      * 让用户自己决定要不要手动补那一发。
      */
+    /** 组 id 的唯一作者：`{key}:merge:{windowEnd}`（T147② 历史组行也读这一串）。 */
+    fun memberGroupId(key: String, windowEnd: Long): String = "$key:merge:$windowEnd"
+
     fun appendMember(
         items: JSONArray,
         fresh: JSONObject,
@@ -122,6 +125,8 @@ class MergePushManager(private val context: Context) {
     data class AppendResult(
         val toFlush: List<MergeGroup>,
         val droppedMembers: List<NotificationInfo>,
+        /** 这一条新成员落在哪个组（T147②：随历史广播交给 Dart 侧做组映射）。 */
+        val memberGroupId: String,
     )
 
     /** 单条成员在聚合推送里的展示行 */
@@ -134,7 +139,7 @@ class MergePushManager(private val context: Context) {
         val items: List<NotificationInfo>
     ) {
         /** 聚合组 id（写入 HistoryCache/DB 的主键） */
-        fun mergedId(): String = "$key:merge:$windowEnd"
+        fun mergedId(): String = MergePushLogic.memberGroupId(key, windowEnd)
 
         /**
          * F3：聚合成员标题摘要（供 %titles% 模板变量）。
@@ -246,7 +251,9 @@ class MergePushManager(private val context: Context) {
         }
         val toFlush = ArrayList<MergeGroup>(1)
         val dropped = ArrayList<NotificationInfo>(1)
+        val memberGroupId: String
         if (existing != null) {
+            memberGroupId = MergePushLogic.memberGroupId(key, existing.optLong("windowEnd", 0L))
             // ⚠ 追加语义：窗口结束点不延长（固定窗口）。成员异常时 items 仍有
             // MAX_ITEMS_PER_GROUP 上限防 SP 无限膨胀 —— 超限摘掉的那条**交回调用方给说法**，
             // 不在这里悄悄少一行（T150 片2，见 [MergePushLogic.appendMember]）。
@@ -276,6 +283,7 @@ class MergePushManager(private val context: Context) {
             }
         } else {
             val windowEnd = now + windowMs
+            memberGroupId = MergePushLogic.memberGroupId(key, windowEnd)
             val group = JSONObject().apply {
                 put("key", key)
                 put("windowEnd", windowEnd)
@@ -295,7 +303,7 @@ class MergePushManager(private val context: Context) {
         }
         writeQueue(queue)
         scheduleNext()
-        return AppendResult(toFlush, dropped)
+        return AppendResult(toFlush, dropped, memberGroupId)
     }
 
     /** 取出全部已到期的聚合组；返回空列表表示无可推送组 */

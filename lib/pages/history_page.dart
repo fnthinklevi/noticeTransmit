@@ -47,6 +47,7 @@ import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../services/repush_eligibility.dart';
 import '../services/history_channel_chips.dart';
+import '../services/history_group_store.dart';
 import '../services/history_paging.dart';
 import 'fnthink_send_page.dart';
 
@@ -170,6 +171,15 @@ class HistoryPage extends StatefulWidget {
   /// 契约没就绪时详情退回"正文原样显示"，不把一条消息藏起来。
   final FnthinkContract? reportContract;
 
+  /// 规则扇出组的读口（T147②）。null = 生产默认（`HistoryGroupStore`）；
+  /// 测试注入内存列表，不去碰 SharedPreferences。
+  final Future<List<HistoryGroup>> Function()? historyGroupsLoader;
+
+  /// 组行算「扇出 X·失败 Y」要按成员 id 回表读送达状态。null = 真库批量读；
+  /// 测试注入替身（与 `forwardedLoader` 同一条理由：widget 测试不开 sqlite）。
+  final Future<List<NotificationRecord>> Function(List<String> ids)?
+  groupMembersLoader;
+
   const HistoryPage({
     super.key,
     this.forwardedLoader,
@@ -192,6 +202,8 @@ class HistoryPage extends StatefulWidget {
     this.initialDirection = 'forwarded',
     this.focusMessageId,
     this.reportContract,
+    this.historyGroupsLoader,
+    this.groupMembersLoader,
   });
 
   @override
@@ -213,6 +225,9 @@ class _HistoryPageState extends State<HistoryPage> {
   // 转发那本账的分页读数（T133 量级①）。null = 还没读过头一页（无筛选时也走这里：
   // "无筛选"只是一次不带参数的查询，不是另一条读路 —— 内存镜像那条路已随本片退役）。
   List<NotificationRecord>? _searchResults;
+
+  /// T147②：规则扇出组（与转发行混排；只在不带筛选时展示）。
+  List<_HistoryGroupView> _groupViews = const [];
 
   /// 分页游标：本会话已经扫过多少行。走 (c) 之后 SQL 一层就筛完，这个数**既是本页行数也是
   /// 筛中的行数**（名字里的 coarse 是两层筛年代的残留，留着因为它同时就是 offset）。
@@ -359,6 +374,20 @@ class _HistoryPageState extends State<HistoryPage> {
 
   /// 当前展示的记录（统一走分页读数；null = 头一页还没回来）
   List<NotificationRecord> get _displayedRecords => _searchResults ?? const [];
+
+  /// T147②：转发行 + 组行按时间混排；挂着筛选时只给转发行（理由见 `_refreshGroups`）。
+  /// 返回 `Object` 是因为两种行不是同一类型 —— 列表 builder 按 `is` 分派，不靠字段猜。
+  List<Object> get _forwardedRows {
+    final records = _displayedRecords;
+    if (_hasActiveFilter || _groupViews.isEmpty) return records;
+    final rows = <Object>[...records, ..._groupViews];
+    rows.sort((a, b) => _rowTime(b).compareTo(_rowTime(a)));
+    return rows;
+  }
+
+  int _rowTime(Object row) => row is _HistoryGroupView
+      ? row.group.at
+      : (row as NotificationRecord).postTime;
 
   /// 可补推池：当前展示列表里**可以再发一次**的那些（判据见 `repush_eligibility.dart`）。
   ///
@@ -722,10 +751,59 @@ class _HistoryPageState extends State<HistoryPage> {
         _hasMore = hasMore;
         _loadingMore = false;
       });
+      // T147②：组行只在无边界的默认视图里与转发行混排；挂着筛选时不画 ——
+      // 组行是合成行，没有逐条的送达桶可筛，混进来会让"筛过了"变成一句不实陈述。
+      if (reset && !_hasActiveFilter) unawaited(_refreshGroups());
     } catch (e) {
       debugPrint('历史搜索失败: $e');
       if (!mounted) return;
       setState(() => _loadingMore = false);
+    }
+  }
+
+  Future<List<NotificationRecord>> _loadGroupMembers(List<String> ids) async {
+    final rows = await DatabaseHelper().getNotificationsByIds(ids);
+    return rows.map(NotificationRecord.fromMap).toList();
+  }
+
+  /// 读组映射 + 按成员 id 回表算「扇出 X·失败 Y」。
+  ///
+  /// X 是**组里记下的成员数**（不是当前分页里碰巧在的那几条）；Y 是回表找到的成员里
+  /// 落进「没发出去的」那一桶的条数。成员全被保留策略裁掉 ⇒ 不画幽灵组行。
+  Future<void> _refreshGroups() async {
+    try {
+      final groups =
+          await (widget.historyGroupsLoader ??
+              () => HistoryGroupStore().list())();
+      final ids = <String>{for (final g in groups) ...g.memberIds}.toList();
+      final members = ids.isEmpty
+          ? const <NotificationRecord>[]
+          : await (widget.groupMembersLoader ?? _loadGroupMembers)(ids);
+      final byId = {for (final m in members) m.id: m};
+      final views = <_HistoryGroupView>[];
+      for (final group in groups) {
+        if (group.memberIds.length < 2) continue;
+        final found = group.memberIds.where(byId.containsKey).toList();
+        if (found.isEmpty) continue;
+        var failed = 0;
+        for (final id in found) {
+          if (deliveryBucketOf(byId[id]!.deliveryStatus) ==
+              deliveryBucketNotDelivered) {
+            failed++;
+          }
+        }
+        views.add(
+          _HistoryGroupView(
+            group: group,
+            total: group.memberIds.length,
+            failed: failed,
+          ),
+        );
+      }
+      if (!mounted) return;
+      setState(() => _groupViews = views);
+    } catch (e) {
+      debugPrint('历史组行读取失败: $e');
     }
   }
 
@@ -2789,6 +2867,36 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
+  /// T147②：一条规则扇出的组行。**不是一条记录**：没有 `notifications` 行、
+  /// 不可重推、不参与批量选择；只回答「这一批发了多少、几条没成」。
+  Widget _buildGroupRow(
+    BuildContext context,
+    _HistoryGroupView view,
+    int index,
+    int total,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    final group = view.group;
+    return HistoryRowTile(
+      key: ValueKey('history-group-${group.id}'),
+      keyNamespace: 'history-group',
+      identity: group.id,
+      title: group.isDelay ? l10n.historyGroupDelay : l10n.historyGroupMerge,
+      subtitle: group.title.isEmpty ? null : group.title,
+      time: historyRowTime(group.at),
+      source: group.appName.isEmpty ? null : group.appName,
+      badges: [_tagBadge(context, l10n.historyGroupBadge, AppColors.blue)],
+      statusMessage: l10n.historyGroupTally(view.total, view.failed),
+      corner: index == 0
+          ? (index == total - 1
+                ? HistoryRowCorner.only
+                : HistoryRowCorner.first)
+          : (index == total - 1
+                ? HistoryRowCorner.last
+                : HistoryRowCorner.middle),
+    );
+  }
+
   Widget _buildRecordItem(
     BuildContext context,
     NotificationRecord record,
@@ -3003,6 +3111,8 @@ class _HistoryPageState extends State<HistoryPage> {
     // 挂着筛选（标题数是"已加载的筛选结果"，不是全表总数）。
     final searchMode = _hasActiveFilter;
     final records = _displayedRecords;
+    // 批量模式只对真实记录勾选；组行是摘要，不参与补推选择。
+    final rows = _batchMode ? records : _forwardedRows;
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
@@ -3149,7 +3259,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ? // 头一页还没回来（T133 量级①：无筛选也要当场拉第一页）。
                   // 不给"空列表"闪一下：那一闪读起来就是"历史被清了"。
                   const Center(child: CircularProgressIndicator())
-                : records.isEmpty
+                : rows.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -3176,7 +3286,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 : ListView.separated(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: records.length + (_hasMore ? 1 : 0),
+                    itemCount: rows.length + (_hasMore ? 1 : 0),
                     separatorBuilder: (_, _) => Padding(
                       padding: const EdgeInsets.only(left: 56),
                       child: Divider(
@@ -3187,7 +3297,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                     itemBuilder: (context, index) {
                       // 末尾加载指示：粗筛还没取尽（T133 量级① 两条读路都有下一页）
-                      if (index >= records.length) {
+                      if (index >= rows.length) {
                         return Padding(
                           key: const ValueKey('history-load-more'),
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -3210,11 +3320,15 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                         );
                       }
+                      final row = rows[index];
+                      if (row is _HistoryGroupView) {
+                        return _buildGroupRow(context, row, index, rows.length);
+                      }
                       return _buildRecordItem(
                         context,
-                        records[index],
+                        row as NotificationRecord,
                         index,
-                        records.length,
+                        rows.length,
                       );
                     },
                   ),
@@ -3225,4 +3339,21 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
+}
+
+/// 组行的**读时视图**：组本身（持久事实）＋回表算出的 X/Y（现在的事实）。
+class _HistoryGroupView {
+  const _HistoryGroupView({
+    required this.group,
+    required this.total,
+    required this.failed,
+  });
+
+  final HistoryGroup group;
+
+  /// 组里记下的成员数（不是当前分页里碰巧在的那几条）。
+  final int total;
+
+  /// 回表找到的成员里，落进「没发出去的」那一桶的条数。
+  final int failed;
 }

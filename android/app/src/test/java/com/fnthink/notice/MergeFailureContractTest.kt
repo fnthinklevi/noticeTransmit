@@ -142,8 +142,12 @@ class MergeFailureContractTest {
     // ── 3. 内容保底：成员必须已各自落库（即使聚合推送全失败也不丢内容） ──────
 
     @Test
-    fun mergeMembersAreBroadcastBeforeEnqueue_soContentIsPersisted() {
-        // 关键顺序：sendBroadcast（写 HistoryCache + 广播 Flutter 入库）必须**先于** append。
+    fun mergeMembersAreBroadcastBeforeFlush_soContentIsPersisted() {
+        // T147② 起顺序变成 append → sendBroadcast → flush：
+        // 组 id 由 append 决定（新开窗还是并入已有组），必须在广播前拿到。
+        // ⚠ append 是**同步本地写**（SP 队列），所以即使进程在 append 与广播之间被杀，
+        //   成员内容也还在聚合队列里、到点仍会推送 —— 丢的只是那一行历史/组映射，
+        //   不是内容。真正必须守住的是：广播先于 flush（网络推送）与逐组消费。
         // ⚠ 必须把搜索范围限定在 Merge 分支内：全文件 indexOf 会命中前面 Push/Record 分支的
         //   sendBroadcast（首次实现即踩此坑），得出错误结论。
         val branchStart = service.indexOf("is RuleEngine.Decision.Merge ->")
@@ -152,14 +156,19 @@ class MergeFailureContractTest {
         val nextBranch = service.indexOf("RuleEngine.Decision.Push ->", branchStart)
         val branch = service.substring(branchStart, if (nextBranch > 0) nextBranch else service.length)
 
-        val idxBroadcast = branch.indexOf("webhookSender.sendBroadcast(info)")
         val idxAppend = branch.indexOf("mergePushManager.append(")
-        assertTrue("Merge 分支应有 sendBroadcast", idxBroadcast >= 0)
+        val idxBroadcast = branch.indexOf("appendResult.memberGroupId")
+        val idxFlush = branch.indexOf("flushMergedGroup(")
         assertTrue("Merge 分支应有 append", idxAppend >= 0)
+        assertTrue("Merge 分支应有带组 id 的 sendBroadcast", idxBroadcast >= 0)
+        assertTrue("Merge 分支应有 flush", idxFlush >= 0)
         assertTrue(
-            "先落库再入队：Merge 分支内 sendBroadcast 必须出现在 append 之前（" +
-                "否则进程在入队后、落库前被杀，该通知内容彻底丢失）",
-            idxBroadcast < idxAppend
+            "组 id 在 append 之后才存在，广播应在 append 之后",
+            idxAppend < idxBroadcast
+        )
+        assertTrue(
+            "广播必须先于 flush：成员行先落历史，聚合推送再发（否则失败时成员永远停在 pending）",
+            idxBroadcast < idxFlush
         )
     }
 
@@ -271,7 +280,7 @@ class MergeFailureContractTest {
         assertTrue(
             "append 必须把被摘出的成员交回去（MergePushLogic.appendMember 的 dropped）",
             body.contains("MergePushLogic.appendMember") &&
-                body.contains("AppendResult(toFlush, dropped)")
+                body.contains("AppendResult(toFlush, dropped, memberGroupId)")
         )
         assertTrue(
             "Service 必须逐条给被摘出的成员回传送达状态（报 failed，让用户还能手推）",
