@@ -163,6 +163,8 @@ void main() {
     List<FnthinkPairRequestRecord> pairRows = const [],
     bool peersFail = false,
     ChannelHealth? Function(String host)? healthOf,
+    // T157：可达性另读一族（`/health` 探针），与协议面分开。
+    ChannelHealth? Function(String host)? reachabilityOf,
     // T95 片5：打开「切换服务」那一格时的**探测**与**记账**两个口。
     // 用例里让它们指向同一个真 ChannelHealthStore —— 这样"探完写的"与"选项读的"
     // 必须是同一份，漏接任何一边都当场看得见（页面自己判 reachable 会退成第二份口径）。
@@ -386,6 +388,8 @@ void main() {
           // 而通道那头由各条用例自己决定回什么。
           // T60：对着服务器的健康度读替身。默认 null ⇒ 那一行"从没发过"。
           healthOf: healthOf,
+          // T157：可达性那一族（`/health` 探针）。
+          reachabilityOf: reachabilityOf,
           // T95 片5：探测 + 记账（不传 = 这一格没接探测链路，页面此时什么都不做）。
           probeHosts: probeHosts,
           recordHealth: recordHealth,
@@ -736,8 +740,8 @@ void main() {
     });
   });
 
-  group('服务器健康度那一行（T60 approach B）', () {
-    testWidgets('对着服务器有应答 ⇒ 那一行说"服务器有应答"（不是猜的，是从健康度读的）', (tester) async {
+  group('协议面那一行（T60 approach B；T157 改名）', () {
+    testWidgets('协议请求成功 ⇒ 那一行说"协议面就绪"（不是猜的，是从协议面健康度读的）', (tester) async {
       stubChannels();
       final h = harness(
         healthOf: (_) =>
@@ -751,7 +755,7 @@ void main() {
       expect(find.text(l10n.fnthinkHealthReachable), findsOneWidget);
     });
 
-    testWidgets('连不上 ⇒ 那一行说"连不上服务器"', (tester) async {
+    testWidgets('协议请求失败 ⇒ 那一行说"协议面不可用"', (tester) async {
       stubChannels();
       final h = harness(
         healthOf: (_) =>
@@ -761,7 +765,7 @@ void main() {
       expect(find.text(l10n.fnthinkHealthUnreachable), findsOneWidget);
     });
 
-    testWidgets('从没发过 ⇒ 那一行如实说"还没发出去过"，不冒充正常', (tester) async {
+    testWidgets('没有协议读数 ⇒ 那一行如实说"协议面未知"，不冒充正常', (tester) async {
       stubChannels();
       final h = harness(); // healthOf 默认 null
       final l10n = await pumpReceive(tester, h);
@@ -1216,6 +1220,7 @@ void main() {
         final probed = <String>[];
         final h = harness(
           healthOf: (host) => store.of(kFnthinkServerFamily, host),
+          reachabilityOf: (host) => store.of(kFnthinkReachabilityFamily, host),
           probeHosts: (hosts, {onHealthBody}) async {
             probed.addAll(hosts);
             // ⚠ T155：正文按**契约声明的那个键**给（`onHealthBody` 收到的是
@@ -1229,7 +1234,7 @@ void main() {
           recordHealth:
               ({required host, required reachable, required latencyMs}) =>
                   store.record(
-                    kFnthinkServerFamily,
+                    kFnthinkReachabilityFamily,
                     host,
                     reachable: reachable,
                     latencyMs: latencyMs,
@@ -1254,17 +1259,42 @@ void main() {
           'endpoints',
           'mainland',
         ])!;
-        expect(store.of(kFnthinkServerFamily, intlHost)!.reachable, isTrue);
-        expect(store.of(kFnthinkServerFamily, mlandHost)!.reachable, isFalse);
+        // T157：探针写的是**可达性**族；协议面族在这一条里仍然是空的。
+        expect(
+          store.of(kFnthinkReachabilityFamily, intlHost)!.reachable,
+          isTrue,
+        );
+        expect(
+          store.of(kFnthinkReachabilityFamily, mlandHost)!.reachable,
+          isFalse,
+        );
+        expect(store.of(kFnthinkServerFamily, intlHost), isNull);
         // 通的那台在**选项上**报时延，不通那台说"连不上" —— 两句都得在屏上，
         // 而**不通那台也还在候选里**（§6 口径：标不可用，不拿掉）。
-        // 时延那句会出现两次：卡片上当前那台的徽标 + 弹层里的选项（同一份单点，两处都该说）。
+        // 选项上那句仍是"连通 · 40 ms"；卡片那一格改用可达性自己的说法。
+        // 两者读同一份可达性记录，但不共用措辞，也不许把协议面那一格一起点亮。
         expect(
           find.textContaining(l10n.healthReachable(40)),
-          findsNWidgets(2),
-          reason: '只出现一次 = 徽标与选项读的不是同一份健康度',
+          findsOneWidget,
+          reason: '选项与卡片都还在说同一句 = 两格没有分开',
         );
         expect(find.textContaining(l10n.healthUnreachable), findsOneWidget);
+        expect(find.text(l10n.fnthinkReachabilityLabel), findsOneWidget);
+        expect(find.text(l10n.fnthinkProtocolLabel), findsOneWidget);
+        final reach = tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-host-reachability')),
+            )
+            .data!;
+        expect(reach, contains('40'));
+        expect(reach, contains('可达'));
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('fnthink-host-protocol')))
+              .data,
+          l10n.fnthinkProtocolUnverified,
+          reason: '/health 报了契约版本但没有任何协议请求成功过 ⇒ 只能说未验证',
+        );
         expect(
           find.textContaining(l10n.fnthinkHostRegionMainland),
           findsWidgets,
@@ -1289,24 +1319,99 @@ void main() {
         expect(find.textContaining(l10n.healthUnreachable), findsNothing);
       });
 
-      testWidgets('服务器那一格画出当前那台的健康度（healthOf 注入了却从没被读过）', (tester) async {
+      testWidgets('服务器那一格拆成两行：可达性读 /health，协议面读协议请求', (tester) async {
         stubChannels();
+        final now = DateTime.now().millisecondsSinceEpoch;
         final h = harness(
-          healthOf: (host) => ChannelHealth(
-            reachable: true,
-            latencyMs: 66,
-            probedAt: DateTime.now().millisecondsSinceEpoch,
-          ),
+          healthOf: (_) =>
+              ChannelHealth(reachable: true, latencyMs: 66, probedAt: now),
+          reachabilityOf: (_) =>
+              ChannelHealth(reachable: true, latencyMs: 40, probedAt: now),
         );
-        final l10n = await pump(tester, h.page);
+        await pump(tester, h.page);
         await revealTo(
           tester,
           find.byKey(const ValueKey('fnthink-host-switch')),
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(ChannelHealthBadge), findsWidgets);
-        expect(find.textContaining(l10n.healthReachable(66)), findsWidgets);
+        final reach = tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-host-reachability')),
+            )
+            .data!;
+        expect(reach, contains('40'));
+        expect(reach, contains('可达'));
+        final proto = tester
+            .widget<Text>(find.byKey(const ValueKey('fnthink-host-protocol')))
+            .data!;
+        expect(proto, contains('就绪'));
+        expect(proto, contains('幻念请求成功'));
+        expect(proto, isNot(contains('40')));
+        expect(proto, isNot(contains('在线')));
+      });
+    });
+
+    group('T157：服务可达与协议面两格', () {
+      Future<String> readout(WidgetTester tester, String key) async {
+        await revealTo(
+          tester,
+          find.byKey(const ValueKey('fnthink-host-switch')),
+        );
+        await tester.pumpAndSettle();
+        return tester.widget<Text>(find.byKey(ValueKey(key))).data!;
+      }
+
+      testWidgets('只有 /health 可达 ⇒ 服务可达、协议面只说未知', (tester) async {
+        stubChannels();
+        final h = harness(
+          reachabilityOf: (_) => ChannelHealth(
+            reachable: true,
+            latencyMs: 40,
+            probedAt: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+        final l10n = await pump(tester, h.page);
+        final reach = await readout(tester, 'fnthink-host-reachability');
+        final proto = await readout(tester, 'fnthink-host-protocol');
+        expect(reach, contains('40'));
+        expect(reach, contains('可达'));
+        expect(proto, l10n.fnthinkProtocolNever);
+        expect(proto, isNot(contains('就绪')));
+        expect(proto, isNot(contains('在线')));
+      });
+
+      testWidgets('协议面成功 ⇒ 就绪；可达性没读数 ⇒ 还没探测过', (tester) async {
+        stubChannels();
+        final h = harness(
+          healthOf: (_) => ChannelHealth(
+            reachable: true,
+            latencyMs: 66,
+            probedAt: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+        final l10n = await pump(tester, h.page);
+        final reach = await readout(tester, 'fnthink-host-reachability');
+        final proto = await readout(tester, 'fnthink-host-protocol');
+        expect(reach, l10n.fnthinkReachabilityNever);
+        expect(proto, contains('就绪'));
+        expect(proto, contains('幻念请求成功'));
+      });
+
+      testWidgets('协议面过期 ⇒ 说上次成功于 X 前、当前未知，不说就绪', (tester) async {
+        stubChannels();
+        final h = harness(
+          healthOf: (_) => ChannelHealth(
+            reachable: true,
+            latencyMs: 66,
+            probedAt: DateTime.now().millisecondsSinceEpoch - 40 * 60 * 1000,
+          ),
+        );
+        await pump(tester, h.page);
+        final proto = await readout(tester, 'fnthink-host-protocol');
+        expect(proto, contains('当前未知'));
+        expect(proto, contains('40 分钟前'));
+        expect(proto, isNot(contains('就绪')));
       });
     });
 

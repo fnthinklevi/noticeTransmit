@@ -3274,13 +3274,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHubSendDesc => '发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档';
 
   @override
-  String get fnthinkHealthNever => '最近一次发送：这台对这个服务器还没发出去过';
+  String get fnthinkHealthNever => '协议面未知：还没有协议请求的读数';
 
   @override
-  String get fnthinkHealthReachable => '最近一次发送：服务器有应答';
+  String get fnthinkHealthReachable => '协议面就绪：最近一次幻念请求成功';
 
   @override
-  String get fnthinkHealthUnreachable => '最近一次发送：连不上服务器';
+  String get fnthinkHealthUnreachable => '协议面不可用：最近一次幻念请求失败';
+
+  @override
+  String get fnthinkReachabilityLabel => '服务可达';
+
+  @override
+  String get fnthinkProtocolLabel => '协议面';
+
+  @override
+  String fnthinkReachabilityOk(int n, String ago) {
+    return '可达 · $n ms（$ago）';
+  }
+
+  @override
+  String fnthinkReachabilityFailed(String ago) {
+    return '不可达（$ago）';
+  }
+
+  @override
+  String fnthinkReachabilityStale(String ago) {
+    return '上次探测于 $ago，当前未知';
+  }
+
+  @override
+  String get fnthinkReachabilityNever => '还没探测过';
+
+  @override
+  String fnthinkProtocolReadyShort(String ago) {
+    return '就绪 · 最近一次幻念请求成功（$ago）';
+  }
+
+  @override
+  String fnthinkProtocolFailedShort(String ago) {
+    return '不可用 · 最近一次幻念请求失败（$ago）';
+  }
+
+  @override
+  String fnthinkProtocolStale(String ago) {
+    return '上次成功于 $ago，当前未知';
+  }
+
+  @override
+  String get fnthinkProtocolNever => '未知 · 还没有协议请求的读数';
+
+  @override
+  String get fnthinkProtocolUnverified => '未验证 · 服务在答，但没有协议请求成功过';
 
   @override
   String get fnthinkStatusRunning => '正在收取';

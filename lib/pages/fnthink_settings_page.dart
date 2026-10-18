@@ -36,6 +36,7 @@ class FnthinkSettingsDeps {
     required this.coordinator,
     required this.identity,
     this.healthOf,
+    this.reachabilityOf,
     this.probeHosts,
     this.onHealthBody,
     this.recordHealth,
@@ -45,17 +46,22 @@ class FnthinkSettingsDeps {
     contracts: GetIt.instance<FnthinkContractLoader>(),
     coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
     identity: FnthinkIdentityService(),
-    // T60（approach B）：对着某台服务器的最近一次发送健康度。读源与写源（协调者 recordHealth
-    // 落到 ChannelHealthStore）都认 `kFnthinkServerFamily` 这一个 family（T104 片①：以前它与
-    // 通道健康度共用 `fnthink`，两种主语挤在一个族名里），页面不自己 new 读写实现。
+    // T60（approach B）／T157：这一格是**协议面**——协调者拿到/没拿到幻念协议请求的响应。
+    // 它不再与 `/health` 探针共用一份记录（探针写下面那个族）。
     healthOf: (host) =>
         GetIt.instance<ChannelHealthStore>().of(kFnthinkServerFamily, host),
+    // T157：`/health` 只管"这台机器上有没有进程在答 HTTP"，与协议面分开读。
+    reachabilityOf: (host) => GetIt.instance<ChannelHealthStore>().of(
+      kFnthinkReachabilityFamily,
+      host,
+    ),
     // T95 片5：打开「切换服务」那一格时**两台各探一次**。走 `/health` 那一发非侵入探测
-    // （`measureEndpointLatency`），不往任何一台发真消息。
+    // （`measureEndpointLatency`），不往任何一台发真消息。T157：它写的是**可达性**族，
+    // 不许再盖掉协议面那一格。
     probeHosts: measureEndpointLatency,
     recordHealth: ({required host, required reachable, required latencyMs}) =>
         GetIt.instance<ChannelHealthStore>().record(
-          kFnthinkServerFamily,
+          kFnthinkReachabilityFamily,
           host,
           reachable: reachable,
           latencyMs: latencyMs,
@@ -66,8 +72,11 @@ class FnthinkSettingsDeps {
   final FnthinkReceiveCoordinator coordinator;
   final FnthinkIdentityService identity;
 
-  /// 读某台服务器的健康度（null = 这台没装配健康度链路 ⇒ 那一行不画/显示"从没发过"）。
+  /// 读某台服务器的**协议面**健康度（null = 还没有协议请求的读数）。
   final ChannelHealth? Function(String host)? healthOf;
+
+  /// 读某台服务器的**可达性**（`/health` 探针，T157）。null = 这个族没接。
+  final ChannelHealth? Function(String host)? reachabilityOf;
 
   /// 探这几台，回到得了的那些的时延。
   ///
@@ -181,6 +190,10 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
   ///   **都不画**那一格 —— 分开它们对用户没有意义，而把"没有读数"画成"一致"
   ///   才是凭空报功。
   String? _contractVerdict;
+
+  /// 每一台候选的 `/health` 契约版本读数（T157：协议面那一格只用**当前 host** 的那一份，
+  /// 不许拿另一台探到的版本来替当前这台说"未验证"）。
+  final Map<String, String> _hostVerdicts = {};
 
   /// 改地址失败的原因（校验在 `FnthinkSettings` 那一处，这里只显示）。
   String? _hostError;
@@ -459,7 +472,9 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       final healthKey = _settings?.contract.versionEchoHealthKey ?? '';
       final verdict = readClientContractVerdict(body, healthKey);
       if (verdict == null) return;
-      _contractVerdict = _worseVerdict(_contractVerdict, '$verdict');
+      final text = '$verdict';
+      _hostVerdicts[host] = text;
+      _contractVerdict = _worseVerdict(_contractVerdict, text);
     }
 
     try {
@@ -498,19 +513,85 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     return incoming;
   }
 
-  /// 这一台今天怎么样 —— 与徽标**同一条判定**（`channelHealthStateForDisplay`）。
-  /// 页面自己再判一次 `reachable` 就是第二份口径：T01 那次"设置页说正常、首页说未知"
-  /// 就是这么来的。
-  /// 过期那一档在这里只说结论词：同一格右边那枚徽标一直在说"上次探测于 X 前"
-  /// （`ChannelHealthBadge`），这一行再说一遍只是把同一句挂两次。
+  /// 「切换服务」选项上那一句「这一台今天能不能用」—— T157 起它只回答**可达性**
+  /// （`/health` 探针写的那一族），不冒充协议面。过期那档必须带时间（T115），
+  /// 不许只说"状态正常"。
   String _healthWord(AppLocalizations l10n, String host) {
-    final health = _deps.healthOf?.call(host);
+    final health = _deps.reachabilityOf?.call(host);
+    final ago = channelHealthAgoLabel(l10n, health?.probedAt);
     return switch (channelHealthStateForDisplay(health)) {
       ChannelHealthState.ok => l10n.healthReachable(health!.latencyMs),
       ChannelHealthState.error => l10n.healthUnreachable,
-      ChannelHealthState.stale => l10n.statusOk,
+      ChannelHealthState.stale => ago ?? l10n.statusUnknown,
       ChannelHealthState.unknown => l10n.statusUnknown,
     };
+  }
+
+  /// 服务可达那一格（T157）。只读 `/health` 探针写的那一族；没有读数就说没有。
+  String _reachabilityWord(AppLocalizations l10n, String host) {
+    final health = _deps.reachabilityOf?.call(host);
+    final ago = fnthinkAgoLabel(l10n, health?.probedAt);
+    return switch (channelHealthStateForDisplay(health)) {
+      ChannelHealthState.ok => l10n.fnthinkReachabilityOk(
+        health!.latencyMs,
+        ago ?? '—',
+      ),
+      ChannelHealthState.error => l10n.fnthinkReachabilityFailed(ago ?? '—'),
+      ChannelHealthState.stale => l10n.fnthinkReachabilityStale(ago ?? '—'),
+      ChannelHealthState.unknown => l10n.fnthinkReachabilityNever,
+    };
+  }
+
+  /// 协议面那一格（T157）。结论只由**协议请求**写入的 `kFnthinkServerFamily` 给；
+  /// `/health` 的契约版本只算**一半**——没有协议请求成功过时只能说"未验证/未知"。
+  String _protocolWord(AppLocalizations l10n, String host) {
+    final health = _deps.healthOf?.call(host);
+    final ago = fnthinkAgoLabel(l10n, health?.probedAt);
+    return switch (channelHealthStateForDisplay(health)) {
+      ChannelHealthState.ok => l10n.fnthinkProtocolReadyShort(ago ?? '—'),
+      ChannelHealthState.error => l10n.fnthinkProtocolFailedShort(ago ?? '—'),
+      ChannelHealthState.stale => l10n.fnthinkProtocolStale(ago ?? '—'),
+      ChannelHealthState.unknown =>
+        _hostVerdicts[host] == null
+            ? l10n.fnthinkProtocolNever
+            : l10n.fnthinkProtocolUnverified,
+    };
+  }
+
+  /// 服务器卡上的一行读数：左边是主语，右边是结论（`keyName` 落在结论那枚 Text 上）。
+  Widget _hostReadout({
+    required String keyName,
+    required String label,
+    required String text,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+          ),
+          Flexible(
+            child: Text(
+              text,
+              key: ValueKey(keyName),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 换地址之后的那一套：写值 → 读回 → **重启收货循环** → 刷界面。
@@ -882,11 +963,19 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
             ),
           ],
         ),
-        // T95 片5：这一枚读的是健康度单点。`healthOf` 在 T60 就注入了，但页面从没读过它 ——
-        // 于是"接口有、界面没有"，用户换台时手上一个证据都没有。
-        // 它说的是"最近一次对着这台试过"：收货链路的真实发送会写它，打开「切换服务」
-        // 那一格时的探测也会写它（`_probeDeclaredHosts`）。
-        ChannelHealthBadge(health: _deps.healthOf?.call(_host)),
+        // T157：这一格拆成两行 —— **服务可达**只读 `/health` 探针写的那一族；
+        // **协议面**只读协议请求写的那一族。两者不共用一份记录：一次 `/health` 200
+        // 不许把协议面的失败盖成"有应答"（那正是"界面在线、功能全废"的来源）。
+        _hostReadout(
+          keyName: 'fnthink-host-reachability',
+          label: l10n.fnthinkReachabilityLabel,
+          text: _reachabilityWord(l10n, _host),
+        ),
+        _hostReadout(
+          keyName: 'fnthink-host-protocol',
+          label: l10n.fnthinkProtocolLabel,
+          text: _protocolWord(l10n, _host),
+        ),
         // T47：收件保留。天数进界面（四档，缺省 30），条数是资源闸不进 ——
         // 见 FnthinkSettings 那两条常量与它们的注释。
         FnthinkRowLabel(

@@ -6089,20 +6089,86 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHealthNever.
   ///
   /// In zh, this message translates to:
-  /// **'最近一次发送：这台对这个服务器还没发出去过'**
+  /// **'协议面未知：还没有协议请求的读数'**
   String get fnthinkHealthNever;
 
   /// No description provided for @fnthinkHealthReachable.
   ///
   /// In zh, this message translates to:
-  /// **'最近一次发送：服务器有应答'**
+  /// **'协议面就绪：最近一次幻念请求成功'**
   String get fnthinkHealthReachable;
 
   /// No description provided for @fnthinkHealthUnreachable.
   ///
   /// In zh, this message translates to:
-  /// **'最近一次发送：连不上服务器'**
+  /// **'协议面不可用：最近一次幻念请求失败'**
   String get fnthinkHealthUnreachable;
+
+  /// No description provided for @fnthinkReachabilityLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务可达'**
+  String get fnthinkReachabilityLabel;
+
+  /// No description provided for @fnthinkProtocolLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'协议面'**
+  String get fnthinkProtocolLabel;
+
+  /// No description provided for @fnthinkReachabilityOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'可达 · {n} ms（{ago}）'**
+  String fnthinkReachabilityOk(int n, String ago);
+
+  /// No description provided for @fnthinkReachabilityFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'不可达（{ago}）'**
+  String fnthinkReachabilityFailed(String ago);
+
+  /// No description provided for @fnthinkReachabilityStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次探测于 {ago}，当前未知'**
+  String fnthinkReachabilityStale(String ago);
+
+  /// No description provided for @fnthinkReachabilityNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没探测过'**
+  String get fnthinkReachabilityNever;
+
+  /// No description provided for @fnthinkProtocolReadyShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'就绪 · 最近一次幻念请求成功（{ago}）'**
+  String fnthinkProtocolReadyShort(String ago);
+
+  /// No description provided for @fnthinkProtocolFailedShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'不可用 · 最近一次幻念请求失败（{ago}）'**
+  String fnthinkProtocolFailedShort(String ago);
+
+  /// No description provided for @fnthinkProtocolStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次成功于 {ago}，当前未知'**
+  String fnthinkProtocolStale(String ago);
+
+  /// No description provided for @fnthinkProtocolNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知 · 还没有协议请求的读数'**
+  String get fnthinkProtocolNever;
+
+  /// No description provided for @fnthinkProtocolUnverified.
+  ///
+  /// In zh, this message translates to:
+  /// **'未验证 · 服务在答，但没有协议请求成功过'**
+  String get fnthinkProtocolUnverified;
 
   /// No description provided for @fnthinkStatusRunning.
   ///

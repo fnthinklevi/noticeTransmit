@@ -1655,9 +1655,65 @@
   "fnthinkSendTargetWebhookOnlyForNotice": "Remote commands can only go to paired devices: a Webhook channel has no pairing and no level grant. Switch back to \"A notification\" to send to a channel.",
   "fnthinkSendNoticeVsCommand": "\"A notification\" lets the other side see a piece of content (no grant needed, no action taken); \"A remote command\" asks it to do something (needs the pairing and a level grant, and the top level also passes the delayed-confirm window).",
   "fnthinkHubSendDesc": "Send to a paired device, or to a Webhook channel; not the same tier as a remote command",
-  "fnthinkHealthNever": "Nothing has been sent to this server yet",
-  "fnthinkHealthReachable": "The last send reached the server",
-  "fnthinkHealthUnreachable": "The last send could not reach the server",
+  "fnthinkHealthNever": "Protocol plane unknown: no protocol request reading yet",
+  "fnthinkHealthReachable": "Protocol plane ready: the last Fnthink request succeeded",
+  "fnthinkHealthUnreachable": "Protocol plane unavailable: the last Fnthink request failed",
+  "fnthinkReachabilityLabel": "Service reachable",
+  "fnthinkProtocolLabel": "Protocol plane",
+  "fnthinkReachabilityOk": "Reachable · {n} ms ({ago})",
+  "@fnthinkReachabilityOk": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkReachabilityFailed": "Unreachable ({ago})",
+  "@fnthinkReachabilityFailed": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkReachabilityStale": "Last probe {ago}; current state unknown",
+  "@fnthinkReachabilityStale": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkReachabilityNever": "Not probed yet",
+  "fnthinkProtocolReadyShort": "Ready · last Fnthink request succeeded ({ago})",
+  "@fnthinkProtocolReadyShort": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkProtocolFailedShort": "Unavailable · last Fnthink request failed ({ago})",
+  "@fnthinkProtocolFailedShort": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkProtocolStale": "Last success {ago}; current state unknown",
+  "@fnthinkProtocolStale": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkProtocolNever": "Unknown · no protocol request reading yet",
+  "fnthinkProtocolUnverified": "Unverified · service answers, but no protocol request has succeeded",
   "fnthinkStatusRunning": "Receiving",
   "fnthinkStatusIdle": "Not running",
   "fnthinkReceiveNow": "Receive now",

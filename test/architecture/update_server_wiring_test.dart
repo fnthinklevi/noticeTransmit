@@ -70,18 +70,30 @@ void main() {
       contains('recordHealth:'),
       reason: '探完没人写 ⇒ 徽标与选项读的是同一份空，看着像"从没测过"，其实是被漏接',
     );
-    // 读写两侧必须认同一个 family：折行/缩进怎么排都算（形状判据，不是字面抄本）。
-    // ⚠ 这里是 **`kFnthinkServerFamily`**（服务器主语，id＝host），不是 `kFnthinkChannelSlug`
-    //   （通道主语，id＝通道行 id）—— T104 片① 把两种主语拆开的正是这一对，串台时不报错，
-    //   只是首页那条通道行会替一台服务器说话。
-    final writes = RegExp(r'record\(\s*kFnthinkServerFamily,').hasMatch(block);
-    final reads = page.contains('of(kFnthinkServerFamily, host)');
+    // T157：探针写**可达性**族；协议面另读 `kFnthinkServerFamily`（id＝host）。
+    // 把探针写回协议面，一次 `/health` 200 就会把协议面的失败盖成"有应答"——
+    // 而"界面在线、功能全废"正是这么来的。
+    final writesReach = RegExp(
+      r'record\(\s*kFnthinkReachabilityFamily,',
+    ).hasMatch(block);
+    final readsReach = RegExp(
+      r'of\(\s*kFnthinkReachabilityFamily,',
+    ).hasMatch(block);
+    final readsProtocol = RegExp(
+      r'of\(\s*kFnthinkServerFamily,',
+    ).hasMatch(block);
+    final writesProtocol = RegExp(
+      r'record\(\s*kFnthinkServerFamily,',
+    ).hasMatch(block);
     expect(
-      [writes, reads].where((x) => x).length,
-      2,
-      reason:
-          '写源或读源丢了一边 ⇒ "写进 A、读的是 B"那种串台（本条实测：折行写法变了会只认到一边，'
-          '所以判据按形状取，不抄源码里那一行的换行位置）',
+      [writesReach, readsReach, readsProtocol].where((x) => x).length,
+      3,
+      reason: '探针写可达性、可达性读回、协议面另读；少一边就是两格又串台了',
+    );
+    expect(
+      writesProtocol,
+      isFalse,
+      reason: '探针写回协议面 = 一次 /health 200 把协议面的失败盖成"有应答"',
     );
   });
 

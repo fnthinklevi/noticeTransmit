@@ -3420,14 +3420,63 @@ class AppLocalizationsEn extends AppLocalizations {
       'Send to a paired device, or to a Webhook channel; not the same tier as a remote command';
 
   @override
-  String get fnthinkHealthNever => 'Nothing has been sent to this server yet';
+  String get fnthinkHealthNever =>
+      'Protocol plane unknown: no protocol request reading yet';
 
   @override
-  String get fnthinkHealthReachable => 'The last send reached the server';
+  String get fnthinkHealthReachable =>
+      'Protocol plane ready: the last Fnthink request succeeded';
 
   @override
   String get fnthinkHealthUnreachable =>
-      'The last send could not reach the server';
+      'Protocol plane unavailable: the last Fnthink request failed';
+
+  @override
+  String get fnthinkReachabilityLabel => 'Service reachable';
+
+  @override
+  String get fnthinkProtocolLabel => 'Protocol plane';
+
+  @override
+  String fnthinkReachabilityOk(int n, String ago) {
+    return 'Reachable · $n ms ($ago)';
+  }
+
+  @override
+  String fnthinkReachabilityFailed(String ago) {
+    return 'Unreachable ($ago)';
+  }
+
+  @override
+  String fnthinkReachabilityStale(String ago) {
+    return 'Last probe $ago; current state unknown';
+  }
+
+  @override
+  String get fnthinkReachabilityNever => 'Not probed yet';
+
+  @override
+  String fnthinkProtocolReadyShort(String ago) {
+    return 'Ready · last Fnthink request succeeded ($ago)';
+  }
+
+  @override
+  String fnthinkProtocolFailedShort(String ago) {
+    return 'Unavailable · last Fnthink request failed ($ago)';
+  }
+
+  @override
+  String fnthinkProtocolStale(String ago) {
+    return 'Last success $ago; current state unknown';
+  }
+
+  @override
+  String get fnthinkProtocolNever =>
+      'Unknown · no protocol request reading yet';
+
+  @override
+  String get fnthinkProtocolUnverified =>
+      'Unverified · service answers, but no protocol request has succeeded';
 
   @override
   String get fnthinkStatusRunning => 'Receiving';

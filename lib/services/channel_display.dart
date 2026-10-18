@@ -48,6 +48,14 @@ const String kFnthinkChannelSlug = 'fnthink';
 ///   徽标显示「从未探测」—— 那是真话（这一族的探针本来就只有"真发一条"那一种）。
 const String kFnthinkServerFamily = 'fnthink-server';
 
+/// 服务器**可达性**（`/health` 探针）的 family（T157）。
+///
+/// 与 [kFnthinkServerFamily] 分开是这条缺陷的修法本体：那一个说的是**协议面**
+/// （协调者拿到/没拿到幻念协议请求的响应），这一个是"这台机器上有没有进程在答 HTTP"。
+/// 两者共用一份记录时，一次 `/health` 200 会把协议面的失败盖成"有应答"，
+/// 而功能全废 —— 这正是维护者撞到的"幻念那格说在线、各项功能全不可用"。
+const String kFnthinkReachabilityFamily = 'fnthink-reachability';
+
 /// 聚合伪通道的规范键（P2 merge 动作：窗口期内成员被合并推送）。
 const String kMergedChannelKey = 'merge';
 
