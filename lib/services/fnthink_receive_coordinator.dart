@@ -620,6 +620,29 @@ class FnthinkReceiveCoordinator {
     );
   }
 
+  /// 从系统授权页回来时重排一次闹钟（T140 (b) ④ 的尾巴）。
+  ///
+  /// 精确闹钟的授权是系统那一侧的事实，而**已经排出去的那颗闹钟仍按旧精度走**：
+  /// 用户刚把授权打开/收回，真正生效要等下一轮重排。`startIfEnabled()` 对已在跑的
+  /// 循环返回 `already-running`，它不会重排 —— 所以在回前台这一格补一次。
+  ///
+  /// 只在「开关开着 + 同意过中转」时排：这两条不齐时排一颗会唤醒一个不会发请求的引擎。
+  /// 契约读不到时什么都不做（间隔只有一个作者，猜一个数就是第二份节奏）。
+  Future<void> rearmPresenceAfterAuthorizationChange() async {
+    final hook = presenceNotice;
+    if (hook == null) return;
+    try {
+      final contract = await contracts.load();
+      final settings = _buildSettings(contract);
+      if (!await settings.receiveEnabled) return;
+      if (!await settings.hasRelayConsent()) return;
+      await hook(keepAwake: true);
+    } catch (e) {
+      // 重排失败不改变屏幕上的结论：那颗旧闹钟仍在，下一轮照旧会重排。
+      debugPrint('[fnthink] 授权变更后重排闹钟没做成：$e');
+    }
+  }
+
   bool get isRunning => _loop?.isRunning ?? false;
 
   /// 按当前设置决定要不要开始。已经在跑就是幂等 ——

@@ -38,6 +38,8 @@ void main() {
     Future<List<FnthinkL3GrantRow>> Function()? l3Loader,
     // 系统对精确闹钟的授权读数（T140 走 (c) 之后这一族唯一的真值）。
     bool exactAlarmGranted = false,
+    // 回前台后"按新授权重排一次"的那个出口（T140）。null = 这一页没接那条链路。
+    Future<void> Function()? onAuthorizationChanged,
   }) async {
     channelCalls = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -86,6 +88,7 @@ void main() {
               ),
           manufacturer: 'meizu',
           onRefresh: () async {},
+          onAuthorizationChanged: onAuthorizationChanged,
           onRequestNotificationListenerPermission: () => notifListenerTaps++,
           onRequestPostNotificationPermission: () {},
           onRequestBatteryOptimization: () {},
@@ -405,6 +408,46 @@ void main() {
         reason: '给了的那一项不能再挂着"还没给" —— 那是把用户刚做完的事抹掉',
       );
       expect(find.text('已开启'), findsWidgets);
+    });
+
+    testWidgets('回前台让排程按新授权重排一次（T140：精度只在排程那一刻读）', (tester) async {
+      var rearms = 0;
+      await pumpPage(
+        tester,
+        appListState: 'unknown',
+        onAuthorizationChanged: () async {
+          rearms++;
+        },
+      );
+      expect(rearms, 0, reason: '进页面不算授权变更');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(
+        rearms,
+        1,
+        reason:
+            '读回新授权还不够：已经排出去的那颗闹钟仍按旧精度走，'
+            '下一次重排要等到它能被唤醒之后 —— 用户刚给的授权等于慢了一整轮',
+      );
+    });
+
+    testWidgets('重排自己抛异常 ⇒ 页面照常显示（回前台不能被一次排程失败带崩）', (tester) async {
+      await pumpPage(
+        tester,
+        appListState: 'unknown',
+        onAuthorizationChanged: () async => throw StateError('平台层忙'),
+      );
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.text('权限设置'), findsOneWidget);
     });
 
     testWidgets('还没取到 ⇒ 那一格一行都不画（不拿一张空卡冒充"这台没项要管"）', (tester) async {

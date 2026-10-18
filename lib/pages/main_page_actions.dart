@@ -303,6 +303,10 @@ extension _MainPageActions on _MainPageState {
         loadL3GrantRows: _l3GrantRows,
         manufacturer: _deviceInfoService.manufacturer,
         onRefresh: _checkPermissions,
+        // T140：授权页回前台时按新授权重排一次闹钟（精确闹钟的精度只在排程那一刻读）。
+        onAuthorizationChanged: () =>
+            GetIt.instance<FnthinkReceiveCoordinator>()
+                .rearmPresenceAfterAuthorizationChange(),
         onRequestNotificationListenerPermission:
             _permissionService.requestNotificationListenerPermission,
         // T55：通知权限给了之后**顺手**把提升/悬浮通知（POST_PROMOTED_NOTIFICATIONS，36+）

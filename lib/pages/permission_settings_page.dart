@@ -32,6 +32,10 @@ class PermissionSettingsPage extends StatefulWidget {
   final Future<List<FnthinkL3GrantRow>> Function() loadL3GrantRows;
   final String manufacturer;
   final Future<void> Function() onRefresh;
+
+  /// 从系统页回来时让排程按新授权重排一次（T140）。null = 这一页没有那条链路
+  /// （widget 用例直接构造时就不需要）；真机上由主页面接到收货协调者。
+  final Future<void> Function()? onAuthorizationChanged;
   final VoidCallback onRequestNotificationListenerPermission;
   final VoidCallback onRequestPostNotificationPermission;
   final VoidCallback onRequestBatteryOptimization;
@@ -55,6 +59,7 @@ class PermissionSettingsPage extends StatefulWidget {
     required this.loadL3GrantRows,
     required this.manufacturer,
     required this.onRefresh,
+    this.onAuthorizationChanged,
     required this.onRequestNotificationListenerPermission,
     required this.onRequestPostNotificationPermission,
     required this.onRequestBatteryOptimization,
@@ -137,6 +142,13 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
       //   改完才回来的。不重取的表现不是崩，是**那一行把用户刚做完的事抹掉** ——
       //   已经授权了，行上还写着"还没给这台设备授权"，用户只能退出重进来确认。
       await _loadL3GrantRows();
+      // T140：系统授权页可能改的就是精确闹钟这一枚。读回新值还不够 ——
+      // 已经排出去的那颗闹钟仍按旧精度走，要在回前台这一刻按新授权重排一次。
+      try {
+        await widget.onAuthorizationChanged?.call();
+      } catch (e) {
+        debugPrint('[permission] 授权变更后的重排失败：$e');
+      }
       if (mounted) setState(() {});
     }
   }

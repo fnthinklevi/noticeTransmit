@@ -20,6 +20,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_l3_grants.dart';
 import '../services/fnthink_settings.dart';
 import '../services/fnthink_pair_link.dart';
+import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_remote_runner.dart';
 import '../services/fnthink_remote_wiring.dart';
 import '../di/service_locator.dart' show getIt;

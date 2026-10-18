@@ -2612,6 +2612,95 @@ void main() {
       );
     });
   });
+
+  group('授权变更后重排闹钟（T140）', () {
+    Future<void> enableReceiveAndConsent() async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      await FnthinkSettings(contract: contract).grantRelayConsent();
+    }
+
+    test('开关开着且同意过 ⇒ 交一次 keepAwake=true（循环在跑也不省这一发）', () async {
+      await enableReceiveAndConsent();
+      final calls = <({bool keepAwake, int? afterSeconds})>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async {
+          calls.add((keepAwake: keepAwake, afterSeconds: afterSeconds));
+        },
+      );
+
+      await c.rearmPresenceAfterAuthorizationChange();
+
+      expect(calls, [(keepAwake: true, afterSeconds: null)]);
+      expect(
+        calls,
+        hasLength(1),
+        reason:
+            '`startIfEnabled` 对已在跑的循环是 already-running，不会重排；'
+            '授权变更要的就是这一发额外的排程',
+      );
+    });
+
+    test('开关关着 ⇒ 不排（关掉 = 不醒，不因一次回前台破例）', () async {
+      final calls = <bool>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async {
+          calls.add(keepAwake);
+        },
+      );
+
+      await c.rearmPresenceAfterAuthorizationChange();
+
+      expect(calls, isEmpty);
+    });
+
+    test('没同意中转 ⇒ 不排', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final calls = <bool>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async {
+          calls.add(keepAwake);
+        },
+      );
+
+      await c.rearmPresenceAfterAuthorizationChange();
+
+      expect(calls, isEmpty);
+    });
+
+    test('钩子抛异常 ⇒ 不向上抛（回前台那一格不能被一次排程失败带崩）', () async {
+      await enableReceiveAndConsent();
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async {
+          throw StateError('平台层忙');
+        },
+      );
+
+      await expectLater(c.rearmPresenceAfterAuthorizationChange(), completes);
+    });
+
+    test('契约读不到 ⇒ 不排也不抛（间隔只有一个作者，不猜一个数）', () async {
+      await enableReceiveAndConsent();
+      final calls = <bool>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        contracts: FnthinkContractLoader(readAsset: (_) async => 'not json'),
+        presenceNotice: ({required bool keepAwake, int? afterSeconds}) async {
+          calls.add(keepAwake);
+        },
+      );
+
+      await expectLater(c.rearmPresenceAfterAuthorizationChange(), completes);
+      expect(calls, isEmpty);
+    });
+  });
 }
 
 class _FakeSigner implements FnthinkIdentitySigner {

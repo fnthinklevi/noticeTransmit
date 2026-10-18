@@ -89,4 +89,29 @@ void main() {
       reason: '调两次就是在两处各自解释一遍档位 —— 判据要只有一个落点',
     );
   });
+
+  test('授权页回前台那一发真的接到协调者的重排（漏接时精度永远慢一轮）', () {
+    final permissionPage = read('lib/pages/permission_settings_page.dart');
+    final actions = read('lib/pages/main_page_actions.dart');
+    final coordinator = read('lib/services/fnthink_receive_coordinator.dart');
+    final lifecycle = permissionPage.substring(
+      permissionPage.indexOf('void didChangeAppLifecycleState'),
+    );
+    expect(
+      lifecycle,
+      contains('widget.onAuthorizationChanged?.call()'),
+      reason: '回前台只读回授权不够：排程的精度只在排的那一刻读',
+    );
+    expect(
+      actions,
+      contains('onAuthorizationChanged:'),
+      reason: '装配点漏接 ⇒ 页面那次回调恒为 null，而页面用例仍然绿',
+    );
+    expect(actions, contains('rearmPresenceAfterAuthorizationChange()'));
+    expect(
+      coordinator,
+      contains('Future<void> rearmPresenceAfterAuthorizationChange()'),
+      reason: '方法搬走/改名了？那要么把它接回去，要么把这一条一起搬走',
+    );
+  });
 }
