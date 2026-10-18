@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
+import '../services/vendor_family.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/primary_action_button.dart';
@@ -22,16 +23,18 @@ class WidgetGuidePage extends StatelessWidget {
 
   const WidgetGuidePage({super.key, this.manufacturer = ''});
 
-  // ===== 品牌识别（与 permission_settings_page 的判定口径保持一致） =====
-  bool get _isXiaomi =>
-      _m.contains('xiaomi') || _m.contains('redmi') || _m.contains('mi ');
-  bool get _isHuawei => _m.contains('huawei') || _m.contains('honor');
-  bool get _isOppo =>
-      _m.contains('oppo') || _m.contains('realme') || _m.contains('oneplus');
-  bool get _isVivo => _m.contains('vivo') || _m.contains('iqoo');
-  bool get _isSamsung => _m.contains('samsung');
+  // ===== 品牌识别：只认 `vendor_family.dart` 那一张表（T140 (b) ②）=====
+  //
+  // 这一页以前另写了一份厂商词表，注释还写着"与 permission_settings_page 的判定口径保持一致"
+  // —— 那是一句**没有守卫的口头一致**，而它其实少了魅族那一支。现在两处都从同一个作者现取，
+  // "一致"这件事不再靠注释。（本页今天仍只有这五家有分步引导文案，缺的那几家照旧走通用步骤。）
+  FnthinkVendorFamily get _vendorFamily => fnthinkVendorFamilyOf(manufacturer);
 
-  String get _m => manufacturer.toLowerCase();
+  bool get _isXiaomi => _vendorFamily == FnthinkVendorFamily.xiaomi;
+  bool get _isHuawei => _vendorFamily == FnthinkVendorFamily.huawei;
+  bool get _isOppo => _vendorFamily == FnthinkVendorFamily.oppo;
+  bool get _isVivo => _vendorFamily == FnthinkVendorFamily.vivo;
+  bool get _isSamsung => _vendorFamily == FnthinkVendorFamily.samsung;
 
   Future<void> _requestPinWidget(
     BuildContext context, {

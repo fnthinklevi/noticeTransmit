@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/fnthink_l3_grants.dart';
 import '../services/permission_service.dart';
+import '../services/vendor_family.dart';
 import '../theme/app_colors.dart';
 import '../widgets/pull_to_refresh_list.dart';
 import '../widgets/fnthink_card.dart';
@@ -149,37 +150,28 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
   bool get _smsPermissionGranted => _permissionService.smsGranted;
   bool get _phonePermissionGranted => _permissionService.phoneGranted;
   bool get _appListPermissionGranted => _permissionService.appListGranted;
-  bool get _isXiaomi =>
-      widget.manufacturer.toLowerCase().contains('xiaomi') ||
-      widget.manufacturer.toLowerCase().contains('redmi') ||
-      widget.manufacturer.toLowerCase().contains('mi ');
+  // 厂商分流只认 `vendor_family.dart` 那一张表（T140 (b) ②）。
+  //
+  // 这一页以前自己写了六行 `contains`，而 L3 那一发与小组件引导页各写了一份**不同**的：
+  // 同一台红米／荣耀／iQOO 在这里"能跳"，在 L3 的审计里"什么都没做" —— 一屏两句话的另一种形状。
+  // ⚠ 这一族的**状态**仍然读不到（六厂商都不给公开读数），所以这里判的只是"该给哪一家的入口"，
+  //   那一行的读数仍旧走 `l3StateUnreadable` 那一句，不许在这里画成"已开启"。
+  FnthinkVendorFamily get _vendorFamily =>
+      fnthinkVendorFamilyOf(widget.manufacturer);
 
-  bool get _isMeizu => widget.manufacturer.toLowerCase().contains('meizu');
+  bool get _isXiaomi => _vendorFamily == FnthinkVendorFamily.xiaomi;
 
-  bool get _isHuawei =>
-      widget.manufacturer.toLowerCase().contains('huawei') ||
-      widget.manufacturer.toLowerCase().contains('honor');
+  bool get _isMeizu => _vendorFamily == FnthinkVendorFamily.meizu;
 
-  bool get _isOppo =>
-      widget.manufacturer.toLowerCase().contains('oppo') ||
-      widget.manufacturer.toLowerCase().contains('realme') ||
-      widget.manufacturer.toLowerCase().contains('oneplus');
+  bool get _isHuawei => _vendorFamily == FnthinkVendorFamily.huawei;
 
-  bool get _isVivo =>
-      widget.manufacturer.toLowerCase().contains('vivo') ||
-      widget.manufacturer.toLowerCase().contains('iqoo');
+  bool get _isOppo => _vendorFamily == FnthinkVendorFamily.oppo;
 
-  bool get _isSamsung => widget.manufacturer.toLowerCase().contains('samsung');
+  bool get _isVivo => _vendorFamily == FnthinkVendorFamily.vivo;
 
-  bool get _isStockAndroid =>
-      widget.manufacturer.toLowerCase().contains('google') ||
-      widget.manufacturer.toLowerCase().contains('android') ||
-      !_isXiaomi &&
-          !_isMeizu &&
-          !_isHuawei &&
-          !_isOppo &&
-          !_isVivo &&
-          !_isSamsung;
+  bool get _isSamsung => _vendorFamily == FnthinkVendorFamily.samsung;
+
+  bool get _isStockAndroid => _vendorFamily == FnthinkVendorFamily.stock;
 
   @override
   Widget build(BuildContext context) {

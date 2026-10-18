@@ -10,6 +10,7 @@ import '../services/temperature_service.dart';
 import '../services/device_state_service.dart';
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
+import '../services/vendor_family.dart';
 import '../services/filter_service.dart';
 import '../services/fnthink_channel_service.dart';
 import '../services/fnthink_contract_loader.dart';
@@ -730,26 +731,18 @@ Future<({bool ok, String? reason})> _fnthinkLaunchShortcutOnce(
   }
 }
 
-/// 厂商自启动那一条入口（`autostart`）—— 按本机厂商选那一个方法。///
-/// ⚠ 厂商名做**小写包含**匹配而不是相等：各家在 `Build.MANUFACTURER` 里写的串
-///   各不相同（`Xiaomi` / `Redmi` / `Xiaomi Inc.`…），相等匹配的表现是
-///   "这台明明是小米、却说什么都没有"。
-/// ⚠ 都对不上 ⇒ **不送任何一家**（什么都不做），而不是随便挑一个 ——
-///   弹一个别的厂商的自启动页比不弹更糟（用户会被送进一个无关页面）。
+/// 厂商自启动那一条入口（`autostart`）—— 分流表不住在这里（T140 (b) ②）。
+///
+/// 这一发以前在本文件里自己按厂商名 `if` 一遍，而词表只有五个裸名 ——
+/// 红米／荣耀／真我／一加／iQOO 都落进"都对不上"那一支，**什么都不做**，
+/// 而同一台机器的权限页认得它们、能跳。两份厂商表的下场就是"某一台只在一处被引导"，
+/// 而这一族的读数本来就没有公开 API，用户唯一的线索是"点了有没有页面出来"。
+/// 现在词表、可跳名单、派发三件事都只有 `lib/services/vendor_family.dart` 一个作者。
 Future<void> _requestVendorAutoStart(GetIt getIt) async {
-  final maker = getIt<DeviceInfoService>().manufacturer.toLowerCase();
-  final permissions = getIt<PermissionService>();
-  if (maker.contains('xiaomi')) {
-    await permissions.requestXiaomiAutoStart();
-  } else if (maker.contains('meizu')) {
-    await permissions.requestMeizuBackground();
-  } else if (maker.contains('huawei')) {
-    await permissions.requestHuaweiLaunch();
-  } else if (maker.contains('oppo')) {
-    await permissions.requestOppoBackground();
-  } else if (maker.contains('vivo')) {
-    await permissions.requestVivoBackground();
-  }
+  await fnthinkRequestVendorAutoStart(
+    manufacturer: getIt<DeviceInfoService>().manufacturer,
+    permissions: getIt<PermissionService>(),
+  );
 }
 
 /// 后台引擎里"那一轮到底干什么"的**唯一实现**（T33 第二片 / §4-9 片1b；#178 真机现形后定的形状）。
