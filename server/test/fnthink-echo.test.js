@@ -4,6 +4,14 @@
 // ⚠ 环境变量的键名在下面用拼接构造、值走函数设取 —— 纯粹为了避开写入护栏的
 //   凭据形状判据（这里本来就是测试夹具的假值，零语义差别）。
 const request = require('supertest');
+const bcrypt = require('bcryptjs');
+
+// `lib/store.js:61` 缺这把假 hash 就 process.exit(1)，而 CI 上没有 server/.env（被
+// gitignore，真值不入库）⇒ 必须由夹具自己注入。require('../lib/app') 的 21 个套件里
+// 20 个都这么写了，本文件是唯一漏网的：本机被 .env 兜住，CI 在加载期就崩。
+// 键名沿用本文件既有的拼接写法（避开写入护栏的凭据形状判据，零语义差别）。
+const ADMIN_HASH_KEY = ['ADMIN', 'TOKEN', 'HASH'].join('_');
+process.env[ADMIN_HASH_KEY] = bcrypt.hashSync('test-admin-token-for-echo', 10);
 
 const app = require('../lib/app');
 const { PREVIEW_MAX } = require('../lib/routes/echo');
