@@ -1509,11 +1509,14 @@ void main() {
           await _onPage(tester, RuleListPage, '规则约束列表');
           await _tap(tester, _in(RuleListPage, find.text('编辑')), '规则→编辑第一条');
           await _onPage(tester, RuleEditPage, '规则编辑页');
-          // 「添加条件」是分组**标题**，按钮是它旁边那个 TextButton('添加') ⇒
-          // 按条件/动作两个分组各自的 TextButton 来点（条件组在前）。
+          // 「添加条件」是分组**标题**，按钮是它旁边那个行内动作 ⇒
+          // 按条件/动作两个分组各自的动作件来点（条件组在前）。
+          // ⚠ T90 之后这两枚从 `TextButton` 换成了 `FnthinkInlineAction`（形状收口），
+          //   而这一格一直还在找 `TextButton` ⇒ 闸门 3/4 每次都红在"没出现两个按钮"，
+          //   页面本身是好的。尺跟着换件走，别把它读成页面回归。
           final addButtons = find.descendant(
             of: find.byType(RuleEditPage),
-            matching: find.byType(TextButton),
+            matching: find.byType(FnthinkInlineAction),
           );
           expect(
             addButtons.evaluate().length,
