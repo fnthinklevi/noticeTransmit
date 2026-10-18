@@ -34,6 +34,7 @@ import '../services/fnthink_location_report.dart';
 import '../services/fnthink_contacts_report.dart';
 import '../services/fnthink_photo_report.dart';
 import '../services/fnthink_read_settings.dart';
+import '../services/fnthink_sms_retention.dart';
 import '../services/fnthink_shortcut_registry.dart';
 import '../services/fnthink_sms_search_report.dart';
 import '../services/platform_channel.dart';
@@ -507,13 +508,15 @@ Future<String?> _fnthinkReportNotificationsOnce(int count) async {
   }
 }
 
-/// 「在本机短信里按关键词搜」那一发（T124 片B 的 `sms:search`）。
+/// 「在本机短信里按关键词搜」那一发（T124 片B 的 `sms:search`，① 起多了第二个来源）。
 ///
 /// ⚠ **开关关着 = 这一发不给做**（不是"搜了没命中"）：短信监听那一族默认关，而它读的是短信
 /// 正文 —— 关着时**连库都不碰**，回一句 `sms-search-disabled`，让对面知道该去哪一台开。
-/// ⚠ **不落任何新库**：查询直连系统短信库（`READ_SMS`），命中就回、不存副本。
-/// 行里那句"在**已监听到的**短信里搜"今天没有对应的本地存储（SMS 一进一出、正文不落库），
-/// 造一个等于新增一处短信正文的**留存点** —— 那是隐私面的决定，不在这一片里顺手做。
+/// ⚠ **这一片没有新增存储**：留存这件事今天就在发生（`SmsDispatcher.kt` 把监听到的短信正文
+/// 写成 `type='sms'` 那一发，跟着历史队列进 `notifications` 表；原先这两处注释写的
+/// 「SMS 一进一出、正文不落库」是**不实**的，现读推翻后按代码改）。新的是"对面能不能读到那一格"
+/// 那一枚开关（`fnthink.read.sms_retention`，默认关）。
+/// ⚠ 关掉那枚 ⇒ 走的还是片B 那一条路，形状逐字不变（连留存都不查，也不给来源标记）。
 Future<({String? payload, String? reason})> _fnthinkSearchSmsOnce(
   String keyword,
 ) async {
@@ -521,19 +524,44 @@ Future<({String? payload, String? reason})> _fnthinkSearchSmsOnce(
     if (!getIt<SmsService>().smsMonitorEnabled) {
       return (payload: null, reason: 'sms-search-disabled');
     }
+    final includeRetention = await fnthinkReadSmsRetentionEnabled();
     final raw = await AppChannels.notification.invokeMethod<List<Object?>>(
       'searchFnthinkSms',
       {'keyword': keyword},
     );
+    // 直查那一路：null = 没给 READ_SMS / 被系统拒（**与"空表"不同**，空表的含义是"搜了、没有"）。
+    var direct = const <Map<String, Object?>>[];
+    String? lead;
     if (raw == null) {
-      // 没给 READ_SMS / 被系统拒：原生回 null —— **与"空表"不同**（空表的含义是"搜了、没有"）。
-      return (payload: null, reason: 'sms-search-refused');
+      if (!includeRetention) {
+        return (payload: null, reason: 'sms-search-refused');
+      }
+      lead =
+          '直查系统短信库那一路没成（这台没给 READ_SMS 或被系统拒）；'
+          '下面只列这台已监听留存的那一份。';
+    } else {
+      direct = raw
+          .whereType<Map<Object?, Object?>>()
+          .map((m) => Map<String, Object?>.from(m))
+          .toList(growable: false);
     }
-    final rows = raw
-        .whereType<Map<Object?, Object?>>()
-        .map((m) => Map<String, Object?>.from(m))
+    if (!includeRetention) {
+      return (
+        payload: formatFnthinkSmsSearchReport(keyword, direct),
+        reason: null,
+      );
+    }
+    final retained = (await DatabaseHelper().searchSmsRetention(keyword))
+        .map((r) => retainedRowFromNotification(Map<String, Object?>.from(r)))
         .toList(growable: false);
-    return (payload: formatFnthinkSmsSearchReport(keyword, rows), reason: null);
+    return (
+      payload: formatFnthinkSmsSearchReport(
+        keyword,
+        mergeFnthinkSmsHits(direct: direct, retained: retained),
+        lead: lead,
+      ),
+      reason: null,
+    );
   } catch (e) {
     return (payload: null, reason: 'sms-search-failed');
   }

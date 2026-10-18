@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/channel_display.dart';
 import '../services/engine_rule_codec.dart';
 import '../services/fnthink_remote_execution.dart';
+import '../services/fnthink_sms_retention.dart';
 import '../services/secure_storage_service.dart';
 
 /// 数据库加密密钥丢失/损坏异常。
@@ -52,12 +53,24 @@ abstract class EngineRuleStore {
   Future<void> saveEngineRules(String family, List<Map<String, dynamic>> rules);
 }
 
+/// 「这台已监听的短信留存」那一路的读口（T124 ①，**只读**）。
+///
+/// 为什么只开一个读口：这一格今天由监听那一族写（`type='sms'` 那些行），本片不新增写入者 ——
+/// 多一个写的人就等于多一条正文进库的路，而那不是这一片要回答的问题。
+abstract class SmsRetentionStore {
+  Future<List<Map<String, Object?>>> searchSmsRetention(
+    String keyword, {
+    int limit,
+  });
+}
+
 class DatabaseHelper
     implements
         WebhookChannelStore,
         AppChannelStore,
         EmailChannelStore,
-        EngineRuleStore {
+        EngineRuleStore,
+        SmsRetentionStore {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
@@ -1407,6 +1420,29 @@ class DatabaseHelper
   }
 
   // ── 自建应用通道（app_channels，DB v10）──
+
+  /// 「这台已监听的短信留存」那一路（T124 ①）：只读 `type='sms'` 那些行，按时间倒序。
+  ///
+  /// SQL 的形状（`type = ? AND content LIKE ? ESCAPE '\'`）由 `fnthink_sms_retention.dart`
+  /// 说一次，这里只把它发给真库 —— 关键词**一律走绑定**，那一格装的是别人发来的原文。
+  /// 取三件就够：发件人那一格（`title`）、正文、时间；`_id`/会话线程都不带 ——
+  /// 回给对面的每一条都是一次对外披露面，多一列就多一处。
+  @override
+  Future<List<Map<String, Object?>>> searchSmsRetention(
+    String keyword, {
+    int limit = kFnthinkSmsSearchTotalLimit,
+  }) async {
+    final db = await database;
+    final query = smsRetentionQueryFor(keyword);
+    return db.query(
+      'notifications',
+      columns: const ['title', 'content', 'post_time'],
+      where: query.where,
+      whereArgs: query.args,
+      orderBy: 'post_time DESC',
+      limit: limit,
+    );
+  }
 
   @override
   Future<List<Map<String, dynamic>>> getAppChannels() async {

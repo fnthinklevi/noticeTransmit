@@ -54,6 +54,8 @@ class FnthinkReadCapsPage extends StatefulWidget {
     this.saveContacts,
     this.requestContactsPermission,
     this.isContactsGranted,
+    this.loadSmsRetention,
+    this.saveSmsRetention,
   });
 
   /// 读写口与权限申请口（测试注入；默认走生产那两份）。
@@ -77,6 +79,8 @@ class FnthinkReadCapsPage extends StatefulWidget {
   final Future<void> Function(bool enabled)? saveContacts;
   final Future<void> Function()? requestContactsPermission;
   final Future<bool> Function()? isContactsGranted;
+  final Future<bool> Function()? loadSmsRetention;
+  final Future<void> Function(bool)? saveSmsRetention;
 
   @override
   State<FnthinkReadCapsPage> createState() => _FnthinkReadCapsPageState();
@@ -312,6 +316,21 @@ class _FnthinkReadCapsPageState extends State<FnthinkReadCapsPage>
         save: widget.saveCamera ?? setFnthinkReadCameraEnabled,
         requestPermission: _requestCameraPermission,
         isGranted: _cameraGranted,
+      ),
+      // 第五枚（T124 ①）：它**不申请任何系统权限** —— 搜的是本机库里那一格。
+      // 所以 requestPermission 是空的一发、isGranted 恒真（"这台给没给权限"这一问
+      // 对这一行不成立），deniedText 也就永远不会被画出来。
+      _ReadCapRowSpec(
+        id: 'sms_retention',
+        title: l10n.fnthinkReadSmsRetentionTitle,
+        subtitle: l10n.fnthinkReadSmsRetentionSubtitle,
+        deniedText: l10n.fnthinkReadSmsRetentionDenied,
+        icon: Icons.sms_outlined,
+        iconColor: AppColors.green,
+        load: widget.loadSmsRetention ?? fnthinkReadSmsRetentionEnabled,
+        save: widget.saveSmsRetention ?? setFnthinkReadSmsRetentionEnabled,
+        requestPermission: () async {},
+        isGranted: () async => true,
       ),
       _ReadCapRowSpec(
         id: 'contacts',

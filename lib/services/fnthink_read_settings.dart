@@ -33,6 +33,13 @@ const String kFnthinkReadCameraKey = 'fnthink.read.camera';
 /// 「远程可查通讯录」那一枚（`contacts:search`，T124 片C-4）。
 const String kFnthinkReadContactsKey = 'fnthink.read.contacts';
 
+/// 「远程搜短信时，允许把**这台已监听留存**的那一份一起搜进去」那一枚（T124 ①）。
+///
+/// ⚠ 这一枚**不新开一处存储**：留存这件事今天就在发生（监听到的短信正文落在 `notifications`
+/// 表 `type='sms'` 那些行里，作者 `SmsDispatcher.kt`）。这一枚回答的是"对面能不能读到那一格"——
+/// 那才是需要本机表态的新隐私面。所以它与另四枚同一条纪律：默认关、不进备份。
+const String kFnthinkReadSmsRetentionKey = 'fnthink.read.sms_retention';
+
 /// 读：缺键/读不到 ⇒ **关**（见文件头那条纪律）。
 Future<bool> fnthinkReadCallsEnabled() async {
   final prefs = await SharedPreferences.getInstance();
@@ -79,4 +86,16 @@ Future<bool> fnthinkReadContactsEnabled() async {
 Future<void> setFnthinkReadContactsEnabled(bool enabled) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(kFnthinkReadContactsKey, enabled);
+}
+
+/// 读：缺键/读不到 ⇒ **关**（同一条纪律）。
+Future<bool> fnthinkReadSmsRetentionEnabled() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(kFnthinkReadSmsRetentionKey) ?? false;
+}
+
+/// 写：开关的唯一作者（页面翻它）。
+Future<void> setFnthinkReadSmsRetentionEnabled(bool enabled) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(kFnthinkReadSmsRetentionKey, enabled);
 }
