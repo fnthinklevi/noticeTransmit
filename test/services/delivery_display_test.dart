@@ -16,11 +16,13 @@ void main() {
   final en = lookupAppLocalizations(const Locale('en'));
 
   group('送达状态那一格只有一个作者', () {
-    // T154 片1：五档 → **六档**（加 `queued`，幻念设备档转发的回执档）。
-    test('六个认得的状态各有一句，且互不相同', () {
+    // T154 片1：五档 → **六档**（加 `queued`，幻念设备档转发的回执档）；
+    // T154 端到端：六档 → **七档**（加 `delivered`，对端取走后的回执档）。
+    test('七个认得的状态各有一句，且互不相同', () {
       final said = <String, String>{
         for (final s in const [
           'success',
+          'delivered',
           'failed',
           'intercepted',
           'paused',
@@ -29,8 +31,9 @@ void main() {
         ])
           s: deliveryStatusText(zh, s),
       };
-      expect(said.values.toSet(), hasLength(6), reason: '两档共用一句话 = 这一档白分');
+      expect(said.values.toSet(), hasLength(7), reason: '两档共用一句话 = 这一档白分');
       expect(said['success'], zh.deliverySuccess);
+      expect(said['delivered'], zh.deliveryPeerDelivered);
       expect(said['failed'], zh.deliveryFailed);
       expect(said['intercepted'], zh.deliveryIntercepted);
       expect(said['pending'], zh.deliveryPending);
@@ -42,6 +45,10 @@ void main() {
       expect(said['queued'], zh.deliveryQueued);
       expect(said['queued'], isNot(said['pending']));
       expect(said['queued'], isNot(said['success']));
+      // T154 端到端：`delivered` 是服务端按 messageId 交回来的「对端取走了」。
+      // 它与 queued 必须是两句话 —— 前者是终点，后者还在等。
+      expect(said['delivered'], isNot(said['queued']));
+      expect(said['delivered'], isNot(said['pending']));
     });
 
     test('认不出的与空串都说「状态未知」，不许兜底成「发送中」', () {
@@ -104,6 +111,9 @@ void main() {
       expect(deliveryStatusColor(ctx, 'queued'), AppColors.teal);
       expect(deliveryStatusColor(ctx, 'queued'), isNot(AppColors.blue));
       expect(deliveryStatusColor(ctx, 'success'), AppColors.green);
+      // T154 端到端：对端取走了与"本机推成功"同属终点 ⇒ 同一个绿点；
+      // 但文案仍是两句（一个是"推成功"、一个是"对方真的收到了"）。
+      expect(deliveryStatusColor(ctx, 'delivered'), AppColors.green);
       expect(deliveryStatusColor(ctx, 'failed'), AppColors.red);
       expect(deliveryStatusColor(ctx, 'intercepted'), AppColors.orange);
       expect(deliveryStatusColor(ctx, 'paused'), AppColors.orange);

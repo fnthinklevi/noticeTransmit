@@ -20,6 +20,7 @@ import '../services/fnthink_alert_display.dart';
 import '../services/fnthink_inbox_service.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_presence_scheduler.dart';
+import '../services/fnthink_delivery_link_store.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_receiver_service.dart';
 import '../services/fnthink_l3_local_state.dart';
@@ -152,6 +153,12 @@ void setupLocator() {
       // 回执那一列的作者。缺它 ⇒ `ack_result`/`acked_at` 永远空着，而 T48 的收件详情
       // 一旦显示这一列就是在猜（任务 #155 那条"只有漏接才现形"的形状）。
       recordAck: DatabaseHelper().recordFnthinkInboxAck,
+      // 端到端回执的作者（T154）：服务端按 `messageId` 把「对端取走了/过期了」交回来，
+      // 这一格顺着转发时写下的 `messageId → 记录 id` 映射改本机历史那一行。
+      // 漏接时的表现不是崩：那一格永远停在「已推送到服务器·待目标设备上线」，
+      // 而对端其实早取走了 —— 全场 Dart 测试仍然绿（循环用例把 hook 当参数传）。
+      // 守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
+      recordDelivery: applyFnthinkDeliveryReceipt,
       // 本机配对名单的作者。T42 第五片之前这张表**一个生产写入者都没有**（表与 upsert 在
       // 前置那片就落好了，但没人调用），缺这一行的后果是：同意之后服务端那边配通了，
       // 而这一台的名单是空的 —— 下一片那个"取消配对"的入口就没有东西可取消。

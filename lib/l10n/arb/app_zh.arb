@@ -922,6 +922,7 @@
   "statsNoData": "暂无数据",
   "statsRank": "应用推送排行",
   "deliverySuccess": "推送成功",
+  "deliveryPeerDelivered": "已送达",
   "deliveryFailed": "推送失败",
   "deliveryPending": "发送中",
   "deliveryQueued": "已推送到服务器 · 待目标设备上线",

@@ -922,6 +922,7 @@
   "statsNoData": "No data",
   "statsRank": "App Push Ranking",
   "deliverySuccess": "Sent",
+  "deliveryPeerDelivered": "Delivered",
   "deliveryFailed": "Failed",
   "deliveryPending": "Sending",
   "deliveryQueued": "Queued on server · waiting for the target to come online",

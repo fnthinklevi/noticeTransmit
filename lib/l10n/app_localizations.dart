@@ -3560,6 +3560,12 @@ abstract class AppLocalizations {
   /// **'推送成功'**
   String get deliverySuccess;
 
+  /// No description provided for @deliveryPeerDelivered.
+  ///
+  /// In zh, this message translates to:
+  /// **'已送达'**
+  String get deliveryPeerDelivered;
+
   /// No description provided for @deliveryFailed.
   ///
   /// In zh, this message translates to:

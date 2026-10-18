@@ -59,7 +59,7 @@ void main() {
     });
 
     test(
-      'DI 起来的 coordinator 四条副作用都在（recordPeer/removePeer 被漏掉时全场仍绿，所以只能靠这条）',
+      'DI 起来的 coordinator 五条副作用都在（recordPeer/removePeer/recordDelivery 被漏掉时全场仍绿，所以只能靠这条）',
       () {
         setupLocator();
         final c = getIt<FnthinkReceiveCoordinator>();
@@ -75,6 +75,14 @@ void main() {
           reason:
               'DI 漏接这一行时全场测试仍然绿，而 `ack_result`/`acked_at` 永远空着 —— '
               '收件详情那一带"回执状态"的界面就会开始显示猜出来的东西',
+        );
+        expect(
+          c.recordDelivery,
+          isNotNull,
+          reason:
+              'DI 漏接这一行时全场测试仍然绿，而历史里每一条幻念转发都永远停在'
+              '「已推送到服务器·待目标设备上线」—— 对端明明早取走了。'
+              '服务端的回执一直在路上（`/poll` 的 receipts），丢的是本机这一格',
         );
         expect(
           c.recordPeer,

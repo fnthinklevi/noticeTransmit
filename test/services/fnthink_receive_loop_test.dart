@@ -27,6 +27,7 @@ void main() {
   });
 
   _t105cReceipts();
+  _t154ReceiptDelivery();
 
   group('顺序：取货 → 落库 → ack', () {
     test('三条取到就三条落库、三条各 ack 一次 delivered', () async {
@@ -749,6 +750,90 @@ void _t105cReceipts() {
     );
     await loop.runOnce();
     expect(written, isEmpty, reason: '拿刚刚取到回执的时间冒充「对面收下的时间」= 说假话；宁可不写');
+  });
+}
+
+/// T154 端到端：回执除了记进收件那两列，还要落到**本机发出去那条**的送达格上。
+///
+/// 这一格与 `recordAck` 是两件事：前者回答「对端取走了没有」（改通知历史那一行），
+/// 后者回答「这条收件我什么时候认过」。它们的落点、容忍缺失的方式都不同 ——
+/// 所以这里的用例故意把 `recordAck` 留空，并让一部分回执不带时刻：
+/// 端到端那一格在这些情况下**照样**要收到。
+void _t154ReceiptDelivery() {
+  test('每条回执都交给 recordDelivery（与 recordAck 接没接、带不带时刻无关）', () async {
+    final applied = <(String, String)>[];
+    final h = _Harness();
+    final loop = FnthinkReceiveLoop(
+      poll: h.poll,
+      ack: h.ack,
+      persist: h.persist,
+      // 故意不给 recordAck：端到端那一格是另一条链，不许靠它捎带。
+      recordDelivery: (messageId, receipt) async {
+        applied.add((messageId, receipt));
+      },
+    );
+
+    h._pollScript.add(
+      _ok(
+        const [],
+        receipts: [
+          const FnthinkReceipt(
+            messageId: 'm_out_1',
+            receipt: 'delivered',
+            at: 1780000000000,
+          ),
+          // 旧服务端/坏载荷：没有时刻。收件那两列不猜时刻，而送达格照样该被改。
+          const FnthinkReceipt(messageId: 'm_out_2', receipt: 'expired'),
+        ],
+      ),
+    );
+    await loop.runOnce();
+
+    expect(applied, [
+      ('m_out_1', 'delivered'),
+      ('m_out_2', 'expired'),
+    ], reason: '少了这一格 ⇒ 历史里那条永远停在「已推送到服务器·待目标设备上线」');
+  });
+
+  test('端到端那一格自己抛异常 ⇒ 不带走这一轮（后面那条回执照落）', () async {
+    final applied = <String>[];
+    final h = _Harness();
+    final loop = FnthinkReceiveLoop(
+      poll: h.poll,
+      ack: h.ack,
+      persist: h.persist,
+      recordDelivery: (messageId, receipt) async {
+        if (messageId == 'm_out_1') throw StateError('库被占着');
+        applied.add(messageId);
+      },
+    );
+
+    h._pollScript.add(
+      _ok(
+        const [],
+        receipts: [
+          const FnthinkReceipt(
+            messageId: 'm_out_1',
+            receipt: 'delivered',
+            at: 1780000000000,
+          ),
+          const FnthinkReceipt(
+            messageId: 'm_out_2',
+            receipt: 'delivered',
+            at: 1780000000001,
+          ),
+        ],
+      ),
+    );
+    await loop.runOnce();
+
+    expect(
+      applied,
+      ['m_out_2'],
+      reason:
+          '一条回执写不进历史比"后面那条回执也丢了"轻得多 —— '
+          '发送本身已经成功，不该因为记账失败让整轮停摆',
+    );
   });
 }
 

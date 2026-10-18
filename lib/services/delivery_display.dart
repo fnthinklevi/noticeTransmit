@@ -18,6 +18,10 @@ String deliveryStatusText(AppLocalizations l10n, String status) {
   switch (status) {
     case 'success':
       return l10n.deliverySuccess;
+    case 'delivered':
+      // T154 端到端：对端已经取走并 ack。与「推送成功」分开 ——
+      // 前者说的是"本机交给通道成功"，这一档说的是"对面收下了"。
+      return l10n.deliveryPeerDelivered;
     case 'failed':
       return l10n.deliveryFailed;
     case 'intercepted':
@@ -52,6 +56,7 @@ String deliveryStatusText(AppLocalizations l10n, String status) {
 Color deliveryStatusColor(BuildContext context, String status) {
   return switch (status) {
     'success' => AppColors.green,
+    'delivered' => AppColors.green,
     'failed' => AppColors.red,
     'intercepted' => AppColors.orange,
     'paused' => AppColors.orange,

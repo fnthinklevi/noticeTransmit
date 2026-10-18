@@ -1938,6 +1938,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliverySuccess => 'Sent';
 
   @override
+  String get deliveryPeerDelivered => 'Delivered';
+
+  @override
   String get deliveryFailed => 'Failed';
 
   @override

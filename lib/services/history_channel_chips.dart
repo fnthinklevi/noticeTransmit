@@ -66,9 +66,10 @@ List<String> orderChannelsByAttention(
 /// 此前行内把那几枚 chip 全摊开（带折叠），用户的第一个问题是"这条到底成没成"，
 /// 而摊开的 chip 只回答"每一格分别是什么"。统计回答前者，子页回答后者。
 ///
-/// ⚠ 三档的**成员判定不在这里写**：成了是 `deliveredStatus`、没成是
-/// `notDeliveredStatuses`（两位都在 `lib/models/delivery_status.dart`，
-/// 与历史页筛选、桶值算的是同一张表）。这里只做"按那张表数一遍"。
+/// ⚠ 三档的**成员判定不在这里写**：成了是 `deliveredStatuses`（本机推成功与
+/// 对端已取走都算）、没成是 `notDeliveredStatuses`（三位都在
+/// `lib/models/delivery_status.dart`，与历史页筛选、桶值算的是同一张表）。
+/// 这里只做"按那张表数一遍"。
 /// `queued`（T154 片1 新档）落在 [inFlight]：它没有到对端，但也确实不是失败。
 class DeliveryTally {
   const DeliveryTally({
@@ -93,7 +94,7 @@ DeliveryTally tallyDelivery(Map<String, dynamic> deliveryStatus) {
   var other = 0;
   for (final info in deliveryStatus.values) {
     final status = info is Map ? (info['status']?.toString() ?? '') : '';
-    if (status == deliveredStatus) {
+    if (deliveredStatuses.contains(status)) {
       done++;
     } else if (notDeliveredStatuses.contains(status)) {
       failed++;

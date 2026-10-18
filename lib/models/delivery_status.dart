@@ -1,6 +1,6 @@
 /// 「这条**送达了吗**」的口径（T133 片3 立词表，T133 走 (c) 起也是**桶值唯一作者**）。
 ///
-/// 这一层现在有两位：一张状态词表（[notDeliveredStatuses] / [deliveredStatus]）与
+/// 这一层现在有两位：两张状态词表（[deliveredStatuses] / [notDeliveredStatuses]）与
 /// 一句"这条落哪个桶"（[deliveryBucketOf]）。SQL 那一层不再自己判 —— 它筛的是
 /// `notifications.delivery_bucket` 这个**存好的值**（写入时算、迁移时回填，两处都调 [deliveryBucketOf]），
 /// 所以"粗筛宽、精筛窄"那一族缺陷从形状上消失了。
@@ -19,10 +19,25 @@
 /// | `intercepted` | 算 | **不可** | 没送达是事实，但那是用户自己定的过滤规则，替他推翻它不叫重推 |
 /// | `sending` / `pending` | 不算 | 不可 | 还在途，既没有结果也不该再发一次 |
 /// | `success` | 不算 | 不可 | 已经送达，再发一遍 = 同一条通知推两次 |
+/// | `delivered` | 不算 | 不可 | 对端已经取走（`messageId` 回执），再发一遍 = 同一条通知推两次 |
 library;
 
 /// 唯一算"已送达"的那个状态词。
 const String deliveredStatus = 'success';
+
+/// 端到端「已送达」：对端**取走并 ack 了**（T154 片1 的 `messageId ↔ 通知 id` 回执）。
+///
+/// 与 [deliveredStatus] 都是"成了"，但主语不同：
+/// `success` = 本机把它交给了通道（webhook/邮件的终态；或旧的幻念发送口径）；
+/// `delivered` = 对端已经收下（服务端 `/poll` 的 `receipts` 回执）。
+/// 分开是因为界面要能回答"发出去了"与"对面收下了"这两件事；筛选与统计把它们都算"送达"。
+const String peerDeliveredStatus = 'delivered';
+
+/// 算"已送达"的两枚状态词（[deliveryBucketOf] 与历史页统计共用这一张表）。
+const List<String> deliveredStatuses = <String>[
+  deliveredStatus,
+  peerDeliveredStatus,
+];
 
 /// 算"没发出去的"那几个状态词 —— 筛选档「没发出去的」与 SQL 粗筛共用这一张表。
 const List<String> notDeliveredStatuses = <String>[
@@ -87,7 +102,7 @@ String deliveryBucketOf(Map<String, dynamic> status) {
   if (states.any(notDeliveredStatuses.contains)) {
     return deliveryBucketNotDelivered;
   }
-  if (states.isNotEmpty && states.every((s) => s == deliveredStatus)) {
+  if (states.isNotEmpty && states.every(deliveredStatuses.contains)) {
     return deliveryBucketDelivered;
   }
   return deliveryBucketNone;

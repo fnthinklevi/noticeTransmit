@@ -38,6 +38,7 @@ class FnthinkReceiveLoop {
     required this.persist,
     this.display,
     this.recordAck,
+    this.recordDelivery,
     this.onCommand,
     int Function()? nowMs,
     Timer Function(Duration delay, void Function() callback)? schedule,
@@ -75,6 +76,14 @@ class FnthinkReceiveLoop {
     required int at,
   })?
   recordAck;
+
+  /// 服务端把「我发出去那条」的终态回执带回来时，更新本地通知记录那一格
+  /// （T154 端到端：`messageId → 记录 id → 已送达`）。
+  ///
+  /// 与 [recordAck] 分开：那一格写的是 `fnthink_messages` 的收发账，这一格写的是
+  /// `notifications.delivery_info` 里幻念那一格 —— 两个主语、两张表，不能靠一个钩子
+  /// 猜对方要什么。null = 这台没接端到端回执链（那一格留在 `queued` 仍是真话）。
+  final Future<void> Function(String messageId, String receipt)? recordDelivery;
 
   /// **这一条收件里是不是一条远程指令**（远程执行 片3c）。回 true = 是。
   ///
@@ -229,21 +238,32 @@ class FnthinkReceiveLoop {
     // 只是 in 方向写的是「我报出去的时刻」、out 方向写的是「它收下的时刻」。
     // 时刻不能用 nowMs()：那会把「刚刚取到回执」写成「对面刚刚收到」。
     for (final receipt in outcome.receipts) {
+      // 时刻只影响 `fnthink_messages` 那一对列（不许拿 nowMs 凑）；端到端那一格
+      // 不需要时刻，照样要落 —— 否则旧服务端不回时刻时「已送达」永远不出现。
       if (receipt.at <= 0) {
         debugPrint('[fnthink] 回执没带时刻，不猜一个：${receipt.messageId}');
-        continue;
+      } else {
+        final write = recordAck;
+        if (write != null) {
+          try {
+            await write(
+              messageId: receipt.messageId,
+              result: receipt.receipt,
+              at: receipt.at,
+            );
+          } catch (e) {
+            // 一条回执写不进去不能把这一轮带走：本轮里还有别的消息要落库与 ack。
+            debugPrint('[fnthink] 回执没记进本机历史：${receipt.messageId} $e');
+          }
+        }
       }
-      final write = recordAck;
-      if (write == null) break;
-      try {
-        await write(
-          messageId: receipt.messageId,
-          result: receipt.receipt,
-          at: receipt.at,
-        );
-      } catch (e) {
-        // 一条回执写不进去不能把这一轮带走：本轮里还有别的消息要落库与 ack。
-        debugPrint('[fnthink] 回执没记进本机历史：${receipt.messageId} $e');
+      final apply = recordDelivery;
+      if (apply != null) {
+        try {
+          await apply(receipt.messageId, receipt.receipt);
+        } catch (e) {
+          debugPrint('[fnthink] 端到端回执没写进通知历史：${receipt.messageId} $e');
+        }
       }
     }
 

@@ -1,11 +1,14 @@
 import 'dart:convert';
 
+import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/services/delivery_display.dart';
+import 'package:notice_transmit/services/fnthink_delivery_link_store.dart';
 import 'package:notice_transmit/services/fnthink_fanout_entrypoint.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 幻念设备档转发的**回执链**（T154 片1）。
 ///
@@ -108,6 +111,10 @@ void main() {
 
     setUp(() {
       reported = [];
+      // 转发成功那一发现在会顺手写 `messageId → 记录 id`（T154 端到端）；
+      // 不预置 mock 的话，那条写会落进 MissingPluginException 分支，
+      // 而下面的映射断言就永远看不见东西。
+      SharedPreferences.setMockInitialValues({});
       originalRecord = recordFnthinkFanoutOutcome;
       recordFnthinkFanoutOutcome = (id, outcome) async {
         reported.add((id, outcome));
@@ -171,6 +178,26 @@ void main() {
       expect(reported.single.$2.status, 'failed');
     });
 
+    test('只有 accepted 才留端到端映射：拒收那一台既不算 sent，也不写映射', () async {
+      final item = _item('rec-r', ['DEV-A', 'DEV-B']);
+      final outcome = await _runItem(item, rejectedTargets: {'DEV-B'});
+
+      expect(outcome.sent, 1);
+      expect(outcome.failed, 1);
+      expect(
+        await FnthinkDeliveryLinkStore().takeRecordId('m-rec-r-DEV-A'),
+        'rec-r',
+        reason:
+            '这一发被服务端收下了 ⇒ 对端取走后的回执只能靠这枚映射找回本机那一行；'
+            '没有它，「已送达」永远回不来',
+      );
+      expect(
+        await FnthinkDeliveryLinkStore().takeRecordId('m-rec-r-DEV-B'),
+        isNull,
+        reason: '服务端拒收 = 这一条根本没排上队 ⇒ 不会有回执，写映射只会留一条永远不用的账',
+      );
+    });
+
     test('回执自己抛异常 ⇒ 不把这一轮带走（后面那条照发照报）', () async {
       recordFnthinkFanoutOutcome = (id, outcome) async {
         reported.add((id, outcome));
@@ -200,6 +227,7 @@ void main() {
 Future<FnthinkFanoutOutcome> _runItem(
   FnthinkFanoutItem item, {
   Set<String> failingTargets = const {},
+  Set<String> rejectedTargets = const {},
 }) {
   return sendAndReportFanoutItem(
     item,
@@ -207,6 +235,15 @@ Future<FnthinkFanoutOutcome> _runItem(
       if (failingTargets.contains(target)) {
         throw StateError('送到 $target 失败（反证用）');
       }
+      if (rejectedTargets.contains(target)) {
+        return const FnthinkSendResult(
+          status: FnthinkSendStatus.rejectedCapability,
+        );
+      }
+      return FnthinkSendResult(
+        status: FnthinkSendStatus.accepted,
+        messageId: 'm-${item.id}-$target',
+      );
     },
   );
 }

@@ -1863,6 +1863,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deliverySuccess => '推送成功';
 
   @override
+  String get deliveryPeerDelivered => '已送达';
+
+  @override
   String get deliveryFailed => '推送失败';
 
   @override

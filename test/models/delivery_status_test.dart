@@ -22,6 +22,16 @@ void main() {
       expect(deliveredStatus, 'success');
     });
 
+    test('「已送达」是两个词：本机推成功 ＋ 对端取走了（T154 端到端）', () {
+      expect(deliveredStatuses, [deliveredStatus, peerDeliveredStatus]);
+      expect(peerDeliveredStatus, isNot(deliveredStatus));
+      expect(
+        notDeliveredStatuses,
+        isNot(contains(peerDeliveredStatus)),
+        reason: '对端取走了还与"没发出去"同档 ⇒ 用户会在失败那一档里看见成功的记录',
+      );
+    });
+
     test('三个档名彼此不同且都不等于词表里的状态词（档名不是状态）', () {
       expect(
         {
@@ -90,6 +100,30 @@ void main() {
         isFalse,
       );
     });
+
+    test('对端取走的 delivered 与本机推成功的 success 同属「已送达」', () {
+      expect(
+        matchDeliveryFilter(statusOf(['delivered']), deliveryFilterDelivered),
+        isTrue,
+        reason: '对端已经取走了还说"没送达"＝ 把最成功的那一档也扣在失败里',
+      );
+      expect(
+        matchDeliveryFilter(
+          statusOf(['success', 'delivered']),
+          deliveryFilterDelivered,
+        ),
+        isTrue,
+        reason: '一条通知同时走了别的通道与幻念：两边都到账才算这一条已送达',
+      );
+      expect(
+        matchDeliveryFilter(
+          statusOf(['delivered', 'queued']),
+          deliveryFilterDelivered,
+        ),
+        isFalse,
+        reason: '还有一份球在对面 ⇒ 不能因为幻念那一格到了就说整条已送达',
+      );
+    });
   });
 
   group('边界：不许把"看不见"读成"符合条件"', () {
@@ -127,10 +161,13 @@ void main() {
     // 一致性一破，同一句判据在两处给出不同答案，而没有任何一层会报错。
     final shapes = <String, Map<String, dynamic>>{
       '全成功': statusOf(['success', 'success']),
+      '对端已取走': statusOf(['delivered']),
+      '两路都已送达': statusOf(['success', 'delivered']),
       '有失败': statusOf(['success', 'failed']),
       '只有拦截': statusOf(['intercepted']),
       '暂停中': statusOf(['paused']),
       '还在途': statusOf(['sending']),
+      '已交给服务端待取': statusOf(['queued']),
       '混合在途': statusOf(['success', 'sending']),
       '空记录': const {},
       '异形条目': <String, dynamic>{
@@ -193,6 +230,21 @@ void main() {
       expect(
         deliveryBucketOf(statusOf(['success', 'intercepted'])),
         deliveryBucketNotDelivered,
+      );
+    });
+
+    test('对端取走那一行落「已送达」；本机交出去还没被取走的两档都不落', () {
+      expect(
+        deliveryBucketOf(statusOf(['delivered'])),
+        deliveryBucketDelivered,
+        reason: 'T154 端到端回来之后，这个桶就是服务端回执的下场：到了就该显示已送达',
+      );
+      expect(
+        deliveryBucketOf(statusOf(['queued'])),
+        deliveryBucketNone,
+        reason:
+            '「已推送到服务器·待目标设备上线」既不是终点也不是失败（与 sending/pending 同档）—— '
+            '把它塞进"没发出去的"会让失败那一档混进还在路上的记录',
       );
     });
 

@@ -3,11 +3,14 @@ import 'dart:ui' show DartPluginRegistrant, PluginUtilities;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
+import 'package:fnthink_push/fnthink_push.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../di/service_locator.dart';
 import '../database/database_helper.dart';
+import '../models/delivery_status.dart';
 import 'channel_display.dart';
+import 'fnthink_delivery_link_store.dart';
 import 'fnthink_receive_coordinator.dart';
 
 /// 后台入口 handle 在 prefs 里的键（**不带** `flutter.` 前缀：那是 shared_preferences 落盘时
@@ -151,6 +154,10 @@ Future<void> fnthinkDefaultRecordFanoutOutcome(
 
   final key = channelDeliveryKey(kFnthinkChannelSlug);
   final previous = info[key];
+  // T154 端到端：这一轮还在发的时候，对端可能已经取走了前一台目标的那条
+  // （收货循环是另一个 author，与本轮并行）⇒ 后到的转发结局不许把「已送达」
+  // 降级成 `queued`。与 `applyFnthinkReceiptToDelivery` 同一条粘滞规矩。
+  if (previous is Map && previous['status'] == peerDeliveredStatus) return;
   info[key] = {
     'status': outcome.status,
     'message': 'fanout: ${outcome.sent}/${outcome.sent + outcome.failed}',
@@ -204,18 +211,32 @@ Future<void> fnthinkBackgroundFanoutRound(String batchJson) async {
 /// 测试里照抄一遍这段循环，就有了第二份判据，两份迟早会漂开
 /// （本仓 `deliveryBucketOf` 那一轮漂开的正是这种形状）。
 ///
-/// `sendToTarget` 抛异常 = 这一台没送出去；正常返回 = 已交给服务端。
+/// `sendToTarget` 抛异常 = 这一台没送出去；正常返回但 `status != accepted` 也算没成
+/// （服务端拒收不是"已交给服务端"）；只有 `accepted` 才算这一台成了。
+/// 成功时把 `messageId → item.id` 记进送达映射 —— 对端取走后的回执靠它找回本地那一行
+/// （T154 端到端）。
 /// 返回这一条的结局（已在内部报过回执，调用方只用来累计日志）。
 Future<FnthinkFanoutOutcome> sendAndReportFanoutItem(
   FnthinkFanoutItem item, {
-  required Future<void> Function(String target) sendToTarget,
+  required Future<FnthinkSendResult> Function(String target) sendToTarget,
 }) async {
   var itemSent = 0;
   var itemFailed = 0;
   for (final target in item.targets) {
     try {
-      await sendToTarget(target);
+      final result = await sendToTarget(target);
+      if (result.status != FnthinkSendStatus.accepted) {
+        itemFailed++;
+        continue;
+      }
       itemSent++;
+      final messageId = result.messageId ?? '';
+      if (messageId.isNotEmpty) {
+        await FnthinkDeliveryLinkStore().link(
+          messageId: messageId,
+          recordId: item.id,
+        );
+      }
     } catch (e) {
       itemFailed++;
       // 只记目标与异常，不记正文（T89 脱敏的同一口径）。

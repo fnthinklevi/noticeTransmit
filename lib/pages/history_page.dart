@@ -922,7 +922,7 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 摊开的 chip 只回答"每一格分别是什么"。⇒ 行内只留结论，细节进子页。
   ///
   /// ⚠ 统计的**成员判定不在这里**：`tallyDelivery` 按 `lib/models/delivery_status.dart`
-  ///   那两位（`deliveredStatus` / `notDeliveredStatuses`）数一遍 —— 与历史页筛选、
+  ///   那两位（`deliveredStatuses` / `notDeliveredStatuses`）数一遍 —— 与历史页筛选、
   ///   `delivery_bucket` 算的是同一张表。这一页只决定"怎么摆"。
   /// ⚠ 每段**各自带色**（成功绿 / 失败红）：整行一色会让"2 成功 1 失败"读起来像全失败，
   ///   而"失败要看得出来"是本仓的强纪律（与 chip 上那枚点同色）。

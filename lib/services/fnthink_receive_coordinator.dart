@@ -100,6 +100,7 @@ class FnthinkLoopSpec {
     required this.persist,
     this.display,
     this.recordAck,
+    this.recordDelivery,
     this.onCommand,
     this.onRound,
     this.client,
@@ -122,6 +123,9 @@ class FnthinkLoopSpec {
     required int at,
   })?
   recordAck;
+
+  /// 端到端回执（T154）：见 [FnthinkReceiveLoop.recordDelivery]。
+  final Future<void> Function(String messageId, String receipt)? recordDelivery;
 
   /// 这一条收件是不是一条**远程指令**（片3c）。null = 这台没有远程执行那条链路。
   ///
@@ -173,6 +177,7 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
     persist: spec.persist,
     display: spec.display,
     recordAck: spec.recordAck,
+    recordDelivery: spec.recordDelivery,
     // ⚠ 这一格漏接时的症状不是崩溃：远程指令照常进收件表、照常按通知弹出来，而没有任何
     //   东西动手，且远程执行历史一行都不写（判定与留痕都在这一格后面）。守卫按
     //   `FnthinkLoopSpec` 里声明的钩子逐格数转发，见 fnthink_receive_wiring_test。
@@ -230,6 +235,7 @@ class FnthinkReceiveCoordinator {
     required this.persist,
     this.display,
     this.recordAck,
+    this.recordDelivery,
     this.onCommand,
     this.recordPeer,
     this.removePeer,
@@ -267,6 +273,10 @@ class FnthinkReceiveCoordinator {
     required int at,
   })?
   recordAck;
+
+  /// 端到端回执（T154）：服务端按 `messageId` 交回「对端取走了/过期了」，
+  /// 这一格把本地通知记录那一格改成 `delivered`/`failed`。
+  final Future<void> Function(String messageId, String receipt)? recordDelivery;
 
   /// 这一条收件是不是一条**远程指令**（片3c）。null = 这台没有远程执行那条链路。
   ///
@@ -726,6 +736,7 @@ class FnthinkReceiveCoordinator {
       persist: persist,
       display: display,
       recordAck: recordAck,
+      recordDelivery: recordDelivery,
       // 片3c：远程指令判定那一格（null = 这台没装远程执行 ⇒ 照常当通知）。
       onCommand: onCommand,
       // 后台那几轮也要有人记账：只有页面"立即收取"那一条接了 `_noteRound`，
