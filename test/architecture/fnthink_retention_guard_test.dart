@@ -100,4 +100,43 @@ void main() {
       );
     }
   });
+
+  test('保留扫过那一发：谁 prune 谁就得重取首页未读数', () {
+    final at = mainActions.indexOf('pruneRetention()');
+    expect(at, greaterThan(-1), reason: '锚点：触发点不在 = 本守卫对谁都放行');
+    // 窗口取「prune 之后到下一个成员开头」，不取花括号配对：`.then((pruned) { … })` 里那对
+    // 括号不是成员边界，配对法会在这儿截早（本仓那类提取式假绿，T124 一轮里撞过两次）。
+    final end = mainActions.indexOf('Future<void> _getDeviceInfo()', at);
+    expect(end, greaterThan(at), reason: '窗口右端锚点丢了 ⇒ 守卫量的是半截函数');
+    final window = mainActions.substring(at, end);
+    expect(
+      window,
+      contains('_refreshFnthinkInboxUnread'),
+      reason:
+          '这一发是 unawaited 的一扫，扫完删了东西没人重取 ⇒ 首页那张卡举着一个已经不存在的数'
+          '（闸门 4.3 第一轮红的正是这个形状：数在扫之前取、行在扫之后读）',
+    );
+    expect(window, contains('byAge'), reason: '按龄那一半没读');
+    expect(window, contains('byCap'), reason: '上限挤位那一半没读 ⇒ 那一档静默，症状与上面同一条');
+  });
+
+  test('反向自检：全仓跑保留扫的只有首页那一发', () {
+    final files = Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))
+        .where((f) => strip(f.readAsStringSync()).contains('pruneRetention('))
+        .map((f) => f.path.replaceAll(Platform.pathSeparator, '/'))
+        .toSet();
+    expect(
+      files,
+      {
+        'lib/services/fnthink_inbox_service.dart',
+        'lib/pages/main_page_actions.dart',
+      },
+      reason:
+          '扫这一表的地方长出第二处 ⇒ 每一处都得自己管"删过就要重取读数"，'
+          '而那一判今天只钉在首页那一发（这一条是判据①的覆盖面，不是装饰）',
+    );
+  });
 }

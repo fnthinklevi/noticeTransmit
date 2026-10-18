@@ -258,247 +258,257 @@ void main() {
     }
   });
 
-  testWidgets('闸门 1/4 只读页：服务启停 / 权限三态 / 短信监听 / 历史页导出', (tester) async {
-    final gateFailures = <String, String>{};
-    await _assemble(tester);
-    await _step(tester, gateFailures, '1 通知页：服务启停', () async {
-      // ── 1. 通知页：服务启停（真实控件是圆形按钮，不是文案）──────────────
-      await _tap(
-        tester,
-        find.byKey(const ValueKey<String>('service-toggle')),
-        '通知页服务开关',
-      );
-      expect(
-        captured['startNotificationListener'],
-        isNotNull,
-        reason: '点服务开关没有下发 startNotificationListener',
-      );
-      await _tap(
-        tester,
-        find.byKey(const ValueKey<String>('service-toggle')),
-        '通知页服务开关(关)',
-      );
-      expect(
-        captured['stopNotificationListener'],
-        isNotNull,
-        reason: '再点一次应下发 stopNotificationListener',
-      );
-    });
-    await _step(tester, gateFailures, '2 权限设置页：进页读三态', () async {
-      // ── 2. 权限设置页：进入即读三态权限，页面必须渲染且不抛 ──────────────
-      await _tap(tester, find.text('权限设置'), '通知页→权限设置');
-      await _onPage(tester, PermissionSettingsPage, '权限设置页');
-      await _backToHome(tester);
-    });
-    await _step(tester, gateFailures, '3 短信监听页：两个开关 + SIM 选择', () async {
-      // ── 3. 短信监听页：两个开关 + SIM 卡选择 ────────────────────────────
-      await _tap(tester, find.text('短信监听'), '通知页→短信监听');
-      await _onPage(tester, SmsMonitorSettingsPage, '短信监听页');
-      final smsSwitches = _in(
-        SmsMonitorSettingsPage,
-        find.byType(CupertinoSwitch),
-      );
-      expect(smsSwitches, findsNWidgets(2), reason: '短信监听页应有两个开关');
-      await _tap(tester, smsSwitches.at(1), '监听验证码开关');
-      await _tap(tester, find.text('仅卡1'), 'SIM 卡选择「仅卡1」');
-      final smsSets = (captured['setSmsSetting'] ?? const [])
-          .map((a) => (a.first as Map)['key'])
-          .toList();
-      expect(
-        smsSets,
-        containsAll(<String>['sms_code_monitor_enabled', 'sms_sim_filter']),
-        reason: '开关与卡选择都必须回写原生，否则后台读不到新配置',
-      );
-      await _backToHome(tester);
-    });
-    await _step(tester, gateFailures, '4 推送历史页：进页 + 导出 JSON（真落盘）', () async {
-      // ── 4. 推送历史页：进入 + 溢出菜单里的导出 JSON（真落盘）─────────────
-      await _tap(tester, find.text('推送历史'), '通知页→推送历史');
-      await _settle(tester, seconds: 2);
-      expect(
-        find.text('闸门通知一'),
-        findsWidgets,
-        reason: '注入的历史记录没出现在列表里（loadRecords/DB 链路）',
-      );
-      await _tap(
-        tester,
-        _in(HistoryPage, find.byIcon(Icons.more_horiz)),
-        '历史页溢出菜单',
-      );
-      await _settle(tester);
-      await _tap(tester, find.text('导出 JSON'), '历史页→导出 JSON');
-      await _settle(tester);
-      // 导出前有一步确认弹层（main_page_actions 的 exportBtn），不点它 saveFile 不会发生
-      await _tap(tester, find.text('确定导出'), '历史页导出→确定导出');
-      await _settle(tester, seconds: 3);
-      expect(
-        writtenFiles.keys.any((n) => n.endsWith('.json')),
-        isTrue,
-        reason: '导出生成没有真的走 saveFile？（历史 JSON 导出是运维取数唯一出口）',
-      );
-      // T05：历史记录卡的长按动作表。本批把它就地写的整份弹层搬进了共用组件，
-      // 所以这里必须真展开一次 —— 只展开再收起，不点「屏蔽」，
-      // 那会改掉后面各节依赖的过滤配置（闸门要可重复）。
-      await _longPress(tester, find.text('闸门通知一'), '历史记录行');
-      // 限定在弹层里 + 精确文本：这一项的**副标题**也含"屏蔽该应用"五个字
-      // （闸门第一轮就是被这条 loose 断言打红的：textContaining 一次数到两个）。
-      final blockAppItem = find.descendant(
-        of: find.byType(CardActionSheet),
-        matching: find.text('屏蔽该应用的通知'),
-      );
-      expect(
-        blockAppItem,
-        findsOneWidget,
-        reason: '长按弹层没出来 ⇒ CardActionSheet 在真机手势区上不可用',
-      );
-      await tester.tapAt(const Offset(10, 10));
-      await _settle(tester);
-      expect(
-        find.byType(CardActionSheet),
-        findsNothing,
-        reason: '点遮罩关不掉弹层 ⇒ 用户被卡在动作表里',
-      );
-      await _backToHome(tester);
-    });
-    await _step(
-      tester,
-      gateFailures,
-      '4.1 推送历史页的方向切换：切到「收件（幻念）」再切回来',
-      () async {
-        // 为什么单开一步：T48 第一片把方向做成**数据源切换**（两张表分页口径不同，拼进同一条时间线
-        // 的表现是翻页时同一条出现两次或整条不出现），而闸门此前只进过这一页的"转发"那一侧 ——
-        // 收件那一档在设备上从没被点开过，与"幻念推送页整页是闸门盲区"是同一类洞。
-        await _tap(tester, find.text('推送历史'), '通知页→推送历史（方向切换）');
-        await _settle(tester, seconds: 2);
-        await _tap(tester, _in(HistoryPage, find.text('收件（幻念）')), '历史页→收件（幻念）');
-        await _settle(tester, seconds: 2);
-        // 这台模拟器上没有幻念收件 ⇒ 只允许说"还没有收到过消息"那一句。
-        // 出现转发那一侧的行 = 两份数据源串了；一句都不说 = 读不到与没有货同一张脸。
-        expect(
-          find.text('还没有收到过消息'),
-          findsOneWidget,
-          reason: '收件档没有自己的空态 ⇒ "没读过"与"没有货"在屏幕上分不出来',
+  testWidgets(
+    '闸门 1/4 只读页：服务启停 / 权限三态 / 短信监听 / 历史页导出',
+    (tester) async {
+      final gateFailures = <String, String>{};
+      await _assemble(tester);
+      await _step(tester, gateFailures, '1 通知页：服务启停', () async {
+        // ── 1. 通知页：服务启停（真实控件是圆形按钮，不是文案）──────────────
+        await _tap(
+          tester,
+          find.byKey(const ValueKey<String>('service-toggle')),
+          '通知页服务开关',
         );
         expect(
-          find.text('闸门通知一'),
-          findsNothing,
-          reason: '切到收件档还看得见转发的行 ⇒ 方向只是换了个高亮，没换数据源',
+          captured['startNotificationListener'],
+          isNotNull,
+          reason: '点服务开关没有下发 startNotificationListener',
+        );
+        await _tap(
+          tester,
+          find.byKey(const ValueKey<String>('service-toggle')),
+          '通知页服务开关(关)',
         );
         expect(
-          find.byWidgetPredicate(
-            (w) =>
-                w.key is ValueKey &&
-                '${(w.key as ValueKey).value}'.startsWith('fnthink-inbox-row-'),
-          ),
-          findsNothing,
-          reason: '空态下不该有收件行',
+          captured['stopNotificationListener'],
+          isNotNull,
+          reason: '再点一次应下发 stopNotificationListener',
         );
-        await _tap(tester, _in(HistoryPage, find.text('转发')), '历史页→切回转发');
+      });
+      await _step(tester, gateFailures, '2 权限设置页：进页读三态', () async {
+        // ── 2. 权限设置页：进入即读三态权限，页面必须渲染且不抛 ──────────────
+        await _tap(tester, find.text('权限设置'), '通知页→权限设置');
+        await _onPage(tester, PermissionSettingsPage, '权限设置页');
+        await _backToHome(tester);
+      });
+      await _step(tester, gateFailures, '3 短信监听页：两个开关 + SIM 选择', () async {
+        // ── 3. 短信监听页：两个开关 + SIM 卡选择 ────────────────────────────
+        await _tap(tester, find.text('短信监听'), '通知页→短信监听');
+        await _onPage(tester, SmsMonitorSettingsPage, '短信监听页');
+        final smsSwitches = _in(
+          SmsMonitorSettingsPage,
+          find.byType(CupertinoSwitch),
+        );
+        expect(smsSwitches, findsNWidgets(2), reason: '短信监听页应有两个开关');
+        await _tap(tester, smsSwitches.at(1), '监听验证码开关');
+        await _tap(tester, find.text('仅卡1'), 'SIM 卡选择「仅卡1」');
+        final smsSets = (captured['setSmsSetting'] ?? const [])
+            .map((a) => (a.first as Map)['key'])
+            .toList();
+        expect(
+          smsSets,
+          containsAll(<String>['sms_code_monitor_enabled', 'sms_sim_filter']),
+          reason: '开关与卡选择都必须回写原生，否则后台读不到新配置',
+        );
+        await _backToHome(tester);
+      });
+      await _step(tester, gateFailures, '4 推送历史页：进页 + 导出 JSON（真落盘）', () async {
+        // ── 4. 推送历史页：进入 + 溢出菜单里的导出 JSON（真落盘）─────────────
+        await _tap(tester, find.text('推送历史'), '通知页→推送历史');
         await _settle(tester, seconds: 2);
         expect(
           find.text('闸门通知一'),
           findsWidgets,
-          reason: '切回来列表空了 ⇒ 两个方向共用一份 state（切回去时没重读自己的那一份）',
+          reason: '注入的历史记录没出现在列表里（loadRecords/DB 链路）',
         );
-        await _backToHome(tester);
-      },
-    );
-    await _step(
-      tester,
-      gateFailures,
-      '4.2 收件档"有货"的那一半：列表行 → 详情 → 点开即已读',
-      () async {
-        // 4.1 只能证"空态说人话"。这一格证的是**有货的时候**：这台模拟器没有服务端可连，
-        // 而闸门用的是真实加密库（不是替身），所以直接往 `fnthink_messages` 塞一行，
-        // 让"列表里那一行 / 未读点 / 详情里的标题与正文 / 点开即已读"这四件事在设备上各留一次证据。
-        // ⚠ 首页那张未读卡**不在这里断言**：它的数只在服务启动与 resumed 时重取
-        //    （`main_page.dart:184/283`），而注入发生在页面装配之后 —— 在这儿断"卡该出现"
-        //    要么是假红、要么得写成软断言（更糟）。那一格由 widget 用例证。
-        const gateId = 'gate_inbox_1';
-        final helper = DatabaseHelper();
-        final db = await helper.database;
-        Future<void> drop() async {
-          await db.delete(
-            FnthinkInboxMessage.table,
-            where: 'message_id = ?',
-            whereArgs: [gateId],
-          );
-        }
-
-        // 先清一次：上一轮没收干净的话，幂等插入会返回 false，那条断言就说不清是谁的错
-        await drop();
-        final inserted = await helper.insertFnthinkInbox(
-          const FnthinkInboxMessage(
-            messageId: gateId,
-            sender: '8KMNPQRSTVWX999777',
-            type: 'notice',
-            item: '',
-            title: '闸门收件一',
-            body: '闸门注入的收件正文',
-            receivedAt: 1767223200000,
-          ),
-        );
-        expect(inserted, isTrue, reason: '注入没落库 ⇒ 后面每一条断言都是在演一场空');
-
-        await _tap(tester, find.text('推送历史'), '通知页→推送历史（注入之后）');
-        await _settle(tester, seconds: 2);
         await _tap(
           tester,
-          _in(HistoryPage, find.text('收件（幻念）')),
-          '历史页→收件（幻念）（有货）',
+          _in(HistoryPage, find.byIcon(Icons.more_horiz)),
+          '历史页溢出菜单',
         );
-        await _settle(tester, seconds: 2);
-        final row = find.byKey(const ValueKey('fnthink-inbox-row-$gateId'));
+        await _settle(tester);
+        await _tap(tester, find.text('导出 JSON'), '历史页→导出 JSON');
+        await _settle(tester);
+        // 导出前有一步确认弹层（main_page_actions 的 exportBtn），不点它 saveFile 不会发生
+        await _tap(tester, find.text('确定导出'), '历史页导出→确定导出');
+        await _settle(tester, seconds: 3);
         expect(
-          row,
+          writtenFiles.keys.any((n) => n.endsWith('.json')),
+          isTrue,
+          reason: '导出生成没有真的走 saveFile？（历史 JSON 导出是运维取数唯一出口）',
+        );
+        // T05：历史记录卡的长按动作表。本批把它就地写的整份弹层搬进了共用组件，
+        // 所以这里必须真展开一次 —— 只展开再收起，不点「屏蔽」，
+        // 那会改掉后面各节依赖的过滤配置（闸门要可重复）。
+        await _longPress(tester, find.text('闸门通知一'), '历史记录行');
+        // 限定在弹层里 + 精确文本：这一项的**副标题**也含"屏蔽该应用"五个字
+        // （闸门第一轮就是被这条 loose 断言打红的：textContaining 一次数到两个）。
+        final blockAppItem = find.descendant(
+          of: find.byType(CardActionSheet),
+          matching: find.text('屏蔽该应用的通知'),
+        );
+        expect(
+          blockAppItem,
           findsOneWidget,
-          reason: '表里有一条而列表不列 ⇒ 这一档读的不是那张表（或被 read 那一列滤掉）',
+          reason: '长按弹层没出来 ⇒ CardActionSheet 在真机手势区上不可用',
         );
-        expect(
-          find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
-          findsOneWidget,
-          reason: '未读点不在 ⇒ 用户没法区分"看过没有"（它只该跟着 read 那一列走）',
-        );
-        expect(
-          find.text('还没有收到过消息'),
-          findsNothing,
-          reason: '有货还报空态 ⇒ 4.1 那条空态断言此刻是反的',
-        );
-
-        await _tap(tester, row, '收件行→详情');
-        await _settle(tester, seconds: 1);
-        final sheet = find.byType(BottomSheet);
-        expect(
-          find.descendant(of: sheet, matching: find.text('闸门收件一')),
-          findsOneWidget,
-          reason: '详情弹层没起来，或起来了而没有标题',
-        );
-        expect(
-          find.descendant(of: sheet, matching: find.text('闸门注入的收件正文')),
-          findsOneWidget,
-          reason: '详情里没有正文 ⇒ 只给标题的那一格不算"看过"',
-        );
-        // "点开即已读"写在 `await showModalBottomSheet(...)` **之后** ⇒ 必须先把弹层关掉，
-        // 才轮到那一次 markRead + 重读表（点遮罩关，与第 4 步收长按弹层同一个动作）。
         await tester.tapAt(const Offset(10, 10));
-        await _settle(tester, seconds: 2);
+        await _settle(tester);
         expect(
-          find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
+          find.byType(CardActionSheet),
           findsNothing,
-          reason: '关掉详情还在标未读 ⇒ 点开即已读那一刀没接上（或页面自己留了份状态没重读表）',
+          reason: '点遮罩关不掉弹层 ⇒ 用户被卡在动作表里',
         );
-        expect(row, findsOneWidget, reason: '已读不该把那一行从历史里抹掉（它只是变成"看过的"）');
-        expect(
-          await helper.countFnthinkInboxUnread(),
-          0,
-          reason: '库里那一行的 read 没翻过去',
-        );
-        await drop(); // 闸门要可重复跑：留着它，下一轮的 4.1 就不再是空态
         await _backToHome(tester);
-      },
-    );
-    await _verdict(tester, gateFailures, '闸门 1/4');
-  }, timeout: Timeout(gateCaseBudgetFor(_caseABudget)));
+      });
+      await _step(
+        tester,
+        gateFailures,
+        '4.1 推送历史页的方向切换：切到「收件（幻念）」再切回来',
+        () async {
+          // 为什么单开一步：T48 第一片把方向做成**数据源切换**（两张表分页口径不同，拼进同一条时间线
+          // 的表现是翻页时同一条出现两次或整条不出现），而闸门此前只进过这一页的"转发"那一侧 ——
+          // 收件那一档在设备上从没被点开过，与"幻念推送页整页是闸门盲区"是同一类洞。
+          await _tap(tester, find.text('推送历史'), '通知页→推送历史（方向切换）');
+          await _settle(tester, seconds: 2);
+          await _tap(
+            tester,
+            _in(HistoryPage, find.text('收件（幻念）')),
+            '历史页→收件（幻念）',
+          );
+          await _settle(tester, seconds: 2);
+          // 这台模拟器上没有幻念收件 ⇒ 只允许说"还没有收到过消息"那一句。
+          // 出现转发那一侧的行 = 两份数据源串了；一句都不说 = 读不到与没有货同一张脸。
+          expect(
+            find.text('还没有收到过消息'),
+            findsOneWidget,
+            reason: '收件档没有自己的空态 ⇒ "没读过"与"没有货"在屏幕上分不出来',
+          );
+          expect(
+            find.text('闸门通知一'),
+            findsNothing,
+            reason: '切到收件档还看得见转发的行 ⇒ 方向只是换了个高亮，没换数据源',
+          );
+          expect(
+            find.byWidgetPredicate(
+              (w) =>
+                  w.key is ValueKey &&
+                  '${(w.key as ValueKey).value}'.startsWith(
+                    'fnthink-inbox-row-',
+                  ),
+            ),
+            findsNothing,
+            reason: '空态下不该有收件行',
+          );
+          await _tap(tester, _in(HistoryPage, find.text('转发')), '历史页→切回转发');
+          await _settle(tester, seconds: 2);
+          expect(
+            find.text('闸门通知一'),
+            findsWidgets,
+            reason: '切回来列表空了 ⇒ 两个方向共用一份 state（切回去时没重读自己的那一份）',
+          );
+          await _backToHome(tester);
+        },
+      );
+      await _step(
+        tester,
+        gateFailures,
+        '4.2 收件档"有货"的那一半：列表行 → 详情 → 点开即已读',
+        () async {
+          // 4.1 只能证"空态说人话"。这一格证的是**有货的时候**：这台模拟器没有服务端可连，
+          // 而闸门用的是真实加密库（不是替身），所以直接往 `fnthink_messages` 塞一行，
+          // 让"列表里那一行 / 未读点 / 详情里的标题与正文 / 点开即已读"这四件事在设备上各留一次证据。
+          // ⚠ 首页那张未读卡**不在这里断言**：它的数只在服务启动与 resumed 时重取
+          //    （`main_page.dart:184/283`），而注入发生在页面装配之后 —— 在这儿断"卡该出现"
+          //    要么是假红、要么得写成软断言（更糟）。那一格由 widget 用例证。
+          const gateId = 'gate_inbox_1';
+          final helper = DatabaseHelper();
+          final db = await helper.database;
+          Future<void> drop() async {
+            await db.delete(
+              FnthinkInboxMessage.table,
+              where: 'message_id = ?',
+              whereArgs: [gateId],
+            );
+          }
+
+          // 先清一次：上一轮没收干净的话，幂等插入会返回 false，那条断言就说不清是谁的错
+          await drop();
+          final inserted = await helper.insertFnthinkInbox(
+            const FnthinkInboxMessage(
+              messageId: gateId,
+              sender: '8KMNPQRSTVWX999777',
+              type: 'notice',
+              item: '',
+              title: '闸门收件一',
+              body: '闸门注入的收件正文',
+              receivedAt: 1767223200000,
+            ),
+          );
+          expect(inserted, isTrue, reason: '注入没落库 ⇒ 后面每一条断言都是在演一场空');
+
+          await _tap(tester, find.text('推送历史'), '通知页→推送历史（注入之后）');
+          await _settle(tester, seconds: 2);
+          await _tap(
+            tester,
+            _in(HistoryPage, find.text('收件（幻念）')),
+            '历史页→收件（幻念）（有货）',
+          );
+          await _settle(tester, seconds: 2);
+          final row = find.byKey(const ValueKey('fnthink-inbox-row-$gateId'));
+          expect(
+            row,
+            findsOneWidget,
+            reason: '表里有一条而列表不列 ⇒ 这一档读的不是那张表（或被 read 那一列滤掉）',
+          );
+          expect(
+            find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
+            findsOneWidget,
+            reason: '未读点不在 ⇒ 用户没法区分"看过没有"（它只该跟着 read 那一列走）',
+          );
+          expect(
+            find.text('还没有收到过消息'),
+            findsNothing,
+            reason: '有货还报空态 ⇒ 4.1 那条空态断言此刻是反的',
+          );
+
+          await _tap(tester, row, '收件行→详情');
+          await _settle(tester, seconds: 1);
+          final sheet = find.byType(BottomSheet);
+          expect(
+            find.descendant(of: sheet, matching: find.text('闸门收件一')),
+            findsOneWidget,
+            reason: '详情弹层没起来，或起来了而没有标题',
+          );
+          expect(
+            find.descendant(of: sheet, matching: find.text('闸门注入的收件正文')),
+            findsOneWidget,
+            reason: '详情里没有正文 ⇒ 只给标题的那一格不算"看过"',
+          );
+          // "点开即已读"写在 `await showModalBottomSheet(...)` **之后** ⇒ 必须先把弹层关掉，
+          // 才轮到那一次 markRead + 重读表（点遮罩关，与第 4 步收长按弹层同一个动作）。
+          await tester.tapAt(const Offset(10, 10));
+          await _settle(tester, seconds: 2);
+          expect(
+            find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
+            findsNothing,
+            reason: '关掉详情还在标未读 ⇒ 点开即已读那一刀没接上（或页面自己留了份状态没重读表）',
+          );
+          expect(row, findsOneWidget, reason: '已读不该把那一行从历史里抹掉（它只是变成"看过的"）');
+          expect(
+            await helper.countFnthinkInboxUnread(),
+            0,
+            reason: '库里那一行的 read 没翻过去',
+          );
+          await drop(); // 闸门要可重复跑：留着它，下一轮的 4.1 就不再是空态
+          await _backToHome(tester);
+        },
+      );
+      await _verdict(tester, gateFailures, '闸门 1/4');
+    },
+    timeout: Timeout(gateCaseBudgetFor(_caseABudget)),
+  );
 
   testWidgets(
     '闸门 2/4 三族通道 CRUD：webhook 两页形状 / 邮件 / 自建应用',
@@ -508,6 +518,14 @@ void main() {
         // 4.3 要看的是首页那张未读卡，而它的数只在 `_postInit`（主界面起来那一次）与
         // `resumed` 时取 ⇒ 必须在 `pumpWidget` **之前**灌好，`_assemble` 的 seed 就是这个位置。
         final helper = DatabaseHelper();
+        // ⚠ 日期必须是"刚刚"，不许写死：T47 的收件保留裁剪跑在首页启动那一发
+        // （`_startHealthProbeCadence`），缺省档 30 天。这三条灌在 `pumpWidget` **之前**，
+        // 而旧写法那个 2026-01-01 的固定戳离今天二百多天 ⇒ 启动那一扫把它们删了，于是这
+        // 一步从 10-18 起恒红。用户首页有未读时那条本来就是这几分钟内的东西，桩照这个写；
+        // 「按天数删」这一半 `test/database/fnthink_inbox_test.dart` 早钉着，
+        // 「扫过就要重取读数」与「全仓只有首页这一发在扫」钉在
+        // `test/architecture/fnthink_retention_guard_test.dart`。
+        final seedAt = DateTime.now().millisecondsSinceEpoch - 60000;
         for (final (id, wasRead) in const [
           ('gate_home_1', false),
           ('gate_home_2', true),
@@ -521,7 +539,7 @@ void main() {
               item: '',
               title: '闸门首页卡 $id',
               body: '闸门注入：证首页未读数的来源',
-              receivedAt: 1767223200000,
+              receivedAt: seedAt,
               read: wasRead,
             ),
           );
@@ -646,10 +664,7 @@ void main() {
                   '要么下面那句"不许有数字"正在对空串恒真（那是假绿，不是通过）',
             );
             expect(
-              find.ancestor(
-                of: header,
-                matching: find.byType(FnthinkRowLabel),
-              ),
+              find.ancestor(of: header, matching: find.byType(FnthinkRowLabel)),
               findsOneWidget,
               reason:
                   '那一格还在、画它的却不是组标题那枚公共件 ⇒ 这一族又长出第二个作者，'
@@ -2805,9 +2820,7 @@ Finder _in(Type page, Finder f) =>
 String _keyedTitle(WidgetTester t, Finder keyed) {
   final onCell = t.widgetList<Text>(keyed).map((w) => w.data ?? '').join();
   final underCell = t
-      .widgetList<Text>(
-        find.descendant(of: keyed, matching: find.byType(Text)),
-      )
+      .widgetList<Text>(find.descendant(of: keyed, matching: find.byType(Text)))
       .map((w) => w.data ?? '')
       .join();
   return onCell + underCell;

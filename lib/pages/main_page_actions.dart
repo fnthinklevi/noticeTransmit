@@ -73,7 +73,13 @@ extension _MainPageActions on _MainPageState {
     unawaited(
       FnthinkInboxService(
         contract: GetIt.instance<FnthinkContractLoader>().cached,
-      ).pruneRetention(),
+      ).pruneRetention().then((pruned) {
+        // 扫过、且真删了东西 ⇒ 首页那个数必须重取。这一发是 `unawaited` 的，外面没人等它，
+        // 不补这一发就长出「卡上写着未读 1 条、点进去一行都没有」——闸门 4.3 第一轮红的
+        // 正是这个形状（未读数在 `_postInit` 里先取、裁剪在同批之后扫，两条都不等同一条）。
+        if (pruned.byAge + pruned.byCap == 0) return;
+        unawaited(_refreshFnthinkInboxUnread());
+      }),
     );
     unawaited(probeChannelsAcrossFamilies(onUpdated: _onHealthRecorded));
     _healthProbeTimer?.cancel();
