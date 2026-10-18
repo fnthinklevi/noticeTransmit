@@ -2492,6 +2492,65 @@ void main() {
       expect(h.peerReads(), greaterThanOrEqualTo(1));
     });
 
+    // T130 ①（欠的那格，2026-10-17 补）：反向升格那一发"屏幕上长什么样"至今没有页面级断言。
+    // 上一轮想在同一个用例里驱动后台那一轮再重挂页面 ⇒ `pumpAndSettle` 不收敛（两轮各停 4-5 分钟），
+    // 于是把"升格"与"这一行的画法"分开钉：升格由协调者那 3 条 + 名单真库那 3 条钉（它们不碰画面），
+    // 这一条只钉**这样一行一旦在名单里，界面就画得出来、字段各在自己的格子** ——
+    // 不靠"本机点过同意"这个前提。喂进去的是反向那一发的形状：本机没对应的请求、
+    // 对面那把公钥在本机没有出处、也没起过名字。
+    testWidgets('对面替我确认的那一台（本机从没点过同意）也画在名单里，字段各在自己的格子', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: const [
+          FnthinkPeer(
+            peerAddress: 'CCCCCCCCCCCCCCCCCCCC',
+            publicKey: '',
+            level: 'L1',
+            grantedAt: 1780000222000,
+            requestId: '',
+          ),
+        ],
+      );
+      final l10n = await pumpPeers(tester, h);
+      final title = find.byKey(
+        const ValueKey('fnthink-peer-CCCCCCCCCCCCCCCCCCCC'),
+      );
+      await revealTo(tester, title);
+      expect(title, findsOneWidget, reason: '反向那一发行被藏起来 ⇒ 屏幕上没有任何出处说"这台能发"');
+      expect(tester.widget<Text>(title).data, 'CCCCCCCCCCCCCCCCCCCC');
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey('fnthink-peer-CCCCCCCCCCCCCCCCCCCC-sub'),
+              ),
+            )
+            .data,
+        allOf(
+          contains('L1'),
+          matches(RegExp(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}')),
+          isNot(contains('未命名')),
+        ),
+        reason: '没起过名字 ⇒ 那一格只剩地址码；替它编一个名字＝本机在替对面说它没说过的话',
+      );
+      // 两个入口都不许因为"本机没确认过"而少给：发一条（行内）与那颗「⋯」（改名／撤销）。
+      final send = find.byKey(
+        const ValueKey('fnthink-peer-send-CCCCCCCCCCCCCCCCCCCC'),
+      );
+      await revealTo(tester, send);
+      expect(send, findsOneWidget);
+      final more = find.byKey(
+        const ValueKey('fnthink-peer-more-CCCCCCCCCCCCCCCCCCCC'),
+      );
+      await revealTo(tester, more);
+      expect(more, findsOneWidget);
+      expect(
+        find.text(l10n.fnthinkPeersEmpty),
+        findsNothing,
+        reason: '名单里有一行却报"还没配对过任何设备"＝两件事同时说，用户会以为那一行是别处的',
+      );
+    });
+
     testWidgets('名单真的是空的 ⇒ 说"还没有配对过任何设备"', (tester) async {
       stubChannels();
       final h = harness();
