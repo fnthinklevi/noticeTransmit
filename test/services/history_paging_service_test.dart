@@ -279,4 +279,59 @@ void main() {
       );
     });
   });
+
+  group('每个筛选档都从 service 走到 SQL（T133 片8 的接线）', () {
+    // 片8 把送达判定下沉成 `delivery_bucket` 一列之后，页面不再自己精筛；
+    // 于是"档名 → 哪一桶"这一段只在 SQL 那层生效。widget 用例不开真库，
+    // 这一条用真库补上那格"不可单独观察"的接线：每个档名都要真的被 service
+    // 交给 SQL，而未知档名不许被当成 all（fail-closed）。
+    test('两个已知档各只回自己那一桶；all/null 不加条件；未知档回空', () async {
+      const now = 1780000000000;
+      await DatabaseHelper().insertNotification(
+        row(
+          'ok',
+          postTime: now + 3,
+          delivery: {
+            'chan:a': {'status': 'success'},
+          },
+        ),
+      );
+      await DatabaseHelper().insertNotification(
+        row(
+          'bad',
+          postTime: now + 2,
+          delivery: {
+            'chan:a': {'status': 'failed'},
+          },
+        ),
+      );
+      await DatabaseHelper().insertNotification(
+        row(
+          'flight',
+          postTime: now + 1,
+          delivery: {
+            'chan:a': {'status': 'queued'},
+          },
+        ),
+      );
+      await DatabaseHelper().insertNotification(row('none', postTime: now));
+
+      Future<List<String>> ids(String? filter) async {
+        final (records, _, _) = await service.searchRecords(
+          deliveryFilter: filter,
+        );
+        return records.map((r) => r.id).toList();
+      }
+
+      expect(await ids(deliveryFilterDelivered), ['ok']);
+      expect(await ids(deliveryFilterNotDelivered), ['bad']);
+      expect(await ids(deliveryFilterAll), ['ok', 'bad', 'flight', 'none']);
+      expect(await ids(null), ['ok', 'bad', 'flight', 'none']);
+      expect(
+        await ids('bogus'),
+        isEmpty,
+        reason: '认不出的档名 fail-closed；这一句同时证明 service 没有把它当 all',
+      );
+    });
+  });
 }
