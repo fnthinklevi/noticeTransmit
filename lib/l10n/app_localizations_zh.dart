@@ -3504,6 +3504,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String agoSeconds(int n) {
+    return '$n 秒前';
+  }
+
+  @override
   String fnthinkHubPeersWaiting(int n) {
     return '有 $n 条在等你答复';
   }
@@ -3735,6 +3740,30 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPeerForwardChannelKept => '通往它的通道已经有一条，没另建';
+
+  @override
+  String fnthinkPeerPresenceOnline(String ago) {
+    return '在线 · 上次收取 $ago';
+  }
+
+  @override
+  String fnthinkPeerPresenceOffline(String ago) {
+    return '离线 · 上次收取 $ago';
+  }
+
+  @override
+  String get fnthinkPeerPresenceUnknown => '未知 · 还没上过线';
+
+  @override
+  String get fnthinkPeerPresenceNotShared => '对方没有共享在线状态';
+
+  @override
+  String get fnthinkPeerPresenceLoading => '正在读取对端状态…';
+
+  @override
+  String fnthinkPeerPresenceFailed(String reason) {
+    return '这次没拿到对端状态（$reason）';
+  }
 
   @override
   String get fnthinkPeerForwardHint => '勾上它，这台设备收到的通知才会往它那边转。';

@@ -51,6 +51,9 @@ class FnthinkReceiverService {
       'pairRevoke',
       'endpointCreate',
       'endpointList',
+      // 对端在场读口（T156 片2）：装配期就确认这条路存在，而不是等页面打开
+      // 这一格才拿到一句看起来像网络故障的话。
+      'peerPresence',
       'endpointRevoke',
       'endpointRotate',
       // 非浸入探针（T106 片②）：健康度自动重探要发的就是这一发。登记进这张名单的
@@ -394,6 +397,22 @@ class FnthinkReceiverService {
       );
     }
     return kernel.endpointList();
+  }
+
+  /// 读对端的「上次收取」（T156 片2）。
+  ///
+  /// 与 [endpointList] 同一条装配口径（不要求总开关开着）：**"对端多久没来取"与
+  /// "这台现在去不去取货"是两件事**。签不出来就不发；三态与年龄的判据都在内核与服务端，
+  /// 这一层不重判。
+  Future<FnthinkPeerPresenceResult> peerPresence() async {
+    if (!await _canSign()) {
+      return FnthinkPeerPresenceResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.peerPresence();
   }
 
   /// 关掉自己名下一条接入端点（`/endpoint-revoke`，#157 第四片）。

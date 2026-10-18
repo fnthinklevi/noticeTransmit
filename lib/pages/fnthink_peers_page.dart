@@ -15,6 +15,7 @@ import '../services/fnthink_grant_items.dart';
 import '../services/fnthink_l2_actions.dart';
 import '../services/fnthink_pair_items.dart';
 import '../services/fnthink_pair_link.dart';
+import '../services/fnthink_peer_presence_display.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_remote_action_categories.dart';
@@ -43,20 +44,30 @@ class FnthinkPeersDeps {
     required this.contracts,
     required this.coordinator,
     required this.loadPeers,
+    this.loadPresence,
     FnthinkChannelStore? channels,
   }) : _injectedChannels = channels;
 
-  factory FnthinkPeersDeps.fromLocator() => FnthinkPeersDeps(
-    contracts: GetIt.instance<FnthinkContractLoader>(),
-    coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
-    // 名单只从读咽喉取。退回 `DatabaseHelper().loadFnthinkPeers` 的话，页面就会自己长出一份
-    // 排序/时间口径，而 `history_page` 那批守卫已经证明过这种分叉是怎么开始的。
-    loadPeers: GetIt.instance<FnthinkPeerService>().list,
-  );
+  factory FnthinkPeersDeps.fromLocator() {
+    final coordinator = GetIt.instance<FnthinkReceiveCoordinator>();
+    return FnthinkPeersDeps(
+      contracts: GetIt.instance<FnthinkContractLoader>(),
+      coordinator: coordinator,
+      // 名单只从读咽喉取。退回 `DatabaseHelper().loadFnthinkPeers` 的话，页面就会自己长出一份
+      // 排序/时间口径，而 `history_page` 那批守卫已经证明过这种分叉是怎么开始的。
+      loadPeers: GetIt.instance<FnthinkPeerService>().list,
+      // T156 片2：对端年龄只在生产装配里接；测试 harness 不关心这一格时留 null，
+      // 页面就不会凭空发一发签名请求（那会让旧用例开始依赖网络替身）。
+      loadPresence: coordinator.peerPresence,
+    );
+  }
 
   final FnthinkContractLoader contracts;
   final FnthinkReceiveCoordinator coordinator;
   final Future<List<FnthinkPeer>> Function() loadPeers;
+
+  /// 读一次对端在场状态（T156 片2）。null = 这一页没接这条读口。
+  final Future<FnthinkPeerPresenceResult> Function()? loadPresence;
   FnthinkChannelStore? _injectedChannels;
 
   /// 勾选写嗅喂（T94）＋ 代建通道（T98 片③）。类型是**接口**：这一页今天要读通道、
@@ -108,6 +119,15 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
 
   /// 名单读失败的原话。与 `null`（还没读）分开：那一句是"读不到"，不能画成"一个都没有"。
   String? _peersError;
+
+  /// 最近一次对端在场读数（T156 片2）。null = 还没读过 / 这一页没接读口。
+  FnthinkPeerPresenceResult? _presence;
+
+  /// 这一次读取还没回来。整张名单共用这一档，不给每一行编一个"读取中"。
+  bool _presenceLoading = false;
+
+  /// 读取出错的原话（与 `_presence.reason` 分开：一个是抛出来、一个是内核回的）。
+  String? _presenceError;
 
   /// 最近一次答复配对请求的结论（null = 这一页还没答过）。
   ({FnthinkPairRequest request, bool approve, FnthinkPairAnswer answer})?
@@ -291,6 +311,65 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       _peers = rows;
       _peersError = error;
     });
+    if (rows == null || rows.isEmpty || _deps.loadPresence == null) {
+      setState(() {
+        _presence = null;
+        _presenceError = null;
+        _presenceLoading = false;
+      });
+      return;
+    }
+    unawaited(_loadPresence());
+  }
+
+  /// 读一次对端在场状态（T156 片2）。
+  ///
+  /// 它不阻塞名单：名单先画出来，这一格随后补上/报错。失败时**整张名单**只共享一句
+  /// 「这次没拿到」—— 不给每一台各画一个"离线"，也不把没读到说成"对方没共享"。
+  Future<void> _loadPresence() async {
+    if (_presenceLoading) return;
+    final load = _deps.loadPresence;
+    if (load == null) return;
+    setState(() {
+      _presenceLoading = true;
+      _presenceError = null;
+    });
+    FnthinkPeerPresenceResult? result;
+    String? error;
+    try {
+      result = await load();
+    } catch (e) {
+      error = '$e';
+    }
+    if (!mounted) return;
+    setState(() {
+      _presence = result;
+      _presenceError = error;
+      _presenceLoading = false;
+    });
+  }
+
+  /// 一台对端的状态句。加载/失败是整张名单的状态，只在卡片级说一句；
+  /// 这一行返回空列表（而不是编一个"离线"）。
+  List<Widget> _presenceNote(AppLocalizations l10n, FnthinkPeer peer) {
+    final contract = _contract;
+    if (contract == null || _presenceLoading) return const <Widget>[];
+    final line = fnthinkPeerPresenceLine(
+      l10n,
+      fnthinkPeerPresenceView(
+        contract: contract,
+        result: _presence,
+        loading: false,
+        peerAddress: peer.peerAddress,
+      ),
+    );
+    if (line == null) return const <Widget>[];
+    return [
+      FnthinkNote(
+        keyName: 'fnthink-peer-presence-${peer.peerAddress}',
+        text: line,
+      ),
+    ];
   }
 
   @override
@@ -892,7 +971,21 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
             keyName: 'fnthink-peers-empty',
             text: l10n.fnthinkPeersEmpty,
           )
-        else
+        else ...[
+          if (_presenceLoading)
+            FnthinkNote(
+              keyName: 'fnthink-peer-presence-loading',
+              text: fnthinkPeerPresenceLoadingLine(l10n),
+            ),
+          if (!_presenceLoading &&
+              (_presenceError != null || (_presence != null && !_presence!.ok)))
+            FnthinkNote(
+              keyName: 'fnthink-peer-presence-failed',
+              text: fnthinkPeerPresenceFailedLine(
+                l10n,
+                _presenceError ?? _presence?.reason ?? 'no-presence',
+              ),
+            ),
           for (final peer in rows) ...[
             // T152 片B／阶段3：一台设备＝一行。这一行今天**没有详情页**，所以 `onTap` 传 null
             // （整行点不动、也不画 chevron），能点的只有行尾那枚「⋯」；「发一条」是主操作，
@@ -913,6 +1006,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
               ),
               trailing: _peerMoreButton(l10n, peer),
             ),
+            ..._presenceNote(l10n, peer),
             Align(
               alignment: Alignment.centerLeft,
               child: FnthinkInlineAction(
@@ -962,6 +1056,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
               text: l10n.fnthinkPeerForwardHint,
             ),
           ],
+        ],
         if (revokeEntry != null)
           FnthinkNote(
             keyName: 'fnthink-peer-revoke-note',

@@ -3666,6 +3666,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String agoSeconds(int n) {
+    return '${n}s ago';
+  }
+
+  @override
   String fnthinkHubPeersWaiting(int n) {
     return '$n waiting for your answer';
   }
@@ -3918,6 +3923,30 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkPeerForwardChannelKept =>
       'A channel to it already exists; nothing was created';
+
+  @override
+  String fnthinkPeerPresenceOnline(String ago) {
+    return 'Online · last fetch $ago';
+  }
+
+  @override
+  String fnthinkPeerPresenceOffline(String ago) {
+    return 'Offline · last fetch $ago';
+  }
+
+  @override
+  String get fnthinkPeerPresenceUnknown => 'Unknown · never seen online';
+
+  @override
+  String get fnthinkPeerPresenceNotShared => 'Peer does not share presence';
+
+  @override
+  String get fnthinkPeerPresenceLoading => 'Reading peer presence…';
+
+  @override
+  String fnthinkPeerPresenceFailed(String reason) {
+    return 'Could not read peer presence ($reason)';
+  }
 
   @override
   String get fnthinkPeerForwardHint =>

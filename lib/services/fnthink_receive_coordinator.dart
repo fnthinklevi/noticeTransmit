@@ -1233,6 +1233,28 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 读对端的「上次收取」（T156 片2）。
+  ///
+  /// 与 [listEndpoints] 同一条前置口径（`requireEnabled: false`）：这条读数说的是
+  /// **对端**在不在来取，与本机现在去不去取货无关。结果不缓存 —— 年龄是"此刻"的读数，
+  /// 存一份就会在屏幕上说一句过期的话。
+  Future<FnthinkPeerPresenceResult> peerPresence() async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkPeerPresenceResult(
+        status: FnthinkPollStatus.failed,
+        reason: resolved.reason,
+        signedWhileUncalibrated: false,
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      return await service.peerPresence();
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 关掉自己名下一条接入端点（#157 第四片）。
   ///
   /// 与 [listEndpoints] 同一条前置口径（不要求总开关开着）：**关一把入口与这台现在去不去取货无关** ——

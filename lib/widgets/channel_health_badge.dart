@@ -37,6 +37,18 @@ String? fnthinkAgoLabel(AppLocalizations l10n, int? atMs) {
       : l10n.agoMinutes(bucket.value);
 }
 
+/// 服务端已经算好的**秒数**（T156 片2）—— 不再减本机时钟。
+///
+/// 分档仍住在这一个文件里（与 [fnthinkAgoBucket] 同一处口径）：不足 1 分钟说秒、
+/// 不足 1 小时说分、再往上说小时。T115 那条「多久以前只有一个作者」因此仍然成立；
+/// 调用方（对端在场那一格）只交服务端给的数，不自己拿 `lastSeenAt` 减一次。
+String fnthinkAgoLabelFromSeconds(AppLocalizations l10n, int seconds) {
+  final s = seconds < 0 ? 0 : seconds;
+  if (s < 60) return l10n.agoSeconds(s);
+  if (s < 3600) return l10n.agoMinutes(s ~/ 60);
+  return l10n.agoHours(s ~/ 3600);
+}
+
 /// 「上一次探测是多久以前」这句话的**唯一**格式化处（T115）。
 ///
 /// 为什么必须有作者：决定一把"过期"从 `unknown` 里拆出来之后，这一句从"徽标的补充说明"

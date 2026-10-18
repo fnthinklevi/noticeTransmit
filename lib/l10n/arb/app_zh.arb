@@ -1829,6 +1829,14 @@
       }
     }
   },
+  "agoSeconds": "{n} 秒前",
+  "@agoSeconds": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkHubPeersWaiting": "有 {n} 条在等你答复",
   "@fnthinkHubPeersWaiting": {
     "placeholders": {
@@ -1965,6 +1973,33 @@
   "fnthinkPeerForwardToggle": "你 → 它 · 可以收到你这台转发的通知",
   "fnthinkPeerForwardChannelMade": "已替你建了一条通往它的通道（三段现在齐了）",
   "fnthinkPeerForwardChannelKept": "通往它的通道已经有一条，没另建",
+  "fnthinkPeerPresenceOnline": "在线 · 上次收取 {ago}",
+  "@fnthinkPeerPresenceOnline": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerPresenceOffline": "离线 · 上次收取 {ago}",
+  "@fnthinkPeerPresenceOffline": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerPresenceUnknown": "未知 · 还没上过线",
+  "fnthinkPeerPresenceNotShared": "对方没有共享在线状态",
+  "fnthinkPeerPresenceLoading": "正在读取对端状态…",
+  "fnthinkPeerPresenceFailed": "这次没拿到对端状态（{reason}）",
+  "@fnthinkPeerPresenceFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkPeerForwardHint": "勾上它，这台设备收到的通知才会往它那边转。",
   "fnthinkPeerLine": "它 → 你 · 授到 {level} · {at}",
   "@fnthinkPeerLine": {

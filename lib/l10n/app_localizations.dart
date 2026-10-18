@@ -6499,6 +6499,12 @@ abstract class AppLocalizations {
   /// **'{n} 小时前'**
   String agoHours(int n);
 
+  /// No description provided for @agoSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 秒前'**
+  String agoSeconds(int n);
+
   /// No description provided for @fnthinkHubPeersWaiting.
   ///
   /// In zh, this message translates to:
@@ -6900,6 +6906,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'通往它的通道已经有一条，没另建'**
   String get fnthinkPeerForwardChannelKept;
+
+  /// No description provided for @fnthinkPeerPresenceOnline.
+  ///
+  /// In zh, this message translates to:
+  /// **'在线 · 上次收取 {ago}'**
+  String fnthinkPeerPresenceOnline(String ago);
+
+  /// No description provided for @fnthinkPeerPresenceOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'离线 · 上次收取 {ago}'**
+  String fnthinkPeerPresenceOffline(String ago);
+
+  /// No description provided for @fnthinkPeerPresenceUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知 · 还没上过线'**
+  String get fnthinkPeerPresenceUnknown;
+
+  /// No description provided for @fnthinkPeerPresenceNotShared.
+  ///
+  /// In zh, this message translates to:
+  /// **'对方没有共享在线状态'**
+  String get fnthinkPeerPresenceNotShared;
+
+  /// No description provided for @fnthinkPeerPresenceLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取对端状态…'**
+  String get fnthinkPeerPresenceLoading;
+
+  /// No description provided for @fnthinkPeerPresenceFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次没拿到对端状态（{reason}）'**
+  String fnthinkPeerPresenceFailed(String reason);
 
   /// No description provided for @fnthinkPeerForwardHint.
   ///

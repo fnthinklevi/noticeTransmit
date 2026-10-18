@@ -1808,6 +1808,14 @@
       }
     }
   },
+  "agoSeconds": "{n}s ago",
+  "@agoSeconds": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkHubPeersWaiting": "{n} waiting for your answer",
   "@fnthinkHubPeersWaiting": {
     "placeholders": {
@@ -1944,6 +1952,33 @@
   "fnthinkPeerForwardToggle": "You → it · may receive what you forward",
   "fnthinkPeerForwardChannelMade": "Created a channel to it (all three links are in place now)",
   "fnthinkPeerForwardChannelKept": "A channel to it already exists; nothing was created",
+  "fnthinkPeerPresenceOnline": "Online · last fetch {ago}",
+  "@fnthinkPeerPresenceOnline": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerPresenceOffline": "Offline · last fetch {ago}",
+  "@fnthinkPeerPresenceOffline": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerPresenceUnknown": "Unknown · never seen online",
+  "fnthinkPeerPresenceNotShared": "Peer does not share presence",
+  "fnthinkPeerPresenceLoading": "Reading peer presence…",
+  "fnthinkPeerPresenceFailed": "Could not read peer presence ({reason})",
+  "@fnthinkPeerPresenceFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkPeerForwardHint": "Check it so notifications this device receives are forwarded to it.",
   "fnthinkPeerLine": "it → you · granted {level} · {at}",
   "@fnthinkPeerLine": {

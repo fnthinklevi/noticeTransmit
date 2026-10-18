@@ -1285,6 +1285,127 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 peerPresence 的签名字段（读对端的「上次收取」，T156 片2）。
+  ///
+  /// 载荷名单今日为空 ⇒ `body` 就是 `{}`。这一发**不接受点名**（契约
+  /// `clientEvents.peerPresence.fields` 为空）：带一个 `peer` 键就长成了按地址码问
+  /// 在线状态的探测器 —— 而地址码在每条消息里都有，能逐个问下去。
+  Map<String, Object?> peerPresenceFields({required String nonce, String? ts}) {
+    final declared = contract.peerPresenceFields;
+    if (declared.isNotEmpty) {
+      throw ArgumentError(
+        'peerPresence 的载荷名单必须是空的（实到 $declared）：这一发不接受点名，'
+        '否则它就成了按地址码问在线状态的探测器',
+      );
+    }
+    final readout = contract.peerReadout;
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType(readout.event),
+      'target': addressCode,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode(const <String, Object?>{}),
+    };
+  }
+
+  /// 读对端的在场年龄（T156 片1 的服务端读口、片2 的设备侧）。
+  ///
+  /// 三态与年龄的唯一作者是服务端（`devicestore.devicePresence`）；本内核只做两件事：
+  /// ① 字段名全部从契约 `presence.peerReadout` 现取（不写第二份 `peers` / `ageSeconds`）；
+  /// ② 形状不认识就**整读失败**，绝不回一份少了行的列表 —— 界面把"这台没共享"与
+  ///    "这一行没解析出来"画成同一句时，用户会以为对方关了共享，而真相是本机读坏了。
+  ///
+  /// ⚠ `unknown` 那一档的两个时间字段必须都是 null（契约 `ageIsNullWhenUnknown`）：
+  /// 回 0 会被读成"刚刚来过"。
+  Future<FnthinkPeerPresenceResult> peerPresence() async {
+    final readout = contract.peerReadout;
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: peerPresenceFields(nonce: nonce),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkPeerPresenceResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkPeerPresenceResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'peer-presence-http:${reply.status}',
+      );
+    }
+    FnthinkPeerPresenceResult fail(String reason) {
+      _lastReason = reason;
+      return FnthinkPeerPresenceResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: reason,
+      );
+    }
+
+    final raw = reply.body[readout.peersField];
+    if (raw is! List) return fail('peer-presence-unparsable');
+    final states = contract.presenceStates;
+    final unknown = contract.presenceUnknownState;
+    final seen = <String>{};
+    final rows = <FnthinkPeerPresence>[];
+    for (var i = 0; i < raw.length; i += 1) {
+      final entry = raw[i];
+      if (entry is! Map) return fail('peer-presence-unparsable:row=$i');
+      final address = entry[readout.addressCodeField];
+      final presence = entry[readout.presenceField];
+      if (address is! String ||
+          address.isEmpty ||
+          presence is! String ||
+          !states.contains(presence) ||
+          !seen.add(address)) {
+        return fail('peer-presence-unparsable:row=$i');
+      }
+      final lastSeen = entry[readout.lastSeenField];
+      final age = entry[readout.ageField];
+      if (presence == unknown) {
+        if (lastSeen != null || age != null) {
+          return fail('peer-presence-shape:row=$i');
+        }
+      } else if (lastSeen is! int || age is! int || age < 0) {
+        return fail('peer-presence-shape:row=$i');
+      }
+      rows.add(
+        FnthinkPeerPresence(
+          addressCode: address,
+          presence: presence,
+          lastSeenAt: lastSeen is int ? lastSeen : null,
+          ageSeconds: age is int ? age : null,
+        ),
+      );
+    }
+    _lastReason = null;
+    return FnthinkPeerPresenceResult(
+      status: FnthinkPollStatus.ok,
+      peers: rows,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   /// 组 endpointRevoke 的签名字段（关掉自己名下一条接入端点，#157 第四片）。
   ///
   /// 与 `endpointListFields` 不同，这一发的载荷名单不是空的而是**恰好一个键**：那一个键就是
@@ -2228,6 +2349,52 @@ class FnthinkEndpointListResult {
   final String? reason;
 
   bool get ok => status == FnthinkPollStatus.ok && endpoints != null;
+}
+
+/// 一台对端的在场读数（T156 片2）。
+///
+/// [presence] 是三态词之一（契约 `presence.states`），[ageSeconds] 是服务端算好的整数秒；
+/// `unknown` 那一档两个时间字段都是 null（契约 `ageIsNullWhenUnknown`）。
+class FnthinkPeerPresence {
+  const FnthinkPeerPresence({
+    required this.addressCode,
+    required this.presence,
+    this.lastSeenAt,
+    this.ageSeconds,
+  });
+
+  final String addressCode;
+  final String presence;
+  final int? lastSeenAt;
+  final int? ageSeconds;
+}
+
+/// 读对端在场情况的结论（T156 片2）。
+///
+/// [peers] 的两种"空"必须分开：`null` ＝ 这次没读到（失败/传输错/形状不认），
+/// 空列表 ＝ 读到了，只是没有一个对端把状态共享给本机 —— 后者每一台都该显示
+/// 「对方没有共享」，前者只许说「这次没拿到」，不许把整张名单画成离线。
+class FnthinkPeerPresenceResult {
+  const FnthinkPeerPresenceResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.peers,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+  final List<FnthinkPeerPresence>? peers;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok => status == FnthinkPollStatus.ok && peers != null;
+
+  FnthinkPeerPresence? peerOf(String addressCode) {
+    for (final row in peers ?? const <FnthinkPeerPresence>[]) {
+      if (row.addressCode == addressCode) return row;
+    }
+    return null;
+  }
 }
 
 /// 关掉一条接入端点的结论（#157 第四片）。

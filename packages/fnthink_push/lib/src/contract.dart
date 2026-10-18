@@ -991,6 +991,23 @@ class FnthinkContract {
   /// 显示成"设备掉线了"—— 这是两件事，契约里 `unknownMeans` 写的就是这条。
   List<String> get presenceStates => strings(const ['presence', 'states']);
 
+  /// 三态那三个词的**唯一读者**（T156 片2）：内核与界面不各写一份
+  /// `'online'` / `'offline'` / `'unknown'` 字面量。词表仍住在 `presence.states`，
+  /// 这里只做成员校验（缺词当场抛，而不是让调用方拿一个不在词表里的串去比）。
+  String get presenceOnlineState => _presenceState('online');
+
+  String get presenceOfflineState => _presenceState('offline');
+
+  String get presenceUnknownState => _presenceState('unknown');
+
+  String _presenceState(String token) {
+    final states = presenceStates;
+    if (!states.contains(token)) {
+      throw StateError('契约 presence.states 缺 $token：$states');
+    }
+    return token;
+  }
+
   /// 在线判定的秒数：`3 × 拉取间隔`（不另设心跳协议）。
   int? onlineThresholdSeconds({int? pollIntervalSeconds}) {
     final poll =
