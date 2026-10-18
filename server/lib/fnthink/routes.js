@@ -50,6 +50,7 @@ const {
   authorizePairRevoke,
   authorizeEndpointCreate,
   authorizeEndpointList,
+  authorizePeerPresence,
   authorizeEndpointRevoke,
   authorizeEndpointRotate,
 } = require('./events');
@@ -63,6 +64,8 @@ const {
   endpointSummary,
   loadDevices,
   loadEndpoints,
+  peerReadoutFromContract,
+  peerPresenceReadout,
   recordEndpointCall,
   loadNonces,
   registerDevice,
@@ -804,6 +807,41 @@ router.post(
       .map(([id, record]) => endpointSummary(id, record))
       .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
     res.status(200).json({ endpoints: mine, serverTime: now });
+  }),
+);
+
+// ── POST /peer-presence：读「我看得见的对端各自多久没来取」（T156 片1）──
+// 四条口径：
+//  ① 三态与可达集合**只在 `devicestore.peerPresenceReadout` 里算**（三态仍由 `devicePresence`
+//    唯一作者给）。这一处再判一次"算不算在线"，就是两份在线判据 —— 分叉的表现不是报错，
+//    是那页写着在线、投递那侧说这台早掉了（T156 第一条不许顺手做的事）。
+//  ② 载荷为空 + self-only ⇒ 它不是一台按地址码问在线状态的探测器（地址码出现在每条消息里）。
+//  ③ 响应里的键名全部来自契约 `presence.peerReadout`，这里不写第二份名单 ——
+//    与 `/endpoint-list` 只走 `endpointSummary` 那一条同形：加字段时只会改一处。
+//  ④ 年龄由**服务端**那把钟算：`now - lastSeenAt` 在同一发里减完，交出去的是"上次收取多少秒前"
+//    这一个数。让设备自己拿本地钟减 `lastSeenAt`，设备时间一漂就把"三天没来"显示成"刚刚来过"，
+//    而"那台在不在线"是服务端的事实，不是每台客户端各自算一下的事。
+router.post(
+  '/peer-presence',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.peerPresence).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizePeerPresence(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'peerPresence', auth.addressCode)) return;
+    const readout = peerReadoutFromContract(contract);
+    res.status(200).json({
+      [readout.peersField]: peerPresenceReadout(contract, state.devices, auth.addressCode, now),
+      serverTime: now,
+    });
   }),
 );
 

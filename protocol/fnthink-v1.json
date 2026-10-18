@@ -218,6 +218,24 @@
       "unknown"
     ],
     "unknownMeans": "从未上线（与离线在界面上必须是两件事）",
+    "peerReadout": {
+      "event": "peerPresence",
+      "peersField": "peers",
+      "addressCodeField": "addressCode",
+      "presenceField": "presence",
+      "lastSeenField": "lastSeenAt",
+      "ageField": "ageSeconds",
+      "ageUnit": "seconds",
+      "ageIsNullWhenUnknown": true,
+      "boundary": "granted-by-peer",
+      "absentMeans": "notShared",
+      "thresholdUsesContractDefaultPollInterval": true,
+      "_why": "对端的在线状态**能不能被设备读到**、读到的键叫什么、那个「多久之前」由谁的钟算 —— 只有这一段说了算（T156 片1，维护者 2026-10-18 两句：「按方案 1 做」＋「主语用「上次收取 X 秒前」」）。**判据一个都不新写**：在线/离线/未知三态的唯一作者是服务端 `devicestore.devicePresence`（在线 = `onlineThresholdMultiplier × 拉取间隔` 内 poll 过，`heartbeatSource: poll`），本段只圈可达集合与字段名。⚠ 它与 `clientEvents.probe` 的 `_fieldsWhy` 是**两条相反的决定而都成立**：探针的载荷里不许长「对面在不在线」（那让一发探针变成第二条读口，而它答的是「这条链在服务端立不立得住」，不是「那台今天开没开机」）；要读年龄就得单开一条只回答年龄的读口。",
+      "_ageUnitWhy": "界面上那一格读的是服务端算好的**整数秒**，单位不选毫秒：`ms` 会被读成「链路快」，而这一族是拉取式、没有到那台设备的直连，任何往返时延只证明「我 ↔ 中转服务器」，与那台在不在无关。`ageIsNullWhenUnknown`：从没上过线的那台**没有「上次」**，回 0 会被读成「刚刚来过」⇒ 必须 null，由界面显式说「还没上过线」（与 `unknownMeans` 同一条纪律）。",
+      "_boundaryWhy": "「谁能看见谁的年龄」只认一种关系：**他把我列进了他的名单**（`devicestore.peerGrant(契约, 对端记录, 本机地址码)` 读到的那一条）。方向反过来（按本机 `grantsBy` 列人）是本机单方面决定要观察谁，那是 fail-open 的方向；维护者否掉的方案 3（任何持地址码者可查）更是一台追踪面。所以响应里只有「他也允许我投过去」的那些行，他把我划掉，他的年龄当场对我不可见。⚠ 这不新增一份授权判据：收单仍只问 `verify.intakeGrantFor`，本处是把同一份关系多读一次。",
+      "_absentMeansWhy": "响应里没有那一行 = 这条关系不存在（他没配我，或已把我划掉）。这一档在界面上是**第三件事**，既不是 online/offline，也**不是 `unknown`** —— `unknownMeans` 那句「从未上线」只适用于「关系成立而那台一次没来过」。所以 `absentMeans` 不许进 `states`：把它并进未知，表现是把「他不让我看」显示成「他设备没开机」，那是一句不实陈述（校验器钉住这个词必须不在 `states` 里）。",
+      "_thresholdWhy": "如实登记一条限制：阈值按 `onlineThresholdMultiplier × pollIntervalSeconds.default` 算，而 T88 让用户自选间隔（5–60s）这一份自选值**只住在设备本地**（poll 载荷里没有它）⇒ 服务端并不知道那台实际按多密来取。把间隔设到 60s 的那台仍按 3×20=60s 判，边界上会闪。要修的是「poll 上报自己的间隔」（协议变更，另片），不是在这里另起一个更宽的阈值 —— 两份在线判据正是本任务第一条「不许顺手做」的事。"
+    },
     "burstWhenPending": {
       "intervalSeconds": 5,
       "durationSeconds": 120,
@@ -397,6 +415,7 @@
       "endpointRevoke",
       "endpointRotate",
       "probe",
+      "peerPresence",
       "message"
     ],
     "perSenderPerMinute": 60,
@@ -891,6 +910,20 @@
         "endpointSecret"
       ]
     },
+    "peerPresence": {
+      "messageType": "peerPresence",
+      "verifyAgainst": "device-table-public-key",
+      "targetMustEqualSender": true,
+      "_targetMustEqualSenderWhy": "问的是**本机**看得见的对端。target 写成别人，这一发就成了「替别人查他名单里每个人的年龄」—— 与 probe 那一条同一个论证（结论照实回，就是替他人数设备）。",
+      "fields": [],
+      "_fieldsWhy": "载荷是空的（带任何键都拒）：这一发一次回答「谁能看见我」，不接受按地址码点名。点名查询等于送一台在线状态探测器 —— 地址码出现在每条消息里，能逐个问下去就把这条读口变成枚举面（本仓在身份证明之前一律同形的纪律正是冲着这个）。要查某一台，客户端在返回的那一份集合里自己找。",
+      "responseShapeFrom": "presence.peerReadout",
+      "_responseShapeFromWhy": "响应的字段名单只住 `presence.peerReadout` 一处（那里同时说清谁能读、年龄由谁的钟算、缺席是哪一档）。这一段只声明**请求侧**的形状：两份名单各长一半，加字段时只会改对一边。",
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
+    },
     "pairArm": {
       "messageType": "pairArm",
       "verifyAgainst": "device-table-public-key",
@@ -1139,6 +1172,7 @@
       "poll": "/api/fnthink/poll",
       "ack": "/api/fnthink/ack",
       "probe": "/api/fnthink/probe",
+      "peerPresence": "/api/fnthink/peer-presence",
       "_endpointPathsApartWhy": "端点收单的两条不在这张表里，也不许进来：那是另一类鉴权（共享长期口令在路径段里），而且它们已由 endpoint.ingress.pathPattern / postBearerPath 钉住必须落在脱敏前缀之内。混在一张表里，下一个读它的人会以为设备面路径也可以携带口令。"
     },
     "endpoints": {

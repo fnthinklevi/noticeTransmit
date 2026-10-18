@@ -2894,6 +2894,112 @@ void main() {
     });
   });
 
+  group('对端年龄那条读口（T156 片1：presence.peerReadout）', () {
+    void expectProblem(FnthinkContract broken, String needle, String why) {
+      final problems = broken.validate();
+      expect(
+        problems.any((p) => p.contains(needle)),
+        isTrue,
+        reason: '$why ⇒ 期望报出「$needle」，实际 $problems',
+      );
+    }
+
+    test('读口那份形状读得出，且九个名字互不相同', () {
+      final r = c.peerReadout;
+      expect(r.ageUnit, 'seconds');
+      expect(r.boundary, 'granted-by-peer');
+      expect(r.absentMeans, isNot('unknown'));
+      expect(r.presenceField, isNot(r.ageField));
+      expect(c.peerPresenceFields, isEmpty);
+      expect(c.apiPaths['peerPresence'], '/api/fnthink/peer-presence');
+    });
+
+    test('那一发的载荷名单必须真是空：带 peer 就是给年龄读口装了个点名查询', () {
+      expectProblem(
+        edited(['clientEvents', 'peerPresence', 'fields'], ['peer']),
+        '载荷名单必须为空',
+        '点名查询＝按地址码逐个问在线状态，而地址码出现在每条消息里',
+      );
+    });
+
+    test('那一发必须 self-only：target 写成别人就是替他查他那份名单', () {
+      expectProblem(
+        edited([
+          'clientEvents',
+          'peerPresence',
+          'targetMustEqualSender',
+        ], false),
+        '必须 self-only',
+        '替别人查年龄的读口不是读口，是枚举面',
+      );
+    });
+
+    test('单位被改成毫秒 ⇒ 报（那一格的主语是"那台多久没来取"，不是链路时延）', () {
+      expectProblem(
+        edited(['presence', 'peerReadout', 'ageUnit'], 'milliseconds'),
+        'ageUnit 必须是 seconds',
+        'Xms 会被读成"链路快"，而这一族没有到那台设备的直连',
+      );
+    });
+
+    test('边界被换成"按本机名单列人"或"谁都能查" ⇒ 报', () {
+      for (final boundary in ['listed-by-sender', 'any-address-code']) {
+        expectProblem(
+          edited(['presence', 'peerReadout', 'boundary'], boundary),
+          'boundary 必须是 granted-by-peer',
+          '$boundary 要么是本机单方面决定观察谁，要么是维护者已否的追踪面',
+        );
+      }
+    });
+
+    test('缺席那一档被并进三态 ⇒ 报（把"他不让我看"显示成"他设备没开机"）', () {
+      expectProblem(
+        edited(
+          ['presence', 'states'],
+          ['online', 'offline', 'unknown', c.peerReadout.absentMeans],
+        ),
+        'absentMeans 不许出现在 presence.states',
+        '三态的唯一作者仍是服务端的 devicePresence',
+      );
+    });
+
+    test('从没上过线那台改回"0 秒前" ⇒ 报（0 会被读成"刚刚来过"）', () {
+      expectProblem(
+        edited(['presence', 'peerReadout', 'ageIsNullWhenUnknown'], false),
+        'ageIsNullWhenUnknown 必须为 true',
+        '没有"上次"的那台不许有一个上次',
+      );
+    });
+
+    test('两枚字段名撞车 ⇒ 报（少一个含义，界面上看不出来少了谁）', () {
+      expectProblem(
+        edited([
+          'presence',
+          'peerReadout',
+          'ageField',
+        ], c.peerReadout.presenceField),
+        '字段名有重复',
+        'presence 与 age 同名时拼出来的是同一格',
+      );
+    });
+
+    test('event 指向一种没声明的事件 ⇒ 报（年龄读口没有裁决处）', () {
+      expectProblem(
+        edited(['presence', 'peerReadout', 'event'], 'peerPresentiaa'),
+        '必须指向 clientEvents 里声明过的一种事件',
+        '路径与种类都得有人挂，拼出来的那条没人核对',
+      );
+    });
+
+    test('整段缺失 ⇒ 报（不补默认字段名：补了就是第二份真值）', () {
+      expectProblem(
+        edited(['presence', 'peerReadout'], null),
+        'presence.peerReadout 必须存在',
+        '缺段时设备侧只能永远显示"还不知道"',
+      );
+    });
+  });
+
   group('回传动作那张表（T124 片B）：改坏哪一条就报哪一条', () {
     // 造一份"只把 l2.reports / requiresArgumentFrom 换掉"的契约 —— 其余原样，
     // 于是每一条断言红的只可能是它自己那一处。

@@ -664,6 +664,47 @@ function authorizeEndpointList(contract, state, input) {
 }
 
 /**
+ * 读「我看得见的对端各自多久没来取」（契约 `clientEvents.peerPresence`，T156 片1）。
+ *
+ * 判序与 endpointList 逐条同形（禁带字段 → 验身份 → 事件种类 → self-only → 载荷键名 → 时间/重放），
+ * 三条是这一发特有的：
+ *  ① **载荷必须为空**：这一发交出去的是"他那份名单里、允许他看见我的那些行"，不接受点名。
+ *    一旦允许 `peer`，它就成了按地址码问在线状态的探测器（地址码出现在每条消息里），
+ *    而"谁的年龄能被谁看见"的判据要从一条变成 N 条 —— 那是本仓防枚举纪律正面拒掉的形状。
+ *  ② 这里**只裁决能不能读，不回答读到的内容**：可达集合与三态都在
+ *    `devicestore.peerPresenceReadout`（三态仍由 `devicePresence` 唯一作者算）。
+ *    本函数若顺手判一次"这台在不在线"，就有第二份在线判据（T156 第一条不许顺手做的事）。
+ *  ③ self-only：`target` 必须是签名者自己。写成别人 = 替他查他那份名单里每个人的年龄，
+ *    与 `clientEvents.probe._targetMustEqualSenderWhy` 那一条同一个论证。
+ */
+function authorizePeerPresence(contract, state, input) {
+  const spec = (contract.clientEvents || {}).peerPresence;
+  if (!spec) {
+    throw new Error(
+      '契约没有 clientEvents.peerPresence（不补默认值：补了等于在代码里发明一种事件）',
+    );
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'peerPresence');
+  if (read.reason) return fail(read.reason);
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return { ok: true, kind: 'peerPresence', addressCode: id.sender };
+}
+
+/**
  * 接收端关掉自己名下一条接入端点（契约 `clientEvents.endpointRevoke`）。
  *
  * 判序与这一族其余几条同一条（禁带字段 → 验身份 → 事件种类 → self-only → 载荷键名 → 时间/重放），
@@ -773,6 +814,7 @@ module.exports = {
   authorizePairRevoke,
   authorizeEndpointCreate,
   authorizeEndpointList,
+  authorizePeerPresence,
   authorizeEndpointRevoke,
   authorizeEndpointRotate,
 };

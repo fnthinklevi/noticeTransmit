@@ -622,6 +622,107 @@ function devicePresence(contract, record, now, pollIntervalSeconds) {
   return isOnline(contract, record, now, pollIntervalSeconds) ? 'online' : 'offline';
 }
 
+/// 契约 `presence.peerReadout`（T156 片1）：对端在线状态那条读口的形状。
+/// 取不到就抛 SHAPE，不补默认字段名：拼出来的那一份与设备侧读的名单一旦不同，
+/// 症状不是报错而是界面上永远"还不知道"，而两侧日志都说自己发了也收了。
+function peerReadoutFromContract(contract) {
+  const presence = (contract || {}).presence || {};
+  const src = presence.peerReadout;
+  if (!src || typeof src !== 'object' || Array.isArray(src)) {
+    throw shapeError('契约缺 presence.peerReadout：对端年龄的字段名与可达边界没有第二个来源');
+  }
+  const nameOf = (key) => {
+    const value = src[key];
+    if (typeof value !== 'string' || value === '') {
+      throw shapeError(`presence.peerReadout.${key} 必须是非空字符串（实际 ${value}）`);
+    }
+    return value;
+  };
+  const readout = {
+    event: nameOf('event'),
+    peersField: nameOf('peersField'),
+    addressCodeField: nameOf('addressCodeField'),
+    presenceField: nameOf('presenceField'),
+    lastSeenField: nameOf('lastSeenField'),
+    ageField: nameOf('ageField'),
+    ageUnit: nameOf('ageUnit'),
+    boundary: nameOf('boundary'),
+    absentMeans: nameOf('absentMeans'),
+    ageIsNullWhenUnknown: src.ageIsNullWhenUnknown === true,
+  };
+  // 单位钉死：那一格的主语是"那台多久没来取"，不是链路时延（维护者 2026-10-18 定）。
+  // 允许毫秒等于允许把往返时延塞回同一个数字里 —— 那正是本任务要消掉的错形状。
+  if (readout.ageUnit !== 'seconds') {
+    throw shapeError(
+      `presence.peerReadout.ageUnit 必须是 seconds（实际 ${readout.ageUnit}）：` +
+        '对端年龄只有"秒"这一种读法，毫秒会被读成链路快',
+    );
+  }
+  if (readout.boundary !== 'granted-by-peer') {
+    throw shapeError(
+      `presence.peerReadout.boundary 必须是 granted-by-peer（实际 ${readout.boundary}）：` +
+        '换成按本机名单列人＝本机单方面决定观察谁，换成 any-address-code＝送一台追踪面',
+    );
+  }
+  // 那一段说"这条读口由哪一种设备事件承担"，而这一发真挂的是 clientEvents 里那一个键。
+  // 两者各写一处时，改契约的那一刀不会报错，只会让路由敲一条没有裁决的事件种类（同 apiPaths 那条纪律）。
+  const events = (contract || {}).clientEvents || {};
+  if (!events[readout.event]) {
+    throw shapeError(
+      `presence.peerReadout.event = ${readout.event} 不是 clientEvents 里声明过的事件：` +
+        '年龄读口没有裁决处，路由只能把它当成别的事件签进来',
+    );
+  }
+  if (readout.ageIsNullWhenUnknown !== true) {
+    throw shapeError(
+      'presence.peerReadout.ageIsNullWhenUnknown 必须为 true：从没上过线的那台没有"上次"，' +
+        '回 0 会被读成"刚刚来过"',
+    );
+  }
+  // "看不见"不许挤进三态词表：并进 unknown 就是把"他不让我看"说成"他设备没开机"。
+  const states = Array.isArray(presence.states) ? presence.states.map(String) : [];
+  if (states.includes(readout.absentMeans)) {
+    throw shapeError(
+      `presence.peerReadout.absentMeans「${readout.absentMeans}」出现在 presence.states 里：` +
+        '缺席是"这条关系不存在"，不是那台的在线状态（三态的唯一作者仍是 devicePresence）',
+    );
+  }
+  return readout;
+}
+
+/// 本机那一发 `/peer-presence` 读得到的那些行（T156 片1）。
+///
+/// 三态一律走 `devicePresence`：这里出现第二份"算不算在线"就是本任务第一条不许顺手做的事
+/// （两份在线判据必然分叉，而分叉的表现是那页说在线、投递那侧说这台早掉了）。
+/// 边界只认 `peerGrant(对端记录, 本机地址码)` —— 他把我列进他的名单，我才看得见他的年龄。
+/// 状态不参与这道核查（冻结/吊销那几档不改可达集合）：改了就会长出第三种"缺席的理由"，
+/// 而界面只能画一种，那种画法的名字叫做谎。
+function peerPresenceReadout(contract, devices, requesterCode, now) {
+  const readout = peerReadoutFromContract(contract);
+  const requesterKey = keyOf(contract, requesterCode);
+  if (requesterKey === null) return [];
+  const rows = [];
+  for (const [key, record] of Object.entries(devices || {})) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) continue;
+    if (key === requesterKey) continue;
+    if (!peerGrant(contract, record, requesterCode)) continue;
+    const neverSeen = record.lastSeenAt === null || record.lastSeenAt === undefined;
+    const row = {};
+    row[readout.addressCodeField] = key;
+    row[readout.presenceField] = devicePresence(contract, record, now);
+    row[readout.lastSeenField] = neverSeen ? null : record.lastSeenAt;
+    row[readout.ageField] = neverSeen
+      ? null
+      : Math.max(0, Math.floor((now - record.lastSeenAt) / 1000));
+    rows.push(row);
+  }
+  // 顺序在服务端定一次（地址码字典序，稳定且不透露别的）。这一发交出去的是"按地址码查的那张表"，
+  // 页面上那一列的行序由设备侧自己那份名单管 —— 两处各排一次才会有"同一份数据两种顺序"。
+  const code = readout.addressCodeField;
+  rows.sort((a, b) => String(a[code]).localeCompare(String(b[code])));
+  return rows;
+}
+
 /// 端点段（T38）：数字与语义一律从契约读，取不到就抛可降级的 SHAPE。
 function endpointConfigFromContract(contract) {
   const src = (contract || {}).endpoint;
@@ -993,6 +1094,8 @@ module.exports = {
   touchDevice,
   isOnline,
   devicePresence,
+  peerReadoutFromContract,
+  peerPresenceReadout,
   endpointConfigFromContract,
   newEndpointSecret,
   publicEndpoint,

@@ -1263,6 +1263,78 @@ class FnthinkContract {
     return declared.first;
   }
 
+  /// 对端在线状态那条读口的形状（契约 `presence.peerReadout`，T156 片1）。
+  ///
+  /// 设备侧那一格显示「上次收取 X 秒前」，读的就是这一份：**年龄是服务端算好的一个整数秒**，
+  /// 不是本机拿 `lastSeenAt` 减一下 —— 客户端本地钟一漂，"三天没来"就能显示成"刚刚来过"，
+  /// 而"那台在不在线"是服务端的事实，不该由每台客户端各算一遍。
+  /// ⚠ 本包**不写**"算不算在线"的判据：三态的唯一作者是服务端 `devicestore.devicePresence`，
+  ///   这里只把字段名与边界读出来（两份在线判据必然分叉，分叉的表现是那页写在线、投递说掉了）。
+  ({
+    String event,
+    String peersField,
+    String addressCodeField,
+    String presenceField,
+    String lastSeenField,
+    String ageField,
+    String ageUnit,
+    String boundary,
+    String absentMeans,
+  })
+  get peerReadout {
+    final src = map(const ['presence', 'peerReadout']);
+    if (src == null) {
+      throw StateError('契约缺 presence.peerReadout：对端年龄的字段名与可达边界没有第二个来源');
+    }
+    String nameOf(String key) {
+      final value = src[key];
+      if (value is! String || value.isEmpty) {
+        throw StateError('契约 presence.peerReadout.$key 必须是非空字符串（实为 $value）');
+      }
+      return value;
+    }
+
+    final readout = (
+      event: nameOf('event'),
+      peersField: nameOf('peersField'),
+      addressCodeField: nameOf('addressCodeField'),
+      presenceField: nameOf('presenceField'),
+      lastSeenField: nameOf('lastSeenField'),
+      ageField: nameOf('ageField'),
+      ageUnit: nameOf('ageUnit'),
+      boundary: nameOf('boundary'),
+      absentMeans: nameOf('absentMeans'),
+    );
+    // 单位钉死：那一格的主语是"那台多久没来取"。允许毫秒等于允许把往返时延塞回同一个数字，
+    // 而幻念这一族是拉取式、没有到那台设备的直连（维护者 2026-10-18 定：不许出现 Xms）。
+    if (readout.ageUnit != 'seconds') {
+      throw StateError(
+        '契约 presence.peerReadout.ageUnit 必须是 seconds，实为「${readout.ageUnit}」',
+      );
+    }
+    if (readout.boundary != 'granted-by-peer') {
+      throw StateError(
+        '契约 presence.peerReadout.boundary 必须是 granted-by-peer，实为「${readout.boundary}」：'
+        '换成按本机名单列人＝本机单方面决定观察谁，换成任何持地址码者可查＝一台追踪面',
+      );
+    }
+    if (src['ageIsNullWhenUnknown'] != true) {
+      throw StateError(
+        '契约 presence.peerReadout.ageIsNullWhenUnknown 必须为 true：从没上过线的那台没有"上次"，'
+        '回 0 会被读成"刚刚来过"',
+      );
+    }
+    return readout;
+  }
+
+  /// peerPresence 载荷的字段名单（今日 = `[]`，一条都不许带）。
+  ///
+  /// 空名单就是这一发的安全属性：**不接受点名**。带一个 `peer` 键进去，这一发就长成了
+  /// 一台按地址码问在线状态的探测器 —— 地址码出现在每条消息里，能逐个问下去。
+  /// 要查某一台，在返回的那一份集合里自己找。
+  /// ⚠ 缺键时 `strings()` 抛，不许退化成空名单：那等于契约没声明这条读口而设备照发。
+  List<String> get peerPresenceFields => clientEventFields('peerPresence');
+
   /// 端点状态的**封闭**词表（今日 = `["active","revoked"]`）。
   List<String> get endpointStatuses => strings(const ['endpoint', 'statuses']);
 
@@ -1765,6 +1837,83 @@ class FnthinkContract {
     } else {
       need(false, 'presence.pollIntervalSeconds 缺失');
     }
+
+    // ── 对端年龄那条读口（T156 片1：presence.peerReadout）──
+    // 这一段值得逐条钉，因为它的每一枚键都是"响应里那个数叫什么、谁能读到"：
+    // 名字漂一边不报错，只会让设备侧永远读到 null 而显示成"还不知道"（与 probeReadyField 同一条教训）。
+    final readout = map(const ['presence', 'peerReadout']);
+    need(readout != null, 'presence.peerReadout 必须存在：对端年龄的字段名与可达边界没有第二个来源');
+    const readoutKeys = [
+      'event',
+      'peersField',
+      'addressCodeField',
+      'presenceField',
+      'lastSeenField',
+      'ageField',
+      'ageUnit',
+      'boundary',
+      'absentMeans',
+    ];
+    final readoutNames = readoutKeys
+        .map((k) => str(['presence', 'peerReadout', k]) ?? '')
+        .toList();
+    need(
+      readoutNames.every((v) => v.isNotEmpty),
+      'presence.peerReadout 那九枚键必须都是非空字符串（缺位：'
+      '${readoutKeys.asMap().entries.where((e) => readoutNames[e.key].isEmpty).map((e) => e.value).join(', ')}）',
+    );
+    // 字段名互不相同：两枚同名时服务端拼出来的是同一格，读的那一侧永远少一个含义，
+    // 而少的这一个（presence 与 age）在界面上长得像"这台没有年龄"。
+    need(
+      readoutNames.toSet().length == readoutNames.length,
+      'presence.peerReadout 的字段名有重复：$readoutNames',
+    );
+    need(
+      str(const ['presence', 'peerReadout', 'ageUnit']) == 'seconds',
+      'presence.peerReadout.ageUnit 必须是 seconds：那一格的主语是"那台多久没来取"，'
+      '毫秒会被读成链路快，而这一族没有到那台设备的直连',
+    );
+    need(
+      str(const ['presence', 'peerReadout', 'boundary']) == 'granted-by-peer',
+      'presence.peerReadout.boundary 必须是 granted-by-peer：只有"他把我列进他的名单"才看得见他的年龄。'
+      '按本机名单列人是本机单方面决定观察谁（fail-open），任何持地址码者可查是一台追踪面',
+    );
+    need(
+      boolOf(const ['presence', 'peerReadout', 'ageIsNullWhenUnknown']) == true,
+      'presence.peerReadout.ageIsNullWhenUnknown 必须为 true：从没上过线的那台没有"上次"，回 0 是"刚刚来过"',
+    );
+    need(
+      !presenceList.contains(
+        str(const ['presence', 'peerReadout', 'absentMeans']),
+      ),
+      'presence.peerReadout.absentMeans 不许出现在 presence.states 里：那一档说的是"这条关系不存在"，'
+      '并进三态就是把"他不让我看"显示成"他设备没开机"',
+    );
+    final readoutEvent = str(const ['presence', 'peerReadout', 'event']) ?? '';
+    // 这里**不**复用下面那个 eventKinds：它在更下面构造（判 clientEvents 全表用），
+    // 而这一段要在它之前就把"读口指向一种存在的事件"钉住。现取一次 map 不是第二份真值，
+    // 是同一份表在前面的位置多读一眼。
+    final readoutEventSpec =
+        (map(const ['clientEvents']) ?? const <String, Object?>{})[readoutEvent]
+            as Map<String, Object?>?;
+    need(
+      readoutEvent.isNotEmpty && readoutEventSpec != null,
+      'presence.peerReadout.event 必须指向 clientEvents 里声明过的一种事件（实为「$readoutEvent」）：'
+      '年龄读口没有裁决处，路由只能把它当成别的事件签进来',
+    );
+    need(
+      readoutEventSpec != null &&
+          (readoutEventSpec['fields'] is List) &&
+          (readoutEventSpec['fields'] as List).isEmpty,
+      'presence.peerReadout.event 指向的那一种事件，载荷名单必须为空：'
+      '能点名查询的年龄读口就是一台按地址码逐个问的探测器',
+    );
+    need(
+      readoutEventSpec != null &&
+          readoutEventSpec['targetMustEqualSender'] == true,
+      'presence.peerReadout.event 指向的那一种事件必须 self-only：'
+      'target 写成别人＝替别人查他那份名单里每个人的年龄',
+    );
 
     // ── 留存与上限（"不无谓留存"这条不变量）──
     need(
