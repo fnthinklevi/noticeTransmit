@@ -315,6 +315,18 @@ void main() {
     await tester.tap(find.text('推送历史').first);
     await pumpFor(tester, const Duration(seconds: 2));
     await waitUntil(tester, find.text('冒烟离线通知'));
+    // ⚠ T154 片2 之后，每通道的状态词（「推送成功」那一族）收进了行内「查看详情」开出的子页，
+    //   行内只剩一行统计（`historyTallyTotal/Done/Failed`）。少了下面这一手，2026-10-18 那轮整闸
+    //   红的是**闸门自己的字面量**，不是产品：那两条 `deliveryStatus['chan:dingtalk'] == 'success'`
+    //   的断言就在上面几行，已经证明库里回写成了 —— 这一发要验的是「界面上看得见」，所以必须点开那一枚。
+    final detailAction = find.byKey(
+      const ValueKey('history-delivery-detail-smoke_offline_1'),
+    );
+    await waitUntil(tester, detailAction);
+    await tester.ensureVisible(detailAction);
+    await pumpFor(tester, const Duration(milliseconds: 400));
+    await tester.tap(detailAction);
+    await pumpFor(tester, const Duration(seconds: 1));
     // 徽标与行是分两帧渲染的（行先出、状态后算），同样先等再断
     await waitUntil(tester, find.text('推送成功'));
     expect(find.text('推送成功'), findsWidgets); // deliverySuccess
