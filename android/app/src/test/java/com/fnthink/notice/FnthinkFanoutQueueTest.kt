@@ -123,13 +123,21 @@ class FnthinkFanoutQueueTest {
     }
 
     @Test
-    fun `超出上限丢最旧并报出丢了多少`() {
+    fun `超出上限丢最旧并交回被丢的那几条`() {
         val arr = JSONArray()
-        assertEquals(0, FnthinkFanoutQueue.mergeIntoArray(arr, JSONObject().put("id", "1"), 2))
-        FnthinkFanoutQueue.mergeIntoArray(arr, JSONObject().put("id", "2"), 2)
-        assertEquals(1, FnthinkFanoutQueue.mergeIntoArray(arr, JSONObject().put("id", "3"), 2))
-        assertEquals(2, arr.length())
-        assertEquals("2", arr.getJSONObject(0).getString("id"))
+        assertTrue(
+            FnthinkFanoutQueue.mergeIntoArray(arr, JSONObject().put("id", "1"), 2).isEmpty(),
+            "还没到上限时不许丢",
+        )
+        assertTrue(
+            FnthinkFanoutQueue.mergeIntoArray(arr, JSONObject().put("id", "2"), 2).isEmpty(),
+            "刚好到上限时也不许丢",
+        )
+        val dropped = FnthinkFanoutQueue.mergeIntoArray(arr, JSONObject().put("id", "3"), 2)
+        assertEquals(1, dropped.size, "只该丢一条")
+        assertEquals("1", dropped.single().getString("id"), "丢的必须是最旧的那条")
+        assertEquals(2, arr.length(), "队列长度要收在上限")
+        assertEquals("2", arr.getJSONObject(0).getString("id"), "留下的必须是最新的两条")
     }
 
     // ===== 跨语言接缝 =====

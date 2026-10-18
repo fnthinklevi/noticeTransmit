@@ -20,6 +20,8 @@ import org.json.JSONObject
  * 不需要 Dart 直接读盘，所以它可以摆脱"每条通知都全量重写整根 JSON 数组"那种形状。
  * 而那上面已经存着同样形状的通知正文 —— 这里不是**第一份**明文正文，只是一份**待发**的。
  * 上限 [MAX_PENDING] 条，满了丢最旧：宁可少转几条，也不要在用户没察觉的情况下无限堆积。
+ * ⚠ **丢的那几条必须交回调用方回传送达说法**（T147③）：它们的通知已经在历史里、送达列
+ * 停在 `pending`，只打一行日志的表现是那一格永远说「发送中」——静默丢是不许的。
  * ⚠ 这一条上限与 HistoryCache 那枚 4MB 的差别在代价上：这里丢的是"这一发没转出去"，
  * 记录本身照旧在数据库里看得见；那里丢的是**还没交接出去的唯一副本**，所以它不配当存储闸。
  *
@@ -53,13 +55,33 @@ class FnthinkFanoutQueue(private val context: Context) {
          */
         const val MAX_PENDING = 50
 
-        /** 纯函数：把一条并进数组，返回本次丢弃的条数（超出 [maxPending] 从**头部**丢最旧）。 */
-        internal fun mergeIntoArray(arr: JSONArray, item: JSONObject, maxPending: Int): Int {
+        /**
+         * 一次落队的回执：**被挤掉的那几条**。
+         *
+         * ⚠ 计数不够：拿不到 id 就给不了送达说法，而那几条的通知已经在历史里
+         * （T147③）。与 `DelayedPushManager.enqueue` 回 `List<NotificationInfo>` 同一条纪律。
+         */
+        data class EnqueueResult(val dropped: List<DroppedItem>)
+
+        /** 被挤掉的待发项：回传只需要 id 与给人看的应用名。 */
+        data class DroppedItem(val id: String, val appName: String)
+
+        /**
+         * 纯函数：把一条并进数组，返回**被挤掉的那几条**（超出 [maxPending] 从**头部**丢最旧）。
+         *
+         * ⚠ 返回值从「丢了多少条」改成「丢的是哪几条」（T147③）：计数只能写日志，
+         * 而回传送达说法需要 id —— 那才是历史里对得上那一行的东西。
+         */
+        internal fun mergeIntoArray(
+            arr: JSONArray,
+            item: JSONObject,
+            maxPending: Int,
+        ): List<JSONObject> {
             arr.put(item)
-            var dropped = 0
+            val dropped = ArrayList<JSONObject>()
             while (arr.length() > maxPending) {
+                arr.optJSONObject(0)?.let { dropped.add(it) }
                 arr.remove(0)
-                dropped++
             }
             return dropped
         }
@@ -111,23 +133,41 @@ class FnthinkFanoutQueue(private val context: Context) {
 
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    /** 落一条。返回**这次丢了多少条**（0 = 没丢）。 */
-    fun enqueue(info: NotificationInfo, targets: List<FnthinkChannelConfig>, viaBackup: Boolean): Int {
-        val item = buildItem(info, targets, viaBackup) ?: return 0
+    /**
+     * 落一条。返回**被挤掉的那几条**（empty = 没丢）。
+     *
+     * ⚠ 被挤掉的那几条不是垃圾：调用方必须逐条回传送达说法（T147③），
+     * 只打一行日志的表现是那一行永远停在「发送中」。
+     */
+    fun enqueue(
+        info: NotificationInfo,
+        targets: List<FnthinkChannelConfig>,
+        viaBackup: Boolean,
+    ): EnqueueResult {
+        val item = buildItem(info, targets, viaBackup) ?: return EnqueueResult(emptyList())
         return synchronized(lock) {
             try {
                 val p = prefs()
                 val arr = parseArray(p.getString(KEY_PENDING, null))
-                val dropped = mergeIntoArray(arr, item, MAX_PENDING)
-                // 数组与丢弃计数同一次 commit：分两次写会出现"队列写成功、计数没写"
+                val droppedJson = mergeIntoArray(arr, item, MAX_PENDING)
+                // 队列与丢弃项来自同一次数组操作：分两次写会出现"队列写成功、丢弃项对不上"
                 p.edit().putString(KEY_PENDING, arr.toString()).apply()
-                if (dropped > 0) {
-                    Log.w(TAG, "待发队列已满 $MAX_PENDING 条，丢弃最旧 $dropped 条")
+                if (droppedJson.isNotEmpty()) {
+                    Log.w(TAG, "待发队列已满，丢弃最旧 ${droppedJson.size} 条")
                 }
-                dropped
+                val dropped = droppedJson.mapNotNull { json ->
+                    val id = json.optString("id")
+                    if (id.isEmpty()) {
+                        Log.e(TAG, "被丢弃的待发项没有 id，无法回传送达状态")
+                        null
+                    } else {
+                        DroppedItem(id, json.optString("appName"))
+                    }
+                }
+                EnqueueResult(dropped)
             } catch (e: Exception) {
                 Log.e(TAG, "落队失败", e)
-                0
+                EnqueueResult(emptyList())
             }
         }
     }

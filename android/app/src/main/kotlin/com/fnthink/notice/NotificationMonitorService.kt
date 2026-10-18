@@ -1571,9 +1571,28 @@ class NotificationMonitorService : NotificationListenerService() {
             hooks.forEach { dispatchFnthinkHook(info, it, force, viaBackup) }
             if (devices.isNotEmpty()) {
                 val queue = FnthinkFanoutQueue(this)
-                val dropped = queue.enqueue(info, devices, viaBackup)
+                val result = queue.enqueue(info, devices, viaBackup)
+                // T147③：待发队列丢的是**真丢**（与延迟队列"挤出=补推"不同），
+                // 被挤掉那几条的通知已经在历史里，必须逐条回传送达说法，否则永远停在「发送中」。
+                for (dropped in result.dropped) {
+                    DeliveryNotifier.notify(
+                        this,
+                        dropped.id,
+                        "fnthink",
+                        WebhookResponseParser.ParseResult(
+                            WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                            0,
+                            I18n.fnthinkFanoutQueueDroppedReason(result.dropped.size),
+                            false,
+                        ),
+                    )
+                    DiagLog.w(TAG, "幻念待发队列已满，最旧一条未转发，已回传未送达: ${dropped.appName}")
+                }
                 FnthinkFanoutWorker.schedule(this)
-                Log.d(TAG, "Fnthink fanout queued: ${devices.size} device targets, dropped $dropped")
+                Log.d(
+                    TAG,
+                    "Fnthink fanout queued: ${devices.size} device targets, dropped ${result.dropped.size}",
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "幻念分发异常: ${e.message}", e)

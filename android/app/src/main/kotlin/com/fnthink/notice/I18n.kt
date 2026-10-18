@@ -377,6 +377,16 @@ object I18n {
         else "未随聚合发出：这一组成员已达上限，这条被摘出该组"
 
     /**
+     * 幻念待发队列满了，最旧的那几条没转发出去（T147③）。
+     *
+     * 与 [mergeMemberDroppedReason] 同一条语义：报 failed 而不是 intercepted ——
+     * 这不是"规则决定不发"，用户仍该能手动补这一条。
+     */
+    fun fnthinkFanoutQueueDroppedReason(count: Int): String =
+        if (isEn) "Not forwarded: the fan-out queue was full; the $count oldest entr(ies) were dropped"
+        else "未转发：待发队列已满，最旧的 $count 条被丢弃"
+
+    /**
      * 通知处理失败时的降级历史（提取/过滤/分发任一步抛异常）。
      * 此前只写 logcat，release 下用户完全无感 —— 该通知既不入历史也不推送，内容静默消失。
      * 正文刻意不含通知内容与异常堆栈（隐私：日志脱敏同样适用于历史）。

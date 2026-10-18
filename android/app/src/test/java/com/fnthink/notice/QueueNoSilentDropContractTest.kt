@@ -18,12 +18,14 @@ import java.io.File
  * ① 重排闹钟时不许把"过期"的条目筛掉（那不是过期日志，是没发的通知）；
  * ② 上限挤出的必须交回调用方，并被真的推出去；
  * ③ 聚合成员被摘出时必须交回，并被回传一个送达说法；
- * ④ 那句说法两种语言都得有。
+ * ④ 那句说法两种语言都得有；
+ * ⑤ 幻念待发队列丢最旧必须逐条回传送达说法（T147③）；
+ * ⑥ 扇出路径的上限只有那四把具名尺，且调用点不许写数字（T147①）。
  *
  * ⚠ 与 `MergePushLockContractTest` / `MergeFailureContractTest` 同族：**静态源码断言**，
  * 改生产代码结构时必须同步更新本文件。断言一律打在**结构化位置**（函数体）上，
  * 并先 `stripComments` —— 否则"解释为什么不再这么做"的那句注释会把自己的守卫打红（本仓踩过）。
- * ⚠ 一条用例只钉一件事：本批 7 发植入各点名一条，混在一条里的断言等于没有证据。
+ * ⚠ 一条用例只钉一件事：每发植入各点名一条，混在一条里的断言等于没有证据。
  */
 class QueueNoSilentDropContractTest {
 
@@ -40,6 +42,7 @@ class QueueNoSilentDropContractTest {
     private val delayed = src("android/app/src/main/kotlin/com/fnthink/notice/DelayedPushManager.kt")
     private val merge = src("android/app/src/main/kotlin/com/fnthink/notice/MergePushManager.kt")
     private val service = src("android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt")
+    private val fanout = src("android/app/src/main/kotlin/com/fnthink/notice/FnthinkFanoutQueue.kt")
 
     /** 取函数体（大括号字符配平，不识别字符串里的大括号 —— 与同类守卫同样局限）。 */
     private fun functionBody(source: String, signature: String): String {
@@ -187,6 +190,140 @@ class QueueNoSilentDropContractTest {
             "两句必须真的不同（`if (isEn)` 那一支抄成中文是这里最省事的坏法）",
             zh,
             en,
+        )
+    }
+
+    // ── ⑤ 幻念待发队列丢最旧必须留下送达说法（T147③）──────────────────────
+
+    @Test
+    fun fanoutEnqueueReturnsDroppedItems() {
+        assertTrue(
+            "enqueue 必须回 EnqueueResult，不再只回一个计数",
+            fanout.contains("fun enqueue(") && fanout.contains("): EnqueueResult"),
+        )
+        val body = functionBody(fanout, "fun enqueue(")
+        assertTrue(
+            "挤位那一步必须走那份纯算术",
+            body.contains("mergeIntoArray(arr, item, MAX_PENDING)"),
+        )
+        assertTrue(
+            "交回的必须是可回传 id 的条目，不是计数",
+            body.contains("EnqueueResult(dropped)") && body.contains("DroppedItem(id"),
+        )
+    }
+
+    @Test
+    fun serviceConsumesEveryDroppedFanoutItem() {
+        val body = functionBody(service, "private fun dispatchFnthink(")
+        assertTrue(
+            "Service 必须逐条消费 enqueue 的 dropped —— 整条循环钉死，" +
+                "写成 `.take(0)`／`.firstOrNull()` 那种「看起来消费了」的形态要能认出来",
+            body.contains("for (dropped in result.dropped) {"),
+        )
+    }
+
+    @Test
+    fun droppedFanoutItemIsReportedThroughFnthinkChannel() {
+        val body = functionBody(service, "private fun dispatchFnthink(")
+        val segment = body.substringAfter("for (dropped in result.dropped)").take(700)
+        assertTrue(
+            "回传必须走幻念那一族的送达键（与推送暂停分支同一个键）",
+            segment.contains("DeliveryNotifier.notify(") && segment.contains("\"fnthink\""),
+        )
+    }
+
+    @Test
+    fun droppedFanoutItemIsReportedAsFailedWithNamedReason() {
+        val body = functionBody(service, "private fun dispatchFnthink(")
+        val segment = body.substringAfter("for (dropped in result.dropped)").take(700)
+        assertTrue(
+            "报 BIZ_FAIL（failed）而不是 PAUSED／intercepted：这不是「规则决定不发」，" +
+                "用户仍该能手动补这一条",
+            segment.contains("WebhookResponseParser.DeliveryStatus.BIZ_FAIL"),
+        )
+        assertTrue(
+            "理由必须来自那张具名文案，不在服务里现拼一句",
+            segment.contains("I18n.fnthinkFanoutQueueDroppedReason(result.dropped.size)"),
+        )
+    }
+
+    @Test
+    fun fanoutQueueDroppedReason_hasBothLocales() {
+        val zh = I18n.fnthinkFanoutQueueDroppedReason(3)
+        I18n.setLocale("en")
+        val en: String
+        try {
+            en = I18n.fnthinkFanoutQueueDroppedReason(3)
+        } finally {
+            I18n.setLocale("zh")
+        }
+        assertEquals("locale 要还原（全局那一份别的用例也在用）", "zh", I18n.getLocale())
+        assertTrue("中文那句不许是空", zh.isNotBlank())
+        assertTrue("英文那句不许是空 —— 只写中文，英文用户读到的是空格", en.isNotBlank())
+        assertNotEquals(
+            "两句必须真的不同（`if (isEn)` 那一支抄成中文是这里最省事的坏法）",
+            zh,
+            en,
+        )
+    }
+
+    // ── ⑥ 扇出路径的上限只有一份作者（T147①）────────────────────────────
+
+    @Test
+    fun fanoutCapConstantsHaveASingleAuthor() {
+        assertEquals(
+            "MAX_ITEMS_PER_GROUP 只许出现在「声明 + 交给纯函数」两处",
+            2,
+            Regex("MAX_ITEMS_PER_GROUP").findAll(merge).count(),
+        )
+        assertEquals(
+            "MAX_PENDING 只许出现在「声明 + 交给纯函数」两处 —— 日志里再引用一次就是第二把尺",
+            2,
+            Regex("MAX_PENDING").findAll(fanout).count(),
+        )
+    }
+
+    @Test
+    fun fanoutPathsDeclareNoNewCap() {
+        val declared = Regex("""const\s+val\s+(MAX_[A-Z0-9_]+)""")
+            .findAll(listOf(delayed, merge, fanout, service).joinToString("\n"))
+            .map { it.groupValues[1] }
+            .toSet()
+        assertEquals(
+            "扇出路径上的上限常量集合变了 ⇒ 有人新开了一把上限；四把现存的尺是 " +
+                "Delayed 队列 / Merge 组数 / Merge 成员数 / 幻念待发队列",
+            setOf("MAX_QUEUE_SIZE", "MAX_GROUPS", "MAX_ITEMS_PER_GROUP", "MAX_PENDING"),
+            declared,
+        )
+    }
+
+    @Test
+    fun fanoutCapCallSitesUseTheNamedConstant() {
+        assertTrue(
+            "延迟队列那一发必须把具名上限交给纯函数",
+            delayed.contains("splitByCap(filtered, MAX_QUEUE_SIZE)"),
+        )
+        assertFalse(
+            "延迟队列上限不许在调用点写数字",
+            Regex("""splitByCap\([^)]*,\s*\d+\s*\)""").containsMatchIn(delayed),
+        )
+        assertTrue(
+            "幻念待发队列那一发必须把具名上限交给纯函数",
+            fanout.contains("mergeIntoArray(arr, item, MAX_PENDING)"),
+        )
+        assertFalse(
+            "幻念待发队列上限不许在调用点写数字",
+            Regex("""mergeIntoArray\([^)]*,\s*\d+\s*\)""").containsMatchIn(fanout),
+        )
+        val appendAt = merge.indexOf("MergePushLogic.appendMember(")
+        val constantAt = merge.indexOf("MAX_ITEMS_PER_GROUP", appendAt)
+        assertTrue(
+            "聚合成员那一发必须把具名上限交给纯函数",
+            appendAt >= 0 && constantAt > appendAt,
+        )
+        assertFalse(
+            "聚合成员上限不许在调用点写数字",
+            Regex("""\b\d+\b""").containsMatchIn(merge.substring(appendAt, constantAt)),
         )
     }
 }

@@ -14,9 +14,11 @@ import androidx.core.app.NotificationManagerCompat
  * 等于把用户关掉的声音在另一条渠道上偷偷打开。渠道的创建点也共用
  * （[FnthinkInboxDisplay.ensureChannel]）。
  *
- * ⚠ **全屏那半没做**：片B 的前提是"零新权限"，而 Android 14 起 `setFullScreenIntent`
- * 要 `USE_FULL_SCREEN_INTENT` 清单权限 + 用户的特殊授权（"全屏通知"那一档）——
- * 那是一次**新的权限面决定**，要加得按片C 那套来（清单＋申请入口＋隐私政策三处＋默认关）。
+ * ⚠ **全屏那半已定为不做（T124 片C，2026-10-18）**：片B 的前提是"零新权限"，而
+ * Android 14 起 `setFullScreenIntent` 要 `USE_FULL_SCREEN_INTENT` 清单权限 + 用户的
+ * 特殊授权（"全屏通知"那一档）—— 那是一条**新的权限面**，换来的增量只是"横幅升级成界面"，
+ * 而声音与震动已经交付。真要做，正确形状是另立一枚"来电式呼叫"动作（那条权限的语义），
+ * 不是给 `alert:ring` 补权限；这条登记在 roadmap T124 行，别当遗漏。
  * 现在交付的是响铃＋震动＋高优先横幅；`CATEGORY_ALARM` 让系统按"闹钟类"对待它
  * （勿扰模式的例外档会放它进来 —— 与用户对"提醒"的期待一致）。
  *
