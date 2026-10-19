@@ -5,7 +5,7 @@
  * （由入口 server.js 启动），便于测试直接 require 后使用 supertest 发起真实 HTTP 请求。
  */
 
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');

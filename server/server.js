@@ -4,7 +4,7 @@
  * 路由与业务逻辑已拆分至 lib/（store / otp / middleware / routes / app）。
  */
 
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const app = require('./lib/app');
 const store = require('./lib/store');
 
