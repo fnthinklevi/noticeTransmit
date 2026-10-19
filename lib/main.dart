@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,10 +23,7 @@ import 'services/fnthink_fanout_entrypoint.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // 初始化 WorkManager（用于每日通知归档）
-  Workmanager().initialize(
-    archiveCallbackDispatcher,
-    isInDebugMode: kDebugMode,
-  );
+  Workmanager().initialize(archiveCallbackDispatcher);
   FlutterError.onError = (details) {
     log(
       'FlutterError: ${details.exception}',
