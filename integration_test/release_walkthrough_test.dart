@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
@@ -82,8 +83,8 @@ import 'support/native_payload_stubs.dart';
 ///
 /// 桩策略（与 smoke 一致）：`com.fnthink.notice/notification` 全量 mock；
 /// sqflite_sqlcipher 数据库与 AndroidKeyStore **走真实实现**（备份往返必须落在真库上）；
-/// FilePicker 用 `FilePicker.platform = ` 注入假实现，返回真写到设备临时目录的备份文件路径
-/// ⇒ 页面里那段 `File(path).readAsString()` 与解密、恢复链路全是真的，只有 SAF 选单界面被替掉。
+/// FilePicker 用 `FilePickerPlatform.instance = ` 注入假实现，返回真写到设备临时目录的备份文件路径
+/// ⇒ 页面里那段 `readAsBytes()` 与解密、恢复链路全是真的，只有 SAF 选单界面被替掉。
 ///
 /// ⚠ 只在模拟器上跑：集成测试在签名不匹配时会 `adb uninstall` 目标应用并连带清掉它的
 ///   加密数据库。真机上等于删用户数据（本项目真出过一次）。
@@ -109,7 +110,9 @@ void main() {
       'last_system_lang': 'zh',
       'flutter.last_system_lang': 'zh',
     });
-    FilePicker.platform = _FakeFilePicker(() => pickedPathForNextCall);
+    FilePickerPlatform.instance = _FakeFilePickerPlatform(
+      () => pickedPathForNextCall,
+    );
 
     const channelName = 'com.fnthink.notice/notification';
     // 应用清单：缓存与全量给同一份数据。⚠ 别只桩 getInstalledApps ——
@@ -2344,38 +2347,60 @@ void main() {
   );
 }
 
-/// 假 FilePicker：把「选文件」变成返回测试自己写出来的那个备份文件路径。
+/// 假 FilePicker 平台：把「选文件」变成返回测试自己写出来的那个备份文件路径。
 /// SAF 系统选单本身不可自动化，其余环节（读盘/解密/校验/恢复）全部走真实代码。
-class _FakeFilePicker extends FilePicker {
-  _FakeFilePicker(this._path);
+final class _FakeFilePickerPlatform extends FilePickerPlatform {
+  _FakeFilePickerPlatform(this._path);
 
   final String? Function() _path;
 
   @override
-  Future<FilePickerResult?> pickFiles({
+  Future<PlatformFile?> pickFile({
     String? dialogTitle,
     String? initialDirectory,
     FileType type = FileType.any,
     List<String>? allowedExtensions,
     Function(FilePickerStatus)? onFileLoading,
-    bool allowCompression = true,
-    int compressionQuality = 30,
-    bool allowMultiple = false,
-    bool withData = false,
-    bool withReadStream = false,
-    bool lockParentWindow = false,
-    bool readSequential = false,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
   }) async {
     final path = _path();
     if (path == null) return null;
-    return FilePickerResult([
-      PlatformFile(
-        name: path.split(Platform.pathSeparator).last,
-        path: path,
-        size: File(path).lengthSync(),
-      ),
-    ]);
+    return _FakePlatformFile(File(path));
   }
+}
+
+/// 最低限度的 [PlatformFile]：备份往返只需要路径、长度与字节读口。
+final class _FakePlatformFile extends PlatformFile {
+  _FakePlatformFile(this._file);
+
+  final File _file;
+
+  @override
+  String get name => _file.uri.pathSegments.last;
+
+  @override
+  Uri get uri => _file.uri;
+
+  @override
+  XFile get xFile => XFile(_file.path);
+
+  @override
+  int? lengthSync() => _file.lengthSync();
+
+  @override
+  Future<int?> length() async => _file.length();
+
+  @override
+  Future<Uint8List> readAsBytes() => _file.readAsBytes();
+
+  @override
+  Stream<Uint8List> readAsByteStream() =>
+      _file.openRead().map(Uint8List.fromList);
 }
 
 class _StubUpdateService extends UpdateService {

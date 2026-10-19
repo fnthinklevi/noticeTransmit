@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -222,13 +222,9 @@ class _RuleTemplateSheetState extends State<RuleTemplateSheet> {
   Future<void> _importFromFile() async {
     final l10n = AppLocalizations.of(context);
     try {
-      final picked = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        withData: true,
-      );
-      final path = picked?.files.single.path;
-      if (path == null) return;
-      final text = await File(path).readAsString();
+      final file = await FilePicker.pickFile(type: FileType.any);
+      if (file == null) return;
+      final text = utf8.decode(await file.readAsBytes());
       List<NotificationRule> templates;
       try {
         templates = await _service.parseImportContent(text, null);

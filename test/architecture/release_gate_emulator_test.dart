@@ -526,9 +526,9 @@ void main() {
       expect(src.contains("find.text('选择备份文件恢复')"), isTrue);
       expect(src.contains("find.text('覆盖全部')"), isTrue);
       expect(
-        src.contains('FilePicker.platform'),
+        src.contains('FilePickerPlatform.instance'),
         isTrue,
-        reason: '恢复必须走页面的读盘路径（注入 FilePicker 返回真实文件）',
+        reason: '恢复必须走页面的读盘路径（注入 FilePickerPlatform 返回真实文件）',
       );
     });
 

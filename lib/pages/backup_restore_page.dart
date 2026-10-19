@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -198,13 +197,9 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
   Future<void> _restoreBackup() async {
     final l10n = AppLocalizations.of(context);
     try {
-      final picked = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        withData: true,
-      );
-      final path = picked?.files.single.path;
-      if (path == null) return; // 用户取消
-      final text = await File(path).readAsString();
+      final file = await FilePicker.pickFile(type: FileType.any);
+      if (file == null) return; // 用户取消
+      final text = utf8.decode(await file.readAsBytes());
       final dynamic container = jsonDecode(text);
       if (container is! Map<String, dynamic>) {
         _showInfo(l10n.restoreInvalidFile, AppColors.red);

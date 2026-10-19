@@ -57,10 +57,10 @@ dependencies:
   sqflite_sqlcipher: ^3.4.0
   path: ^1.8.3
   crypto: ^3.0.3
-  flutter_secure_storage: ^9.2.4
+  flutter_secure_storage: ^10.3.1
   # P1 配置备份恢复：PBKDF2 + AES-256-GCM（口令派生加密）与 .nbackup 文件选取
   cryptography: ^2.7.0
-  file_picker: ^8.3.7
+  file_picker: ^13.1.0
   flutter_slidable: ^3.1.0
   # 远程执行 TOTP 的二维码图片（片3c）：把 otpauth:// 链接画成图给用户扫。
   # ⚠ 选它而不是自己写 QR 编码器：MIT、纯 Dart 生成内核（依赖 qr）、
@@ -71,6 +71,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # file_picker 13 的 PlatformFile 抽象基类暴露 XFile；集成闸门的假实现需要它。
+  cross_file: ^0.3.5+4
   # 真机/模拟器集成冒烟测试（integration_test/smoke_test.dart，CI 见 integration_test.yml）
   integration_test:
     sdk: flutter

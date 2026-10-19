@@ -6,15 +6,19 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// TOTP 密钥、通知记录等敏感数据。
 ///
 /// 与普通 SharedPreferences 的区别：
-/// - Android: 使用 EncryptedSharedPreferences（AndroidKeyStore 加密）
+/// - Android: 自定义 AES-GCM 数据加密 + RSA-OAEP 密钥包裹（AndroidKeyStore）
 /// - iOS: 使用 Keychain
+///
+/// v10 起 `encryptedSharedPreferences` 已废弃：旧 EncryptedSharedPreferences
+/// 数据在首次访问时自动迁移到自定义 cipher；直跳 v11 会丢失迁移路径，
+/// 所以本仓先停在 10.x，等迁移在设备上验证过再抬 11。
 class SecureStorageService {
   static final _instance = SecureStorageService._();
   factory SecureStorageService() => _instance;
   SecureStorageService._();
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(migrateOnAlgorithmChange: true),
   );
 
   // ========== Webhook URLs ==========
