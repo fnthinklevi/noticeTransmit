@@ -52,7 +52,7 @@ dependencies:
   open_filex: ^5.0.0
   workmanager: ^0.10.10
 
-  permission_handler: ^12.0.3
+  permission_handler: ^13.0.2
   get_it: ^9.2.1
   sqflite_sqlcipher: ^3.4.0
   path: ^1.8.3
