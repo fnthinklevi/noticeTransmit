@@ -61,7 +61,7 @@ dependencies:
   # P1 配置备份恢复：PBKDF2 + AES-256-GCM（口令派生加密）与 .nbackup 文件选取
   cryptography: ^2.7.0
   file_picker: ^13.1.0
-  flutter_slidable: ^3.1.0
+  flutter_slidable: ^4.0.3
   # 远程执行 TOTP 的二维码图片（片3c）：把 otpauth:// 链接画成图给用户扫。
   # ⚠ 选它而不是自己写 QR 编码器：MIT、纯 Dart 生成内核（依赖 qr）、
   #   pub.dev 上 18 万次下载 —— 自己写那一套等于给安全面引入一处没被审过的实现。
