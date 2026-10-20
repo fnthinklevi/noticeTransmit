@@ -10,12 +10,10 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/ios_dialog_actions.dart';
 
 class PermissionSettingsPage extends StatefulWidget {
-  final bool notificationListenerGranted;
-  final bool postNotificationGranted;
-  final bool batteryOptimizationIgnored;
-  final bool smsPermissionGranted;
-  final bool phonePermissionGranted;
-  final bool appListPermissionGranted;
+  // T140 ㉔①：这一页曾经还有六枚 bool 构造参数（通知监听／通知权限／电池优化／
+  // 短信／电话／应用列表）。它们**一次都没被读过** —— 页面上每一格的读数都是
+  // 「去取一次」（`_permissionService` 现读那一支 getter），而传进来的那六枚
+  // 只是打开页面那一刻的旧快照。假注入的死码，删掉；那一族的状态仍由同一个作者现读。
 
   /// 契约 `capabilities.l3.settings` 那几项在这一台设备上的读数（T52）。
   ///
@@ -50,12 +48,6 @@ class PermissionSettingsPage extends StatefulWidget {
 
   const PermissionSettingsPage({
     super.key,
-    required this.notificationListenerGranted,
-    required this.postNotificationGranted,
-    required this.batteryOptimizationIgnored,
-    required this.smsPermissionGranted,
-    required this.phonePermissionGranted,
-    required this.appListPermissionGranted,
     required this.loadL3GrantRows,
     required this.manufacturer,
     required this.onRefresh,

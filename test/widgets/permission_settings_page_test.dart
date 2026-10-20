@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter/cupertino.dart';
@@ -12,6 +13,8 @@ import 'package:notice_transmit/services/permission_service.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart';
+
+import '../support/source_guards.dart';
 
 /// 权限设置页此前**没有任何**自动化契约 —— "点这一行到底发生了什么"全靠读代码。
 /// 维护者 1.5.76 反馈 #3 改的就是这一行的行为，所以先把行为钉住：
@@ -69,12 +72,7 @@ void main() {
         locale: const Locale('zh'),
         dark: false,
         home: PermissionSettingsPage(
-          notificationListenerGranted: false,
-          postNotificationGranted: false,
-          batteryOptimizationIgnored: false,
-          smsPermissionGranted: false,
-          phonePermissionGranted: false,
-          appListPermissionGranted: appListState == 'granted',
+          // T140 ㉔①：那六枚 bool 构造参数已删（页面从不读它们，状态走现读的 getter）。
           // 与真机同源：这一格的数据仍由调用方按契约词表算好（读法只有一处 `collectL3GrantRows`），
           // 但交出去的是**「去取一次」这件事** —— 默认"全部读到 false"，各用例按需改某一项。
           loadL3GrantRows:
@@ -644,5 +642,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(channelCalls, isEmpty, reason: '已授权状态下这一行不该打任何原生');
     });
+  });
+
+  // T140 ㉔①：这一页的六枚布尔读数曾经是**构造参数**，而页面一次都没读它们
+  // （每一格读的都是 `_permissionService` 现读的那一支 getter）⇒ 那是"把打开页面
+  // 那一刻的旧快照当读数"的假注入，已删。这条守卫钉的就是「不许再长回来」：
+  // 哪天真有值要注入，先解释为什么"现读"那条路走不通，再动这一页的公开构造。
+  test('T140 ㉔①：六枚死构造参数不许回到这一页', () {
+    final src = stripComments(
+      File(
+        '${projectRoot()}/lib/pages/permission_settings_page.dart',
+      ).readAsStringSync(),
+    );
+    const dead = <String>[
+      'notificationListenerGranted',
+      'postNotificationGranted',
+      'batteryOptimizationIgnored',
+      'smsPermissionGranted',
+      'phonePermissionGranted',
+      'appListPermissionGranted',
+    ];
+    for (final name in dead) {
+      expect(
+        src.contains('final bool $name;') ||
+            src.contains('required this.$name,'),
+        isFalse,
+        reason: '$name 又成了构造参数 —— 页面从不读它，那是把旧快照当读数的假注入',
+      );
+    }
   });
 }

@@ -292,14 +292,8 @@ extension _MainPageActions on _MainPageState {
   void _openPermissionSettingsPage() async {
     await _pushPage(
       PermissionSettingsPage(
-        notificationListenerGranted:
-            _permissionService.notificationListenerGranted,
-        postNotificationGranted: _permissionService.postNotificationGranted,
-        batteryOptimizationIgnored:
-            _permissionService.batteryOptimizationIgnored,
-        smsPermissionGranted: _permissionService.smsGranted,
-        phonePermissionGranted: _permissionService.phoneGranted,
-        appListPermissionGranted: _permissionService.appListGranted,
+        // T140 ㉔①：那六枚 bool（通知监听／通知权限／电池优化／短信／电话／应用列表）
+        // 已删 —— 页面里一次都没读，状态由它自己经 `_permissionService` 现读。
         loadL3GrantRows: _l3GrantRows,
         manufacturer: _deviceInfoService.manufacturer,
         onRefresh: _checkPermissions,
