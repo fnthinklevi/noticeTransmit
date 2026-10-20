@@ -6,6 +6,12 @@
 // getenv 在变量缺失时返回 null：字面量作接收者，避免本地构建（无 CI）NPE
 val useUpstreamFirst = "true".equals(System.getenv("CI"), ignoreCase = true)
 
+// 引擎构件仓库也按环境切换：国内走 flutter-io.cn 镜像，CI 上未设该变量则回落到上游。
+// 写死 googleapis 会让 FLUTTER_STORAGE_BASE_URL 失效（本机直连被拒 → 解析整体失败）。
+val flutterStorageBaseUrl =
+    System.getenv("FLUTTER_STORAGE_BASE_URL")?.trimEnd('/')
+        ?: "https://storage.googleapis.com"
+
 allprojects {
     repositories {
         if (useUpstreamFirst) {
@@ -19,7 +25,7 @@ allprojects {
         maven{ url=uri("https://maven.aliyun.com/repository/public")}
         maven{ url=uri("https://maven.aliyun.com/repository/snapshots")}
         maven{ url=uri("https://jitpack.io")}
-        maven{ url=uri("https://storage.googleapis.com/download.flutter.io")}
+        maven{ url=uri("$flutterStorageBaseUrl/download.flutter.io")}
         if (!useUpstreamFirst) {
             google()
             mavenCentral()
