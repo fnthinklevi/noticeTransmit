@@ -2223,11 +2223,10 @@ void main() {
       expect(body['decision'], contract.pairConfirmApproveDecision);
       // 本机名单那一行记的必须是**同一份**：设备侧执行前那一判读的是本机这份，
       // 服务端认了而这台自己不认，表现是"对方发来的命令在本机被静默驳回"。
-      expect(
-        ctx.h.peerRows().single.items.toSet(),
-        {'alert:ring', 'notification'},
-        reason: '名单里那一项空着 ⇒ 本机自己把刚授权出去的东西又收回去了',
-      );
+      expect(ctx.h.peerRows().single.items.toSet(), {
+        'alert:ring',
+        'notification',
+      }, reason: '名单里那一项空着 ⇒ 本机自己把刚授权出去的东西又收回去了');
     });
 
     // ── T134 片4：勾的是**整串**，那四格各一条 ──────────────────────────
@@ -2265,11 +2264,9 @@ void main() {
       await tester.pumpAndSettle();
       await _tapPair(tester, ctx.l10n, approve: true);
       final body = sentPayload(ctx.h.confirmAsked().single);
-      expect(
-        (body['items']! as List).cast<String>(),
-        ['channel:toggle/webhook:acme:on'],
-        reason: '勾的是那一条通道 + 那一档，不是「channel:toggle」这个动作',
-      );
+      expect((body['items']! as List).cast<String>(), [
+        'channel:toggle/webhook:acme:on',
+      ], reason: '勾的是那一条通道 + 那一档，不是「channel:toggle」这个动作');
     });
 
     testWidgets('目标档换一下就是另一格：勾了 off 不会顺手把 on 也放出去', (tester) async {
@@ -2331,11 +2328,9 @@ void main() {
       await tester.pumpAndSettle();
       await _tapPair(tester, ctx.l10n, approve: true);
       final body = sentPayload(ctx.h.confirmAsked().single);
-      expect(
-        (body['items']! as List).cast<String>(),
-        ['monitoring/off'],
-        reason: '档位词按契约 itemTargetWords 的位置取（第一个是"开着"），界面不写 on/off',
-      );
+      expect((body['items']! as List).cast<String>(), [
+        'monitoring/off',
+      ], reason: '档位词按契约 itemTargetWords 的位置取（第一个是"开着"），界面不写 on/off');
       expect(
         ctx.h.peerRows().single.items,
         contains('monitoring/off'),

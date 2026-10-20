@@ -135,11 +135,9 @@ class _State extends State {
   Widget _modeTile(String keyName) => Text(keyName);
 }
 ''';
-    expect(
-      sectionHeaderCopies(expressionCopy),
-      ['_sectionHeader'],
-      reason: '表达式体的 helper 漏网 ⇒ 尺只认块状体，下一把抄本换个写法就过去了',
-    );
+    expect(sectionHeaderCopies(expressionCopy), [
+      '_sectionHeader',
+    ], reason: '表达式体的 helper 漏网 ⇒ 尺只认块状体，下一把抄本换个写法就过去了');
 
     const compliant = '''
 class _State extends State {

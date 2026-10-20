@@ -419,11 +419,9 @@ void main() {
 
       await service.repushChannels(record, ['chan:dingtalk', 'chan:generic']);
 
-      expect(
-        (pushedSlugsArg()['onlySlugs'] as List).cast<String>(),
-        ['generic'],
-        reason: '一格不可用就把整批否掉，等于让一枚按不动的钮把旁边那枚也废了',
-      );
+      expect((pushedSlugsArg()['onlySlugs'] as List).cast<String>(), [
+        'generic',
+      ], reason: '一格不可用就把整批否掉，等于让一枚按不动的钮把旁边那枚也废了');
     });
   });
 }

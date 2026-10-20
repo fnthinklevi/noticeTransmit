@@ -44,11 +44,13 @@ void main() {
 
     test('字段名与原生那一侧同形（跨语言字符串契约）', () {
       final row = decode(encodeFnthinkChannelMirror([ch()])).single;
-      expect(
-        row.keys.toSet(),
-        {'id', 'name', 'target_kind', 'target', 'role'},
-        reason: '原生 ConfigManager.getFnthinkChannelConfigs 按这五个名字读',
-      );
+      expect(row.keys.toSet(), {
+        'id',
+        'name',
+        'target_kind',
+        'target',
+        'role',
+      }, reason: '原生 ConfigManager.getFnthinkChannelConfigs 按这五个名字读');
       expect(row['target_kind'], 'device');
     });
 

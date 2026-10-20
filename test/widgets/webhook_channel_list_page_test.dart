@@ -229,11 +229,10 @@ void main() {
       expect(savedOf('b')['enabled'], isTrue);
       expect(store.savedBatches, isNotEmpty, reason: '开关必须即时落库');
       // 原生启用 URL 列表跟着重算：后台只推启用通道
-      expect(
-        store.savedBatches.last.map((r) => r['url']).toList(),
-        ['https://a.example.com/hook', 'https://b.example.com/hook'],
-        reason: '整表写库本身没变（DB 只有全量替换路径），变的是"谁决定这一条"',
-      );
+      expect(store.savedBatches.last.map((r) => r['url']).toList(), [
+        'https://a.example.com/hook',
+        'https://b.example.com/hook',
+      ], reason: '整表写库本身没变（DB 只有全量替换路径），变的是"谁决定这一条"');
     });
 
     testWidgets('复制出的新行换 id、名字带「副本」、不继承徽标', (tester) async {

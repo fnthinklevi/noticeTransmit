@@ -656,11 +656,9 @@ void main() {
         },
       });
       expect(report.failedCategories, isEmpty);
-      expect(
-        GetIt.instance<TemperatureService>().rules.map((r) => r['id']),
-        ['t1'],
-        reason: '备份里没写这一族 ≠ 本机该清空（缺键必须当"不涉及"）',
-      );
+      expect(GetIt.instance<TemperatureService>().rules.map((r) => r['id']), [
+        't1',
+      ], reason: '备份里没写这一族 ≠ 本机该清空（缺键必须当"不涉及"）');
       expect(GetIt.instance<DeviceStateService>().rules, hasLength(2));
       expect(
         GetIt.instance<BatteryService>().rules.single['value'],
@@ -697,11 +695,10 @@ void main() {
         'local_t',
         reason: '跳过判定失效会把用户本机的温度规则整族换掉',
       );
-      expect(
-        GetIt.instance<DeviceStateService>().rules.map((r) => r['id']),
-        ['d1', 'd2'],
-        reason: '本机空缺的族必须补上',
-      );
+      expect(GetIt.instance<DeviceStateService>().rules.map((r) => r['id']), [
+        'd1',
+        'd2',
+      ], reason: '本机空缺的族必须补上');
     });
 
     test('temperature/deviceState 的 rules 不是列表：保持本机而不是写空', () async {

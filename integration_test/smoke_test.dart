@@ -213,20 +213,16 @@ void main() {
     );
   }
 
-  testWidgets(
-    '冒烟 1/4 启动装配：主界面 + 中文文案 + 通道描述符就绪',
-    (tester) async {
-      await launchApp(tester);
-      // 第 5 步：设置页的字段清单与显隐全按描述符渲染；这里若为 false，说明 splash 漏了
-      // await 或 GetIt 未注册 —— 表现是"打开设置页时表单缺字段"，静态测试查不出来。
-      expect(
-        GetIt.instance<ChannelDescriptorService>().isReady,
-        isTrue,
-        reason: 'splash 未拉取通道描述符（装配链缺 await / 注册缺失 / 原生无该分支）',
-      );
-    },
-    timeout: const Timeout(Duration(minutes: 5)),
-  );
+  testWidgets('冒烟 1/4 启动装配：主界面 + 中文文案 + 通道描述符就绪', (tester) async {
+    await launchApp(tester);
+    // 第 5 步：设置页的字段清单与显隐全按描述符渲染；这里若为 false，说明 splash 漏了
+    // await 或 GetIt 未注册 —— 表现是"打开设置页时表单缺字段"，静态测试查不出来。
+    expect(
+      GetIt.instance<ChannelDescriptorService>().isReady,
+      isTrue,
+      reason: 'splash 未拉取通道描述符（装配链缺 await / 注册缺失 / 原生无该分支）',
+    );
+  }, timeout: const Timeout(Duration(minutes: 5)));
 
   /// 把首页里的某张卡滚进视口，之后才允许断言或点击。
   ///
@@ -332,82 +328,76 @@ void main() {
     expect(find.text('推送成功'), findsWidgets); // deliverySuccess
   }, timeout: const Timeout(Duration(minutes: 5)));
 
-  testWidgets(
-    '冒烟 4/4 交互与导出：服务启停 + 短信开关 + buildExportJson',
-    (tester) async {
-      final svc = await launchApp(tester);
-      await waitInjected(tester, svc);
+  testWidgets('冒烟 4/4 交互与导出：服务启停 + 短信开关 + buildExportJson', (tester) async {
+    final svc = await launchApp(tester);
+    await waitInjected(tester, svc);
 
-      // 服务启停（通知页圆形按钮 → mock 捕获 start/stop）
-      // ⚠ 「通知监听服务未启动，点击可启动」那行是**纯 Text**（notification_page.dart:97），
-      //   没有手势；真正可点的是上面的圆形按钮（onTap: onStartService/onStopService）。
-      //   点文案不会报错（tap 只是打在坐标上），但方法不会被调用——曾在此静默失败。
-      final serviceToggle = find.byKey(
-        const ValueKey<String>('service-toggle'),
-      );
-      await tester.tap(serviceToggle);
-      await pumpFor(tester, const Duration(seconds: 1));
-      expect(
-        capturedCalls['startNotificationListener'],
-        isNotNull,
-        reason: '应调用原生 startNotificationListener',
-      );
-      expect(svc.serviceRunning, isTrue);
-      await tester.tap(serviceToggle);
-      await pumpFor(tester, const Duration(seconds: 1));
-      expect(
-        capturedCalls['stopNotificationListener'],
-        isNotNull,
-        reason: '应调用原生 stopNotificationListener',
-      );
+    // 服务启停（通知页圆形按钮 → mock 捕获 start/stop）
+    // ⚠ 「通知监听服务未启动，点击可启动」那行是**纯 Text**（notification_page.dart:97），
+    //   没有手势；真正可点的是上面的圆形按钮（onTap: onStartService/onStopService）。
+    //   点文案不会报错（tap 只是打在坐标上），但方法不会被调用——曾在此静默失败。
+    final serviceToggle = find.byKey(const ValueKey<String>('service-toggle'));
+    await tester.tap(serviceToggle);
+    await pumpFor(tester, const Duration(seconds: 1));
+    expect(
+      capturedCalls['startNotificationListener'],
+      isNotNull,
+      reason: '应调用原生 startNotificationListener',
+    );
+    expect(svc.serviceRunning, isTrue);
+    await tester.tap(serviceToggle);
+    await pumpFor(tester, const Duration(seconds: 1));
+    expect(
+      capturedCalls['stopNotificationListener'],
+      isNotNull,
+      reason: '应调用原生 stopNotificationListener',
+    );
 
-      // tab 切换 → 通知页「短信监听」卡片 → 验证码开关（mock 捕获 setSmsSetting）
-      // ⚠ 入口是**通知仪表盘上的卡片**（标题 l10n.smsMonitor = 短信监听），不在更多页：
-      //   原实现先点「更多」再找「短信监听设置」（那是点进去之后的页面标题），必然 0 命中。
-      // tab 一律限定在 NavigationBar 里点：页面上别处也有同样的字样（例如首页卡片
-      // 标题里的"更多"），不限定就会点到不响应的元素上，红在下一句、排查方向被带偏。
-      await tester.tap(
-        find.descendant(
-          of: find.byType(NavigationBar),
-          matching: find.text('更多'),
-        ),
-      );
-      await pumpFor(tester, const Duration(seconds: 1));
-      await tester.tap(
-        find.descendant(
-          of: find.byType(NavigationBar),
-          matching: find.text('首页'),
-        ),
-      );
-      await pumpFor(tester, const Duration(seconds: 1));
-      await tester.tap(find.text('短信监听'));
-      await pumpFor(tester, const Duration(seconds: 1));
-      await waitUntil(tester, find.text('监听验证码'));
-      // 应用内开关已统一为 CupertinoSwitch（Material Switch 已全量替换）
-      final switches = find.byType(CupertinoSwitch);
-      expect(switches.evaluate().length, greaterThanOrEqualTo(2));
-      await tester.tap(switches.at(1)); // 第二个开关 = 监听验证码
-      await pumpFor(tester, const Duration(seconds: 1));
-      final smsCalls = capturedCalls['setSmsSetting'] ?? const [];
-      expect(
-        smsCalls.any(
-          (a) =>
-              a.isNotEmpty &&
-              a.first is Map &&
-              (a.first as Map)['key'] == 'sms_code_monitor_enabled',
-        ),
-        isTrue,
-        reason: '切换验证码开关应回写 setSmsSetting',
-      );
+    // tab 切换 → 通知页「短信监听」卡片 → 验证码开关（mock 捕获 setSmsSetting）
+    // ⚠ 入口是**通知仪表盘上的卡片**（标题 l10n.smsMonitor = 短信监听），不在更多页：
+    //   原实现先点「更多」再找「短信监听设置」（那是点进去之后的页面标题），必然 0 命中。
+    // tab 一律限定在 NavigationBar 里点：页面上别处也有同样的字样（例如首页卡片
+    // 标题里的"更多"），不限定就会点到不响应的元素上，红在下一句、排查方向被带偏。
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('更多'),
+      ),
+    );
+    await pumpFor(tester, const Duration(seconds: 1));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('首页'),
+      ),
+    );
+    await pumpFor(tester, const Duration(seconds: 1));
+    await tester.tap(find.text('短信监听'));
+    await pumpFor(tester, const Duration(seconds: 1));
+    await waitUntil(tester, find.text('监听验证码'));
+    // 应用内开关已统一为 CupertinoSwitch（Material Switch 已全量替换）
+    final switches = find.byType(CupertinoSwitch);
+    expect(switches.evaluate().length, greaterThanOrEqualTo(2));
+    await tester.tap(switches.at(1)); // 第二个开关 = 监听验证码
+    await pumpFor(tester, const Duration(seconds: 1));
+    final smsCalls = capturedCalls['setSmsSetting'] ?? const [];
+    expect(
+      smsCalls.any(
+        (a) =>
+            a.isNotEmpty &&
+            a.first is Map &&
+            (a.first as Map)['key'] == 'sms_code_monitor_enabled',
+      ),
+      isTrue,
+      reason: '切换验证码开关应回写 setSmsSetting',
+    );
 
-      // 导出 JSON 契约（真实 DB 全量读取）
-      final json = await svc.buildExportJson('冒烟设备', 'Pixel', 'Google');
-      expect(json.contains('recordCount'), isTrue);
-      expect(json.contains('smoke_offline_1'), isTrue);
-      expect(json.contains('_warning'), isTrue);
-    },
-    timeout: const Timeout(Duration(minutes: 6)),
-  );
+    // 导出 JSON 契约（真实 DB 全量读取）
+    final json = await svc.buildExportJson('冒烟设备', 'Pixel', 'Google');
+    expect(json.contains('recordCount'), isTrue);
+    expect(json.contains('smoke_offline_1'), isTrue);
+    expect(json.contains('_warning'), isTrue);
+  }, timeout: const Timeout(Duration(minutes: 6)));
 }
 
 /// 检查更新桩：返回 null = 无更新，避免真实 CDN 网络与弹窗干扰主链路。

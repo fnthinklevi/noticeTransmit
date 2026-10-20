@@ -1,4 +1,4 @@
-# 集成测试（每周自动 + 可手动；模拟器按分钟计费）：
+﻿# 集成测试（每周自动 + 可手动；模拟器按分钟计费）：
 #
 # 拆成两个 job 的理由（㊼）：
 #   原来一个 job 里顺序跑 smoke → walkthrough → connectedAndroidTest，共用一个 45 分钟预算。
@@ -23,7 +23,7 @@ on:
 env:
   # ⚠ 必须与 analyze.yml / build-apk.yml 一致：以前这里只写 channel: stable，于是冒烟
   #   跑在「当时最新的 stable」上（失败表现是 Gradle 构建成功后 0 tests、看不到异常文本）。
-  FLUTTER_VERSION: '3.44.4'
+  FLUTTER_VERSION: '3.47.7'
 
 jobs:
   device-basic:

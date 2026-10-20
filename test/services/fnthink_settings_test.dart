@@ -203,11 +203,10 @@ void main() {
       poll['min'] = 6;
       poll['max'] = 40;
       final other = FnthinkContract.parse(jsonEncode(json));
-      expect(
-        FnthinkSettings(contract: other).pollSecondsRange,
-        (min: 6, max: 40),
-        reason: '设置层里写死过一对数字的话，这一条就会红',
-      );
+      expect(FnthinkSettings(contract: other).pollSecondsRange, (
+        min: 6,
+        max: 40,
+      ), reason: '设置层里写死过一对数字的话，这一条就会红');
     });
 
     test('没选过 ⇒ 读回 null，生效值就是契约的 default（"没选过"不等于"选了默认值"）', () async {

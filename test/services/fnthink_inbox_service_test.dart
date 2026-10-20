@@ -76,11 +76,11 @@ void main() {
       await helper.insertFnthinkInbox(row('m_a', at: 1780000000000));
       await helper.insertFnthinkInbox(row('m_new', at: 1780000009999));
       final all = await service.list();
-      expect(
-        all.map((m) => m.messageId).toList(),
-        ['m_new', 'm_a', 'm_b'],
-        reason: '新的在前；同毫秒按 message_id 定序 —— 没有它翻页会出现同一条来两遍',
-      );
+      expect(all.map((m) => m.messageId).toList(), [
+        'm_new',
+        'm_a',
+        'm_b',
+      ], reason: '新的在前；同毫秒按 message_id 定序 —— 没有它翻页会出现同一条来两遍');
       final page = await service.list(limit: 2, offset: 2);
       expect(page.map((m) => m.messageId).toList(), ['m_b']);
     });

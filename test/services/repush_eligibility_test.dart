@@ -195,11 +195,11 @@ void main() {
     });
 
     test('值域封闭 + missing 永远优先（先补缺，再谈重发）', () {
-      expect(
-        RepushIntent.values.toSet(),
-        {RepushIntent.missing, RepushIntent.unsent, RepushIntent.again},
-        reason: '多加一档就必须同时给界面一句文案与一个范围，否则它会落到 switch 的默认分支上',
-      );
+      expect(RepushIntent.values.toSet(), {
+        RepushIntent.missing,
+        RepushIntent.unsent,
+        RepushIntent.again,
+      }, reason: '多加一档就必须同时给界面一句文案与一个范围，否则它会落到 switch 的默认分支上');
       final mixed = delivery({
         'chan:wecom': {'status': 'success'},
         'chan:email': {'status': 'failed'},

@@ -91,11 +91,9 @@ void main() {
 
     test('填满则无缺失；只敲空格算没填', () {
       expect(missing(effective(fullForm())), isEmpty);
-      expect(
-        missing(effective({...fullForm(), 'smtpHost': '   '})),
-        ['smtpHost'],
-        reason: '存进空 host 会让原生当这条没配好而跳过，用户以为配完了',
-      );
+      expect(missing(effective({...fullForm(), 'smtpHost': '   '})), [
+        'smtpHost',
+      ], reason: '存进空 host 会让原生当这条没配好而跳过，用户以为配完了');
     });
 
     test('模板类字段非必填（留空 = 用运行时默认主题/正文）', () {

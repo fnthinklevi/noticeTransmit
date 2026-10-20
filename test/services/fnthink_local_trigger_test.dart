@@ -394,11 +394,9 @@ void main() {
             '开关关着现在是"拒"，不是"没收到"',
       );
       expect(saved.single.reason, 'switch-off');
-      expect(
-        receipts.map((e) => (e.$1, e.$2.result, e.$2.state)).toList(),
-        [('8K3FJ6QPTM9WZ4VHNS', 'execution_done', 'failed')],
-        reason: '对面在等一个答复：被拒也要回一段，且终态是 failed 而不是 pending',
-      );
+      expect(receipts.map((e) => (e.$1, e.$2.result, e.$2.state)).toList(), [
+        ('8K3FJ6QPTM9WZ4VHNS', 'execution_done', 'failed'),
+      ], reason: '对面在等一个答复：被拒也要回一段，且终态是 failed 而不是 pending');
     });
   });
 

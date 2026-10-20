@@ -377,16 +377,12 @@ void main() {
       await helper.upsertFnthinkPeer(peer('8TQVWZ3XKR5B6YD4HM', at: 200));
       await helper.upsertFnthinkPeer(peer('8K3FJ6QPTM9WZ4VHNX', at: 200));
       final loaded = await helper.loadFnthinkPeers();
-      expect(
-        loaded.map((p) => p.peerAddress).toList(),
-        [
-          '7YD4RKQPBM8XZ3VHNT', // at=300
-          '8K3FJ6QPTM9WZ4VHNX', // at=200，同时间按地址码升序
-          '8TQVWZ3XKR5B6YD4HM', // at=200
-          '8K3FJ6QPTM9WZ4VHNS', // at=100
-        ],
-        reason: '最近同意的在前；同时间必须有稳定 tie-break，否则翻页会重/漏',
-      );
+      expect(loaded.map((p) => p.peerAddress).toList(), [
+        '7YD4RKQPBM8XZ3VHNT', // at=300
+        '8K3FJ6QPTM9WZ4VHNX', // at=200，同时间按地址码升序
+        '8TQVWZ3XKR5B6YD4HM', // at=200
+        '8K3FJ6QPTM9WZ4VHNS', // at=100
+      ], reason: '最近同意的在前；同时间必须有稳定 tie-break，否则翻页会重/漏');
     });
   });
 

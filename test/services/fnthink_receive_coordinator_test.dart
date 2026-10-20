@@ -727,11 +727,9 @@ void main() {
       await pumpEventQueue();
       expect(ledger['pr_6']!.settled, isTrue);
       expect(ledger['pr_6']!.changedAt, 1780000060000);
-      expect(
-        c.pairRequestHistory.map((r) => r.requestId),
-        ['pr_6'],
-        reason: '对面拒绝的这条该在「配对历史」里，而不是继续挂在「已发起」里说"还在等"',
-      );
+      expect(c.pairRequestHistory.map((r) => r.requestId), [
+        'pr_6',
+      ], reason: '对面拒绝的这条该在「配对历史」里，而不是继续挂在「已发起」里说"还在等"');
       expect(c.outgoingPairRequests, isEmpty);
     });
 

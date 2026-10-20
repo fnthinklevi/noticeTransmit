@@ -151,11 +151,9 @@ void main() {
         contains('engine_rule_codec.dart'),
         reason: '编解码函数被改名或搬家 —— 本用例已失效',
       );
-      expect(
-        encoders.where((p) => p != 'engine_rule_codec.dart'),
-        ['engine_rule_repository.dart'],
-        reason: '多一处调用 toLegacyJson = 又多一处形状定义点',
-      );
+      expect(encoders.where((p) => p != 'engine_rule_codec.dart'), [
+        'engine_rule_repository.dart',
+      ], reason: '多一处调用 toLegacyJson = 又多一处形状定义点');
     });
 
     test('两个服务都不再自己拼规则 JSON（一律走仓储）', () {

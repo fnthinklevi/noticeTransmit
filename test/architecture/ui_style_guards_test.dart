@@ -154,11 +154,9 @@ void main() {
     });
 
     test('CupertinoSliverRefreshControl 只有一个装配点（PullToRefreshList）', () {
-      expect(
-        hitting('CupertinoSliverRefreshControl('),
-        const <String>['lib/widgets/pull_to_refresh_list.dart'],
-        reason: '各页自己搭 sliver ⇒ 「哪一页用的是哪一件」重新散落（T05/T06 同一条理由）',
-      );
+      expect(hitting('CupertinoSliverRefreshControl('), const <String>[
+        'lib/widgets/pull_to_refresh_list.dart',
+      ], reason: '各页自己搭 sliver ⇒ 「哪一页用的是哪一件」重新散落（T05/T06 同一条理由）');
     });
 
     test('台账清零那四页确实换上了下拉壳（否则上一条会假绿）', () {
@@ -1142,11 +1140,9 @@ class FnthinkStatusMark extends StatelessWidget {
     });
 
     test('「进一页那一行」只有 FnthinkEntryRow 一个装配点', () {
-      expect(
-        hitting('class FnthinkEntryRow'),
-        const <String>['lib/widgets/fnthink_card.dart'],
-        reason: '形状①的装配点必须唯一 —— 两份抄本正是 T100 要收的东西',
-      );
+      expect(hitting('class FnthinkEntryRow'), const <String>[
+        'lib/widgets/fnthink_card.dart',
+      ], reason: '形状①的装配点必须唯一 —— 两份抄本正是 T100 要收的东西');
 
       int n(String path, String needle) =>
           needle.allMatches(codeByPath[path]!).length;

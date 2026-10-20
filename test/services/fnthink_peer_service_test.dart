@@ -84,15 +84,11 @@ void main() {
         peer('CCCCCCCCCCCCCCCCCCCC', at: 1780000999000),
       );
       final rows = await service.list();
-      expect(
-        rows.map((p) => p.peerAddress).toList(),
-        [
-          'CCCCCCCCCCCCCCCCCCCC',
-          'AAAAAAAAAAAAAAAAAAAA',
-          'BBBBBBBBBBBBBBBBBBBB',
-        ],
-        reason: '同毫秒时按地址码定序。少了它，页面自己排一次就会与这里的顺序不一样',
-      );
+      expect(rows.map((p) => p.peerAddress).toList(), [
+        'CCCCCCCCCCCCCCCCCCCC',
+        'AAAAAAAAAAAAAAAAAAAA',
+        'BBBBBBBBBBBBBBBBBBBB',
+      ], reason: '同毫秒时按地址码定序。少了它，页面自己排一次就会与这里的顺序不一样');
     });
 
     test('协调者写进去那一种行，读回来逐字段还在（level 是服务端回的那一档）', () async {
@@ -136,11 +132,9 @@ void main() {
       await helper.upsertFnthinkPeer(peer('GGGGGGGGGGGGGGGGGG'));
       await helper.upsertFnthinkPeer(peer('HHHHHHHHHHHHHHHHHH'));
       await service.remove('GGGGGGGGGGGGGGGGGG');
-      expect(
-        (await service.list()).map((p) => p.peerAddress).toList(),
-        ['HHHHHHHHHHHHHHHHHH'],
-        reason: '一次撤销影响 N 台，就是"一键全部失效"那一档（T31），不是这一发',
-      );
+      expect((await service.list()).map((p) => p.peerAddress).toList(), [
+        'HHHHHHHHHHHHHHHHHH',
+      ], reason: '一次撤销影响 N 台，就是"一键全部失效"那一档（T31），不是这一发');
     });
   });
 

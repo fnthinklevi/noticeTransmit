@@ -816,11 +816,9 @@ void main() {
         reason: 'url 为空的通道不给目标：探它只会把徽标钉成"不可达"，而那其实是"配置没填完"',
       );
       expect(appService.probeTargets.single.method, 'probeAppChannelToken');
-      expect(
-        emailService.probeTargets.map((t) => t.id),
-        ['e1'],
-        reason: '凭据不完整的通道不给目标（T04 的缺失字段标记负责说那件事）',
-      );
+      expect(emailService.probeTargets.map((t) => t.id), [
+        'e1',
+      ], reason: '凭据不完整的通道不给目标（T04 的缺失字段标记负责说那件事）');
     });
 
     test('探测候选不看角色，也不看那份锁存（T135：切回要的那份读数从这里继续长）', () async {

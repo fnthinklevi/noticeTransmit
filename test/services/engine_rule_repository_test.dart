@@ -120,11 +120,9 @@ void main() {
       final got = await repo.load();
 
       expect(got.map((r) => r['id']), ['low20']);
-      expect(
-        (await mirrored('battery_rules')).map((r) => r['id']),
-        ['low20'],
-        reason: '镜像不修回，原生就还按用户已经删掉的那条规则推',
-      );
+      expect((await mirrored('battery_rules')).map((r) => r['id']), [
+        'low20',
+      ], reason: '镜像不修回，原生就还按用户已经删掉的那条规则推');
     });
 
     test('DB 读失败：只读回退到旧键，且不写库、不写镜像', () async {
@@ -138,11 +136,9 @@ void main() {
 
       expect(got.map((r) => r['id']), ['low20'], reason: '库打不开时旧键是用户规则唯一的活路');
       expect(store.saved, isEmpty, reason: '回退分支不许写库');
-      expect(
-        (await mirrored('battery_rules')).map((r) => r['id']),
-        ['low20'],
-        reason: '回退分支更不许写镜像 —— 那会把"还没迁进库"的规则洗掉',
-      );
+      expect((await mirrored('battery_rules')).map((r) => r['id']), [
+        'low20',
+      ], reason: '回退分支更不许写镜像 —— 那会把"还没迁进库"的规则洗掉');
     });
 
     test('保存时库写不进去：镜像仍然写、异常抛给调用方（内存编辑不丢）', () async {
@@ -240,11 +236,9 @@ void main() {
       final store = _FakeStore();
       await battery(store: store).save([rule('low20')]);
 
-      expect(
-        (await mirrored('temperature_rules')).map((r) => r['id']),
-        ['t1'],
-        reason: 'prefsKey 少写族前缀 = 两族互相覆盖（原生读到空数组，温度告警再也不来）',
-      );
+      expect((await mirrored('temperature_rules')).map((r) => r['id']), [
+        't1',
+      ], reason: 'prefsKey 少写族前缀 = 两族互相覆盖（原生读到空数组，温度告警再也不来）');
       expect(store.rows.keys, [
         EngineRuleCodec.familyBattery,
       ], reason: 'saveEngineRules 若把族当参数写错，温度那一族会被整族删掉');

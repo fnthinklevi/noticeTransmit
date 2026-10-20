@@ -120,11 +120,9 @@ void main() {
         'agentid': TextEditingController(text: ''),
         'touser': TextEditingController(text: ''),
       };
-      expect(
-        ChannelFormRenderer.missingRequired(wecom(), controllers),
-        ['corpid'],
-        reason: 'agentid 有默认值 0、touser 非必填，都不该拦下保存',
-      );
+      expect(ChannelFormRenderer.missingRequired(wecom(), controllers), [
+        'corpid',
+      ], reason: 'agentid 有默认值 0、touser 非必填，都不该拦下保存');
     });
 
     test('控制器缺失也算未填', () {

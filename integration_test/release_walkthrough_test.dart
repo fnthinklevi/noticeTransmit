@@ -261,2090 +261,2035 @@ void main() {
     }
   });
 
-  testWidgets(
-    '闸门 1/4 只读页：服务启停 / 权限三态 / 短信监听 / 历史页导出',
-    (tester) async {
-      final gateFailures = <String, String>{};
-      await _assemble(tester);
-      await _step(tester, gateFailures, '1 通知页：服务启停', () async {
-        // ── 1. 通知页：服务启停（真实控件是圆形按钮，不是文案）──────────────
-        await _tap(
-          tester,
-          find.byKey(const ValueKey<String>('service-toggle')),
-          '通知页服务开关',
+  testWidgets('闸门 1/4 只读页：服务启停 / 权限三态 / 短信监听 / 历史页导出', (tester) async {
+    final gateFailures = <String, String>{};
+    await _assemble(tester);
+    await _step(tester, gateFailures, '1 通知页：服务启停', () async {
+      // ── 1. 通知页：服务启停（真实控件是圆形按钮，不是文案）──────────────
+      await _tap(
+        tester,
+        find.byKey(const ValueKey<String>('service-toggle')),
+        '通知页服务开关',
+      );
+      expect(
+        captured['startNotificationListener'],
+        isNotNull,
+        reason: '点服务开关没有下发 startNotificationListener',
+      );
+      await _tap(
+        tester,
+        find.byKey(const ValueKey<String>('service-toggle')),
+        '通知页服务开关(关)',
+      );
+      expect(
+        captured['stopNotificationListener'],
+        isNotNull,
+        reason: '再点一次应下发 stopNotificationListener',
+      );
+    });
+    await _step(tester, gateFailures, '2 权限设置页：进页读三态', () async {
+      // ── 2. 权限设置页：进入即读三态权限，页面必须渲染且不抛 ──────────────
+      await _tap(tester, find.text('权限设置'), '通知页→权限设置');
+      await _onPage(tester, PermissionSettingsPage, '权限设置页');
+      await _backToHome(tester);
+    });
+    await _step(tester, gateFailures, '3 短信监听页：两个开关 + SIM 选择', () async {
+      // ── 3. 短信监听页：两个开关 + SIM 卡选择 ────────────────────────────
+      await _tap(tester, find.text('短信监听'), '通知页→短信监听');
+      await _onPage(tester, SmsMonitorSettingsPage, '短信监听页');
+      final smsSwitches = _in(
+        SmsMonitorSettingsPage,
+        find.byType(CupertinoSwitch),
+      );
+      expect(smsSwitches, findsNWidgets(2), reason: '短信监听页应有两个开关');
+      await _tap(tester, smsSwitches.at(1), '监听验证码开关');
+      await _tap(tester, find.text('仅卡1'), 'SIM 卡选择「仅卡1」');
+      final smsSets = (captured['setSmsSetting'] ?? const [])
+          .map((a) => (a.first as Map)['key'])
+          .toList();
+      expect(
+        smsSets,
+        containsAll(<String>['sms_code_monitor_enabled', 'sms_sim_filter']),
+        reason: '开关与卡选择都必须回写原生，否则后台读不到新配置',
+      );
+      await _backToHome(tester);
+    });
+    await _step(tester, gateFailures, '4 推送历史页：进页 + 导出 JSON（真落盘）', () async {
+      // ── 4. 推送历史页：进入 + 溢出菜单里的导出 JSON（真落盘）─────────────
+      await _tap(tester, find.text('推送历史'), '通知页→推送历史');
+      await _settle(tester, seconds: 2);
+      expect(
+        find.text('闸门通知一'),
+        findsWidgets,
+        reason: '注入的历史记录没出现在列表里（loadRecords/DB 链路）',
+      );
+      await _tap(
+        tester,
+        _in(HistoryPage, find.byIcon(Icons.more_horiz)),
+        '历史页溢出菜单',
+      );
+      await _settle(tester);
+      await _tap(tester, find.text('导出 JSON'), '历史页→导出 JSON');
+      await _settle(tester);
+      // 导出前有一步确认弹层（main_page_actions 的 exportBtn），不点它 saveFile 不会发生
+      await _tap(tester, find.text('确定导出'), '历史页导出→确定导出');
+      await _settle(tester, seconds: 3);
+      expect(
+        writtenFiles.keys.any((n) => n.endsWith('.json')),
+        isTrue,
+        reason: '导出生成没有真的走 saveFile？（历史 JSON 导出是运维取数唯一出口）',
+      );
+      // T05：历史记录卡的长按动作表。本批把它就地写的整份弹层搬进了共用组件，
+      // 所以这里必须真展开一次 —— 只展开再收起，不点「屏蔽」，
+      // 那会改掉后面各节依赖的过滤配置（闸门要可重复）。
+      await _longPress(tester, find.text('闸门通知一'), '历史记录行');
+      // 限定在弹层里 + 精确文本：这一项的**副标题**也含"屏蔽该应用"五个字
+      // （闸门第一轮就是被这条 loose 断言打红的：textContaining 一次数到两个）。
+      final blockAppItem = find.descendant(
+        of: find.byType(CardActionSheet),
+        matching: find.text('屏蔽该应用的通知'),
+      );
+      expect(
+        blockAppItem,
+        findsOneWidget,
+        reason: '长按弹层没出来 ⇒ CardActionSheet 在真机手势区上不可用',
+      );
+      await tester.tapAt(const Offset(10, 10));
+      await _settle(tester);
+      expect(
+        find.byType(CardActionSheet),
+        findsNothing,
+        reason: '点遮罩关不掉弹层 ⇒ 用户被卡在动作表里',
+      );
+      await _backToHome(tester);
+    });
+    await _step(
+      tester,
+      gateFailures,
+      '4.1 推送历史页的方向切换：切到「收件（幻念）」再切回来',
+      () async {
+        // 为什么单开一步：T48 第一片把方向做成**数据源切换**（两张表分页口径不同，拼进同一条时间线
+        // 的表现是翻页时同一条出现两次或整条不出现），而闸门此前只进过这一页的"转发"那一侧 ——
+        // 收件那一档在设备上从没被点开过，与"幻念推送页整页是闸门盲区"是同一类洞。
+        await _tap(tester, find.text('推送历史'), '通知页→推送历史（方向切换）');
+        await _settle(tester, seconds: 2);
+        await _tap(tester, _in(HistoryPage, find.text('收件（幻念）')), '历史页→收件（幻念）');
+        await _settle(tester, seconds: 2);
+        // 这台模拟器上没有幻念收件 ⇒ 只允许说"还没有收到过消息"那一句。
+        // 出现转发那一侧的行 = 两份数据源串了；一句都不说 = 读不到与没有货同一张脸。
+        expect(
+          find.text('还没有收到过消息'),
+          findsOneWidget,
+          reason: '收件档没有自己的空态 ⇒ "没读过"与"没有货"在屏幕上分不出来',
         );
         expect(
-          captured['startNotificationListener'],
-          isNotNull,
-          reason: '点服务开关没有下发 startNotificationListener',
-        );
-        await _tap(
-          tester,
-          find.byKey(const ValueKey<String>('service-toggle')),
-          '通知页服务开关(关)',
+          find.text('闸门通知一'),
+          findsNothing,
+          reason: '切到收件档还看得见转发的行 ⇒ 方向只是换了个高亮，没换数据源',
         );
         expect(
-          captured['stopNotificationListener'],
-          isNotNull,
-          reason: '再点一次应下发 stopNotificationListener',
+          find.byWidgetPredicate(
+            (w) =>
+                w.key is ValueKey &&
+                '${(w.key as ValueKey).value}'.startsWith('fnthink-inbox-row-'),
+          ),
+          findsNothing,
+          reason: '空态下不该有收件行',
         );
-      });
-      await _step(tester, gateFailures, '2 权限设置页：进页读三态', () async {
-        // ── 2. 权限设置页：进入即读三态权限，页面必须渲染且不抛 ──────────────
-        await _tap(tester, find.text('权限设置'), '通知页→权限设置');
-        await _onPage(tester, PermissionSettingsPage, '权限设置页');
-        await _backToHome(tester);
-      });
-      await _step(tester, gateFailures, '3 短信监听页：两个开关 + SIM 选择', () async {
-        // ── 3. 短信监听页：两个开关 + SIM 卡选择 ────────────────────────────
-        await _tap(tester, find.text('短信监听'), '通知页→短信监听');
-        await _onPage(tester, SmsMonitorSettingsPage, '短信监听页');
-        final smsSwitches = _in(
-          SmsMonitorSettingsPage,
-          find.byType(CupertinoSwitch),
-        );
-        expect(smsSwitches, findsNWidgets(2), reason: '短信监听页应有两个开关');
-        await _tap(tester, smsSwitches.at(1), '监听验证码开关');
-        await _tap(tester, find.text('仅卡1'), 'SIM 卡选择「仅卡1」');
-        final smsSets = (captured['setSmsSetting'] ?? const [])
-            .map((a) => (a.first as Map)['key'])
-            .toList();
-        expect(
-          smsSets,
-          containsAll(<String>['sms_code_monitor_enabled', 'sms_sim_filter']),
-          reason: '开关与卡选择都必须回写原生，否则后台读不到新配置',
-        );
-        await _backToHome(tester);
-      });
-      await _step(tester, gateFailures, '4 推送历史页：进页 + 导出 JSON（真落盘）', () async {
-        // ── 4. 推送历史页：进入 + 溢出菜单里的导出 JSON（真落盘）─────────────
-        await _tap(tester, find.text('推送历史'), '通知页→推送历史');
+        await _tap(tester, _in(HistoryPage, find.text('转发')), '历史页→切回转发');
         await _settle(tester, seconds: 2);
         expect(
           find.text('闸门通知一'),
           findsWidgets,
-          reason: '注入的历史记录没出现在列表里（loadRecords/DB 链路）',
-        );
-        await _tap(
-          tester,
-          _in(HistoryPage, find.byIcon(Icons.more_horiz)),
-          '历史页溢出菜单',
-        );
-        await _settle(tester);
-        await _tap(tester, find.text('导出 JSON'), '历史页→导出 JSON');
-        await _settle(tester);
-        // 导出前有一步确认弹层（main_page_actions 的 exportBtn），不点它 saveFile 不会发生
-        await _tap(tester, find.text('确定导出'), '历史页导出→确定导出');
-        await _settle(tester, seconds: 3);
-        expect(
-          writtenFiles.keys.any((n) => n.endsWith('.json')),
-          isTrue,
-          reason: '导出生成没有真的走 saveFile？（历史 JSON 导出是运维取数唯一出口）',
-        );
-        // T05：历史记录卡的长按动作表。本批把它就地写的整份弹层搬进了共用组件，
-        // 所以这里必须真展开一次 —— 只展开再收起，不点「屏蔽」，
-        // 那会改掉后面各节依赖的过滤配置（闸门要可重复）。
-        await _longPress(tester, find.text('闸门通知一'), '历史记录行');
-        // 限定在弹层里 + 精确文本：这一项的**副标题**也含"屏蔽该应用"五个字
-        // （闸门第一轮就是被这条 loose 断言打红的：textContaining 一次数到两个）。
-        final blockAppItem = find.descendant(
-          of: find.byType(CardActionSheet),
-          matching: find.text('屏蔽该应用的通知'),
-        );
-        expect(
-          blockAppItem,
-          findsOneWidget,
-          reason: '长按弹层没出来 ⇒ CardActionSheet 在真机手势区上不可用',
-        );
-        await tester.tapAt(const Offset(10, 10));
-        await _settle(tester);
-        expect(
-          find.byType(CardActionSheet),
-          findsNothing,
-          reason: '点遮罩关不掉弹层 ⇒ 用户被卡在动作表里',
+          reason: '切回来列表空了 ⇒ 两个方向共用一份 state（切回去时没重读自己的那一份）',
         );
         await _backToHome(tester);
-      });
-      await _step(
-        tester,
-        gateFailures,
-        '4.1 推送历史页的方向切换：切到「收件（幻念）」再切回来',
-        () async {
-          // 为什么单开一步：T48 第一片把方向做成**数据源切换**（两张表分页口径不同，拼进同一条时间线
-          // 的表现是翻页时同一条出现两次或整条不出现），而闸门此前只进过这一页的"转发"那一侧 ——
-          // 收件那一档在设备上从没被点开过，与"幻念推送页整页是闸门盲区"是同一类洞。
-          await _tap(tester, find.text('推送历史'), '通知页→推送历史（方向切换）');
-          await _settle(tester, seconds: 2);
-          await _tap(
-            tester,
-            _in(HistoryPage, find.text('收件（幻念）')),
-            '历史页→收件（幻念）',
-          );
-          await _settle(tester, seconds: 2);
-          // 这台模拟器上没有幻念收件 ⇒ 只允许说"还没有收到过消息"那一句。
-          // 出现转发那一侧的行 = 两份数据源串了；一句都不说 = 读不到与没有货同一张脸。
-          expect(
-            find.text('还没有收到过消息'),
-            findsOneWidget,
-            reason: '收件档没有自己的空态 ⇒ "没读过"与"没有货"在屏幕上分不出来',
-          );
-          expect(
-            find.text('闸门通知一'),
-            findsNothing,
-            reason: '切到收件档还看得见转发的行 ⇒ 方向只是换了个高亮，没换数据源',
-          );
-          expect(
-            find.byWidgetPredicate(
-              (w) =>
-                  w.key is ValueKey &&
-                  '${(w.key as ValueKey).value}'.startsWith(
-                    'fnthink-inbox-row-',
-                  ),
-            ),
-            findsNothing,
-            reason: '空态下不该有收件行',
-          );
-          await _tap(tester, _in(HistoryPage, find.text('转发')), '历史页→切回转发');
-          await _settle(tester, seconds: 2);
-          expect(
-            find.text('闸门通知一'),
-            findsWidgets,
-            reason: '切回来列表空了 ⇒ 两个方向共用一份 state（切回去时没重读自己的那一份）',
-          );
-          await _backToHome(tester);
-        },
-      );
-      await _step(
-        tester,
-        gateFailures,
-        '4.2 收件档"有货"的那一半：列表行 → 详情 → 点开即已读',
-        () async {
-          // 4.1 只能证"空态说人话"。这一格证的是**有货的时候**：这台模拟器没有服务端可连，
-          // 而闸门用的是真实加密库（不是替身），所以直接往 `fnthink_messages` 塞一行，
-          // 让"列表里那一行 / 未读点 / 详情里的标题与正文 / 点开即已读"这四件事在设备上各留一次证据。
-          // ⚠ 首页那张未读卡**不在这里断言**：它的数只在服务启动与 resumed 时重取
-          //    （`main_page.dart:184/283`），而注入发生在页面装配之后 —— 在这儿断"卡该出现"
-          //    要么是假红、要么得写成软断言（更糟）。那一格由 widget 用例证。
-          const gateId = 'gate_inbox_1';
-          final helper = DatabaseHelper();
-          final db = await helper.database;
-          Future<void> drop() async {
-            await db.delete(
-              FnthinkInboxMessage.table,
-              where: 'message_id = ?',
-              whereArgs: [gateId],
-            );
-          }
-
-          // 先清一次：上一轮没收干净的话，幂等插入会返回 false，那条断言就说不清是谁的错
-          await drop();
-          final inserted = await helper.insertFnthinkInbox(
-            const FnthinkInboxMessage(
-              messageId: gateId,
-              sender: '8KMNPQRSTVWX999777',
-              type: 'notice',
-              item: '',
-              title: '闸门收件一',
-              body: '闸门注入的收件正文',
-              receivedAt: 1767223200000,
-            ),
-          );
-          expect(inserted, isTrue, reason: '注入没落库 ⇒ 后面每一条断言都是在演一场空');
-
-          await _tap(tester, find.text('推送历史'), '通知页→推送历史（注入之后）');
-          await _settle(tester, seconds: 2);
-          await _tap(
-            tester,
-            _in(HistoryPage, find.text('收件（幻念）')),
-            '历史页→收件（幻念）（有货）',
-          );
-          await _settle(tester, seconds: 2);
-          final row = find.byKey(const ValueKey('fnthink-inbox-row-$gateId'));
-          expect(
-            row,
-            findsOneWidget,
-            reason: '表里有一条而列表不列 ⇒ 这一档读的不是那张表（或被 read 那一列滤掉）',
-          );
-          expect(
-            find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
-            findsOneWidget,
-            reason: '未读点不在 ⇒ 用户没法区分"看过没有"（它只该跟着 read 那一列走）',
-          );
-          expect(
-            find.text('还没有收到过消息'),
-            findsNothing,
-            reason: '有货还报空态 ⇒ 4.1 那条空态断言此刻是反的',
-          );
-
-          await _tap(tester, row, '收件行→详情');
-          await _settle(tester, seconds: 1);
-          final sheet = find.byType(BottomSheet);
-          expect(
-            find.descendant(of: sheet, matching: find.text('闸门收件一')),
-            findsOneWidget,
-            reason: '详情弹层没起来，或起来了而没有标题',
-          );
-          expect(
-            find.descendant(of: sheet, matching: find.text('闸门注入的收件正文')),
-            findsOneWidget,
-            reason: '详情里没有正文 ⇒ 只给标题的那一格不算"看过"',
-          );
-          // "点开即已读"写在 `await showModalBottomSheet(...)` **之后** ⇒ 必须先把弹层关掉，
-          // 才轮到那一次 markRead + 重读表（点遮罩关，与第 4 步收长按弹层同一个动作）。
-          await tester.tapAt(const Offset(10, 10));
-          await _settle(tester, seconds: 2);
-          expect(
-            find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
-            findsNothing,
-            reason: '关掉详情还在标未读 ⇒ 点开即已读那一刀没接上（或页面自己留了份状态没重读表）',
-          );
-          expect(row, findsOneWidget, reason: '已读不该把那一行从历史里抹掉（它只是变成"看过的"）');
-          expect(
-            await helper.countFnthinkInboxUnread(),
-            0,
-            reason: '库里那一行的 read 没翻过去',
-          );
-          await drop(); // 闸门要可重复跑：留着它，下一轮的 4.1 就不再是空态
-          await _backToHome(tester);
-        },
-      );
-      await _verdict(tester, gateFailures, '闸门 1/4');
-    },
-    timeout: Timeout(gateCaseBudgetFor(_caseABudget)),
-  );
-
-  testWidgets(
-    '闸门 2/4 三族通道 CRUD：webhook 两页形状 / 邮件 / 自建应用',
-    (tester) async {
-      final gateFailures = <String, String>{};
-      await _assemble(tester, () async {
-        // 4.3 要看的是首页那张未读卡，而它的数只在 `_postInit`（主界面起来那一次）与
-        // `resumed` 时取 ⇒ 必须在 `pumpWidget` **之前**灌好，`_assemble` 的 seed 就是这个位置。
+      },
+    );
+    await _step(
+      tester,
+      gateFailures,
+      '4.2 收件档"有货"的那一半：列表行 → 详情 → 点开即已读',
+      () async {
+        // 4.1 只能证"空态说人话"。这一格证的是**有货的时候**：这台模拟器没有服务端可连，
+        // 而闸门用的是真实加密库（不是替身），所以直接往 `fnthink_messages` 塞一行，
+        // 让"列表里那一行 / 未读点 / 详情里的标题与正文 / 点开即已读"这四件事在设备上各留一次证据。
+        // ⚠ 首页那张未读卡**不在这里断言**：它的数只在服务启动与 resumed 时重取
+        //    （`main_page.dart:184/283`），而注入发生在页面装配之后 —— 在这儿断"卡该出现"
+        //    要么是假红、要么得写成软断言（更糟）。那一格由 widget 用例证。
+        const gateId = 'gate_inbox_1';
         final helper = DatabaseHelper();
-        // ⚠ 日期必须是"刚刚"，不许写死：T47 的收件保留裁剪跑在首页启动那一发
-        // （`_startHealthProbeCadence`），缺省档 30 天。这三条灌在 `pumpWidget` **之前**，
-        // 而旧写法那个 2026-01-01 的固定戳离今天二百多天 ⇒ 启动那一扫把它们删了，于是这
-        // 一步从 10-18 起恒红。用户首页有未读时那条本来就是这几分钟内的东西，桩照这个写；
-        // 「按天数删」这一半 `test/database/fnthink_inbox_test.dart` 早钉着，
-        // 「扫过就要重取读数」与「全仓只有首页这一发在扫」钉在
-        // `test/architecture/fnthink_retention_guard_test.dart`。
-        final seedAt = DateTime.now().millisecondsSinceEpoch - 60000;
-        for (final (id, wasRead) in const [
-          ('gate_home_1', false),
-          ('gate_home_2', true),
-          ('gate_home_3', true),
+        final db = await helper.database;
+        Future<void> drop() async {
+          await db.delete(
+            FnthinkInboxMessage.table,
+            where: 'message_id = ?',
+            whereArgs: [gateId],
+          );
+        }
+
+        // 先清一次：上一轮没收干净的话，幂等插入会返回 false，那条断言就说不清是谁的错
+        await drop();
+        final inserted = await helper.insertFnthinkInbox(
+          const FnthinkInboxMessage(
+            messageId: gateId,
+            sender: '8KMNPQRSTVWX999777',
+            type: 'notice',
+            item: '',
+            title: '闸门收件一',
+            body: '闸门注入的收件正文',
+            receivedAt: 1767223200000,
+          ),
+        );
+        expect(inserted, isTrue, reason: '注入没落库 ⇒ 后面每一条断言都是在演一场空');
+
+        await _tap(tester, find.text('推送历史'), '通知页→推送历史（注入之后）');
+        await _settle(tester, seconds: 2);
+        await _tap(
+          tester,
+          _in(HistoryPage, find.text('收件（幻念）')),
+          '历史页→收件（幻念）（有货）',
+        );
+        await _settle(tester, seconds: 2);
+        final row = find.byKey(const ValueKey('fnthink-inbox-row-$gateId'));
+        expect(
+          row,
+          findsOneWidget,
+          reason: '表里有一条而列表不列 ⇒ 这一档读的不是那张表（或被 read 那一列滤掉）',
+        );
+        expect(
+          find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
+          findsOneWidget,
+          reason: '未读点不在 ⇒ 用户没法区分"看过没有"（它只该跟着 read 那一列走）',
+        );
+        expect(
+          find.text('还没有收到过消息'),
+          findsNothing,
+          reason: '有货还报空态 ⇒ 4.1 那条空态断言此刻是反的',
+        );
+
+        await _tap(tester, row, '收件行→详情');
+        await _settle(tester, seconds: 1);
+        final sheet = find.byType(BottomSheet);
+        expect(
+          find.descendant(of: sheet, matching: find.text('闸门收件一')),
+          findsOneWidget,
+          reason: '详情弹层没起来，或起来了而没有标题',
+        );
+        expect(
+          find.descendant(of: sheet, matching: find.text('闸门注入的收件正文')),
+          findsOneWidget,
+          reason: '详情里没有正文 ⇒ 只给标题的那一格不算"看过"',
+        );
+        // "点开即已读"写在 `await showModalBottomSheet(...)` **之后** ⇒ 必须先把弹层关掉，
+        // 才轮到那一次 markRead + 重读表（点遮罩关，与第 4 步收长按弹层同一个动作）。
+        await tester.tapAt(const Offset(10, 10));
+        await _settle(tester, seconds: 2);
+        expect(
+          find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
+          findsNothing,
+          reason: '关掉详情还在标未读 ⇒ 点开即已读那一刀没接上（或页面自己留了份状态没重读表）',
+        );
+        expect(row, findsOneWidget, reason: '已读不该把那一行从历史里抹掉（它只是变成"看过的"）');
+        expect(
+          await helper.countFnthinkInboxUnread(),
+          0,
+          reason: '库里那一行的 read 没翻过去',
+        );
+        await drop(); // 闸门要可重复跑：留着它，下一轮的 4.1 就不再是空态
+        await _backToHome(tester);
+      },
+    );
+    await _verdict(tester, gateFailures, '闸门 1/4');
+  }, timeout: Timeout(gateCaseBudgetFor(_caseABudget)));
+
+  testWidgets('闸门 2/4 三族通道 CRUD：webhook 两页形状 / 邮件 / 自建应用', (tester) async {
+    final gateFailures = <String, String>{};
+    await _assemble(tester, () async {
+      // 4.3 要看的是首页那张未读卡，而它的数只在 `_postInit`（主界面起来那一次）与
+      // `resumed` 时取 ⇒ 必须在 `pumpWidget` **之前**灌好，`_assemble` 的 seed 就是这个位置。
+      final helper = DatabaseHelper();
+      // ⚠ 日期必须是"刚刚"，不许写死：T47 的收件保留裁剪跑在首页启动那一发
+      // （`_startHealthProbeCadence`），缺省档 30 天。这三条灌在 `pumpWidget` **之前**，
+      // 而旧写法那个 2026-01-01 的固定戳离今天二百多天 ⇒ 启动那一扫把它们删了，于是这
+      // 一步从 10-18 起恒红。用户首页有未读时那条本来就是这几分钟内的东西，桩照这个写；
+      // 「按天数删」这一半 `test/database/fnthink_inbox_test.dart` 早钉着，
+      // 「扫过就要重取读数」与「全仓只有首页这一发在扫」钉在
+      // `test/architecture/fnthink_retention_guard_test.dart`。
+      final seedAt = DateTime.now().millisecondsSinceEpoch - 60000;
+      for (final (id, wasRead) in const [
+        ('gate_home_1', false),
+        ('gate_home_2', true),
+        ('gate_home_3', true),
+      ]) {
+        await helper.insertFnthinkInbox(
+          FnthinkInboxMessage(
+            messageId: id,
+            sender: '8KMNPQRSTVWX999777',
+            type: 'notice',
+            item: '',
+            title: '闸门首页卡 $id',
+            body: '闸门注入：证首页未读数的来源',
+            receivedAt: seedAt,
+            read: wasRead,
+          ),
+        );
+      }
+    });
+    await _step(
+      tester,
+      gateFailures,
+      '4.3 首页「幻念收件」入口卡：数只数未读，点进去就是那一档',
+      () async {
+        // 三条注入里只有一条未读 ⇒ 这一格钉的不是"卡有没有"，而是**那个数是从表里算的**：
+        // 写死、或把已读也数进去，都会在这里红（"未读 3 条"与"未读 1 条"在用户眼里是两件事）。
+        const entry = '幻念收件';
+        final card = find.text(entry);
+        // ⚠ 先滚到那一格再收文字：首页是 ListView，视口外的卡根本没 build
+        //（5.15 第一轮就是这么红的，本仓记过几次的同一类假红）。
+        await _scrollUntil(tester, card);
+        await _settle(tester, seconds: 1);
+        expect(card, findsOneWidget, reason: '有未读而首页没有入口卡 ⇒ 收件只能靠用户自己想起去历史页找');
+        expect(
+          find.text('未读 1 条'),
+          findsOneWidget,
+          reason: '入口卡的数不对：三条里两条已读，只该说 1（这一格是"数从表里算"的唯一现场证据）',
+        );
+        await _tap(tester, card, '首页→幻念收件入口卡');
+        await _settle(tester, seconds: 2);
+        for (final id in ['gate_home_1', 'gate_home_2', 'gate_home_3']) {
+          expect(
+            find.byKey(ValueKey('fnthink-inbox-row-$id')),
+            findsOneWidget,
+            reason: '入口卡点进来少了一行（$id）⇒ 两处读的不是同一张表',
+          );
+        }
+        expect(
+          find.byKey(const ValueKey('fnthink-inbox-unread-gate_home_1')),
+          findsOneWidget,
+          reason: '未读那条没点 ⇒ 用户找不到"哪条没看"',
+        );
+        expect(
+          find.byKey(const ValueKey('fnthink-inbox-unread-gate_home_2')),
+          findsNothing,
+          reason: '已读那条还画着未读点 ⇒ 点在骗人（它只该跟着 read 那一列）',
+        );
+        final db = await DatabaseHelper().database;
+        await db.delete(
+          FnthinkInboxMessage.table,
+          where: 'message_id LIKE ?',
+          whereArgs: ['gate_home_%'],
+        );
+        await _backToHome(tester);
+      },
+    );
+    await _step(
+      tester,
+      gateFailures,
+      '4.4 历史页「全部」档：三段并排、每行有来源标识、返回不炸',
+      () async {
+        // T84 的形状是"三段各自翻页"，不是拼成一条时间线。闸门要证的恰恰是
+        // **第三段没有安静地消失**：收件与发出这两段此前从没在设备上同过屏（4.1/4.2 只看单档）。
+        // 用真库注入（这台模拟器没有服务端可连），事后清干净 —— 闸门不留余温。
+        const inId = 'gate_all_in';
+        const outId = 'gate_all_out';
+        final helper = DatabaseHelper();
+        final db = await helper.database;
+        await db.delete(
+          FnthinkInboxMessage.table,
+          where: 'message_id LIKE ?',
+          whereArgs: ['gate_all_%'],
+        );
+        for (final (id, title, dir) in const [
+          (inId, '闸门全部档收件一', kFnthinkDirectionIn),
+          (outId, '闸门全部档发出一', kFnthinkDirectionOut),
         ]) {
-          await helper.insertFnthinkInbox(
+          final inserted = await helper.insertFnthinkInbox(
             FnthinkInboxMessage(
               messageId: id,
               sender: '8KMNPQRSTVWX999777',
               type: 'notice',
               item: '',
-              title: '闸门首页卡 $id',
-              body: '闸门注入：证首页未读数的来源',
-              receivedAt: seedAt,
-              read: wasRead,
+              title: title,
+              body: '闸门注入：全部档里属于它的那一段',
+              receivedAt: 1767223200000,
+              direction: dir,
             ),
           );
+          expect(inserted, isTrue, reason: '注入没落库（$id）⇒ 后面每一条断言都是在演一场空');
         }
-      });
-      await _step(
-        tester,
-        gateFailures,
-        '4.3 首页「幻念收件」入口卡：数只数未读，点进去就是那一档',
-        () async {
-          // 三条注入里只有一条未读 ⇒ 这一格钉的不是"卡有没有"，而是**那个数是从表里算的**：
-          // 写死、或把已读也数进去，都会在这里红（"未读 3 条"与"未读 1 条"在用户眼里是两件事）。
-          const entry = '幻念收件';
-          final card = find.text(entry);
-          // ⚠ 先滚到那一格再收文字：首页是 ListView，视口外的卡根本没 build
-          //（5.15 第一轮就是这么红的，本仓记过几次的同一类假红）。
-          await _scrollUntil(tester, card);
-          await _settle(tester, seconds: 1);
-          expect(
-            card,
-            findsOneWidget,
-            reason: '有未读而首页没有入口卡 ⇒ 收件只能靠用户自己想起去历史页找',
-          );
-          expect(
-            find.text('未读 1 条'),
-            findsOneWidget,
-            reason: '入口卡的数不对：三条里两条已读，只该说 1（这一格是"数从表里算"的唯一现场证据）',
-          );
-          await _tap(tester, card, '首页→幻念收件入口卡');
-          await _settle(tester, seconds: 2);
-          for (final id in ['gate_home_1', 'gate_home_2', 'gate_home_3']) {
-            expect(
-              find.byKey(ValueKey('fnthink-inbox-row-$id')),
-              findsOneWidget,
-              reason: '入口卡点进来少了一行（$id）⇒ 两处读的不是同一张表',
-            );
-          }
-          expect(
-            find.byKey(const ValueKey('fnthink-inbox-unread-gate_home_1')),
-            findsOneWidget,
-            reason: '未读那条没点 ⇒ 用户找不到"哪条没看"',
-          );
-          expect(
-            find.byKey(const ValueKey('fnthink-inbox-unread-gate_home_2')),
-            findsNothing,
-            reason: '已读那条还画着未读点 ⇒ 点在骗人（它只该跟着 read 那一列）',
-          );
-          final db = await DatabaseHelper().database;
-          await db.delete(
-            FnthinkInboxMessage.table,
-            where: 'message_id LIKE ?',
-            whereArgs: ['gate_home_%'],
-          );
-          await _backToHome(tester);
-        },
-      );
-      await _step(
-        tester,
-        gateFailures,
-        '4.4 历史页「全部」档：三段并排、每行有来源标识、返回不炸',
-        () async {
-          // T84 的形状是"三段各自翻页"，不是拼成一条时间线。闸门要证的恰恰是
-          // **第三段没有安静地消失**：收件与发出这两段此前从没在设备上同过屏（4.1/4.2 只看单档）。
-          // 用真库注入（这台模拟器没有服务端可连），事后清干净 —— 闸门不留余温。
-          const inId = 'gate_all_in';
-          const outId = 'gate_all_out';
-          final helper = DatabaseHelper();
-          final db = await helper.database;
-          await db.delete(
-            FnthinkInboxMessage.table,
-            where: 'message_id LIKE ?',
-            whereArgs: ['gate_all_%'],
-          );
-          for (final (id, title, dir) in const [
-            (inId, '闸门全部档收件一', kFnthinkDirectionIn),
-            (outId, '闸门全部档发出一', kFnthinkDirectionOut),
-          ]) {
-            final inserted = await helper.insertFnthinkInbox(
-              FnthinkInboxMessage(
-                messageId: id,
-                sender: '8KMNPQRSTVWX999777',
-                type: 'notice',
-                item: '',
-                title: title,
-                body: '闸门注入：全部档里属于它的那一段',
-                receivedAt: 1767223200000,
-                direction: dir,
-              ),
-            );
-            expect(inserted, isTrue, reason: '注入没落库（$id）⇒ 后面每一条断言都是在演一场空');
-          }
-          await _tap(tester, find.text('推送历史'), '首页→推送历史（要看全部档的那一次）');
-          await _settle(tester, seconds: 2);
-          await _tap(
-            tester,
-            _in(HistoryPage, find.byKey(const ValueKey('direction-chip-all'))),
-            '历史页→全部档',
-          );
-          await _settle(tester, seconds: 2);
-          // ⚠ 先滚到那一段再断言：ListView 懒建，视口外的标题根本没 build，
-          //    那时"找不到"是闸门自己的红（5.15 与冒烟 2 各这样红过一次，本仓记过几次）。
-          for (final kind in const ['forwarded', 'inbox', 'sent']) {
-            final header = find.byKey(ValueKey('history-all-header-$kind'));
-            await _scrollUntil(tester, header);
-            expect(
-              header,
-              findsOneWidget,
-              reason:
-                  '全部档少了「$kind」那一段的标题 ⇒ 三段里有一段被安静地吞掉了。'
-                  '少一段与三段都在，用户看到的是同一句"这就是全部"',
-            );
-            // 判据③：段标题**不带数字**（第四种计数会让人以为全部档另有一本账）。
-            // ⚠ 那一枚 key 以前挂在外层 `Padding` 上、T146 片4 之后挂在**画出来的那一格**上，
-            //   所以这里必须走 `_keyedTitle`（两种宿主都读）并**先断非空**：
-            //   只按 descendant 读会拼出恒空串，而"不许有数字"对空串恒真 ⇒ 闸门绿着什么都没量到。
-            final title = _keyedTitle(tester, header);
-            expect(
-              title,
-              isNotEmpty,
-              reason:
-                  '「$kind」那一段的标题读出来是空的 ⇒ 要么那一格被搬走了，'
-                  '要么下面那句"不许有数字"正在对空串恒真（那是假绿，不是通过）',
-            );
-            expect(
-              find.ancestor(of: header, matching: find.byType(FnthinkRowLabel)),
-              findsOneWidget,
-              reason:
-                  '那一格还在、画它的却不是组标题那枚公共件 ⇒ 这一族又长出第二个作者，'
-                  '字号与字重各漂各的（T146 片4 治的就是这件事）',
-            );
-            expect(
-              RegExp(r'\d').hasMatch(title),
-              isFalse,
-              reason: '段标题里冒出数字 ⇒ 这一档开始自己计数，而它没有那份数据源',
-            );
-          }
-          for (final id in const [inId, outId]) {
-            final row = find.byKey(ValueKey('fnthink-inbox-row-$id'));
-            await _scrollUntil(tester, row);
-            expect(
-              row,
-              findsOneWidget,
-              reason: '切到全部档看不到注入的那一行（$id）⇒ 它读的不是同一张表的那份账',
-            );
-          }
-          for (final tag in const ['收', '发']) {
-            final badge = find.byKey(ValueKey('history-all-tag-$tag'));
-            expect(badge, findsWidgets, reason: '行首没有来源标识 ⇒ 三段并排变成一屏看不出归属的流水账');
-          }
-          await db.delete(
-            FnthinkInboxMessage.table,
-            where: 'message_id LIKE ?',
-            whereArgs: ['gate_all_%'],
-          );
-          // 「返回不炸」不是废话：这一档是三段叠在一个可滚容器里，返回时若还有在途的一轮读，
-          // 页面销毁之后 setState 就会红在这一发上。
-          await _backToHome(tester);
-        },
-      );
-      await _step(
-        tester,
-        gateFailures,
-        '5.1 更多 tab 入口 + webhook 列表/详情两页形状',
-        () async {
-          // ── 5. 更多 tab：以下每个入口逐个进页，页面级 CRUD 各自走完 ──────────
-          await _tap(
-            tester,
-            find.descendant(
-              of: find.byType(NavigationBar),
-              matching: find.text('更多'),
-            ),
-            '底部 tab→更多',
-          );
-          await _onPage(tester, MorePage, '更多页');
-
-          // 5.1 Webhook 通道（T07-B 起是「列表页 → 单通道详情页」两页形状）：
-          //     FAB 建第一条 → 仅测试（不许写库）→ 测试并保存 → 回列表 → 建第二条 →
-          //     点第一条行进详情改一处 → 断言第二条原样 → 长按复制 → 长按删除并确认。
-          //     删完必须断言"活下来的是哪一条"：删一行后其余行继承错位 id 是这个页面
-          //     真实发生过的缺陷类别（平铺页保存走整表 delete+insert）。
-          await _openMoreRow(tester, 'Webhook 推送通道');
-          await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页');
-          const dingUrl =
-              'https://oapi.dingtalk.com/robot/send?access_token=gate';
-          const wecomUrl = _gateWecomUrl;
-
-          await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增');
-          await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(新增)');
-          await _fillWebhookUrl(tester, dingUrl);
-          // URL 填完 ⇒ 类型选择器应显出「自动识别·钉钉」：描述符与 host 识别表都在工作
-          expect(
-            find.textContaining('自动识别'),
-            findsWidgets,
-            reason: '填完 URL 后类型选择器没有按 host 识别 ⇒ 描述符/识别表断链',
-          );
-          // T04「仅测试」：与「测试并保存」是两条路径 ⇒ 它**不写库**（这一条还没 id，
-          // 更没有归属，健康单点也不该被写）。
-          await _tap(tester, _appBarText('仅测试'), 'Webhook→仅测试');
-          await _settle(tester, seconds: 2);
-          expect(
-            find.byType(WebhookSettingsPage),
-            findsOneWidget,
-            reason: '「仅测试」把用户弹出详情页 = 它偷偷走了保存那条路',
-          );
-          expect(
-            GetIt.instance<WebhookService>().channels,
-            isEmpty,
-            reason: '「仅测试」按定义不落库',
-          );
-          await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第一条)');
-          await _settle(tester, seconds: 2);
-          final firstRow = GetIt.instance<WebhookService>().channels;
-          expect(firstRow, hasLength(1), reason: '第一条通道没存进去');
-          final webhookFirstId = firstRow.first['id'].toString();
-          expect(
-            GetIt.instance<ChannelHealthStore>()
-                .of('webhook', webhookFirstId)
-                ?.reachable,
-            isTrue,
-            reason: '「测试并保存」的结论没落单点 ⇒ 配置异常冒不到首页（T04 的链路断在这）',
-          );
-
-          _nav(tester).pop();
-          await _settle(tester, seconds: 2);
-          await _onPage(tester, WebhookChannelListPage, '返回 Webhook 列表页');
-          expect(
-            find.textContaining('oapi.dingtalk.com'),
-            findsOneWidget,
-            reason: '列表行没显示这条通道的目标主机 ⇒ 用户分不清自己有几条同名通道',
-          );
-
-          // 第二条：一次只改一件事，红的时候能点名
-          _mark('5.1 建第二条（一次只改一件事）');
-          await _tap(
-            tester,
-            find.byType(FloatingActionButton),
-            'Webhook→新增第二条',
-          );
-          await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(第二条)');
-          await _fillWebhookUrl(tester, wecomUrl);
-          await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第二条)');
-          await _settle(tester, seconds: 2);
-          _nav(tester).pop();
-          await _settle(tester, seconds: 2);
-          expect(
-            GetIt.instance<WebhookService>().channels.map((c) => c['url']),
-            containsAll(<String>[dingUrl, wecomUrl]),
-            reason: '两条通道没能都存进去（保存时把已有那条丢了 = 整表快照还没拆干净）',
-          );
-
-          // T07-B 的核心不变量：改一条，另一条一个字节都不许动
-          await _tap(
-            tester,
-            find.byKey(ValueKey('webhook-channel-row-$webhookFirstId')),
-            'Webhook→点第一条行进详情',
-          );
-          await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(改第一条)');
-          expect(
-            find.text(dingUrl),
-            findsOneWidget,
-            reason: '详情页打开的不是被点那条 ⇒ channelId 传丢了',
-          );
-          await _type(
-            tester,
-            find.byWidgetPredicate(
-              (w) =>
-                  w is TextField &&
-                  (w.decoration?.hintText ?? '').startsWith('通道名称'),
-            ),
-            '闸门钉钉',
-            'Webhook 名称输入框',
-          );
-          await _tap(tester, _appBarText('测试并保存'), 'Webhook→保存(改名)');
-          await _settle(tester, seconds: 2);
-          final renamed = GetIt.instance<WebhookService>().channels;
-          expect(
-            renamed.firstWhere((c) => c['id'] == webhookFirstId)['name'],
-            '闸门钉钉',
-            reason: '改的那条没生效',
-          );
-          expect(
-            renamed.firstWhere((c) => c['url'] == wecomUrl)['name'],
-            '',
-            reason: '改一条把另一条的名字也写了 ⇒ 页面还在攥整表快照',
-          );
-          _nav(tester).pop();
-          await _settle(tester, seconds: 2);
-          await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(改后)');
-
-          // 列表页的整族动作：长按复制 / 长按删除（T05 + T06）
-          _mark('5.1 列表页整族动作：长按复制 / 长按删除');
-          final row = find.byKey(
-            ValueKey('webhook-channel-row-$webhookFirstId'),
-          );
-          await _longPress(tester, row, 'Webhook 列表行');
-          await _must(
-            tester,
-            find.byType(CardActionSheet).evaluate().isNotEmpty,
-            'Webhook 行长按弹层（打不中=手势静默丢失）',
-            row,
-          );
-          await _tap(
-            tester,
-            find.descendant(
-              of: find.byType(CardActionSheet),
-              matching: find.text('复制'),
-            ),
-            'Webhook→长按→复制',
-          );
-          await _settle(tester, seconds: 2);
-          final tripled = GetIt.instance<WebhookService>().channels;
-          expect(
-            tripled,
-            hasLength(3),
-            reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状',
-          );
-          expect(
-            tripled.map((c) => c['id']).toSet(),
-            hasLength(3),
-            reason: '三条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中三条',
-          );
-          final webhookCopyId = tripled.last['id'].toString();
-          expect(
-            GetIt.instance<ChannelHealthStore>().of('webhook', webhookCopyId),
-            isNull,
-            reason: '复制出来的那条没测过，却把原那条的健康记录一起复制了',
-          );
-
-          // 删两条（复制的那条 + 钉钉那条），只留企微那条给后面的备份与状态页用。
-          _mark('5.1 删两条：企微那条留给后面的备份与状态页');
-          //
-          // ⚠ 第二条的删除**先退出列表页再重新进来**：T07-B 的 8 轮闸门里反复出现同一个
-          // 现象 —— 用弹层删掉一行之后，在同一页上再长按另一行，行区域的手势全部无效
-          // （三种按法都没反应、同点 tap 也无效，但右下角 FAB 仍能点开详情页），树上留着
-          // 一片 `ModalBarrier(dismissible=false, color=null)`（那是**页面路由**的屏障形状）。
-          // widget 测试与手机尺寸复现都抓不到它。到底是"删完一条后本页失灵"的真缺陷，
-          // 还是 Integration Test 注入手势 + 模态路由退场的产物，**静态判不出来**，
-          // 已登记为 base.md ㉚ 的真机复验项（人手长按一次即有结论）。
-          // 这里不把它当已证伪的产品缺陷掩盖掉，也不让整条闸门永远红：改成重进页面后再删，
-          // 覆盖不变（两条都走同一个确认咽喉），只是不在"疑似失灵的那一页"上做第二次长按。
-          await _longPress(
-            tester,
-            find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
-            'Webhook 复制出来的那条',
-          );
-          await _must(
-            tester,
-            find.byType(CardActionSheet).evaluate().isNotEmpty,
-            '副本那行的长按弹层（打不中=手势静默丢失）',
-            find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
-          );
-          await _tap(
-            tester,
-            find.descendant(
-              of: find.byType(CardActionSheet),
-              matching: find.text('删除'),
-            ),
-            'Webhook→长按→删除(副本)',
-          );
-          await _confirmDelete(tester, 'Webhook 行');
-          await _settle(tester, seconds: 2);
-          final afterCopyDelete = GetIt.instance<WebhookService>().channels;
-          expect(
-            afterCopyDelete.map((c) => c['id']),
-            containsAll(<String>[webhookFirstId]),
-            reason: '删副本把原本那条一起删了 = 按 id 删除没走对',
-          );
-          expect(afterCopyDelete, hasLength(2));
-
-          // 退出列表页 → 重新进来（全新的一页），再删原本那条
-          _mark('5.1 删第二条：先退出列表页再重进（弹层删完本页手势失灵那条遗留）');
-          _nav(tester).pop();
-          await _settle(tester, seconds: 2);
-          await _openMoreRow(tester, 'Webhook 推送通道');
-          await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(重进删第二条)');
-          final dingRow = find.byKey(
-            ValueKey('webhook-channel-row-$webhookFirstId'),
-          );
-          await _longPress(tester, dingRow, 'Webhook 钉钉那条（重进后）');
-          await _must(
-            tester,
-            find.byType(CardActionSheet).evaluate().isNotEmpty,
-            '钉钉那行的长按弹层（打不中=手势静默丢失）',
-            dingRow,
-          );
-          await _tap(
-            tester,
-            find.descendant(
-              of: find.byType(CardActionSheet),
-              matching: find.text('删除'),
-            ),
-            'Webhook→长按→删除(原本)',
-          );
-          await _confirmDelete(tester, 'Webhook 行');
-          await _settle(tester, seconds: 2);
-          final kept = GetIt.instance<WebhookService>().channels;
-          expect(kept, hasLength(1), reason: '删两条后应该只剩 1 条通道');
-          expect(
-            kept.single['url'],
-            wecomUrl,
-            reason: '删错条 = 行与通道错位（备份与恢复都会跟着错）',
-          );
-          expect(
-            kept.single['channelType'],
-            'wechat_work',
-            reason: '按 URL 识别出来的类型没落库（也是后面备份往返的基准）',
-          );
-          // 本节自己 push 过页面（详情 / 重进的列表页），收尾必须回主界面：
-          // 5.2 的 _openMoreRow 是直接点底部 tab 的，不还回去就在别人的页面上找按钮。
-          await _backToHome(tester);
-        },
-      );
-      await _step(tester, gateFailures, '5.2 邮件通道：新建→填表→保存→重进改一处', () async {
-        // 5.2 邮件通道：新建 → 填表 → 保存 → 重进改一处 → 保存
-        await _openMoreRow(tester, '邮件转发通道');
-        await _onPage(tester, EmailSettingsPage, '邮件设置页');
+        await _tap(tester, find.text('推送历史'), '首页→推送历史（要看全部档的那一次）');
+        await _settle(tester, seconds: 2);
         await _tap(
           tester,
-          _in(EmailSettingsPage, find.text('添加邮件通道')),
-          '邮件→添加邮件通道',
+          _in(HistoryPage, find.byKey(const ValueKey('direction-chip-all'))),
+          '历史页→全部档',
+        );
+        await _settle(tester, seconds: 2);
+        // ⚠ 先滚到那一段再断言：ListView 懒建，视口外的标题根本没 build，
+        //    那时"找不到"是闸门自己的红（5.15 与冒烟 2 各这样红过一次，本仓记过几次）。
+        for (final kind in const ['forwarded', 'inbox', 'sent']) {
+          final header = find.byKey(ValueKey('history-all-header-$kind'));
+          await _scrollUntil(tester, header);
+          expect(
+            header,
+            findsOneWidget,
+            reason:
+                '全部档少了「$kind」那一段的标题 ⇒ 三段里有一段被安静地吞掉了。'
+                '少一段与三段都在，用户看到的是同一句"这就是全部"',
+          );
+          // 判据③：段标题**不带数字**（第四种计数会让人以为全部档另有一本账）。
+          // ⚠ 那一枚 key 以前挂在外层 `Padding` 上、T146 片4 之后挂在**画出来的那一格**上，
+          //   所以这里必须走 `_keyedTitle`（两种宿主都读）并**先断非空**：
+          //   只按 descendant 读会拼出恒空串，而"不许有数字"对空串恒真 ⇒ 闸门绿着什么都没量到。
+          final title = _keyedTitle(tester, header);
+          expect(
+            title,
+            isNotEmpty,
+            reason:
+                '「$kind」那一段的标题读出来是空的 ⇒ 要么那一格被搬走了，'
+                '要么下面那句"不许有数字"正在对空串恒真（那是假绿，不是通过）',
+          );
+          expect(
+            find.ancestor(of: header, matching: find.byType(FnthinkRowLabel)),
+            findsOneWidget,
+            reason:
+                '那一格还在、画它的却不是组标题那枚公共件 ⇒ 这一族又长出第二个作者，'
+                '字号与字重各漂各的（T146 片4 治的就是这件事）',
+          );
+          expect(
+            RegExp(r'\d').hasMatch(title),
+            isFalse,
+            reason: '段标题里冒出数字 ⇒ 这一档开始自己计数，而它没有那份数据源',
+          );
+        }
+        for (final id in const [inId, outId]) {
+          final row = find.byKey(ValueKey('fnthink-inbox-row-$id'));
+          await _scrollUntil(tester, row);
+          expect(
+            row,
+            findsOneWidget,
+            reason: '切到全部档看不到注入的那一行（$id）⇒ 它读的不是同一张表的那份账',
+          );
+        }
+        for (final tag in const ['收', '发']) {
+          final badge = find.byKey(ValueKey('history-all-tag-$tag'));
+          expect(badge, findsWidgets, reason: '行首没有来源标识 ⇒ 三段并排变成一屏看不出归属的流水账');
+        }
+        await db.delete(
+          FnthinkInboxMessage.table,
+          where: 'message_id LIKE ?',
+          whereArgs: ['gate_all_%'],
+        );
+        // 「返回不炸」不是废话：这一档是三段叠在一个可滚容器里，返回时若还有在途的一轮读，
+        // 页面销毁之后 setState 就会红在这一发上。
+        await _backToHome(tester);
+      },
+    );
+    await _step(
+      tester,
+      gateFailures,
+      '5.1 更多 tab 入口 + webhook 列表/详情两页形状',
+      () async {
+        // ── 5. 更多 tab：以下每个入口逐个进页，页面级 CRUD 各自走完 ──────────
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(NavigationBar),
+            matching: find.text('更多'),
+          ),
+          '底部 tab→更多',
+        );
+        await _onPage(tester, MorePage, '更多页');
+
+        // 5.1 Webhook 通道（T07-B 起是「列表页 → 单通道详情页」两页形状）：
+        //     FAB 建第一条 → 仅测试（不许写库）→ 测试并保存 → 回列表 → 建第二条 →
+        //     点第一条行进详情改一处 → 断言第二条原样 → 长按复制 → 长按删除并确认。
+        //     删完必须断言"活下来的是哪一条"：删一行后其余行继承错位 id 是这个页面
+        //     真实发生过的缺陷类别（平铺页保存走整表 delete+insert）。
+        await _openMoreRow(tester, 'Webhook 推送通道');
+        await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页');
+        const dingUrl =
+            'https://oapi.dingtalk.com/robot/send?access_token=gate';
+        const wecomUrl = _gateWecomUrl;
+
+        await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增');
+        await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(新增)');
+        await _fillWebhookUrl(tester, dingUrl);
+        // URL 填完 ⇒ 类型选择器应显出「自动识别·钉钉」：描述符与 host 识别表都在工作
+        expect(
+          find.textContaining('自动识别'),
+          findsWidgets,
+          reason: '填完 URL 后类型选择器没有按 host 识别 ⇒ 描述符/识别表断链',
+        );
+        // T04「仅测试」：与「测试并保存」是两条路径 ⇒ 它**不写库**（这一条还没 id，
+        // 更没有归属，健康单点也不该被写）。
+        await _tap(tester, _appBarText('仅测试'), 'Webhook→仅测试');
+        await _settle(tester, seconds: 2);
+        expect(
+          find.byType(WebhookSettingsPage),
+          findsOneWidget,
+          reason: '「仅测试」把用户弹出详情页 = 它偷偷走了保存那条路',
+        );
+        expect(
+          GetIt.instance<WebhookService>().channels,
+          isEmpty,
+          reason: '「仅测试」按定义不落库',
+        );
+        await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第一条)');
+        await _settle(tester, seconds: 2);
+        final firstRow = GetIt.instance<WebhookService>().channels;
+        expect(firstRow, hasLength(1), reason: '第一条通道没存进去');
+        final webhookFirstId = firstRow.first['id'].toString();
+        expect(
+          GetIt.instance<ChannelHealthStore>()
+              .of('webhook', webhookFirstId)
+              ?.reachable,
+          isTrue,
+          reason: '「测试并保存」的结论没落单点 ⇒ 配置异常冒不到首页（T04 的链路断在这）',
+        );
+
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _onPage(tester, WebhookChannelListPage, '返回 Webhook 列表页');
+        expect(
+          find.textContaining('oapi.dingtalk.com'),
+          findsOneWidget,
+          reason: '列表行没显示这条通道的目标主机 ⇒ 用户分不清自己有几条同名通道',
+        );
+
+        // 第二条：一次只改一件事，红的时候能点名
+        _mark('5.1 建第二条（一次只改一件事）');
+        await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增第二条');
+        await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(第二条)');
+        await _fillWebhookUrl(tester, wecomUrl);
+        await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第二条)');
+        await _settle(tester, seconds: 2);
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        expect(
+          GetIt.instance<WebhookService>().channels.map((c) => c['url']),
+          containsAll(<String>[dingUrl, wecomUrl]),
+          reason: '两条通道没能都存进去（保存时把已有那条丢了 = 整表快照还没拆干净）',
+        );
+
+        // T07-B 的核心不变量：改一条，另一条一个字节都不许动
+        await _tap(
+          tester,
+          find.byKey(ValueKey('webhook-channel-row-$webhookFirstId')),
+          'Webhook→点第一条行进详情',
+        );
+        await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(改第一条)');
+        expect(
+          find.text(dingUrl),
+          findsOneWidget,
+          reason: '详情页打开的不是被点那条 ⇒ channelId 传丢了',
+        );
+        await _type(
+          tester,
+          find.byWidgetPredicate(
+            (w) =>
+                w is TextField &&
+                (w.decoration?.hintText ?? '').startsWith('通道名称'),
+          ),
+          '闸门钉钉',
+          'Webhook 名称输入框',
+        );
+        await _tap(tester, _appBarText('测试并保存'), 'Webhook→保存(改名)');
+        await _settle(tester, seconds: 2);
+        final renamed = GetIt.instance<WebhookService>().channels;
+        expect(
+          renamed.firstWhere((c) => c['id'] == webhookFirstId)['name'],
+          '闸门钉钉',
+          reason: '改的那条没生效',
+        );
+        expect(
+          renamed.firstWhere((c) => c['url'] == wecomUrl)['name'],
+          '',
+          reason: '改一条把另一条的名字也写了 ⇒ 页面还在攥整表快照',
+        );
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(改后)');
+
+        // 列表页的整族动作：长按复制 / 长按删除（T05 + T06）
+        _mark('5.1 列表页整族动作：长按复制 / 长按删除');
+        final row = find.byKey(ValueKey('webhook-channel-row-$webhookFirstId'));
+        await _longPress(tester, row, 'Webhook 列表行');
+        await _must(
+          tester,
+          find.byType(CardActionSheet).evaluate().isNotEmpty,
+          'Webhook 行长按弹层（打不中=手势静默丢失）',
+          row,
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('复制'),
+          ),
+          'Webhook→长按→复制',
+        );
+        await _settle(tester, seconds: 2);
+        final tripled = GetIt.instance<WebhookService>().channels;
+        expect(
+          tripled,
+          hasLength(3),
+          reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状',
+        );
+        expect(
+          tripled.map((c) => c['id']).toSet(),
+          hasLength(3),
+          reason: '三条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中三条',
+        );
+        final webhookCopyId = tripled.last['id'].toString();
+        expect(
+          GetIt.instance<ChannelHealthStore>().of('webhook', webhookCopyId),
+          isNull,
+          reason: '复制出来的那条没测过，却把原那条的健康记录一起复制了',
+        );
+
+        // 删两条（复制的那条 + 钉钉那条），只留企微那条给后面的备份与状态页用。
+        _mark('5.1 删两条：企微那条留给后面的备份与状态页');
+        //
+        // ⚠ 第二条的删除**先退出列表页再重新进来**：T07-B 的 8 轮闸门里反复出现同一个
+        // 现象 —— 用弹层删掉一行之后，在同一页上再长按另一行，行区域的手势全部无效
+        // （三种按法都没反应、同点 tap 也无效，但右下角 FAB 仍能点开详情页），树上留着
+        // 一片 `ModalBarrier(dismissible=false, color=null)`（那是**页面路由**的屏障形状）。
+        // widget 测试与手机尺寸复现都抓不到它。到底是"删完一条后本页失灵"的真缺陷，
+        // 还是 Integration Test 注入手势 + 模态路由退场的产物，**静态判不出来**，
+        // 已登记为 base.md ㉚ 的真机复验项（人手长按一次即有结论）。
+        // 这里不把它当已证伪的产品缺陷掩盖掉，也不让整条闸门永远红：改成重进页面后再删，
+        // 覆盖不变（两条都走同一个确认咽喉），只是不在"疑似失灵的那一页"上做第二次长按。
+        await _longPress(
+          tester,
+          find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
+          'Webhook 复制出来的那条',
+        );
+        await _must(
+          tester,
+          find.byType(CardActionSheet).evaluate().isNotEmpty,
+          '副本那行的长按弹层（打不中=手势静默丢失）',
+          find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('删除'),
+          ),
+          'Webhook→长按→删除(副本)',
+        );
+        await _confirmDelete(tester, 'Webhook 行');
+        await _settle(tester, seconds: 2);
+        final afterCopyDelete = GetIt.instance<WebhookService>().channels;
+        expect(
+          afterCopyDelete.map((c) => c['id']),
+          containsAll(<String>[webhookFirstId]),
+          reason: '删副本把原本那条一起删了 = 按 id 删除没走对',
+        );
+        expect(afterCopyDelete, hasLength(2));
+
+        // 退出列表页 → 重新进来（全新的一页），再删原本那条
+        _mark('5.1 删第二条：先退出列表页再重进（弹层删完本页手势失灵那条遗留）');
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _openMoreRow(tester, 'Webhook 推送通道');
+        await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(重进删第二条)');
+        final dingRow = find.byKey(
+          ValueKey('webhook-channel-row-$webhookFirstId'),
+        );
+        await _longPress(tester, dingRow, 'Webhook 钉钉那条（重进后）');
+        await _must(
+          tester,
+          find.byType(CardActionSheet).evaluate().isNotEmpty,
+          '钉钉那行的长按弹层（打不中=手势静默丢失）',
+          dingRow,
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('删除'),
+          ),
+          'Webhook→长按→删除(原本)',
+        );
+        await _confirmDelete(tester, 'Webhook 行');
+        await _settle(tester, seconds: 2);
+        final kept = GetIt.instance<WebhookService>().channels;
+        expect(kept, hasLength(1), reason: '删两条后应该只剩 1 条通道');
+        expect(
+          kept.single['url'],
+          wecomUrl,
+          reason: '删错条 = 行与通道错位（备份与恢复都会跟着错）',
+        );
+        expect(
+          kept.single['channelType'],
+          'wechat_work',
+          reason: '按 URL 识别出来的类型没落库（也是后面备份往返的基准）',
+        );
+        // 本节自己 push 过页面（详情 / 重进的列表页），收尾必须回主界面：
+        // 5.2 的 _openMoreRow 是直接点底部 tab 的，不还回去就在别人的页面上找按钮。
+        await _backToHome(tester);
+      },
+    );
+    await _step(tester, gateFailures, '5.2 邮件通道：新建→填表→保存→重进改一处', () async {
+      // 5.2 邮件通道：新建 → 填表 → 保存 → 重进改一处 → 保存
+      await _openMoreRow(tester, '邮件转发通道');
+      await _onPage(tester, EmailSettingsPage, '邮件设置页');
+      await _tap(
+        tester,
+        _in(EmailSettingsPage, find.text('添加邮件通道')),
+        '邮件→添加邮件通道',
+      );
+      await _settle(tester, seconds: 1);
+      // 编辑器是 Navigator.push 出来的**裸 Scaffold 路由**（EmailSettingsPage 不在这棵子树里），
+      // 所以输入框只能按整棵树的顺序取：名称、host、端口、账号、授权码、发件人、收件人。
+      final emailFields = find.byType(TextField);
+      await _waitUntil(tester, _appBarText('测试并保存'), '邮件编辑器（AppBar 的「测试并保存」）');
+      expect(
+        emailFields.evaluate().length,
+        greaterThanOrEqualTo(7),
+        reason: '邮件表单字段数不对（名称/host/port/账号/授权码/发件/收件）',
+      );
+      const emailValues = [
+        '闸门邮箱', // name
+        'smtp.qq.com', // host
+        '465', // port
+        'gate@qq.com', // username
+        'authcode123', // password
+        'gate@qq.com', // from
+        'target@qq.com', // to
+      ];
+      for (var i = 0; i < emailValues.length; i++) {
+        await _type(tester, emailFields.at(i), emailValues[i], '邮件字段 #$i');
+      }
+      await _tap(tester, _appBarText('测试并保存'), '邮件→测试并保存');
+      await _settle(tester, seconds: 2);
+      await _backToHome(tester);
+      final mail = GetIt.instance<EmailService>().cachedChannels;
+      expect(mail, hasLength(1), reason: '邮件通道没保存成功');
+      // 逐字段回读：只断言条数的话，字段错位（host 里存了端口）也是绿的
+      expect(mail.single.smtpHost, 'smtp.qq.com', reason: '邮件字段错位（host）');
+      expect(mail.single.smtpPort, 465, reason: '邮件字段错位（port 的字符串→int 转换）');
+      expect(mail.single.fromEmail, 'gate@qq.com', reason: '邮件字段错位（from）');
+      expect(mail.single.toEmail, 'target@qq.com', reason: '邮件字段错位（to）');
+    });
+    await _step(
+      tester,
+      gateFailures,
+      '5.3 自建应用：FAB→类型弹层→必填校验→填→保存→整族动作',
+      () async {
+        // 5.3 自建应用通道：FAB → 类型弹层 → 必填校验 → 填 → 保存 → 测试
+        await _openMoreRow(tester, '自建应用通道');
+        await _onPage(tester, AppChannelListPage, '自建应用通道列表');
+        await _tap(
+          tester,
+          _in(AppChannelListPage, find.byIcon(Icons.add)),
+          '应用通道→添加(FAB)',
         );
         await _settle(tester, seconds: 1);
-        // 编辑器是 Navigator.push 出来的**裸 Scaffold 路由**（EmailSettingsPage 不在这棵子树里），
-        // 所以输入框只能按整棵树的顺序取：名称、host、端口、账号、授权码、发件人、收件人。
-        final emailFields = find.byType(TextField);
-        await _waitUntil(
+        // T07：新增从列表页发起 ⇒ FAB 先开类型弹层（列表来自原生描述符），选完才进详情页
+        await _tap(tester, find.text('企业微信自建应用'), '应用通道→类型弹层选企微');
+        await _settle(tester, seconds: 1);
+        await _onPage(tester, AppChannelSettingsPage, '应用通道详情页（单条）');
+        // ⚠ 这一节的每一步之前都留一行 GATE-MARK：2026-10-07 这一节**挂住过**（3 分钟预算用满，
+        //   TimeoutException 不指向任何一行），而挂住不会走到断言 ⇒ 没有 marks 就永远只能猜。
+        _mark('5.3 详情页已就位，先验空表必填拦截');
+        // 必填校验：空表点保存必须**点名缺哪个字段**并拒绝写入（第 5 步表单收口的承课）
+        await _tap(
           tester,
           _appBarText('测试并保存'),
-          '邮件编辑器（AppBar 的「测试并保存」）',
+          '应用通道→空表保存(应被拦)',
+          settleSeconds: 0,
         );
-        expect(
-          emailFields.evaluate().length,
-          greaterThanOrEqualTo(7),
-          reason: '邮件表单字段数不对（名称/host/port/账号/授权码/发件/收件）',
-        );
-        const emailValues = [
-          '闸门邮箱', // name
-          'smtp.qq.com', // host
-          '465', // port
-          'gate@qq.com', // username
-          'authcode123', // password
-          'gate@qq.com', // from
-          'target@qq.com', // to
-        ];
-        for (var i = 0; i < emailValues.length; i++) {
-          await _type(tester, emailFields.at(i), emailValues[i], '邮件字段 #$i');
-        }
-        await _tap(tester, _appBarText('测试并保存'), '邮件→测试并保存');
-        await _settle(tester, seconds: 2);
-        await _backToHome(tester);
-        final mail = GetIt.instance<EmailService>().cachedChannels;
-        expect(mail, hasLength(1), reason: '邮件通道没保存成功');
-        // 逐字段回读：只断言条数的话，字段错位（host 里存了端口）也是绿的
-        expect(mail.single.smtpHost, 'smtp.qq.com', reason: '邮件字段错位（host）');
-        expect(mail.single.smtpPort, 465, reason: '邮件字段错位（port 的字符串→int 转换）');
-        expect(mail.single.fromEmail, 'gate@qq.com', reason: '邮件字段错位（from）');
-        expect(mail.single.toEmail, 'target@qq.com', reason: '邮件字段错位（to）');
-      });
-      await _step(
-        tester,
-        gateFailures,
-        '5.3 自建应用：FAB→类型弹层→必填校验→填→保存→整族动作',
-        () async {
-          // 5.3 自建应用通道：FAB → 类型弹层 → 必填校验 → 填 → 保存 → 测试
-          await _openMoreRow(tester, '自建应用通道');
-          await _onPage(tester, AppChannelListPage, '自建应用通道列表');
-          await _tap(
-            tester,
-            _in(AppChannelListPage, find.byIcon(Icons.add)),
-            '应用通道→添加(FAB)',
-          );
-          await _settle(tester, seconds: 1);
-          // T07：新增从列表页发起 ⇒ FAB 先开类型弹层（列表来自原生描述符），选完才进详情页
-          await _tap(tester, find.text('企业微信自建应用'), '应用通道→类型弹层选企微');
-          await _settle(tester, seconds: 1);
-          await _onPage(tester, AppChannelSettingsPage, '应用通道详情页（单条）');
-          // ⚠ 这一节的每一步之前都留一行 GATE-MARK：2026-10-07 这一节**挂住过**（3 分钟预算用满，
-          //   TimeoutException 不指向任何一行），而挂住不会走到断言 ⇒ 没有 marks 就永远只能猜。
-          _mark('5.3 详情页已就位，先验空表必填拦截');
-          // 必填校验：空表点保存必须**点名缺哪个字段**并拒绝写入（第 5 步表单收口的承课）
-          await _tap(
-            tester,
-            _appBarText('测试并保存'),
-            '应用通道→空表保存(应被拦)',
-            settleSeconds: 0,
-          );
-          // ⚠ 不许写成「tap 后 settle 一秒，再看那句」：点名提示是一条 **2 秒**的 SnackBar，
-          //   而 `_settle` 是按墙钟循环、每圈泵 100ms 假时间 ⇒ 机器越快跨得越多，
-          //   CI run 37599710957 的 5.3 就是"提示自己被等到消失"红成 `Found 0 widgets`。
-          //   `_waitUntil` 命中即返回（最多消耗一格假时间），等不到时说的是"没等到那句话"，
-          //   与 7 节「恢复完成」那条同形。
-          await _waitUntil(
-            tester,
-            find.text('保存失败：通道名称不能为空'),
-            '空表保存的点名提示',
-            seconds: 6,
-          );
-          expect(
-            find.text('保存失败：通道名称不能为空'),
-            findsWidgets,
-            reason: '必填项缺失没有点名提示 = 用户只会看到"保存失败"四个字',
-          );
-          expect(
-            GetIt.instance<AppChannelService>().channels,
-            isEmpty,
-            reason: '必填没填却保存成功了 = 校验被绕过',
-          );
-          _mark('5.3 必填拦住了（提示已出现、没写库），开始填表');
-          // 名称 + API 地址（校验要求 HTTPS）+ 描述符声明的必填扩展参数（corpid/agentid）。
-          // 扩展参数按"仍为空的输入框"逐个填：字段集合由描述符决定，写死下标会随类型漂移。
-          await _type(
-            tester,
-            _in(AppChannelSettingsPage, find.byType(TextField)),
-            '闸门自建应用',
-            '应用通道名称',
-          );
-          await _type(
-            tester,
-            find.byWidgetPredicate(
-              (w) =>
-                  w is TextField &&
-                  (w.decoration?.hintText ?? '').startsWith('API 地址'),
-            ),
-            'https://qyapi.weixin.qq.com',
-            '应用通道 API 地址',
-          );
-          for (var i = 0; i < 6; i++) {
-            final empty = find.byWidgetPredicate(
-              (w) => w is TextField && (w.controller?.text ?? '').isEmpty,
-            );
-            if (empty.evaluate().isEmpty) break;
-            await _type(tester, empty, '闸门扩展$i', '应用通道扩展参数 #$i');
-          }
-          _mark('5.3 填完了，点「测试并保存」（这一发会走真网络测试）');
-          await _tap(tester, _appBarText('测试并保存'), '应用通道→测试并保存');
-          await _settle(tester, seconds: 2);
-          expect(
-            GetIt.instance<AppChannelService>().channels,
-            hasLength(1),
-            reason: '自建应用通道未保存（必填校验/字段键名链路）',
-          );
-          _mark('5.3 已落库 1 条');
-          // T04「仅测试」：与「测试并保存」是两个动作 ⇒ 它不写库，但结论同样要落单点。
-          _mark('5.3 仅测试：不写库，但结论照样落单点');
-          await _tap(tester, _appBarText('仅测试'), '应用通道→仅测试');
-          await _settle(tester, seconds: 2);
-          expect(
-            find.byType(AppChannelSettingsPage),
-            findsOneWidget,
-            reason: '「仅测试」按定义不保存，不该把用户弹出编辑页',
-          );
-          expect(
-            GetIt.instance<ChannelHealthStore>()
-                .of(
-                  'app',
-                  GetIt.instance<AppChannelService>().channels.first['id']
-                      .toString(),
-                )
-                ?.reachable,
-            isTrue,
-            reason: '自建应用通道的测试结论没落单点 = 三族里只有它冒不到首页',
-          );
-          // T07：回到列表页做"整族级"的动作（复制 / 启停 / 删除）。详情页只管一条。
-          _mark('5.3 回列表页做整族动作（复制/启停/删除）');
-          // ⚠ 不用 `tester.pageBack()`：它找的是 Cupertino 返回键 / 本地化 tooltip，
-          // 本应用的页头是自己搭的 Material AppBar ⇒ 当场 "One back button expected"（实测红）。
-          _nav(tester).pop();
-          await _settle(tester, seconds: 2);
-          await _onPage(tester, AppChannelListPage, '返回列表页');
-          final firstId = GetIt.instance<AppChannelService>()
-              .channels
-              .first['id']
-              .toString();
-          // ⚠ key 挂在**通道 id** 上（不是下标）：复制/删除会改变顺序，按下标挂 key 会让
-          // 控件状态跟着错位。行在真机上可能刚被滚出视口 ⇒ 走 _longPress（居中对齐 + 不 pumpAndSettle）。
-          final appRow = find.byKey(ValueKey('app-channel-row-$firstId'));
-          await _longPress(tester, appRow, '应用通道列表行');
-          await _must(
-            tester,
-            find.byType(CardActionSheet).evaluate().isNotEmpty,
-            '应用通道行长按弹层（打不中=手势静默丢失）',
-            appRow,
-          );
-          await _tap(
-            tester,
-            find.descendant(
-              of: find.byType(CardActionSheet),
-              matching: find.text('复制'),
-            ),
-            '应用通道→长按→复制',
-          );
-          await _settle(tester, seconds: 2);
-          final appChannels = GetIt.instance<AppChannelService>().channels;
-          expect(
-            appChannels,
-            hasLength(2),
-            reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状',
-          );
-          expect(
-            appChannels.map((c) => c['id']).toSet(),
-            hasLength(2),
-            reason: '两条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中两条',
-          );
-          expect(
-            appChannels.last['baseUrl'],
-            'https://qyapi.weixin.qq.com',
-            reason: '复制不到 API 地址的"复制"等于让用户重填一遍',
-          );
-
-          // T06：删除要二次确认，且这一族的咽喉在列表页。
-          _mark('5.3 删除走二次确认咽喉');
-          final copyId = appChannels.last['id'].toString();
-          final copyRow = find.byKey(ValueKey('app-channel-row-$copyId'));
-          await _longPress(tester, copyRow, '复制出来的那条');
-          await _tap(
-            tester,
-            find.descendant(
-              of: find.byType(CardActionSheet),
-              matching: find.text('删除'),
-            ),
-            '应用通道→长按→删除',
-          );
-          await _confirmDelete(tester, '应用通道行');
-          expect(
-            GetIt.instance<AppChannelService>().channels.map((c) => c['id']),
-            [firstId],
-            reason: '确认之后必须真的删掉那一条，且不动另一条',
-          );
-          await _backToHome(tester);
-
-          // 5.4 温度告警（通知引擎 tab 的入口，T15 起不在「更多」）：加一条规则 → 开关切一次
-        },
-      );
-      await _verdict(tester, gateFailures, '闸门 2/4');
-    },
-    timeout: Timeout(gateCaseBudgetFor(_caseBBudget)),
-  );
-
-  testWidgets(
-    '闸门 3/4 规则与更多页：引擎告警 / 筛选 / 关键词 / 约束 / 模板库 / 状态页',
-    (tester) async {
-      final gateFailures = <String, String>{};
-      // 这一条里的 5.9 通道状态页要看见一条已启用的 webhook（拆开之前是 2/4 留下的现场）
-      await _assemble(tester, _seedWebhookChannel);
-      await _step(tester, gateFailures, '5.4 温度告警：加一条规则 → 开关切一次', () async {
-        await _backToHomeQuietly(tester);
-        await _openEngineRow(tester, '温度告警');
-        await _onPage(tester, TemperaturePage, '温度告警页');
-        await _tap(
-          tester,
-          _in(TemperaturePage, find.byIcon(Icons.add)),
-          '温度→添加规则',
-        );
-        await _settle(tester);
-        // T90 片14：这枚阈值框换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 本步里
-        // **等/点/断言的每一处引用一起换**（片12 只改了「点」漏了「等」，闸门当场红）。
-        // ⚠ 下面温度**试跑**结果框那一处曾长期**不换**（它还是 Material 那件）；
-        //   T90 片28 把它收进 `IosDialogActions.showExplainer` ⇒ **那一处现在也换成
-        //   `CupertinoAlertDialog` 了**，本文件里已无 `_in(AlertDialog, …)`。
-        //   ⚠ 这条注释留着：当初"照着一起改就会把闸门改红"是对的，改之前先确认那一枚真的迁了。
-        await _tap(
-          tester,
-          _in(CupertinoAlertDialog, find.text('电池温度')),
-          '温度规则类型 chip',
-        );
-        await _tap(
-          tester,
-          _in(CupertinoAlertDialog, find.text('添加')),
-          '温度→添加(确认)',
-        );
-        await _settle(tester, seconds: 1);
-        // 启停开关是**每条规则一行**的尾控件，规则没建成就是 0 个 ⇒ 直接查服务更准
-        expect(
-          GetIt.instance<TemperatureService>().rules,
-          isNotEmpty,
-          reason: '温度规则没建成（对话框确认链路或存储断链）',
-        );
-        // T25：页右上的「试一次」必须真出结果 —— 求值在原生（判据只有一份），
-        // 模拟器上读不读得到温区都可能，但"点了什么都不知道"就是这一节的失败。
-        await _tap(
-          tester,
-          _in(TemperaturePage, find.byIcon(Icons.science_outlined)),
-          '温度→试一次',
-        );
-        await _settle(tester);
-        final previewBody = find.byKey(const ValueKey('temp-preview-body'));
-        await _waitUntil(tester, previewBody, '温度试跑结果弹层');
-        expect(
-          tester.widget<Text>(previewBody).data,
-          isNotEmpty,
-          reason: '弹层是空的 ⇒ 原生回了载荷而 Dart 没渲染出来（三种结局都会看不见）',
-        );
-        await _tap(
-          tester,
-          _in(CupertinoAlertDialog, find.text('关闭')),
-          '温度试跑→关闭',
-        );
-        await _settle(tester);
-        await _backToHome(tester);
-
-        await _backToHomeQuietly(tester);
-      });
-      // 5.4a 设备状态告警（T24）：亮度与网络各加一条 → 关一条 → 删一条。
-      // 这一节钉的是**新触发源那条链有没有真的接上**：页面 → DeviceStateService →
-      // engine_rules 表（族 device_state）→ prefs 镜像 → refreshEngineRules。
-      // 链上任一环断了，用户在界面上配好的规则永远不推，而界面上一切正常。
-      await _step(
-        tester,
-        gateFailures,
-        '5.4a 设备状态告警：加亮度+网络各一条 → 停 → 删',
-        () async {
-          Map<String, dynamic>? ruleByTitle(String title) {
-            for (final r in GetIt.instance<DeviceStateService>().rules) {
-              if (r['title'] == title) return r;
-            }
-            return null;
-          }
-
-          await _backToHomeQuietly(tester);
-          await _openEngineRow(tester, '设备状态告警');
-          await _onPage(tester, DeviceStatePage, '设备状态页');
-
-          // 亮度型：默认选中的就是「亮度低于」，点它既验 chip 可打中，也验形状不靠运气
-          await _tap(
-            tester,
-            _in(DeviceStatePage, find.byIcon(Icons.add)),
-            '设备状态→添加(亮度)',
-          );
-          await _settle(tester);
-          // T90 片14：设备状态的阈值框同样换成了 `IosFormDialog` ⇒ 这一节的每一处
-          // `_in(AlertDialog, …)` 一起跟着换（同一个步骤里等、点、输入都指着同一枚弹层）。
-          await _tap(
-            tester,
-            _in(CupertinoAlertDialog, find.text('亮度低于')),
-            '亮度规则类型 chip',
-          );
-          await _type(
-            tester,
-            _in(CupertinoAlertDialog, find.byType(TextField)),
-            '闸门亮度规则',
-            '亮度规则标题输入框',
-          );
-          await _tap(
-            tester,
-            _in(CupertinoAlertDialog, find.text('确定')),
-            '设备状态→确定(亮度)',
-          );
-          await _settle(tester, seconds: 1);
-
-          // 网络型：没有阈值可填 ⇒ 这一条专测"没有滑杆也要能存下来"
-          await _tap(
-            tester,
-            _in(DeviceStatePage, find.byIcon(Icons.add)),
-            '设备状态→添加(网络)',
-          );
-          await _settle(tester);
-          await _tap(
-            tester,
-            _in(CupertinoAlertDialog, find.text('断网时')),
-            '网络规则类型 chip',
-          );
-          // 标题留空 → 列表按类型名显示，就找不回这一条了 ⇒ 给它一个可定位的标题
-          await _type(
-            tester,
-            _in(CupertinoAlertDialog, find.byType(TextField)),
-            '闸门断网规则',
-            '断网规则标题输入框',
-          );
-          await _tap(
-            tester,
-            _in(CupertinoAlertDialog, find.text('确定')),
-            '设备状态→确定(网络)',
-          );
-          await _settle(tester, seconds: 1);
-
-          expect(
-            GetIt.instance<DeviceStateService>().rules,
-            hasLength(2),
-            reason: '两条里有一条没建成（对话框确认链路或落库断链）',
-          );
-          final brightness = ruleByTitle('闸门亮度规则');
-          expect(brightness, isNotNull, reason: '亮度那条没按标题存下来');
-          _mark('5.4a.1 亮度那条已按标题找回，开始加网络那条');
-          expect(
-            (brightness!['value'] as num).toInt(),
-            greaterThan(0),
-            reason: '亮度阈值为 0 ⇒ 滑杆的值没进规则（这一条永远不触发）',
-          );
-          final network = ruleByTitle('闸门断网规则');
-          expect(network, isNotNull, reason: '断网那条没按标题存下来');
-          _mark('5.4a.2 两条都在，开始验族归属与 prefs 镜像');
-          expect(
-            network!['value'],
-            0,
-            reason: '网络型没有阈值概念，恒 0；存成别的值说明两型共用了一条取值路径',
-          );
-          // 落对族：三族同存 engine_rules 一张表、按 family 分列。写错族 = 界面上三条都在，
-          // 而原生那一侧按族取列表，这条永远取不到。
-          for (final other in [
-            GetIt.instance<BatteryService>().rules,
-            GetIt.instance<TemperatureService>().rules,
-          ]) {
-            expect(
-              other.map((r) => r['title']),
-              isNot(contains('闸门亮度规则')),
-              reason: '设备状态规则出现在别的族里 = 族名写错，原生永远读不到它',
-            );
-          }
-          _mark('5.4a.3 两条都留在 device_state 族里（族名对了）');
-          final prefs = await SharedPreferences.getInstance();
-          expect(
-            prefs.getString('device_state_rules'),
-            allOf(contains('闸门亮度规则'), contains('闸门断网规则')),
-            reason: 'DB 写了而镜像没写 = 原生读的还是旧列表，新规则永远不推',
-          );
-          _mark('5.4a.4 prefs 镜像里两条都在 ⇒ 下面开始点启停开关');
-
-          // 每条规则一行的启停开关：点下去要回写得见
-          final brightnessSwitch = find.descendant(
-            of: find.byKey(ValueKey('device-state-row-${brightness['id']}')),
-            matching: find.byType(CupertinoSwitch),
-          );
-          await _tap(tester, brightnessSwitch, '设备状态→亮度规则开关');
-          await _settle(tester);
-          expect(
-            ruleByTitle('闸门亮度规则')!['enabled'],
-            isFalse,
-            reason: '开关点了不回写 = 界面上停着，用户以为已经关了',
-          );
-          _mark('5.4a.5 开关回写生效 ⇒ 下面开始长按删除');
-
-          await _longPress(
-            tester,
-            find.byKey(ValueKey('device-state-row-${brightness['id']}')),
-            '设备状态规则行',
-          );
-          await _tap(
-            tester,
-            find.descendant(
-              of: find.byType(CardActionSheet),
-              matching: find.text('删除'),
-            ),
-            '设备状态→长按→删除',
-          );
-          await _confirmDelete(tester, '设备状态规则行');
-          expect(
-            GetIt.instance<DeviceStateService>().rules.map((r) => r['title']),
-            ['闸门断网规则'],
-            reason: '删一条顺带没了另一条 = 两条同 id，或删除没走单条咽喉',
-          );
-
-          await _backToHome(tester);
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // 5.4b 设备态告警约束开关（T23）：来回切一次。
-      // 只验"点了会跟着变、再点回得去"，不验推送结果 —— 那要真机等一次电量跨越阈值。
-      await _step(tester, gateFailures, '5.4b 设备态告警约束开关：来回切一次', () async {
-        await _backToHomeQuietly(tester);
-        await _tap(
-          tester,
-          find.descendant(
-            of: find.byType(NavigationBar),
-            matching: find.text('通知引擎'),
-          ),
-          '底部 tab→通知引擎(约束开关)',
-        );
+        // ⚠ 不许写成「tap 后 settle 一秒，再看那句」：点名提示是一条 **2 秒**的 SnackBar，
+        //   而 `_settle` 是按墙钟循环、每圈泵 100ms 假时间 ⇒ 机器越快跨得越多，
+        //   CI run 37599710957 的 5.3 就是"提示自己被等到消失"红成 `Found 0 widgets`。
+        //   `_waitUntil` 命中即返回（最多消耗一格假时间），等不到时说的是"没等到那句话"，
+        //   与 7 节「恢复完成」那条同形。
         await _waitUntil(
           tester,
-          find.byType(NotificationEnginePage),
-          '通知引擎页(约束开关)',
+          find.text('保存失败：通道名称不能为空'),
+          '空表保存的点名提示',
+          seconds: 6,
         );
-        final sw = find.descendant(
-          of: find.byType(NotificationEnginePage),
-          matching: find.byType(CupertinoSwitch),
-        );
-        await _scrollUntil(tester, sw);
         expect(
-          sw,
-          findsOneWidget,
-          reason:
-              '骨架页上没有那枚开关 ⇒ T23 的入口被挪走或改了形状（本步会静默跳过的话，'
-              '闸门就再也管不到"设备态告警受不受约束"这件事）',
-        );
-        final before =
-            GetIt.instance<BatteryService>().deviceAlertsRespectConstraints;
-        await _tap(tester, sw, '设备态告警约束开关');
-        await _settle(tester);
-        expect(
-          GetIt.instance<BatteryService>().deviceAlertsRespectConstraints,
-          isNot(before),
-          reason: '切了不跟着变 = 开关只画了个样子',
-        );
-        await _tap(tester, sw, '设备态告警约束开关(还原)');
-        await _settle(tester);
-        expect(
-          GetIt.instance<BatteryService>().deviceAlertsRespectConstraints,
-          before,
-          reason: '闸门不许把用户的设定留在改过的状态（切回去才算"只点不改")',
-        );
-        await _backToHome(tester);
-
-        await _backToHomeQuietly(tester);
-      });
-      await _step(tester, gateFailures, '5.5 应用筛选：切模式 → 勾一个应用 → 完成', () async {
-        await _backToHomeQuietly(tester);
-        await _openMoreRow(tester, '应用筛选');
-        await _onPage(tester, AppFilterPage, '应用筛选页');
-        expect(
-          find.text('闸门应用一'),
+          find.text('保存失败：通道名称不能为空'),
           findsWidgets,
-          reason: '应用清单没渲染（getInstalledApps → 列表链路）',
+          reason: '必填项缺失没有点名提示 = 用户只会看到"保存失败"四个字',
         );
-        await _tap(tester, find.text('不通知应用'), '应用筛选→切 block 模式');
-        await _settle(tester);
-        await _tap(tester, find.text('闸门应用一'), '应用筛选→勾选一个应用');
-        await _tap(tester, _appBarText('完成'), '应用筛选→完成');
-        await _settle(tester, seconds: 1);
         expect(
-          GetIt.instance<FilterService>().appFilterMode,
-          'block',
-          reason: '模式切换没落到服务层（原生读的是同一份配置）',
+          GetIt.instance<AppChannelService>().channels,
+          isEmpty,
+          reason: '必填没填却保存成功了 = 校验被绕过',
         );
-        await _backToHome(tester);
-
-        await _backToHomeQuietly(tester);
-      });
-      // 5.6 关键词过滤：白名单加一个 → 黑名单加一个 → 保存
-      await _step(
-        tester,
-        gateFailures,
-        '5.6 关键词过滤：白名单加一个 → 黑名单加一个 → 保存',
-        () async {
-          await _backToHomeQuietly(tester);
-          await _openMoreRow(tester, '关键词过滤');
-          await _onPage(tester, KeywordsPage, '关键词过滤页');
-          final kwField = _in(KeywordsPage, find.byType(TextField));
-          await _type(tester, kwField.first, '闸门白名单', '关键词输入框');
-          await _tap(tester, find.text('添加'), '关键词→添加(白名单)');
-          await _settle(tester);
-          await _tap(tester, find.text('黑名单'), '关键词→切黑名单 tab');
-          await _settle(tester);
-          await _type(tester, kwField.first, '闸门黑名单', '关键词输入框(黑名单)');
-          await _tap(tester, find.text('添加'), '关键词→添加(黑名单)');
-          await _tap(tester, _appBarText('保存'), '关键词→保存');
-          await _settle(tester, seconds: 1);
-          final filter = GetIt.instance<FilterService>();
-          expect(filter.whitelistKeywords, contains('闸门白名单'), reason: '白名单没保存');
-          expect(
-            filter.blacklistKeywords,
-            contains('闸门黑名单'),
-            reason: '黑名单没保存（TabController 下标错位类缺陷会在这里露出来）',
-          );
-          await _backToHome(tester);
-
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // 5.7 规则约束：编辑预制规则(加一个条件) → 新建 → 删除新建的
-      await _step(
-        tester,
-        gateFailures,
-        '5.7 规则约束：编辑预制规则(加一个条件) → 新建 → 删除新建的',
-        () async {
-          await _backToHomeQuietly(tester);
-          await _openMoreRow(tester, '规则约束');
-          await _onPage(tester, RuleListPage, '规则约束列表');
-          await _tap(tester, _in(RuleListPage, find.text('编辑')), '规则→编辑第一条');
-          await _onPage(tester, RuleEditPage, '规则编辑页');
-          // 「添加条件」是分组**标题**，按钮是它旁边那个行内动作 ⇒
-          // 按条件/动作两个分组各自的动作件来点（条件组在前）。
-          // ⚠ T90 之后这两枚从 `TextButton` 换成了 `FnthinkInlineAction`（形状收口），
-          //   而这一格一直还在找 `TextButton` ⇒ 闸门 3/4 每次都红在"没出现两个按钮"，
-          //   页面本身是好的。尺跟着换件走，别把它读成页面回归。
-          final addButtons = find.descendant(
-            of: find.byType(RuleEditPage),
-            matching: find.byType(FnthinkInlineAction),
-          );
-          expect(
-            addButtons.evaluate().length,
-            greaterThanOrEqualTo(2),
-            reason: '规则编辑页没出现「添加条件 / 添加动作」两个按钮',
-          );
-          await _tap(tester, addButtons, '规则编辑→添加条件(按钮)');
-          // T90 片12：这枚表单弹层换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 等的那一层跟着换。
-          // ⚠ 上一轮只改了下面那处 `_tap` 的定位、漏了这一处 `_waitUntil` ⇒ 闸门 3/4 当场红在 5.7
-          //   （`Found 0 widgets with type "AlertDialog"`）。**同一枚弹层在一个步骤里被两处引用时，
-          //   换件必须一次改全**，只改"点的那处"会让等待先超时，后面的断言根本没跑到。
-          await _waitUntil(
-            tester,
-            find.byType(CupertinoAlertDialog),
-            '条件类型对话框',
-            seconds: 10,
-          );
-          // 条件类型是"点开再选"的 iOS 选择器，快照证实选完**连条件对话框也一起关了**
-          // （dialog=false）⇒ 不再追这层嵌套弹层，改为断言对话框三要素齐备后取消；
-          // 条件能否真落盘由桌面 widget 用例守（跑得快、可断言到控件级）。
-          // T90 片12：这枚表单弹层换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 定位跟着换。
-          // ⚠ 同文件里上面那处「温度规则对话框」的定位（T90 片12 起）早已换成 `CupertinoAlertDialog`；
-          //   本句原写的是「那一处不换」，T90 片28 把温度页最后一枚也迁完之后**本文件再无
-          //   Material `AlertDialog` 引用** —— 留着是为了让下一个人改定位前先确认那一枚真的迁了。
-          await _tap(
-            tester,
-            _in(CupertinoAlertDialog, find.text('条件类型')),
-            '条件对话框→条件类型选择器',
-          );
-          await _settle(tester);
-          expect(
-            find.text('标题包含'),
-            findsWidgets,
-            reason: '条件类型选择器没有列出条件类型 ⇒ 这层弹层结构变了',
-          );
-          // 选中类型后条件对话框会一并关闭（第 17 轮 texts 已是规则编辑页本体）；
-          // 与其猜有几层，不如把当前确实存在的模态逐个弹掉。
-          for (var i = 0; i < 3 && _modalUp(tester); i++) {
-            tester.state<NavigatorState>(find.byType(Navigator).first).pop();
-            await _settle(tester);
-          }
-          expect(
-            _modalUp(tester),
-            isFalse,
-            reason: '条件相关弹层关不掉 ⇒ 后面每节都会在弹层底下找控件',
-          );
-          // 真落盘的编辑改走描述字段（同样是规则编辑页的表单链路）
-          await _type(
-            tester,
-            _in(RuleEditPage, find.byType(TextField)).at(1),
-            '闸门规则说明',
-            '规则描述输入框',
-          );
-          await _tap(tester, _appBarText('保存'), '规则编辑→保存');
-          await _settle(tester, seconds: 1);
-          await _backToHome(tester);
-          expect(
-            GetIt.instance<FilterService>().notificationRules.any(
-              (r) => r.description == '闸门规则说明',
-            ),
-            isTrue,
-            reason: '规则编辑没落盘（规则是核心功能，编辑→保存→服务必须同步）',
-          );
-
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // 5.8 规则测试器：填一条模拟通知，断言实时链路结果出现
-      await _step(
-        tester,
-        gateFailures,
-        '5.8 规则测试器：填一条模拟通知，断言实时链路结果出现',
-        () async {
-          await _backToHomeQuietly(tester);
-          await _openMoreRow(tester, '规则约束');
-          await _tap(
-            tester,
-            _in(RuleListPage, find.byIcon(Icons.science_outlined)),
-            '规则约束→规则测试器',
-          );
-          await _onPage(tester, RuleTesterPage, '规则测试器页');
-          final testerFields = _in(RuleTesterPage, find.byType(TextField));
-          await _type(tester, testerFields.at(1), '闸门关键词命中', '测试器标题');
-          await _settle(tester, seconds: 1);
-          expect(
-            find.textContaining('闸门关键词命中'),
-            findsWidgets,
-            reason: '测试器没有把输入回显进链路结果',
-          );
-          await _backToHome(tester);
-
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // 5.9 规则模板库：打开工作表再关掉（导出/导入按钮在页内，点它会被真弹层打断）
-      await _step(
-        tester,
-        gateFailures,
-        '5.9 规则模板库：打开工作表再关掉（导出/导入按钮在页内，点它会被真弹层打断）',
-        () async {
-          await _openMoreRow(tester, '规则约束');
-          await _tap(
-            tester,
-            _in(RuleListPage, find.byIcon(Icons.playlist_add_check_outlined)),
-            '规则约束→规则模板库',
-          );
-          await _settle(tester);
-          expect(find.text('从文件导入'), findsWidgets, reason: '模板库工作表没打开');
-          await _backToHome(tester);
-
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // 5.10 设备名称：改名 → 确定
-      await _step(tester, gateFailures, '5.10 设备名称：改名 → 确定', () async {
-        await _backToHomeQuietly(tester);
-        await _openMoreRow(tester, '设备名称');
-        await _settle(tester);
-        // T90 片7：设备名那枚弹层换成了共享的输入弹层 ⇒ 输入框与外壳都改成 Cupertino 那一件。
-        // 这里仍按"外壳 + 文案"定位而不是拿 key：闸门要验的就是"用户看得见『保存』那颗"。
-        if (find.byType(CupertinoTextField).evaluate().isEmpty) {
-          _diagnose(tester, '设备名称弹层未出现');
-          fail('设备名称弹层里没有输入框（见上一条 GATE-DIAG 的 pages/texts）');
-        }
-        await _type(tester, find.byType(CupertinoTextField), '闸门改名', '设备名称输入框');
-        // 确认按钮的文案是 l10n.save（"保存"），不是"确定" —— 出处是 `_showDeviceNameDialog`
-        // 里那句 confirmText，别照旧行号找（改完文件行号就漂）。
-        await _tap(
+        _mark('5.3 必填拦住了（提示已出现、没写库），开始填表');
+        // 名称 + API 地址（校验要求 HTTPS）+ 描述符声明的必填扩展参数（corpid/agentid）。
+        // 扩展参数按"仍为空的输入框"逐个填：字段集合由描述符决定，写死下标会随类型漂移。
+        await _type(
           tester,
-          _in(CupertinoAlertDialog, find.text('保存')),
-          '设备名称→保存',
+          _in(AppChannelSettingsPage, find.byType(TextField)),
+          '闸门自建应用',
+          '应用通道名称',
         );
-        await _settle(tester, seconds: 1);
+        await _type(
+          tester,
+          find.byWidgetPredicate(
+            (w) =>
+                w is TextField &&
+                (w.decoration?.hintText ?? '').startsWith('API 地址'),
+          ),
+          'https://qyapi.weixin.qq.com',
+          '应用通道 API 地址',
+        );
+        for (var i = 0; i < 6; i++) {
+          final empty = find.byWidgetPredicate(
+            (w) => w is TextField && (w.controller?.text ?? '').isEmpty,
+          );
+          if (empty.evaluate().isEmpty) break;
+          await _type(tester, empty, '闸门扩展$i', '应用通道扩展参数 #$i');
+        }
+        _mark('5.3 填完了，点「测试并保存」（这一发会走真网络测试）');
+        await _tap(tester, _appBarText('测试并保存'), '应用通道→测试并保存');
+        await _settle(tester, seconds: 2);
         expect(
-          GetIt.instance<DeviceInfoService>().deviceName,
-          '闸门改名',
-          reason: '设备名没保存（推送标题前缀会一直显示旧名）',
+          GetIt.instance<AppChannelService>().channels,
+          hasLength(1),
+          reason: '自建应用通道未保存（必填校验/字段键名链路）',
         );
-        await _backToHome(tester);
-
-        await _backToHomeQuietly(tester);
-      });
-      // 5.11 深色模式 + 语言：打开→选回默认；语言只打开不切（切了后面中文断言全落空）
-      await _step(
-        tester,
-        gateFailures,
-        '5.11 深色模式 + 语言：打开→选回默认；语言只打开不切（切了后面中文断言全落空）',
-        () async {
-          // 行标题就是「深色模式」(l10n.darkMode)，副标题是当前选择；
-          //「外观设置」是那一分组的表头 —— 点表头不会打开对话框（第 18 轮试过）。
-          await _openMoreRow(tester, '深色模式');
-          await _settle(tester);
-          // T90 片6：这两枚弹层换成了共享的选项弹层，行是带 key 的 `CupertinoButton`。
-          // ⚠ 这里**不再按文本点**：主题行的文案与页面那一格的副标题（当前档位）是同一串字，
-          // 按文本命中两只 ⇒ `.first` 点到底下那一格，弹层重开一次，选档静默丢失
-          // （语言那一格第 19 轮就红在这，当时的修法是 scope 到 ListTile；ListTile 没了，
-          // 现在直接用行的 key，把"点到同名件"这一整类一次堵掉）。
-          await _tap(
-            tester,
-            find.byKey(const ValueKey('ios-picker-ThemeMode.light')),
-            '深色模式→浅色',
-          );
-          await _settle(tester, seconds: 1);
-          await _openMoreRow(tester, '深色模式');
-          await _settle(tester);
-          await _tap(
-            tester,
-            find.byKey(const ValueKey('ios-picker-ThemeMode.system')),
-            '深色模式→跟随系统',
-          );
-          await _settle(tester, seconds: 1);
-          await _openMoreRow(tester, '语言');
-          await _settle(tester);
-          // 语言与主题同款：只有选项列表，没有"取消"按钮（第 19 轮快照 dialog=true、无 取消）
-          expect(
-            find.text('中文'),
-            findsWidgets,
-            reason: '语言对话框没列出当前语言 = 这层弹层结构变了',
-          );
-          await _tap(
-            tester,
-            find.byKey(const ValueKey('ios-picker-AppLanguage.zh')),
-            '语言弹窗→选当前语言（关闭）',
-          );
-          await _settle(tester, seconds: 1);
-          expect(
-            _modalUp(tester),
-            isFalse,
-            reason: '选完语言对话框没关 ⇒ 后面每一节都会在弹层底下找控件',
-          );
-
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // 5.12 推送开关（小部件引导）/ 推送统计 / 隐私政策 / 关于：进页断言渲染
-      await _step(
-        tester,
-        gateFailures,
-        '5.12 推送开关（小部件引导）/ 推送统计 / 隐私政策 / 关于：进页断言渲染',
-        () async {
-          await _openMoreRow(tester, '推送开关');
-          await _settle(tester, seconds: 1);
-          expect(tester.takeException(), isNull, reason: '小部件引导页崩了');
-          await _backToHome(tester);
-          await _openMoreRow(tester, '推送统计');
-          await _onPage(tester, StatsPage, '推送统计页');
-          await _tap(tester, find.text('近 30 天'), '推送统计→切 30 天');
-          await _settle(tester, seconds: 1);
-          await _backToHome(tester);
-          await _openMoreRow(tester, '隐私政策');
-          await _settle(tester, seconds: 1);
-          await _backToHome(tester);
-          await _openMoreRow(tester, '关于');
-          await _settle(tester);
-          await _tap(tester, find.text('好的'), '关于弹窗→好的');
-          await _settle(tester);
-
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // 5.13 崩溃上报开关（更多页里的 CupertinoSwitch，翻到底才存在）
-      await _step(
-        tester,
-        gateFailures,
-        '5.13 崩溃上报开关（更多页里的 CupertinoSwitch，翻到底才存在）',
-        () async {
-          await _scrollUntil(tester, find.text('崩溃上报'));
-          final moreSwitches = find.descendant(
-            of: find.byType(MorePage),
-            matching: find.byType(CupertinoSwitch),
-          );
-          expect(
-            moreSwitches.evaluate().length,
-            greaterThan(0),
-            reason: '更多页找不到崩溃上报开关',
-          );
-          await _tap(tester, moreSwitches.last, '崩溃上报开关');
-          await _tap(tester, moreSwitches.last, '崩溃上报开关(复原)');
-          await _settle(tester, seconds: 1);
-
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // ── 5.9 通道状态页（T10）：首页通道卡 → 三族分组 → 返回 ─────────────
-      // 这一节存在的理由：新页面最容易"编译过、单测绿、真机上入口是死的"。
-      // 首页那张卡现在**常驻**（以前只在监听运行时显示，第 1 节刚把服务关掉 ⇒ 入口忽在忽不在，
-      // 这一节就会假红），所以这里不需要先把服务开回来。
-      await _step(tester, gateFailures, '── 5.9 通道状态页：入口、三族分组与脱敏', () async {
-        await _backToHomeQuietly(tester);
-        // ⚠ 必须真的点一下 tab：主界面是 IndexedStack，停在更多/通知引擎时，首页的卡
-        // "在树上但不在屏幕上" ⇒ 滚到底也找不到（5.9 第一次红的真因）。
-        // 与 `_openMoreRow` 同一个规矩：tab 一律**限定在 NavigationBar 里**找。
+        _mark('5.3 已落库 1 条');
+        // T04「仅测试」：与「测试并保存」是两个动作 ⇒ 它不写库，但结论同样要落单点。
+        _mark('5.3 仅测试：不写库，但结论照样落单点');
+        await _tap(tester, _appBarText('仅测试'), '应用通道→仅测试');
+        await _settle(tester, seconds: 2);
+        expect(
+          find.byType(AppChannelSettingsPage),
+          findsOneWidget,
+          reason: '「仅测试」按定义不保存，不该把用户弹出编辑页',
+        );
+        expect(
+          GetIt.instance<ChannelHealthStore>()
+              .of(
+                'app',
+                GetIt.instance<AppChannelService>().channels.first['id']
+                    .toString(),
+              )
+              ?.reachable,
+          isTrue,
+          reason: '自建应用通道的测试结论没落单点 = 三族里只有它冒不到首页',
+        );
+        // T07：回到列表页做"整族级"的动作（复制 / 启停 / 删除）。详情页只管一条。
+        _mark('5.3 回列表页做整族动作（复制/启停/删除）');
+        // ⚠ 不用 `tester.pageBack()`：它找的是 Cupertino 返回键 / 本地化 tooltip，
+        // 本应用的页头是自己搭的 Material AppBar ⇒ 当场 "One back button expected"（实测红）。
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _onPage(tester, AppChannelListPage, '返回列表页');
+        final firstId = GetIt.instance<AppChannelService>().channels.first['id']
+            .toString();
+        // ⚠ key 挂在**通道 id** 上（不是下标）：复制/删除会改变顺序，按下标挂 key 会让
+        // 控件状态跟着错位。行在真机上可能刚被滚出视口 ⇒ 走 _longPress（居中对齐 + 不 pumpAndSettle）。
+        final appRow = find.byKey(ValueKey('app-channel-row-$firstId'));
+        await _longPress(tester, appRow, '应用通道列表行');
+        await _must(
+          tester,
+          find.byType(CardActionSheet).evaluate().isNotEmpty,
+          '应用通道行长按弹层（打不中=手势静默丢失）',
+          appRow,
+        );
         await _tap(
           tester,
           find.descendant(
-            of: find.byType(NavigationBar),
-            matching: find.text('首页'),
+            of: find.byType(CardActionSheet),
+            matching: find.text('复制'),
           ),
-          '底部 tab→首页',
+          '应用通道→长按→复制',
         );
-        await _tap(tester, find.text('当前推送通道'), '首页→通道状态');
-        await _onPage(tester, ChannelStatusPage, '通道状态页');
+        await _settle(tester, seconds: 2);
+        final appChannels = GetIt.instance<AppChannelService>().channels;
         expect(
-          _in(ChannelStatusPage, find.text('Webhook')),
-          findsOneWidget,
-          reason: '三族分组标题里没有 webhook 族（第 5 节刚存过一条启用的 webhook）',
+          appChannels,
+          hasLength(2),
+          reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状',
         );
-        final shown = tester
-            .widgetList<Text>(_in(ChannelStatusPage, find.byType(Text)))
-            .map((t) => t.data ?? '')
-            .join(' | ');
         expect(
-          shown,
-          isNot(contains('access_token')),
-          reason: '关键链接整条 URL 上屏 = 把 query 里的凭据画进界面（截图即泄露）',
+          appChannels.map((c) => c['id']).toSet(),
+          hasLength(2),
+          reason: '两条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中两条',
         );
-        await _backToHomeQuietly(tester);
-      });
-      // ── 5.14 设备状态页（T18）：更多 → 点进 → 快照逐项 → 推一条设备信息
-      // ⚠ 编号接在 5.13 后面：5.10/5.11 已被「设备名称」「深色模式」占用
-      await _step(tester, gateFailures, '── 5.14 设备状态页：快照与「推送设备信息」', () async {
-        await _backToHomeQuietly(tester);
-        // ⚠ 这句标签与 `more_page` 的 `l10n.deviceStatusEntry` **同一处出处**
-        //   （ARB 的 `deviceStatusEntry`，中文「设备状态快照」）。2026-10-03 的 `2befab9`
-        //   把那个入口改了名而没同步这里 ⇒ 5.14 当场红在"找不到入口"，而**闸门自己
-        //   把它归成了"页面改坏了"** —— 真相反过来：页面是好的，定位是旧的。
-        //   `test/architecture/` 里有一条守卫钉住这两处同源，改名时它会先红。
-        await _openMoreRow(tester, '设备状态快照');
-        await _onPage(tester, DeviceSnapshotPage, '设备状态页');
-        // 值本身按机器不同（模拟器多半读不到温区），所以这里钉的是**结构**：
-        // 一项一行、标签都在。数值级断言会绿在一次写死的桩上，这里不给桩。
-        final texts = tester
-            .widgetList<Text>(_in(DeviceSnapshotPage, find.byType(Text)))
-            .map((t) => t.data ?? '')
-            .join(' | ');
-        for (final label in [
-          '型号',
-          '品牌',
-          '厂商',
-          '系统版本',
-          '网络',
-          '电量',
-          '电池温度',
-          '存储',
-          '内存',
-          '屏幕亮度',
-          '已运行',
-        ]) {
-          expect(
-            texts,
-            contains(label),
-            reason: '设备状态页少了「$label」这一项 ⇒ 快照那页的形状变了，用户看不见这一族读数',
-          );
-        }
-        // 至少有实值（电量/亮度带 %），或者明写读不到 —— 两者都没有就是整片空白
-        final hasAnyValue =
-            texts.contains('%') ||
-            texts.contains('这台设备读不到') ||
-            texts.contains('没读到设备快照');
         expect(
-          hasAnyValue,
-          isTrue,
-          reason: '页面画了标签却一个值都没有 ⇒ 快照没读上来，而界面看起来是"正常的一页"',
+          appChannels.last['baseUrl'],
+          'https://qyapi.weixin.qq.com',
+          reason: '复制不到 API 地址的"复制"等于让用户重填一遍',
         );
 
+        // T06：删除要二次确认，且这一族的咽喉在列表页。
+        _mark('5.3 删除走二次确认咽喉');
+        final copyId = appChannels.last['id'].toString();
+        final copyRow = find.byKey(ValueKey('app-channel-row-$copyId'));
+        await _longPress(tester, copyRow, '复制出来的那条');
         await _tap(
           tester,
-          find.byKey(const ValueKey('device-status-push')),
-          '设备状态→推送设备信息',
-        );
-        await _settle(tester, seconds: 3);
-        expect(
-          GetIt.instance<NotificationService>().records.any(
-            // ⚠ 与上面那句同源（同一个 ARB 键 `deviceStatusEntry`）：那枚通知的 title
-            //   取的就是这个入口标题。第一轮只改了入口定位、跑到这里才红 ⇒ 顺手量到的，
-            //   不是猜的（两处曾是一起漏的，只补一处就是"改一半"）。
-            (r) => r.title == '设备状态快照',
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('删除'),
           ),
-          isTrue,
-          reason: '点了没落历史记录 ⇒ 送达结果没有落点（原生回传按 id 更新）',
+          '应用通道→长按→删除',
         );
-        expect(find.text('已交给通道推送，结果见推送历史'), findsOneWidget);
+        await _confirmDelete(tester, '应用通道行');
+        expect(
+          GetIt.instance<AppChannelService>().channels.map((c) => c['id']),
+          [firstId],
+          reason: '确认之后必须真的删掉那一条，且不动另一条',
+        );
+        await _backToHome(tester);
+
+        // 5.4 温度告警（通知引擎 tab 的入口，T15 起不在「更多」）：加一条规则 → 开关切一次
+      },
+    );
+    await _verdict(tester, gateFailures, '闸门 2/4');
+  }, timeout: Timeout(gateCaseBudgetFor(_caseBBudget)));
+
+  testWidgets('闸门 3/4 规则与更多页：引擎告警 / 筛选 / 关键词 / 约束 / 模板库 / 状态页', (tester) async {
+    final gateFailures = <String, String>{};
+    // 这一条里的 5.9 通道状态页要看见一条已启用的 webhook（拆开之前是 2/4 留下的现场）
+    await _assemble(tester, _seedWebhookChannel);
+    await _step(tester, gateFailures, '5.4 温度告警：加一条规则 → 开关切一次', () async {
+      await _backToHomeQuietly(tester);
+      await _openEngineRow(tester, '温度告警');
+      await _onPage(tester, TemperaturePage, '温度告警页');
+      await _tap(
+        tester,
+        _in(TemperaturePage, find.byIcon(Icons.add)),
+        '温度→添加规则',
+      );
+      await _settle(tester);
+      // T90 片14：这枚阈值框换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 本步里
+      // **等/点/断言的每一处引用一起换**（片12 只改了「点」漏了「等」，闸门当场红）。
+      // ⚠ 下面温度**试跑**结果框那一处曾长期**不换**（它还是 Material 那件）；
+      //   T90 片28 把它收进 `IosDialogActions.showExplainer` ⇒ **那一处现在也换成
+      //   `CupertinoAlertDialog` 了**，本文件里已无 `_in(AlertDialog, …)`。
+      //   ⚠ 这条注释留着：当初"照着一起改就会把闸门改红"是对的，改之前先确认那一枚真的迁了。
+      await _tap(
+        tester,
+        _in(CupertinoAlertDialog, find.text('电池温度')),
+        '温度规则类型 chip',
+      );
+      await _tap(
+        tester,
+        _in(CupertinoAlertDialog, find.text('添加')),
+        '温度→添加(确认)',
+      );
+      await _settle(tester, seconds: 1);
+      // 启停开关是**每条规则一行**的尾控件，规则没建成就是 0 个 ⇒ 直接查服务更准
+      expect(
+        GetIt.instance<TemperatureService>().rules,
+        isNotEmpty,
+        reason: '温度规则没建成（对话框确认链路或存储断链）',
+      );
+      // T25：页右上的「试一次」必须真出结果 —— 求值在原生（判据只有一份），
+      // 模拟器上读不读得到温区都可能，但"点了什么都不知道"就是这一节的失败。
+      await _tap(
+        tester,
+        _in(TemperaturePage, find.byIcon(Icons.science_outlined)),
+        '温度→试一次',
+      );
+      await _settle(tester);
+      final previewBody = find.byKey(const ValueKey('temp-preview-body'));
+      await _waitUntil(tester, previewBody, '温度试跑结果弹层');
+      expect(
+        tester.widget<Text>(previewBody).data,
+        isNotEmpty,
+        reason: '弹层是空的 ⇒ 原生回了载荷而 Dart 没渲染出来（三种结局都会看不见）',
+      );
+      await _tap(tester, _in(CupertinoAlertDialog, find.text('关闭')), '温度试跑→关闭');
+      await _settle(tester);
+      await _backToHome(tester);
+
+      await _backToHomeQuietly(tester);
+    });
+    // 5.4a 设备状态告警（T24）：亮度与网络各加一条 → 关一条 → 删一条。
+    // 这一节钉的是**新触发源那条链有没有真的接上**：页面 → DeviceStateService →
+    // engine_rules 表（族 device_state）→ prefs 镜像 → refreshEngineRules。
+    // 链上任一环断了，用户在界面上配好的规则永远不推，而界面上一切正常。
+    await _step(
+      tester,
+      gateFailures,
+      '5.4a 设备状态告警：加亮度+网络各一条 → 停 → 删',
+      () async {
+        Map<String, dynamic>? ruleByTitle(String title) {
+          for (final r in GetIt.instance<DeviceStateService>().rules) {
+            if (r['title'] == title) return r;
+          }
+          return null;
+        }
+
+        await _backToHomeQuietly(tester);
+        await _openEngineRow(tester, '设备状态告警');
+        await _onPage(tester, DeviceStatePage, '设备状态页');
+
+        // 亮度型：默认选中的就是「亮度低于」，点它既验 chip 可打中，也验形状不靠运气
+        await _tap(
+          tester,
+          _in(DeviceStatePage, find.byIcon(Icons.add)),
+          '设备状态→添加(亮度)',
+        );
+        await _settle(tester);
+        // T90 片14：设备状态的阈值框同样换成了 `IosFormDialog` ⇒ 这一节的每一处
+        // `_in(AlertDialog, …)` 一起跟着换（同一个步骤里等、点、输入都指着同一枚弹层）。
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('亮度低于')),
+          '亮度规则类型 chip',
+        );
+        await _type(
+          tester,
+          _in(CupertinoAlertDialog, find.byType(TextField)),
+          '闸门亮度规则',
+          '亮度规则标题输入框',
+        );
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('确定')),
+          '设备状态→确定(亮度)',
+        );
+        await _settle(tester, seconds: 1);
+
+        // 网络型：没有阈值可填 ⇒ 这一条专测"没有滑杆也要能存下来"
+        await _tap(
+          tester,
+          _in(DeviceStatePage, find.byIcon(Icons.add)),
+          '设备状态→添加(网络)',
+        );
+        await _settle(tester);
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('断网时')),
+          '网络规则类型 chip',
+        );
+        // 标题留空 → 列表按类型名显示，就找不回这一条了 ⇒ 给它一个可定位的标题
+        await _type(
+          tester,
+          _in(CupertinoAlertDialog, find.byType(TextField)),
+          '闸门断网规则',
+          '断网规则标题输入框',
+        );
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('确定')),
+          '设备状态→确定(网络)',
+        );
+        await _settle(tester, seconds: 1);
+
+        expect(
+          GetIt.instance<DeviceStateService>().rules,
+          hasLength(2),
+          reason: '两条里有一条没建成（对话框确认链路或落库断链）',
+        );
+        final brightness = ruleByTitle('闸门亮度规则');
+        expect(brightness, isNotNull, reason: '亮度那条没按标题存下来');
+        _mark('5.4a.1 亮度那条已按标题找回，开始加网络那条');
+        expect(
+          (brightness!['value'] as num).toInt(),
+          greaterThan(0),
+          reason: '亮度阈值为 0 ⇒ 滑杆的值没进规则（这一条永远不触发）',
+        );
+        final network = ruleByTitle('闸门断网规则');
+        expect(network, isNotNull, reason: '断网那条没按标题存下来');
+        _mark('5.4a.2 两条都在，开始验族归属与 prefs 镜像');
+        expect(
+          network!['value'],
+          0,
+          reason: '网络型没有阈值概念，恒 0；存成别的值说明两型共用了一条取值路径',
+        );
+        // 落对族：三族同存 engine_rules 一张表、按 family 分列。写错族 = 界面上三条都在，
+        // 而原生那一侧按族取列表，这条永远取不到。
+        for (final other in [
+          GetIt.instance<BatteryService>().rules,
+          GetIt.instance<TemperatureService>().rules,
+        ]) {
+          expect(
+            other.map((r) => r['title']),
+            isNot(contains('闸门亮度规则')),
+            reason: '设备状态规则出现在别的族里 = 族名写错，原生永远读不到它',
+          );
+        }
+        _mark('5.4a.3 两条都留在 device_state 族里（族名对了）');
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getString('device_state_rules'),
+          allOf(contains('闸门亮度规则'), contains('闸门断网规则')),
+          reason: 'DB 写了而镜像没写 = 原生读的还是旧列表，新规则永远不推',
+        );
+        _mark('5.4a.4 prefs 镜像里两条都在 ⇒ 下面开始点启停开关');
+
+        // 每条规则一行的启停开关：点下去要回写得见
+        final brightnessSwitch = find.descendant(
+          of: find.byKey(ValueKey('device-state-row-${brightness['id']}')),
+          matching: find.byType(CupertinoSwitch),
+        );
+        await _tap(tester, brightnessSwitch, '设备状态→亮度规则开关');
+        await _settle(tester);
+        expect(
+          ruleByTitle('闸门亮度规则')!['enabled'],
+          isFalse,
+          reason: '开关点了不回写 = 界面上停着，用户以为已经关了',
+        );
+        _mark('5.4a.5 开关回写生效 ⇒ 下面开始长按删除');
+
+        await _longPress(
+          tester,
+          find.byKey(ValueKey('device-state-row-${brightness['id']}')),
+          '设备状态规则行',
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('删除'),
+          ),
+          '设备状态→长按→删除',
+        );
+        await _confirmDelete(tester, '设备状态规则行');
+        expect(
+          GetIt.instance<DeviceStateService>().rules.map((r) => r['title']),
+          ['闸门断网规则'],
+          reason: '删一条顺带没了另一条 = 两条同 id，或删除没走单条咽喉',
+        );
+
+        await _backToHome(tester);
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // 5.4b 设备态告警约束开关（T23）：来回切一次。
+    // 只验"点了会跟着变、再点回得去"，不验推送结果 —— 那要真机等一次电量跨越阈值。
+    await _step(tester, gateFailures, '5.4b 设备态告警约束开关：来回切一次', () async {
+      await _backToHomeQuietly(tester);
+      await _tap(
+        tester,
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('通知引擎'),
+        ),
+        '底部 tab→通知引擎(约束开关)',
+      );
+      await _waitUntil(
+        tester,
+        find.byType(NotificationEnginePage),
+        '通知引擎页(约束开关)',
+      );
+      final sw = find.descendant(
+        of: find.byType(NotificationEnginePage),
+        matching: find.byType(CupertinoSwitch),
+      );
+      await _scrollUntil(tester, sw);
+      expect(
+        sw,
+        findsOneWidget,
+        reason:
+            '骨架页上没有那枚开关 ⇒ T23 的入口被挪走或改了形状（本步会静默跳过的话，'
+            '闸门就再也管不到"设备态告警受不受约束"这件事）',
+      );
+      final before =
+          GetIt.instance<BatteryService>().deviceAlertsRespectConstraints;
+      await _tap(tester, sw, '设备态告警约束开关');
+      await _settle(tester);
+      expect(
+        GetIt.instance<BatteryService>().deviceAlertsRespectConstraints,
+        isNot(before),
+        reason: '切了不跟着变 = 开关只画了个样子',
+      );
+      await _tap(tester, sw, '设备态告警约束开关(还原)');
+      await _settle(tester);
+      expect(
+        GetIt.instance<BatteryService>().deviceAlertsRespectConstraints,
+        before,
+        reason: '闸门不许把用户的设定留在改过的状态（切回去才算"只点不改")',
+      );
+      await _backToHome(tester);
+
+      await _backToHomeQuietly(tester);
+    });
+    await _step(tester, gateFailures, '5.5 应用筛选：切模式 → 勾一个应用 → 完成', () async {
+      await _backToHomeQuietly(tester);
+      await _openMoreRow(tester, '应用筛选');
+      await _onPage(tester, AppFilterPage, '应用筛选页');
+      expect(
+        find.text('闸门应用一'),
+        findsWidgets,
+        reason: '应用清单没渲染（getInstalledApps → 列表链路）',
+      );
+      await _tap(tester, find.text('不通知应用'), '应用筛选→切 block 模式');
+      await _settle(tester);
+      await _tap(tester, find.text('闸门应用一'), '应用筛选→勾选一个应用');
+      await _tap(tester, _appBarText('完成'), '应用筛选→完成');
+      await _settle(tester, seconds: 1);
+      expect(
+        GetIt.instance<FilterService>().appFilterMode,
+        'block',
+        reason: '模式切换没落到服务层（原生读的是同一份配置）',
+      );
+      await _backToHome(tester);
+
+      await _backToHomeQuietly(tester);
+    });
+    // 5.6 关键词过滤：白名单加一个 → 黑名单加一个 → 保存
+    await _step(
+      tester,
+      gateFailures,
+      '5.6 关键词过滤：白名单加一个 → 黑名单加一个 → 保存',
+      () async {
+        await _backToHomeQuietly(tester);
+        await _openMoreRow(tester, '关键词过滤');
+        await _onPage(tester, KeywordsPage, '关键词过滤页');
+        final kwField = _in(KeywordsPage, find.byType(TextField));
+        await _type(tester, kwField.first, '闸门白名单', '关键词输入框');
+        await _tap(tester, find.text('添加'), '关键词→添加(白名单)');
+        await _settle(tester);
+        await _tap(tester, find.text('黑名单'), '关键词→切黑名单 tab');
+        await _settle(tester);
+        await _type(tester, kwField.first, '闸门黑名单', '关键词输入框(黑名单)');
+        await _tap(tester, find.text('添加'), '关键词→添加(黑名单)');
+        await _tap(tester, _appBarText('保存'), '关键词→保存');
+        await _settle(tester, seconds: 1);
+        final filter = GetIt.instance<FilterService>();
+        expect(filter.whitelistKeywords, contains('闸门白名单'), reason: '白名单没保存');
+        expect(
+          filter.blacklistKeywords,
+          contains('闸门黑名单'),
+          reason: '黑名单没保存（TabController 下标错位类缺陷会在这里露出来）',
+        );
         await _backToHome(tester);
 
         await _backToHomeQuietly(tester);
-      });
-      // ── 5.15 幻念推送页（T42）：那一格的四件事在设备上长什么样 ─────────────
-      // 为什么这一节值得加：#157 那六片（建 / 读 / 关 / 换）每一片都改了这个页面，
-      // 而闸门此前一次都没进去过 —— 别的设置页都被点了一遍，唯独这一格是盲区。
-      // 断言只钉**结构**与**此刻该说什么话**，刻意不按那四把按钮：
-      // 按下去就是真网络请求（打的是线上那台服务器），而这一节的价值恰在于
-      // "什么都还没做过时，界面有没有替用户编一份列表"。
-      await _step(
-        tester,
-        gateFailures,
-        '── 5.15 幻念推送：设置页与接入端点页的形状（两页都在通知引擎那一块里）',
-        () async {
-          await _backToHomeQuietly(tester);
-          // T107 换了这一节的路线：这两页原先挂在「更多页 → 通道列表 → 右上齿轮（→ 齿轮里那一行端点）」
-          // 那棵树上。旧路线的两个抓手（`fnthink-channel-settings` 那枚齿轮、设置页里那行
-          // `fnthink-endpoint-entry`）已经**真删**，留着按不动的字面量正是这一节自己要防的事。
-          await _openFnthinkSettings(tester);
-          expect(
-            find.byKey(const ValueKey('fnthink-address-code')),
-            findsOneWidget,
-            reason: '进到了设置页却没有身份那一格 ⇒ 只剩一张壳，地址码没地方看',
-          );
-          // 端点那一格搬走了（T107），设置页里不该再有第二枚通往它的行。
-          expect(
-            find.byKey(const ValueKey('fnthink-endpoint-entry')),
-            findsNothing,
-            reason: '设置页里还留着通往端点页的那一行 ⇒ 同一张页两个入口，端点页只需一个',
-          );
-
-          await _backToHome(tester);
-          await _openEngineRow(tester, '接入端点（给 NAS / 脚本用）');
-          await _onPage(tester, FnthinkEndpointPage, '幻念接入端点页');
-
-          // 上限那句是**条件渲染**（`if (cap != null)` 才画那一枚 FnthinkNote）：
-          // 它在设备上出现，才证明契约 asset 真被加载了（而不是"页面上写死一个 10"）。
-          // 判据打在 key 与"数被代入了"上，不打在那句中文的措辞上 —— 文案改了不该让闸门瞎。
-          final capNote = find.byKey(const ValueKey('fnthink-endpoint-cap'));
-          expect(
-            capNote,
-            findsOneWidget,
-            reason: '上限那句没出现 ⇒ 契约在设备上没读起来，那一格的所有解释都在说谎（它是 cap != null 才画的条件渲染）',
-          );
-          final capText = tester.widget<Text>(capNote).data ?? '';
-          expect(
-            RegExp('[0-9]').hasMatch(capText),
-            isTrue,
-            reason: '上限那句里没有数字 ⇒ `{max}` 没被代入（读回来的是 "$capText"）',
-          );
-
-          final create = find.byKey(const ValueKey('fnthink-endpoint-create'));
-          final read = find.byKey(const ValueKey('fnthink-endpoint-read'));
-          await _scrollUntil(tester, read);
-          for (final pair in [
-            ['建一个端点', create],
-            ['读一次我建过的入口', read],
-          ]) {
-            expect(
-              pair[1],
-              findsOneWidget,
-              reason: '${pair[0]} 那一下不在 ⇒ 这一格又只剩"看不见"那一半',
-            );
-            final button = _tappable(pair[1] as Finder, tester);
-            expect(
-              button,
-              isTrue,
-              reason: '${pair[0]} 是灰的 ⇒ 首屏就被判成不可用（要么 _busy 卡住，要么前置判据写歪）',
-            );
-          }
-
-          // 还没读过 ⇒ 只能出现"还没读过"那一句；出现"没有端点"就是替用户编了一份列表。
-          expect(
-            find.byKey(const ValueKey('fnthink-endpoint-list-pending')),
-            findsOneWidget,
-            reason: '没读过就该说"还没看过"（空白会被读成"你没有"，那是这一格最容易说的假话）',
-          );
-          expect(
-            find.byKey(const ValueKey('fnthink-endpoint-list-none')),
-            findsNothing,
-            reason: '一次都没读过就说"没有端点"：用户会当着一次没发生的事去重建入口',
-          );
-          // 没有列表行 ⇒ 没有"关掉这把 / 换一把口令"那两下（此刻连 id 都还不知道）。
-          for (final prefix in [
-            'fnthink-endpoint-revoke-',
-            'fnthink-endpoint-rotate-',
-          ]) {
-            final rowButtons = find.byWidgetPredicate(
-              (w) =>
-                  w.key is ValueKey &&
-                  '${(w.key as ValueKey).value}'.startsWith(prefix),
-            );
-            expect(
-              rowButtons,
-              findsNothing,
-              reason: '$prefix 那一下在没有列表的情况下出现了 ⇒ 按钮指向的是一个还不存在的对象',
-            );
-          }
-          // 更多页那一格仍然只到**通道列表**为止（T107 的验收口径：那一格不再另开一条设置路径）。
-          // 这一走是为了确认那条路还通，"齿轮真删"由 widget 用例与
-          // `fnthink_ia_single_entry_test.dart` 那批源码守卫钉 —— 闸门里不留按已删 key 找路的写法。
-          await _backToHome(tester);
-          await _openMoreRow(tester, '幻念推送通道');
-          await _onPage(tester, FnthinkChannelListPage, '幻念推送通道列表');
-          await _backToHome(tester);
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // ── 5.16 幻念推送页：名单行上的「发一条」（T98 片④：那一枚弹层换成了共用那张页）───
-      // 这一格此前只有 widget 用例里的证据，而它有一个**只有设备上才看得见**的形状：
-      // "名单是空的 ⇒ 连入口都不该有"。这一节钉三件形状，一个字节都不发出去：
-      //   ① 名单里有一行 ⇒ 「发一条」在且可点；② 那一页里正文空着 ⇒ 主操作是灰的；
-      //   ③ 不点发送退出那一页 ⇒ 输入框消失、结论行不出现（退出了还发出去，说的与做的就不一致）。
-      // ⚠ 真发一条**不进闸门**：它打的是线上那台服务器，而且"发出去并被对方收到"要有对端
-      //    （#108）—— 闸门只证形状，不证投递。
-      await _step(
-        tester,
-        gateFailures,
-        '── 5.16 幻念推送页：名单行上的「发一条」（只验形状）',
-        () async {
-          // 地址码形状：18 位、Crockford Base32（不含 I/L/O/U），一眼能看出是闸门塞的。
-          const gatePeer = 'GATE000000PEER0001';
-          final helper = DatabaseHelper();
-          // 先清一次：上一轮没收干净的话"名单里有几行"就说不清是谁的错（与 4.2 同一条纪律）。
-          await helper.removeFnthinkPeer(gatePeer);
-          await helper.upsertFnthinkPeer(
-            const FnthinkPeer(
-              peerAddress: gatePeer,
-              publicKey: 'AAAAgatePeerPublicKeyBytes',
-              level: 'L1',
-              grantedAt: 1767223200000,
-              requestId: 'gate_peer_1',
-            ),
-          );
-          try {
-            await _backToHomeQuietly(tester);
-            // 名单那一行与「发一条」自 T94 起住在 `FnthinkPeersPage`。T97 片A 之前可以从
-            // 设置页那一行入口进，现在那张页只管"这台设备自己"（两行入口删了）⇒
-            // 唯一的入口是「通知引擎」tab 里的这一行。
-            await _openEngineRow(tester, '设备配对');
-            await _onPage(tester, FnthinkPeersPage, '设备配对页');
-
-            final sendEntry = find.byKey(
-              const ValueKey('fnthink-peer-send-$gatePeer'),
-            );
-            // ⚠ 先滚到它再断言：本页是 ListView，名单那一格在视口外时根本没被 build
-            // （5.15 第一次红就是这么来的）。
-            await _scrollUntil(tester, sendEntry);
-            await _settle(tester);
-            expect(
-              sendEntry,
-              findsOneWidget,
-              reason: '名单里已经有一行却没有「发一条」入口 ⇒ 那一行只是摆设，用户只能看着对端',
-            );
-            await _tap(tester, sendEntry, '名单行→发一条（开那一页）');
-            await _settle(tester);
-            await _onPage(tester, FnthinkSendPage, '共用发送页');
-
-            final submit = find.byKey(const ValueKey('fnthink-send-submit'));
-            // ⚠ 提交那一枚**必须在屏幕上看得见**才谈"它是灰的"：闸门是在设备上点的，
-            //   滚动一下不算作弊（widget 用例里同一条断言不需要这一步）。
-            await _scrollUntil(tester, submit);
-            await _settle(tester);
-            expect(submit, findsOneWidget, reason: '那一页没起来 ⇒ 那一格点不动');
-            // T98 片④：主操作走公共件 `PrimaryActionButton`（原来那枚是弹层里的
-            //  `CupertinoDialogAction`）。⚠ 换的是**读哪个字段**，断的还是同一件事：
-            //  正文空着而提交可点 ⇒ 发出去的是一句空话、而对面回执照样算"送达"。
-            expect(
-              tester.widget<PrimaryActionButton>(submit).onPressed,
-              isNull,
-              reason: '正文空着而「发送」可点 ⇒ 点下去发出去的是一句空话，而对面回执照样算"送达"',
-            );
-
-            // 取消：退出那一页 ⇒ 输入框没了 + 结论行不出现（后者是"一个字节都没发"
-            // 在设备上的可观察形状）。
-            _nav(tester).pop();
-            await _settle(tester);
-            expect(
-              find.byKey(const ValueKey('fnthink-send-body')),
-              findsNothing,
-              reason: '退了那一页而输入框还在 ⇒ 用户以为没退出去',
-            );
-            expect(
-              find.byKey(const ValueKey('fnthink-send-note')),
-              findsNothing,
-              reason: '退出之后出现结论行 ⇒ 那一发其实发出去了（"没点发送"说的与做的不一致）',
-            );
-          } finally {
-            // 收尾：下一轮开跑之前名单必须回到"这台没配对过任何一台"（与擦库同一口径）。
-            await helper.removeFnthinkPeer(gatePeer);
-          }
-          await _backToHome(tester);
-          await _backToHomeQuietly(tester);
-        },
-      );
-      // ── 6. 通知引擎 tab → 电量告警：加规则 → 切开关（骨架页 T15 落地后，电量页是 push 出来的子页）
-      await _step(tester, gateFailures, '── 6. 通知引擎→电量告警：加规则 → 切开关', () async {
+      },
+    );
+    // 5.7 规则约束：编辑预制规则(加一个条件) → 新建 → 删除新建的
+    await _step(
+      tester,
+      gateFailures,
+      '5.7 规则约束：编辑预制规则(加一个条件) → 新建 → 删除新建的',
+      () async {
         await _backToHomeQuietly(tester);
-        await _openEngineRow(tester, '电量告警');
-        await _onPage(tester, BatteryPage, '电量页');
-        await _tap(tester, _in(BatteryPage, find.byIcon(Icons.add)), '电量→添加规则');
-        await _settle(tester);
-        await _tap(tester, find.text('低于某值'), '电量规则类型 chip「低于某值」');
-        await _settle(tester);
-        // 对话框里唯一的文本框是「自定义标题」（阈值是滑杆），所以用标题给这条规则做记号
-        await _type(tester, find.byType(TextField), '闸门电量规则', '电量规则标题输入框');
-        await _tap(tester, find.text('添加'), '电量→添加(确认)');
-        await _settle(tester, seconds: 1);
+        await _openMoreRow(tester, '规则约束');
+        await _onPage(tester, RuleListPage, '规则约束列表');
+        await _tap(tester, _in(RuleListPage, find.text('编辑')), '规则→编辑第一条');
+        await _onPage(tester, RuleEditPage, '规则编辑页');
+        // 「添加条件」是分组**标题**，按钮是它旁边那个行内动作 ⇒
+        // 按条件/动作两个分组各自的动作件来点（条件组在前）。
+        // ⚠ T90 之后这两枚从 `TextButton` 换成了 `FnthinkInlineAction`（形状收口），
+        //   而这一格一直还在找 `TextButton` ⇒ 闸门 3/4 每次都红在"没出现两个按钮"，
+        //   页面本身是好的。尺跟着换件走，别把它读成页面回归。
+        final addButtons = find.descendant(
+          of: find.byType(RuleEditPage),
+          matching: find.byType(FnthinkInlineAction),
+        );
         expect(
-          GetIt.instance<BatteryService>().rules.any(
-            (r) => r['title'] == '闸门电量规则',
+          addButtons.evaluate().length,
+          greaterThanOrEqualTo(2),
+          reason: '规则编辑页没出现「添加条件 / 添加动作」两个按钮',
+        );
+        await _tap(tester, addButtons, '规则编辑→添加条件(按钮)');
+        // T90 片12：这枚表单弹层换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 等的那一层跟着换。
+        // ⚠ 上一轮只改了下面那处 `_tap` 的定位、漏了这一处 `_waitUntil` ⇒ 闸门 3/4 当场红在 5.7
+        //   （`Found 0 widgets with type "AlertDialog"`）。**同一枚弹层在一个步骤里被两处引用时，
+        //   换件必须一次改全**，只改"点的那处"会让等待先超时，后面的断言根本没跑到。
+        await _waitUntil(
+          tester,
+          find.byType(CupertinoAlertDialog),
+          '条件类型对话框',
+          seconds: 10,
+        );
+        // 条件类型是"点开再选"的 iOS 选择器，快照证实选完**连条件对话框也一起关了**
+        // （dialog=false）⇒ 不再追这层嵌套弹层，改为断言对话框三要素齐备后取消；
+        // 条件能否真落盘由桌面 widget 用例守（跑得快、可断言到控件级）。
+        // T90 片12：这枚表单弹层换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 定位跟着换。
+        // ⚠ 同文件里上面那处「温度规则对话框」的定位（T90 片12 起）早已换成 `CupertinoAlertDialog`；
+        //   本句原写的是「那一处不换」，T90 片28 把温度页最后一枚也迁完之后**本文件再无
+        //   Material `AlertDialog` 引用** —— 留着是为了让下一个人改定位前先确认那一枚真的迁了。
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('条件类型')),
+          '条件对话框→条件类型选择器',
+        );
+        await _settle(tester);
+        expect(
+          find.text('标题包含'),
+          findsWidgets,
+          reason: '条件类型选择器没有列出条件类型 ⇒ 这层弹层结构变了',
+        );
+        // 选中类型后条件对话框会一并关闭（第 17 轮 texts 已是规则编辑页本体）；
+        // 与其猜有几层，不如把当前确实存在的模态逐个弹掉。
+        for (var i = 0; i < 3 && _modalUp(tester); i++) {
+          tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+          await _settle(tester);
+        }
+        expect(_modalUp(tester), isFalse, reason: '条件相关弹层关不掉 ⇒ 后面每节都会在弹层底下找控件');
+        // 真落盘的编辑改走描述字段（同样是规则编辑页的表单链路）
+        await _type(
+          tester,
+          _in(RuleEditPage, find.byType(TextField)).at(1),
+          '闸门规则说明',
+          '规则描述输入框',
+        );
+        await _tap(tester, _appBarText('保存'), '规则编辑→保存');
+        await _settle(tester, seconds: 1);
+        await _backToHome(tester);
+        expect(
+          GetIt.instance<FilterService>().notificationRules.any(
+            (r) => r.description == '闸门规则说明',
           ),
           isTrue,
-          reason: '电量规则没落库（标题→规则→prefs+原生同步链路）',
+          reason: '规则编辑没落盘（规则是核心功能，编辑→保存→服务必须同步）',
         );
-        // 电量页现在是**push 出来的子页**（T15），NavigationBar 不在这条路由的子树里
-        // ⇒ 不能靠点 tab 回去（实测：pages=[BatteryPage] nav=false，"找不到首页"就是它）。
-        // 出页只能弹栈，交给下面的 _backToHomeQuietly（它同时要求回到根路由）。
+
         await _backToHomeQuietly(tester);
-      });
-      await _verdict(tester, gateFailures, '闸门 3/4');
-      // 3/4 是节数最多的一条（15 节），但每节都是"进一页、点两下"的量级；拆之前整轮
-      // 实测 8:42（第 15 轮），各条用例占多少要等拆完的第一轮闸门日志才量得出来。
-    },
-    timeout: Timeout(gateCaseBudgetFor(_caseCBudget)),
-  );
-
-  testWidgets(
-    '闸门 4/4 备份往返：导出一份 → 篡改本机 → 导回来 → 关键页再点一遍',
-    (tester) async {
-      final gateFailures = <String, String>{};
-      // 7/8 断的是"备份里有没有这一条"，所以先把自己要的现场灌好（不依赖 2/4、3/4 跑没跑）
-      await _assemble(tester, _seedBackupFixtures);
-      // ── 7. 备份导出 → 篡改本机 → 导入恢复（真文件、真口令、真 DB）
-      await _step(
+      },
+    );
+    // 5.8 规则测试器：填一条模拟通知，断言实时链路结果出现
+    await _step(tester, gateFailures, '5.8 规则测试器：填一条模拟通知，断言实时链路结果出现', () async {
+      await _backToHomeQuietly(tester);
+      await _openMoreRow(tester, '规则约束');
+      await _tap(
         tester,
-        gateFailures,
-        '── 7. 备份导出 → 篡改本机 → 导入恢复（真文件、真口令、真 DB）',
-        () async {
-          await _openMoreRow(tester, '备份与恢复');
-          await _onPage(tester, BackupRestorePage, '备份与恢复页');
-          _mark('7.1 备份页已进：下面两次 PBKDF2 派生各按秒计（生成）');
-          await _tap(tester, find.text('生成备份文件'), '备份→生成备份文件');
-          await _settle(tester);
-          // T90 片8：备份口令那枚弹层换成了共享的输入弹层 ⇒ 字段是 CupertinoTextField。
-          await _type(
-            tester,
-            find.byType(CupertinoTextField).last,
-            backupPassword,
-            '备份口令输入框',
-          );
-          await _tap(tester, find.text('确定'), '备份口令→确定');
-          await _settle(tester, seconds: 6); // PBKDF2 210k 次，模拟器上按秒计
-          final backupName = writtenFiles.keys
-              .where((n) => n.endsWith('.nbackup'))
-              .toList();
-          expect(
-            backupName,
-            isNotEmpty,
-            reason: '备份文件没落盘 ⇒ 导出链路（收集/加密/saveFile）有断点',
-          );
-          final backupPath = writtenFiles[backupName.last]!;
-          _mark('7.2 备份文件已落盘，开始验容器外层字段');
-          // 只验容器**外层**字段。ciphertext 是 base64 密文不是 JSON ——
-          // 上一版在这里 jsonDecode 它，抛的 FormatException 是闸门自己的错，不是产品的。
-          final container =
-              jsonDecode(File(backupPath).readAsStringSync())
-                  as Map<String, dynamic>;
-          expect(
-            container['format'],
-            'notice-backup',
-            reason: '容器 format 不对 = 导出的不是配置文件',
-          );
-          expect(container['version'], anyOf(1, 2), reason: '容器版本号缺失或不在支持范围');
-          for (final key in ['nonce', 'mac', 'ciphertext']) {
-            expect(
-              (container[key] as String?)?.isNotEmpty,
-              isTrue,
-              reason: '容器缺 $key —— 这种文件发出去就是坏包',
-            );
-          }
-
-          // 篡改：备份之后再往 DB 里塞一条通道 + 一个关键词，恢复后它们必须消失
-          final svc = GetIt.instance<WebhookService>();
-          await svc.saveChannels([
-            ...svc.channels,
-            {
-              'id': 'gate_after_backup',
-              'url': 'https://ntfy.sh/gate-after-backup',
-              'channelType': 'ntfy',
-              'enabled': true,
-              'secret': '',
-            },
-          ]);
-          final filterSvc = GetIt.instance<FilterService>();
-          await filterSvc.saveBlacklistKeywords([
-            ...filterSvc.blacklistKeywords,
-            '闸门备份后新增',
-          ]);
-          expect(svc.channels, hasLength(2), reason: '篡改步骤本身没生效');
-
-          // #95：把温度族与设备状态族在本机清空，模拟"换机后拿这份备份恢复"。
-          // 不擦就测不出区别：备份里缺这一族时恢复是"缺键 ⇒ 不动本机"，规则条数照样对，
-          // 于是这一节会绿着放行"备份根本不包含这两族"（上一版闸门的空转形状正是这样）。
-          await GetIt.instance<TemperatureService>().restoreSettings(
-            rules: const [],
-          );
-          await GetIt.instance<DeviceStateService>().restoreSettings(
-            rules: const [],
-          );
-          expect(
-            GetIt.instance<TemperatureService>().rules,
-            isEmpty,
-            reason: '没擦干净 = 下面的断言只是在测本机残留',
-          );
-          expect(
-            GetIt.instance<DeviceStateService>().rules,
-            isEmpty,
-            reason: '没擦干净 = 下面的断言只是在测本机残留',
-          );
-
-          // 导入：FilePicker 返回刚才那个文件 ⇒ 页面真实 readAsString + 解密 + 恢复
-          _mark('7.3 本机已篡改、两族已擦净：开始选文件恢复（第二次派生 + 冲突三选）');
-          pickedPathForNextCall = backupPath;
-          await _tap(tester, find.text('选择备份文件恢复'), '备份→选择备份文件恢复');
-          await _settle(tester, seconds: 2);
-          // T90 片8：恢复口令走的也是那枚共享输入弹层。
-          await _type(
-            tester,
-            find.byType(CupertinoTextField).last,
-            backupPassword,
-            '恢复口令输入框',
-          );
-          await _tap(tester, find.text('确定'), '恢复口令→确定');
-          await _settle(tester, seconds: 8); // 又一次 210k 派生
-          // 本机已有配置 ⇒ 必须弹冲突三选；选「覆盖全部」才走删旧写新
-          expect(
-            find.text('覆盖全部'),
-            findsWidgets,
-            reason: '没有弹冲突策略选择框 ⇒ 恢复可能在无提示的情况下改写配置',
-          );
-          await _tap(tester, find.text('覆盖全部'), '冲突策略→覆盖全部');
-          // 成功提示是 3 秒的 SnackBar：固定等 6 秒必然踩空（第 13 轮 7 节假红的原因）
-          await _waitUntil(
-            tester,
-            find.textContaining('恢复完成'),
-            '恢复完成提示',
-            seconds: 30,
-          );
-          expect(
-            find.textContaining('恢复完成'),
-            findsWidgets,
-            reason: '恢复没给出成功提示（可能中途失败而被静默吞掉）',
-          );
-          expect(
-            svc.channels.any((c) => c['id'] == 'gate_after_backup'),
-            isFalse,
-            reason: '覆盖恢复后，备份之后新增的通道必须消失',
-          );
-          expect(svc.channels, hasLength(1), reason: '恢复后通道条数不等于备份时');
-          expect(
-            filterSvc.blacklistKeywords,
-            isNot(contains('闸门备份后新增')),
-            reason: '关键词没被恢复回备份时的集合',
-          );
-          // #95：擦掉的两族必须从备份里回来（温度规则在 5.4 建、断网规则在 5.4a 建）
-          expect(
-            GetIt.instance<TemperatureService>().rules.map((r) => r['type']),
-            contains('battery_temp_above'),
-            reason: '温度族没进备份/恢复 ⇒ 换机后这条规则静默没了',
-          );
-          final restoredState = GetIt.instance<DeviceStateService>().rules;
-          expect(
-            restoredState.map((r) => r['title']),
-            contains('闸门断网规则'),
-            reason: '设备状态族（亮度/网络）没进备份/恢复',
-          );
-          expect(
-            restoredState.any(
-              (r) => (r['type'] ?? '').toString().contains('temp'),
-            ),
-            isFalse,
-            reason: '恢复把温度规则落进设备状态族 = 族名写错，原生按族取列表时那一族永远空',
-          );
-          await _backToHome(tester);
-
-          await _backToHomeQuietly(tester);
-        },
+        _in(RuleListPage, find.byIcon(Icons.science_outlined)),
+        '规则约束→规则测试器',
       );
-      // ── 8. 恢复后再点一遍关键页：证明"恢复过的配置"页面仍然打得开（1.5.74 事故点）
-      await _step(
-        tester,
-        gateFailures,
-        '── 8. 恢复后再点一遍关键页：证明"恢复过的配置"页面仍然打得开（1.5.74 事故点）',
-        () async {
-          await _openMoreRow(tester, 'Webhook 推送通道');
-          await _onPage(tester, WebhookChannelListPage, '恢复后的 Webhook 列表页');
-          // 列表页行上只画**主机名**（整条 URL 里带 key，列表不需要全文），
-          // 所以这里查主机，URL 本体到详情页里查 —— 1.5.74 的形状正是"恢复后页面打不开"。
-          expect(
-            find.textContaining('qyapi.weixin.qq.com'),
-            findsWidgets,
-            reason: '恢复后列表页没有这条通道 ⇒ 备份把通道改写了（㊹② 那一类）',
-          );
-          expect(
-            GetIt.instance<WebhookService>().channels.single['channelType'],
-            'wechat_work',
-            reason: '恢复把企微通道改成了别的类型 = 数据级缺陷',
-          );
-          final restoredId = GetIt.instance<WebhookService>()
-              .channels
-              .single['id']
-              .toString();
-          await _tap(
-            tester,
-            find.byKey(ValueKey('webhook-channel-row-$restoredId')),
-            'Webhook→恢复后的那条行进详情',
-          );
-          await _onPage(tester, WebhookSettingsPage, '恢复后的 Webhook 详情页');
-          expect(
-            find.text(_gateWecomUrl),
-            findsOneWidget,
-            reason: '详情页没回显恢复出来的整条 URL ⇒ 备份往返把地址弄丢或弄改了',
-          );
-          _nav(tester).pop();
-          await _settle(tester, seconds: 2);
-          await _backToHome(tester);
-          await _openMoreRow(tester, '关键词过滤');
-          await _onPage(tester, KeywordsPage, '恢复后的关键词页');
-          // 数据层：恢复到底把白名单写回服务了没有（页面只显示，服务才是真相）
-          expect(
-            GetIt.instance<FilterService>().whitelistKeywords,
-            contains('闸门白名单'),
-            reason: '备份里的白名单没被恢复进服务',
-          );
-          // 页面层：白名单/黑名单是两个 tab，先确保站在白名单上，再滚到条目
-          await _tap(tester, find.text('白名单'), '关键词页→白名单 tab');
-          await _settle(tester);
-          await _scrollUntil(tester, find.text('闸门白名单'));
-          expect(
-            find.text('闸门白名单'),
-            findsWidgets,
-            reason: '服务里有但页面不显示 ⇒ 页面喂的是旧数据（恢复后 main_page 的副本没刷新）',
-          );
-          await _backToHome(tester);
-
-          await _backToHomeQuietly(tester);
-        },
+      await _onPage(tester, RuleTesterPage, '规则测试器页');
+      final testerFields = _in(RuleTesterPage, find.byType(TextField));
+      await _type(tester, testerFields.at(1), '闸门关键词命中', '测试器标题');
+      await _settle(tester, seconds: 1);
+      expect(
+        find.textContaining('闸门关键词命中'),
+        findsWidgets,
+        reason: '测试器没有把输入回显进链路结果',
       );
-      // ── 影子差异出口（T72 的第一步）——**必须在最后一条用例里**：
-      // `release_emulator.sh` 的"缺行判红"读的就是这一行。放在中间某条用例 ⇒ 那条被用例级
-      // 超时掐掉时出口跟着一起消失，报告里只剩"闸门没有打印 GATE-DIFF-RING"这个误导结论。
-      // 「差异清零才切主路径」是 T21 定的门槛，可今天没有任何地方回答得出"清零了没有"：
-      // 那个环住在设备 prefs 里，只有它的单测与 T22 自检读它。所以这里**无条件**打一行 ——
-      // `n=0` 是一种答复，**缺这一行**才说明出口自己坏了。环有上限 20，`n=20/20` 要看得见
-      // "可能已经挤掉了更早的差异"；最新一条逐字段打，默认的 `EngineRuleDiff#3f2a1c`
-      // 写在发版报告里等于没写。
-      // 出口自己也要留一行：读了环却没打出来（`read()` 挂住、prefs 读不出来）时，
-      // 日志里最后一条痕迹就是这一行，而不是上一节的 BEGIN。
-      _mark('影子差异出口：读环并打一行（缺 GATE-DIFF-RING 就是这一段没走完）');
-      final ring = await EngineRuleDiffLog().read();
-      final byKind = <String, int>{};
-      for (final d in ring) {
-        byKind[d.kind] = (byKind[d.kind] ?? 0) + 1;
+      await _backToHome(tester);
+
+      await _backToHomeQuietly(tester);
+    });
+    // 5.9 规则模板库：打开工作表再关掉（导出/导入按钮在页内，点它会被真弹层打断）
+    await _step(
+      tester,
+      gateFailures,
+      '5.9 规则模板库：打开工作表再关掉（导出/导入按钮在页内，点它会被真弹层打断）',
+      () async {
+        await _openMoreRow(tester, '规则约束');
+        await _tap(
+          tester,
+          _in(RuleListPage, find.byIcon(Icons.playlist_add_check_outlined)),
+          '规则约束→规则模板库',
+        );
+        await _settle(tester);
+        expect(find.text('从文件导入'), findsWidgets, reason: '模板库工作表没打开');
+        await _backToHome(tester);
+
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // 5.10 设备名称：改名 → 确定
+    await _step(tester, gateFailures, '5.10 设备名称：改名 → 确定', () async {
+      await _backToHomeQuietly(tester);
+      await _openMoreRow(tester, '设备名称');
+      await _settle(tester);
+      // T90 片7：设备名那枚弹层换成了共享的输入弹层 ⇒ 输入框与外壳都改成 Cupertino 那一件。
+      // 这里仍按"外壳 + 文案"定位而不是拿 key：闸门要验的就是"用户看得见『保存』那颗"。
+      if (find.byType(CupertinoTextField).evaluate().isEmpty) {
+        _diagnose(tester, '设备名称弹层未出现');
+        fail('设备名称弹层里没有输入框（见上一条 GATE-DIAG 的 pages/texts）');
       }
-      final newest = ring.isEmpty ? null : ring.last;
-      debugPrint(
-        'GATE-DIFF-RING ▸ n=${ring.length}/${EngineRuleDiffLog.maxEntries} '
-        'kinds=$byKind families=${ring.map((d) => d.family).toSet().toList()} '
-        'newest=${newest == null ? '-' : '${newest.family}/${newest.kind}#${newest.index} ${newest.detail}'}',
+      await _type(tester, find.byType(CupertinoTextField), '闸门改名', '设备名称输入框');
+      // 确认按钮的文案是 l10n.save（"保存"），不是"确定" —— 出处是 `_showDeviceNameDialog`
+      // 里那句 confirmText，别照旧行号找（改完文件行号就漂）。
+      await _tap(tester, _in(CupertinoAlertDialog, find.text('保存')), '设备名称→保存');
+      await _settle(tester, seconds: 1);
+      expect(
+        GetIt.instance<DeviceInfoService>().deviceName,
+        '闸门改名',
+        reason: '设备名没保存（推送标题前缀会一直显示旧名）',
       );
-      await _verdict(tester, gateFailures, '闸门 4/4');
-      // 时间口径（拆开之后仍然是"谁先说话"的契约，钉在 release_gate_emulator_test.dart 里）：
-      //   节内预算 ×2 ≤ 每条用例超时（一条用例里够两节各挂一次并各自点名）
-      //   ≤ 单次调用回退上限 GATE_CASE_TIMEOUT（脚本按用例名分次调用 flutter test）
-      //   ≤ 正常一轮 + 一条挂满 + 构建 ≤ CI job 60′
-      // 拆之前的 18′ 是给"一条用例装完 24 节"用的：那时一次挂住吃满 18′ 且后面各节全废
-      //（㊼ 当年从 18 放宽到 30 的理由是"超时红会被误读成功能回归"，节内预算出现后不再成立
-      // —— 现在报出来的已经是"哪一节没跑完"）。
-    },
-    timeout: Timeout(gateCaseBudgetFor(_caseDBudget)),
-  );
+      await _backToHome(tester);
+
+      await _backToHomeQuietly(tester);
+    });
+    // 5.11 深色模式 + 语言：打开→选回默认；语言只打开不切（切了后面中文断言全落空）
+    await _step(
+      tester,
+      gateFailures,
+      '5.11 深色模式 + 语言：打开→选回默认；语言只打开不切（切了后面中文断言全落空）',
+      () async {
+        // 行标题就是「深色模式」(l10n.darkMode)，副标题是当前选择；
+        //「外观设置」是那一分组的表头 —— 点表头不会打开对话框（第 18 轮试过）。
+        await _openMoreRow(tester, '深色模式');
+        await _settle(tester);
+        // T90 片6：这两枚弹层换成了共享的选项弹层，行是带 key 的 `CupertinoButton`。
+        // ⚠ 这里**不再按文本点**：主题行的文案与页面那一格的副标题（当前档位）是同一串字，
+        // 按文本命中两只 ⇒ `.first` 点到底下那一格，弹层重开一次，选档静默丢失
+        // （语言那一格第 19 轮就红在这，当时的修法是 scope 到 ListTile；ListTile 没了，
+        // 现在直接用行的 key，把"点到同名件"这一整类一次堵掉）。
+        await _tap(
+          tester,
+          find.byKey(const ValueKey('ios-picker-ThemeMode.light')),
+          '深色模式→浅色',
+        );
+        await _settle(tester, seconds: 1);
+        await _openMoreRow(tester, '深色模式');
+        await _settle(tester);
+        await _tap(
+          tester,
+          find.byKey(const ValueKey('ios-picker-ThemeMode.system')),
+          '深色模式→跟随系统',
+        );
+        await _settle(tester, seconds: 1);
+        await _openMoreRow(tester, '语言');
+        await _settle(tester);
+        // 语言与主题同款：只有选项列表，没有"取消"按钮（第 19 轮快照 dialog=true、无 取消）
+        expect(
+          find.text('中文'),
+          findsWidgets,
+          reason: '语言对话框没列出当前语言 = 这层弹层结构变了',
+        );
+        await _tap(
+          tester,
+          find.byKey(const ValueKey('ios-picker-AppLanguage.zh')),
+          '语言弹窗→选当前语言（关闭）',
+        );
+        await _settle(tester, seconds: 1);
+        expect(
+          _modalUp(tester),
+          isFalse,
+          reason: '选完语言对话框没关 ⇒ 后面每一节都会在弹层底下找控件',
+        );
+
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // 5.12 推送开关（小部件引导）/ 推送统计 / 隐私政策 / 关于：进页断言渲染
+    await _step(
+      tester,
+      gateFailures,
+      '5.12 推送开关（小部件引导）/ 推送统计 / 隐私政策 / 关于：进页断言渲染',
+      () async {
+        await _openMoreRow(tester, '推送开关');
+        await _settle(tester, seconds: 1);
+        expect(tester.takeException(), isNull, reason: '小部件引导页崩了');
+        await _backToHome(tester);
+        await _openMoreRow(tester, '推送统计');
+        await _onPage(tester, StatsPage, '推送统计页');
+        await _tap(tester, find.text('近 30 天'), '推送统计→切 30 天');
+        await _settle(tester, seconds: 1);
+        await _backToHome(tester);
+        await _openMoreRow(tester, '隐私政策');
+        await _settle(tester, seconds: 1);
+        await _backToHome(tester);
+        await _openMoreRow(tester, '关于');
+        await _settle(tester);
+        await _tap(tester, find.text('好的'), '关于弹窗→好的');
+        await _settle(tester);
+
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // 5.13 崩溃上报开关（更多页里的 CupertinoSwitch，翻到底才存在）
+    await _step(
+      tester,
+      gateFailures,
+      '5.13 崩溃上报开关（更多页里的 CupertinoSwitch，翻到底才存在）',
+      () async {
+        await _scrollUntil(tester, find.text('崩溃上报'));
+        final moreSwitches = find.descendant(
+          of: find.byType(MorePage),
+          matching: find.byType(CupertinoSwitch),
+        );
+        expect(
+          moreSwitches.evaluate().length,
+          greaterThan(0),
+          reason: '更多页找不到崩溃上报开关',
+        );
+        await _tap(tester, moreSwitches.last, '崩溃上报开关');
+        await _tap(tester, moreSwitches.last, '崩溃上报开关(复原)');
+        await _settle(tester, seconds: 1);
+
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // ── 5.9 通道状态页（T10）：首页通道卡 → 三族分组 → 返回 ─────────────
+    // 这一节存在的理由：新页面最容易"编译过、单测绿、真机上入口是死的"。
+    // 首页那张卡现在**常驻**（以前只在监听运行时显示，第 1 节刚把服务关掉 ⇒ 入口忽在忽不在，
+    // 这一节就会假红），所以这里不需要先把服务开回来。
+    await _step(tester, gateFailures, '── 5.9 通道状态页：入口、三族分组与脱敏', () async {
+      await _backToHomeQuietly(tester);
+      // ⚠ 必须真的点一下 tab：主界面是 IndexedStack，停在更多/通知引擎时，首页的卡
+      // "在树上但不在屏幕上" ⇒ 滚到底也找不到（5.9 第一次红的真因）。
+      // 与 `_openMoreRow` 同一个规矩：tab 一律**限定在 NavigationBar 里**找。
+      await _tap(
+        tester,
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('首页'),
+        ),
+        '底部 tab→首页',
+      );
+      await _tap(tester, find.text('当前推送通道'), '首页→通道状态');
+      await _onPage(tester, ChannelStatusPage, '通道状态页');
+      expect(
+        _in(ChannelStatusPage, find.text('Webhook')),
+        findsOneWidget,
+        reason: '三族分组标题里没有 webhook 族（第 5 节刚存过一条启用的 webhook）',
+      );
+      final shown = tester
+          .widgetList<Text>(_in(ChannelStatusPage, find.byType(Text)))
+          .map((t) => t.data ?? '')
+          .join(' | ');
+      expect(
+        shown,
+        isNot(contains('access_token')),
+        reason: '关键链接整条 URL 上屏 = 把 query 里的凭据画进界面（截图即泄露）',
+      );
+      await _backToHomeQuietly(tester);
+    });
+    // ── 5.14 设备状态页（T18）：更多 → 点进 → 快照逐项 → 推一条设备信息
+    // ⚠ 编号接在 5.13 后面：5.10/5.11 已被「设备名称」「深色模式」占用
+    await _step(tester, gateFailures, '── 5.14 设备状态页：快照与「推送设备信息」', () async {
+      await _backToHomeQuietly(tester);
+      // ⚠ 这句标签与 `more_page` 的 `l10n.deviceStatusEntry` **同一处出处**
+      //   （ARB 的 `deviceStatusEntry`，中文「设备状态快照」）。2026-10-03 的 `2befab9`
+      //   把那个入口改了名而没同步这里 ⇒ 5.14 当场红在"找不到入口"，而**闸门自己
+      //   把它归成了"页面改坏了"** —— 真相反过来：页面是好的，定位是旧的。
+      //   `test/architecture/` 里有一条守卫钉住这两处同源，改名时它会先红。
+      await _openMoreRow(tester, '设备状态快照');
+      await _onPage(tester, DeviceSnapshotPage, '设备状态页');
+      // 值本身按机器不同（模拟器多半读不到温区），所以这里钉的是**结构**：
+      // 一项一行、标签都在。数值级断言会绿在一次写死的桩上，这里不给桩。
+      final texts = tester
+          .widgetList<Text>(_in(DeviceSnapshotPage, find.byType(Text)))
+          .map((t) => t.data ?? '')
+          .join(' | ');
+      for (final label in [
+        '型号',
+        '品牌',
+        '厂商',
+        '系统版本',
+        '网络',
+        '电量',
+        '电池温度',
+        '存储',
+        '内存',
+        '屏幕亮度',
+        '已运行',
+      ]) {
+        expect(
+          texts,
+          contains(label),
+          reason: '设备状态页少了「$label」这一项 ⇒ 快照那页的形状变了，用户看不见这一族读数',
+        );
+      }
+      // 至少有实值（电量/亮度带 %），或者明写读不到 —— 两者都没有就是整片空白
+      final hasAnyValue =
+          texts.contains('%') ||
+          texts.contains('这台设备读不到') ||
+          texts.contains('没读到设备快照');
+      expect(
+        hasAnyValue,
+        isTrue,
+        reason: '页面画了标签却一个值都没有 ⇒ 快照没读上来，而界面看起来是"正常的一页"',
+      );
+
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('device-status-push')),
+        '设备状态→推送设备信息',
+      );
+      await _settle(tester, seconds: 3);
+      expect(
+        GetIt.instance<NotificationService>().records.any(
+          // ⚠ 与上面那句同源（同一个 ARB 键 `deviceStatusEntry`）：那枚通知的 title
+          //   取的就是这个入口标题。第一轮只改了入口定位、跑到这里才红 ⇒ 顺手量到的，
+          //   不是猜的（两处曾是一起漏的，只补一处就是"改一半"）。
+          (r) => r.title == '设备状态快照',
+        ),
+        isTrue,
+        reason: '点了没落历史记录 ⇒ 送达结果没有落点（原生回传按 id 更新）',
+      );
+      expect(find.text('已交给通道推送，结果见推送历史'), findsOneWidget);
+      await _backToHome(tester);
+
+      await _backToHomeQuietly(tester);
+    });
+    // ── 5.15 幻念推送页（T42）：那一格的四件事在设备上长什么样 ─────────────
+    // 为什么这一节值得加：#157 那六片（建 / 读 / 关 / 换）每一片都改了这个页面，
+    // 而闸门此前一次都没进去过 —— 别的设置页都被点了一遍，唯独这一格是盲区。
+    // 断言只钉**结构**与**此刻该说什么话**，刻意不按那四把按钮：
+    // 按下去就是真网络请求（打的是线上那台服务器），而这一节的价值恰在于
+    // "什么都还没做过时，界面有没有替用户编一份列表"。
+    await _step(
+      tester,
+      gateFailures,
+      '── 5.15 幻念推送：设置页与接入端点页的形状（两页都在通知引擎那一块里）',
+      () async {
+        await _backToHomeQuietly(tester);
+        // T107 换了这一节的路线：这两页原先挂在「更多页 → 通道列表 → 右上齿轮（→ 齿轮里那一行端点）」
+        // 那棵树上。旧路线的两个抓手（`fnthink-channel-settings` 那枚齿轮、设置页里那行
+        // `fnthink-endpoint-entry`）已经**真删**，留着按不动的字面量正是这一节自己要防的事。
+        await _openFnthinkSettings(tester);
+        expect(
+          find.byKey(const ValueKey('fnthink-address-code')),
+          findsOneWidget,
+          reason: '进到了设置页却没有身份那一格 ⇒ 只剩一张壳，地址码没地方看',
+        );
+        // 端点那一格搬走了（T107），设置页里不该再有第二枚通往它的行。
+        expect(
+          find.byKey(const ValueKey('fnthink-endpoint-entry')),
+          findsNothing,
+          reason: '设置页里还留着通往端点页的那一行 ⇒ 同一张页两个入口，端点页只需一个',
+        );
+
+        await _backToHome(tester);
+        await _openEngineRow(tester, '接入端点（给 NAS / 脚本用）');
+        await _onPage(tester, FnthinkEndpointPage, '幻念接入端点页');
+
+        // 上限那句是**条件渲染**（`if (cap != null)` 才画那一枚 FnthinkNote）：
+        // 它在设备上出现，才证明契约 asset 真被加载了（而不是"页面上写死一个 10"）。
+        // 判据打在 key 与"数被代入了"上，不打在那句中文的措辞上 —— 文案改了不该让闸门瞎。
+        final capNote = find.byKey(const ValueKey('fnthink-endpoint-cap'));
+        expect(
+          capNote,
+          findsOneWidget,
+          reason: '上限那句没出现 ⇒ 契约在设备上没读起来，那一格的所有解释都在说谎（它是 cap != null 才画的条件渲染）',
+        );
+        final capText = tester.widget<Text>(capNote).data ?? '';
+        expect(
+          RegExp('[0-9]').hasMatch(capText),
+          isTrue,
+          reason: '上限那句里没有数字 ⇒ `{max}` 没被代入（读回来的是 "$capText"）',
+        );
+
+        final create = find.byKey(const ValueKey('fnthink-endpoint-create'));
+        final read = find.byKey(const ValueKey('fnthink-endpoint-read'));
+        await _scrollUntil(tester, read);
+        for (final pair in [
+          ['建一个端点', create],
+          ['读一次我建过的入口', read],
+        ]) {
+          expect(
+            pair[1],
+            findsOneWidget,
+            reason: '${pair[0]} 那一下不在 ⇒ 这一格又只剩"看不见"那一半',
+          );
+          final button = _tappable(pair[1] as Finder, tester);
+          expect(
+            button,
+            isTrue,
+            reason: '${pair[0]} 是灰的 ⇒ 首屏就被判成不可用（要么 _busy 卡住，要么前置判据写歪）',
+          );
+        }
+
+        // 还没读过 ⇒ 只能出现"还没读过"那一句；出现"没有端点"就是替用户编了一份列表。
+        expect(
+          find.byKey(const ValueKey('fnthink-endpoint-list-pending')),
+          findsOneWidget,
+          reason: '没读过就该说"还没看过"（空白会被读成"你没有"，那是这一格最容易说的假话）',
+        );
+        expect(
+          find.byKey(const ValueKey('fnthink-endpoint-list-none')),
+          findsNothing,
+          reason: '一次都没读过就说"没有端点"：用户会当着一次没发生的事去重建入口',
+        );
+        // 没有列表行 ⇒ 没有"关掉这把 / 换一把口令"那两下（此刻连 id 都还不知道）。
+        for (final prefix in [
+          'fnthink-endpoint-revoke-',
+          'fnthink-endpoint-rotate-',
+        ]) {
+          final rowButtons = find.byWidgetPredicate(
+            (w) =>
+                w.key is ValueKey &&
+                '${(w.key as ValueKey).value}'.startsWith(prefix),
+          );
+          expect(
+            rowButtons,
+            findsNothing,
+            reason: '$prefix 那一下在没有列表的情况下出现了 ⇒ 按钮指向的是一个还不存在的对象',
+          );
+        }
+        // 更多页那一格仍然只到**通道列表**为止（T107 的验收口径：那一格不再另开一条设置路径）。
+        // 这一走是为了确认那条路还通，"齿轮真删"由 widget 用例与
+        // `fnthink_ia_single_entry_test.dart` 那批源码守卫钉 —— 闸门里不留按已删 key 找路的写法。
+        await _backToHome(tester);
+        await _openMoreRow(tester, '幻念推送通道');
+        await _onPage(tester, FnthinkChannelListPage, '幻念推送通道列表');
+        await _backToHome(tester);
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // ── 5.16 幻念推送页：名单行上的「发一条」（T98 片④：那一枚弹层换成了共用那张页）───
+    // 这一格此前只有 widget 用例里的证据，而它有一个**只有设备上才看得见**的形状：
+    // "名单是空的 ⇒ 连入口都不该有"。这一节钉三件形状，一个字节都不发出去：
+    //   ① 名单里有一行 ⇒ 「发一条」在且可点；② 那一页里正文空着 ⇒ 主操作是灰的；
+    //   ③ 不点发送退出那一页 ⇒ 输入框消失、结论行不出现（退出了还发出去，说的与做的就不一致）。
+    // ⚠ 真发一条**不进闸门**：它打的是线上那台服务器，而且"发出去并被对方收到"要有对端
+    //    （#108）—— 闸门只证形状，不证投递。
+    await _step(
+      tester,
+      gateFailures,
+      '── 5.16 幻念推送页：名单行上的「发一条」（只验形状）',
+      () async {
+        // 地址码形状：18 位、Crockford Base32（不含 I/L/O/U），一眼能看出是闸门塞的。
+        const gatePeer = 'GATE000000PEER0001';
+        final helper = DatabaseHelper();
+        // 先清一次：上一轮没收干净的话"名单里有几行"就说不清是谁的错（与 4.2 同一条纪律）。
+        await helper.removeFnthinkPeer(gatePeer);
+        await helper.upsertFnthinkPeer(
+          const FnthinkPeer(
+            peerAddress: gatePeer,
+            publicKey: 'AAAAgatePeerPublicKeyBytes',
+            level: 'L1',
+            grantedAt: 1767223200000,
+            requestId: 'gate_peer_1',
+          ),
+        );
+        try {
+          await _backToHomeQuietly(tester);
+          // 名单那一行与「发一条」自 T94 起住在 `FnthinkPeersPage`。T97 片A 之前可以从
+          // 设置页那一行入口进，现在那张页只管"这台设备自己"（两行入口删了）⇒
+          // 唯一的入口是「通知引擎」tab 里的这一行。
+          await _openEngineRow(tester, '设备配对');
+          await _onPage(tester, FnthinkPeersPage, '设备配对页');
+
+          final sendEntry = find.byKey(
+            const ValueKey('fnthink-peer-send-$gatePeer'),
+          );
+          // ⚠ 先滚到它再断言：本页是 ListView，名单那一格在视口外时根本没被 build
+          // （5.15 第一次红就是这么来的）。
+          await _scrollUntil(tester, sendEntry);
+          await _settle(tester);
+          expect(
+            sendEntry,
+            findsOneWidget,
+            reason: '名单里已经有一行却没有「发一条」入口 ⇒ 那一行只是摆设，用户只能看着对端',
+          );
+          await _tap(tester, sendEntry, '名单行→发一条（开那一页）');
+          await _settle(tester);
+          await _onPage(tester, FnthinkSendPage, '共用发送页');
+
+          final submit = find.byKey(const ValueKey('fnthink-send-submit'));
+          // ⚠ 提交那一枚**必须在屏幕上看得见**才谈"它是灰的"：闸门是在设备上点的，
+          //   滚动一下不算作弊（widget 用例里同一条断言不需要这一步）。
+          await _scrollUntil(tester, submit);
+          await _settle(tester);
+          expect(submit, findsOneWidget, reason: '那一页没起来 ⇒ 那一格点不动');
+          // T98 片④：主操作走公共件 `PrimaryActionButton`（原来那枚是弹层里的
+          //  `CupertinoDialogAction`）。⚠ 换的是**读哪个字段**，断的还是同一件事：
+          //  正文空着而提交可点 ⇒ 发出去的是一句空话、而对面回执照样算"送达"。
+          expect(
+            tester.widget<PrimaryActionButton>(submit).onPressed,
+            isNull,
+            reason: '正文空着而「发送」可点 ⇒ 点下去发出去的是一句空话，而对面回执照样算"送达"',
+          );
+
+          // 取消：退出那一页 ⇒ 输入框没了 + 结论行不出现（后者是"一个字节都没发"
+          // 在设备上的可观察形状）。
+          _nav(tester).pop();
+          await _settle(tester);
+          expect(
+            find.byKey(const ValueKey('fnthink-send-body')),
+            findsNothing,
+            reason: '退了那一页而输入框还在 ⇒ 用户以为没退出去',
+          );
+          expect(
+            find.byKey(const ValueKey('fnthink-send-note')),
+            findsNothing,
+            reason: '退出之后出现结论行 ⇒ 那一发其实发出去了（"没点发送"说的与做的不一致）',
+          );
+        } finally {
+          // 收尾：下一轮开跑之前名单必须回到"这台没配对过任何一台"（与擦库同一口径）。
+          await helper.removeFnthinkPeer(gatePeer);
+        }
+        await _backToHome(tester);
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // ── 6. 通知引擎 tab → 电量告警：加规则 → 切开关（骨架页 T15 落地后，电量页是 push 出来的子页）
+    await _step(tester, gateFailures, '── 6. 通知引擎→电量告警：加规则 → 切开关', () async {
+      await _backToHomeQuietly(tester);
+      await _openEngineRow(tester, '电量告警');
+      await _onPage(tester, BatteryPage, '电量页');
+      await _tap(tester, _in(BatteryPage, find.byIcon(Icons.add)), '电量→添加规则');
+      await _settle(tester);
+      await _tap(tester, find.text('低于某值'), '电量规则类型 chip「低于某值」');
+      await _settle(tester);
+      // 对话框里唯一的文本框是「自定义标题」（阈值是滑杆），所以用标题给这条规则做记号
+      await _type(tester, find.byType(TextField), '闸门电量规则', '电量规则标题输入框');
+      await _tap(tester, find.text('添加'), '电量→添加(确认)');
+      await _settle(tester, seconds: 1);
+      expect(
+        GetIt.instance<BatteryService>().rules.any(
+          (r) => r['title'] == '闸门电量规则',
+        ),
+        isTrue,
+        reason: '电量规则没落库（标题→规则→prefs+原生同步链路）',
+      );
+      // 电量页现在是**push 出来的子页**（T15），NavigationBar 不在这条路由的子树里
+      // ⇒ 不能靠点 tab 回去（实测：pages=[BatteryPage] nav=false，"找不到首页"就是它）。
+      // 出页只能弹栈，交给下面的 _backToHomeQuietly（它同时要求回到根路由）。
+      await _backToHomeQuietly(tester);
+    });
+    await _verdict(tester, gateFailures, '闸门 3/4');
+    // 3/4 是节数最多的一条（15 节），但每节都是"进一页、点两下"的量级；拆之前整轮
+    // 实测 8:42（第 15 轮），各条用例占多少要等拆完的第一轮闸门日志才量得出来。
+  }, timeout: Timeout(gateCaseBudgetFor(_caseCBudget)));
+
+  testWidgets('闸门 4/4 备份往返：导出一份 → 篡改本机 → 导回来 → 关键页再点一遍', (tester) async {
+    final gateFailures = <String, String>{};
+    // 7/8 断的是"备份里有没有这一条"，所以先把自己要的现场灌好（不依赖 2/4、3/4 跑没跑）
+    await _assemble(tester, _seedBackupFixtures);
+    // ── 7. 备份导出 → 篡改本机 → 导入恢复（真文件、真口令、真 DB）
+    await _step(
+      tester,
+      gateFailures,
+      '── 7. 备份导出 → 篡改本机 → 导入恢复（真文件、真口令、真 DB）',
+      () async {
+        await _openMoreRow(tester, '备份与恢复');
+        await _onPage(tester, BackupRestorePage, '备份与恢复页');
+        _mark('7.1 备份页已进：下面两次 PBKDF2 派生各按秒计（生成）');
+        await _tap(tester, find.text('生成备份文件'), '备份→生成备份文件');
+        await _settle(tester);
+        // T90 片8：备份口令那枚弹层换成了共享的输入弹层 ⇒ 字段是 CupertinoTextField。
+        await _type(
+          tester,
+          find.byType(CupertinoTextField).last,
+          backupPassword,
+          '备份口令输入框',
+        );
+        await _tap(tester, find.text('确定'), '备份口令→确定');
+        await _settle(tester, seconds: 6); // PBKDF2 210k 次，模拟器上按秒计
+        final backupName = writtenFiles.keys
+            .where((n) => n.endsWith('.nbackup'))
+            .toList();
+        expect(
+          backupName,
+          isNotEmpty,
+          reason: '备份文件没落盘 ⇒ 导出链路（收集/加密/saveFile）有断点',
+        );
+        final backupPath = writtenFiles[backupName.last]!;
+        _mark('7.2 备份文件已落盘，开始验容器外层字段');
+        // 只验容器**外层**字段。ciphertext 是 base64 密文不是 JSON ——
+        // 上一版在这里 jsonDecode 它，抛的 FormatException 是闸门自己的错，不是产品的。
+        final container =
+            jsonDecode(File(backupPath).readAsStringSync())
+                as Map<String, dynamic>;
+        expect(
+          container['format'],
+          'notice-backup',
+          reason: '容器 format 不对 = 导出的不是配置文件',
+        );
+        expect(container['version'], anyOf(1, 2), reason: '容器版本号缺失或不在支持范围');
+        for (final key in ['nonce', 'mac', 'ciphertext']) {
+          expect(
+            (container[key] as String?)?.isNotEmpty,
+            isTrue,
+            reason: '容器缺 $key —— 这种文件发出去就是坏包',
+          );
+        }
+
+        // 篡改：备份之后再往 DB 里塞一条通道 + 一个关键词，恢复后它们必须消失
+        final svc = GetIt.instance<WebhookService>();
+        await svc.saveChannels([
+          ...svc.channels,
+          {
+            'id': 'gate_after_backup',
+            'url': 'https://ntfy.sh/gate-after-backup',
+            'channelType': 'ntfy',
+            'enabled': true,
+            'secret': '',
+          },
+        ]);
+        final filterSvc = GetIt.instance<FilterService>();
+        await filterSvc.saveBlacklistKeywords([
+          ...filterSvc.blacklistKeywords,
+          '闸门备份后新增',
+        ]);
+        expect(svc.channels, hasLength(2), reason: '篡改步骤本身没生效');
+
+        // #95：把温度族与设备状态族在本机清空，模拟"换机后拿这份备份恢复"。
+        // 不擦就测不出区别：备份里缺这一族时恢复是"缺键 ⇒ 不动本机"，规则条数照样对，
+        // 于是这一节会绿着放行"备份根本不包含这两族"（上一版闸门的空转形状正是这样）。
+        await GetIt.instance<TemperatureService>().restoreSettings(
+          rules: const [],
+        );
+        await GetIt.instance<DeviceStateService>().restoreSettings(
+          rules: const [],
+        );
+        expect(
+          GetIt.instance<TemperatureService>().rules,
+          isEmpty,
+          reason: '没擦干净 = 下面的断言只是在测本机残留',
+        );
+        expect(
+          GetIt.instance<DeviceStateService>().rules,
+          isEmpty,
+          reason: '没擦干净 = 下面的断言只是在测本机残留',
+        );
+
+        // 导入：FilePicker 返回刚才那个文件 ⇒ 页面真实 readAsString + 解密 + 恢复
+        _mark('7.3 本机已篡改、两族已擦净：开始选文件恢复（第二次派生 + 冲突三选）');
+        pickedPathForNextCall = backupPath;
+        await _tap(tester, find.text('选择备份文件恢复'), '备份→选择备份文件恢复');
+        await _settle(tester, seconds: 2);
+        // T90 片8：恢复口令走的也是那枚共享输入弹层。
+        await _type(
+          tester,
+          find.byType(CupertinoTextField).last,
+          backupPassword,
+          '恢复口令输入框',
+        );
+        await _tap(tester, find.text('确定'), '恢复口令→确定');
+        await _settle(tester, seconds: 8); // 又一次 210k 派生
+        // 本机已有配置 ⇒ 必须弹冲突三选；选「覆盖全部」才走删旧写新
+        expect(
+          find.text('覆盖全部'),
+          findsWidgets,
+          reason: '没有弹冲突策略选择框 ⇒ 恢复可能在无提示的情况下改写配置',
+        );
+        await _tap(tester, find.text('覆盖全部'), '冲突策略→覆盖全部');
+        // 成功提示是 3 秒的 SnackBar：固定等 6 秒必然踩空（第 13 轮 7 节假红的原因）
+        await _waitUntil(
+          tester,
+          find.textContaining('恢复完成'),
+          '恢复完成提示',
+          seconds: 30,
+        );
+        expect(
+          find.textContaining('恢复完成'),
+          findsWidgets,
+          reason: '恢复没给出成功提示（可能中途失败而被静默吞掉）',
+        );
+        expect(
+          svc.channels.any((c) => c['id'] == 'gate_after_backup'),
+          isFalse,
+          reason: '覆盖恢复后，备份之后新增的通道必须消失',
+        );
+        expect(svc.channels, hasLength(1), reason: '恢复后通道条数不等于备份时');
+        expect(
+          filterSvc.blacklistKeywords,
+          isNot(contains('闸门备份后新增')),
+          reason: '关键词没被恢复回备份时的集合',
+        );
+        // #95：擦掉的两族必须从备份里回来（温度规则在 5.4 建、断网规则在 5.4a 建）
+        expect(
+          GetIt.instance<TemperatureService>().rules.map((r) => r['type']),
+          contains('battery_temp_above'),
+          reason: '温度族没进备份/恢复 ⇒ 换机后这条规则静默没了',
+        );
+        final restoredState = GetIt.instance<DeviceStateService>().rules;
+        expect(
+          restoredState.map((r) => r['title']),
+          contains('闸门断网规则'),
+          reason: '设备状态族（亮度/网络）没进备份/恢复',
+        );
+        expect(
+          restoredState.any(
+            (r) => (r['type'] ?? '').toString().contains('temp'),
+          ),
+          isFalse,
+          reason: '恢复把温度规则落进设备状态族 = 族名写错，原生按族取列表时那一族永远空',
+        );
+        await _backToHome(tester);
+
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // ── 8. 恢复后再点一遍关键页：证明"恢复过的配置"页面仍然打得开（1.5.74 事故点）
+    await _step(
+      tester,
+      gateFailures,
+      '── 8. 恢复后再点一遍关键页：证明"恢复过的配置"页面仍然打得开（1.5.74 事故点）',
+      () async {
+        await _openMoreRow(tester, 'Webhook 推送通道');
+        await _onPage(tester, WebhookChannelListPage, '恢复后的 Webhook 列表页');
+        // 列表页行上只画**主机名**（整条 URL 里带 key，列表不需要全文），
+        // 所以这里查主机，URL 本体到详情页里查 —— 1.5.74 的形状正是"恢复后页面打不开"。
+        expect(
+          find.textContaining('qyapi.weixin.qq.com'),
+          findsWidgets,
+          reason: '恢复后列表页没有这条通道 ⇒ 备份把通道改写了（㊹② 那一类）',
+        );
+        expect(
+          GetIt.instance<WebhookService>().channels.single['channelType'],
+          'wechat_work',
+          reason: '恢复把企微通道改成了别的类型 = 数据级缺陷',
+        );
+        final restoredId = GetIt.instance<WebhookService>()
+            .channels
+            .single['id']
+            .toString();
+        await _tap(
+          tester,
+          find.byKey(ValueKey('webhook-channel-row-$restoredId')),
+          'Webhook→恢复后的那条行进详情',
+        );
+        await _onPage(tester, WebhookSettingsPage, '恢复后的 Webhook 详情页');
+        expect(
+          find.text(_gateWecomUrl),
+          findsOneWidget,
+          reason: '详情页没回显恢复出来的整条 URL ⇒ 备份往返把地址弄丢或弄改了',
+        );
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _backToHome(tester);
+        await _openMoreRow(tester, '关键词过滤');
+        await _onPage(tester, KeywordsPage, '恢复后的关键词页');
+        // 数据层：恢复到底把白名单写回服务了没有（页面只显示，服务才是真相）
+        expect(
+          GetIt.instance<FilterService>().whitelistKeywords,
+          contains('闸门白名单'),
+          reason: '备份里的白名单没被恢复进服务',
+        );
+        // 页面层：白名单/黑名单是两个 tab，先确保站在白名单上，再滚到条目
+        await _tap(tester, find.text('白名单'), '关键词页→白名单 tab');
+        await _settle(tester);
+        await _scrollUntil(tester, find.text('闸门白名单'));
+        expect(
+          find.text('闸门白名单'),
+          findsWidgets,
+          reason: '服务里有但页面不显示 ⇒ 页面喂的是旧数据（恢复后 main_page 的副本没刷新）',
+        );
+        await _backToHome(tester);
+
+        await _backToHomeQuietly(tester);
+      },
+    );
+    // ── 影子差异出口（T72 的第一步）——**必须在最后一条用例里**：
+    // `release_emulator.sh` 的"缺行判红"读的就是这一行。放在中间某条用例 ⇒ 那条被用例级
+    // 超时掐掉时出口跟着一起消失，报告里只剩"闸门没有打印 GATE-DIFF-RING"这个误导结论。
+    // 「差异清零才切主路径」是 T21 定的门槛，可今天没有任何地方回答得出"清零了没有"：
+    // 那个环住在设备 prefs 里，只有它的单测与 T22 自检读它。所以这里**无条件**打一行 ——
+    // `n=0` 是一种答复，**缺这一行**才说明出口自己坏了。环有上限 20，`n=20/20` 要看得见
+    // "可能已经挤掉了更早的差异"；最新一条逐字段打，默认的 `EngineRuleDiff#3f2a1c`
+    // 写在发版报告里等于没写。
+    // 出口自己也要留一行：读了环却没打出来（`read()` 挂住、prefs 读不出来）时，
+    // 日志里最后一条痕迹就是这一行，而不是上一节的 BEGIN。
+    _mark('影子差异出口：读环并打一行（缺 GATE-DIFF-RING 就是这一段没走完）');
+    final ring = await EngineRuleDiffLog().read();
+    final byKind = <String, int>{};
+    for (final d in ring) {
+      byKind[d.kind] = (byKind[d.kind] ?? 0) + 1;
+    }
+    final newest = ring.isEmpty ? null : ring.last;
+    debugPrint(
+      'GATE-DIFF-RING ▸ n=${ring.length}/${EngineRuleDiffLog.maxEntries} '
+      'kinds=$byKind families=${ring.map((d) => d.family).toSet().toList()} '
+      'newest=${newest == null ? '-' : '${newest.family}/${newest.kind}#${newest.index} ${newest.detail}'}',
+    );
+    await _verdict(tester, gateFailures, '闸门 4/4');
+    // 时间口径（拆开之后仍然是"谁先说话"的契约，钉在 release_gate_emulator_test.dart 里）：
+    //   节内预算 ×2 ≤ 每条用例超时（一条用例里够两节各挂一次并各自点名）
+    //   ≤ 单次调用回退上限 GATE_CASE_TIMEOUT（脚本按用例名分次调用 flutter test）
+    //   ≤ 正常一轮 + 一条挂满 + 构建 ≤ CI job 60′
+    // 拆之前的 18′ 是给"一条用例装完 24 节"用的：那时一次挂住吃满 18′ 且后面各节全废
+    //（㊼ 当年从 18 放宽到 30 的理由是"超时红会被误读成功能回归"，节内预算出现后不再成立
+    // —— 现在报出来的已经是"哪一节没跑完"）。
+  }, timeout: Timeout(gateCaseBudgetFor(_caseDBudget)));
 }
 
 /// 假 FilePicker 平台：把「选文件」变成返回测试自己写出来的那个备份文件路径。
@@ -3121,6 +3066,10 @@ Future<void> _verdict(
         '以下闸门步骤失败：\n'
         '${failures.entries.map((e) => "  ▸ ${e.key} → ${e.value}").join("\n")}',
   );
+  // Live binding 的 postTest 会断言 !_expectingFrame：用例体结束时若还有一帧在队列里
+  //（周期定时器/动画的最后一拍），收尾期会炸成 `!_expectingFrame`，与功能无关。
+  // 这里是四个用例的唯一出口：把最后一帧泵掉再交还 binding。
+  await t.pump(const Duration(milliseconds: 16));
 }
 
 /// 一节红掉不影响后面的节继续跑：模拟器一轮要 4 分钟，一节一轮试不起。

@@ -46,11 +46,9 @@ void main() {
         reason: '只扫到 ${codeByPath.length} 个文件 ⇒ 目录口径漂了，下面的"恰好一处"全是摆设',
       );
       // 通道列表页的两个装配点（更多页那一支 + 通知引擎那一行）是既成事实，用它验提取能命中。
-      expect(
-        hitting('page: FnthinkChannelListPage('),
-        const <String>['lib/pages/notification_engine_page.dart'],
-        reason: '这一枚都提不到 ⇒ 提取按的是不存在的写法，"恰好一处"会永远绿',
-      );
+      expect(hitting('page: FnthinkChannelListPage('), const <String>[
+        'lib/pages/notification_engine_page.dart',
+      ], reason: '这一枚都提不到 ⇒ 提取按的是不存在的写法，"恰好一处"会永远绿');
     });
 
     test('设置页与端点页各只有一个入口，都在通知引擎那一块里', () {
