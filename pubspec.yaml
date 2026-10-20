@@ -20,7 +20,9 @@ version: 1.5.76+116
 license: apache-2.0
 
 environment:
-  sdk: ^3.12.2
+  # Flutter 3.47.7 / Dart 3.13.5（CI 三处 pin 同值）：地板抬到 3.13，
+  # 让"用旧 SDK 构建"在 pub get 这一层就断，而不是等到 formatter／分析器给出不同结果。
+  sdk: ^3.13.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -45,16 +47,16 @@ dependencies:
   provider: ^6.1.2
   flutter_localizations:
     sdk: flutter
-  shared_preferences: ^2.3.2
+  shared_preferences: ^2.5.6
   http: ^1.2.2
-  uuid: ^4.5.0
+  uuid: ^4.6.0
   path_provider: ^2.1.5
   open_filex: ^5.0.0
   workmanager: ^0.10.10
 
   permission_handler: ^13.0.2
-  get_it: ^9.2.1
-  sqflite_sqlcipher: ^3.4.0
+  get_it: ^9.3.0
+  sqflite_sqlcipher: ^3.4.1
   path: ^1.8.3
   crypto: ^3.0.3
   flutter_secure_storage: ^10.3.1
