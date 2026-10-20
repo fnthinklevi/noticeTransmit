@@ -120,7 +120,7 @@ object AppChannelRegistry {
                 "&corpsecret=" + AppChannelTokenHelper.urlEncode(config.secret)
             val request = Request.Builder().url(url).build()
             client.newCall(request).execute().use { response ->
-                AppChannelsTokenParsers.parseWecomToken(response.body?.string() ?: "")
+                AppChannelsTokenParsers.parseWecomToken(response.body.string())
             }
         },
         sendTarget = { config, base, token ->
@@ -175,7 +175,7 @@ object AppChannelRegistry {
                 .toRequestBody("application/json; charset=utf-8".toMediaType())
             val request = Request.Builder().url(url).post(body).build()
             client.newCall(request).execute().use { response ->
-                AppChannelsTokenParsers.parseFeishuToken(response.body?.string() ?: "")
+                AppChannelsTokenParsers.parseFeishuToken(response.body.string())
             }
         },
         sendTarget = { config, base, token ->

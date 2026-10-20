@@ -261,7 +261,9 @@ class NetworkClient {
                 val request = requestBuilder.build()
 
                 client.newCall(request).execute().use { response ->
-                    val respBody = response.body?.string() ?: ""
+                    // okhttp 5 起 `Response.body` 是**非空**的（4.x 是 `ResponseBody?`）⇒
+                    // 这里不再需要 `?.`（留着会吃一条 "unnecessary safe call" 警告）。
+                    val respBody = response.body.string()
                     val parser = WebhookResponseParser.parse(
                         // 显式声明优先，GENERIC 才按 host 回退（见 resolveWebhookType 注释）
                         resolveWebhookType(webhookType, signed.url),

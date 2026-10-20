@@ -678,7 +678,7 @@ class MainActivity : FlutterActivity() {
                         .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
                     for ((k, v) in headers) request.addHeader(k, v)
                     okHttpClient.newCall(request.build()).execute().use { response ->
-                        val responseBody = response.body?.string() ?: ""
+                        val responseBody = response.body.string()
                         // 响应按 host 解析：qyapi→errcode 语义、open.feishu.cn→code 语义
                         val parseResult = WebhookResponseParser.parse(
                             WebhookPayloadBuilder.detectType(url), response.code, responseBody
@@ -2313,7 +2313,7 @@ class MainActivity : FlutterActivity() {
                     }
                     val request = requestBuilder.build()
                     okHttpClient.newCall(request).execute().use { response ->
-                        val responseBody = response.body?.string() ?: ""
+                        val responseBody = response.body.string()
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
                         Triple(
                             parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
@@ -2331,7 +2331,7 @@ class MainActivity : FlutterActivity() {
                         .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
                         .build()
                     okHttpClient.newCall(request).execute().use { response ->
-                        val responseBody = response.body?.string() ?: ""
+                        val responseBody = response.body.string()
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
                         Triple(
                             parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
@@ -2352,7 +2352,7 @@ class MainActivity : FlutterActivity() {
                         .addHeader("User-Agent", "NotificationMonitor/1.0")
                         .build()
                     okHttpClient.newCall(request).execute().use { response ->
-                        val responseBody = response.body?.string() ?: ""
+                        val responseBody = response.body.string()
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
                         Triple(
                             parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
@@ -2379,7 +2379,7 @@ class MainActivity : FlutterActivity() {
                             .addHeader("User-Agent", "NotificationMonitor/1.0")
                             .build()
                         okHttpClient.newCall(request).execute().use { response ->
-                            val responseBody = response.body?.string() ?: ""
+                            val responseBody = response.body.string()
                             val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
                             Triple(
                                 parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
@@ -2405,7 +2405,7 @@ class MainActivity : FlutterActivity() {
                     val request = requestBuilder.build()
 
                     okHttpClient.newCall(request).execute().use { response ->
-                        val responseBody = response.body?.string() ?: ""
+                        val responseBody = response.body.string()
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
 
                         val signedLabel = if (!secret.isNullOrEmpty()) " [已签名]" else ""
