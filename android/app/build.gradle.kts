@@ -234,9 +234,14 @@ dependencies {
     implementation("com.tencent.bugly:crashreport:4.1.9.3")
     implementation("com.sun.mail:android-mail:1.6.7")
     implementation("com.sun.mail:android-activation:1.6.7")
-    // 原生端加密存储（C2）：与 flutter_secure_storage 9.2.4 同源同版本，
-    // 保证 EncryptedSharedPreferences 主密钥（AndroidKeyStore 同一 alias）与算法一致，可跨端读写
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    // 原生端加密存储（C2）：主密钥 alias 与 `EncryptedSharedPreferences` 的算法必须与
+    // flutter_secure_storage 那侧一致，才能跨端读同一份数据。
+    // ⚠ 2026-10-20 现读更正（T162 批次 E-2）：那句「与 flutter_secure_storage 同源同版本」
+    // 已经过期 —— 插件 10.x 起**自带一份 vendored 拷贝**（`com.it_nomads.…crypto.MasterKey`／
+    // `EncryptedSharedPreferences`）、改用 `tink-android`，**不再依赖这个 androidx 构件**；
+    // 两端互通靠的是**约定**（默认 alias `_androidx_security_master_key_` ＋ AES256-SIV 键名／
+    // AES256-GCM 值），不是共享同一个库 ⇒ 本行这个版本号只管本仓自己这一份 SecurePrefs。
+    implementation("androidx.security:security-crypto:1.1.0")
     // 幻念推送身份密钥（T26）：Android 平台的 Ed25519 要 API 30+，而 minSdk 是 24。
     // 30 以下用这把纯 Java 实现签名/验签，私钥仍由 KeyStore 里不可导出的 AES-GCM 密钥包裹后落盘。
     // 只依赖它做曲线算术，不引整套 provider（BouncyCastle 为数 MB，为一个算法不值得）。
