@@ -1,4 +1,4 @@
-# Contributing (CONTRIBUTING)
+﻿# Contributing (CONTRIBUTING)
 
 [中文](CONTRIBUTING.md) / English
 
@@ -165,7 +165,7 @@ It covers three toolchains:
   ```bash
   cd server
   node --check server.js      # syntax self-check
-  npm test                    # HTTP contract tests (jest, 29 cases)
+  npm test                    # HTTP contract tests (jest, 801 cases / 44 suites)
   npm run format:check        # Prettier; or npm run format to fix in place
   npm start                   # run locally and hit /health
   ```
@@ -191,16 +191,16 @@ flutter analyze --no-pub
 #    plus version.json sha256 completeness, website i18n coverage, l10n zh/en key parity)
 bash .github/scripts/check_version_consistency.sh
 
-# 3) Dart unit tests (379 cases / 37 files) + coverage
+# 3) Dart unit tests (3308 cases / 291 files) + coverage
 flutter test --no-pub --coverage
 
-# 4) Android JVM unit tests (234 cases / 26 classes, JDK 21; no signing keys needed)
+# 4) Android JVM unit tests (619 cases / 75 classes, JDK 21; no signing keys needed)
 cd android && ./gradlew :app:testDebugUnitTest --console=plain
 
 # 5) Android lint (debug variant; errors fail the build)
 ./gradlew :app:lintDebug --console=plain
 
-# 6) Server contract tests (29 cases, Node 24)
+# 6) Server contract tests (801 cases / 44 suites, Node 24)
 cd ../server && npm ci && npm test
 
 # 7) Three-way formatting gate (Dart / Kotlin / JS)
@@ -230,10 +230,10 @@ Extra things CI does (optional locally):
 
 | Layer | Count | Entry point |
 |-------|-------|-------------|
-| Dart unit tests | **379 cases / 37 files** | `flutter test --no-pub` (`test/` is grouped into `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support`) |
-| Kotlin JVM unit tests | **234 cases / 26 classes** | `cd android && ./gradlew :app:testDebugUnitTest` (reports under `build/app/test-results/testDebugUnitTest/`) |
-| Server contract tests | **29 cases** | `cd server && npm test` (`server/test/auth.test.js`) |
-| l10n keys | **862 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
+| Dart unit tests | **3308 cases / 291 files** | `flutter test --no-pub` (`test/` is grouped into `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support`) |
+| Kotlin JVM unit tests | **619 cases / 75 classes** | `cd android && ./gradlew :app:testDebugUnitTest` (reports under `build/app/test-results/testDebugUnitTest/`) |
+| Server contract tests | **801 cases / 44 files** | `cd server && npm test` (`server/test/auth.test.js`) |
+| l10n keys | **1591 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
 
 Run `flutter pub get` before testing. Counts grow with features; if you add or remove tests, update
 the numbers above too (they are documentation, not a CI assertion).

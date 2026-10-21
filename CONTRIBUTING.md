@@ -1,4 +1,4 @@
-# 贡献指南（CONTRIBUTING）
+﻿# 贡献指南（CONTRIBUTING）
 
 [English](CONTRIBUTING-en.md) / 中文
 
@@ -159,7 +159,7 @@ bash .github/scripts/check_format.sh --fix    # 就地格式化（三路一并�
   ```bash
   cd server
   node --check server.js      # 语法自检
-  npm test                    # HTTP 契约测试（jest，29 例）
+  npm test                    # HTTP 契约测试（jest，801 例 / 44 套）
   npm run format:check        # Prettier；或 npm run format 就地修
   npm start                   # 本地起服务，访问 /health 自测
   ```
@@ -183,16 +183,16 @@ flutter analyze --no-pub
 #    另含 version.json sha256 完备性、官网 i18n 覆盖、l10n zh/en 键集合一致）
 bash .github/scripts/check_version_consistency.sh
 
-# 3) Dart 单元测试（379 例 / 37 文件）+ 覆盖率
+# 3) Dart 单元测试（3308 例 / 291 文件）+ 覆盖率
 flutter test --no-pub --coverage
 
-# 4) Android JVM 单元测试（234 例 / 26 类，JDK 21；无需签名密钥）
+# 4) Android JVM 单元测试（619 例 / 75 类，JDK 21；无需签名密钥）
 cd android && ./gradlew :app:testDebugUnitTest --console=plain
 
 # 5) Android lint（debug 变体，error 即红）
 ./gradlew :app:lintDebug --console=plain
 
-# 6) 服务端契约测试（29 例，Node 24）
+# 6) 服务端契约测试（801 例 / 44 套，Node 24）
 cd ../server && npm ci && npm test
 
 # 7) 三路格式闸门（Dart / Kotlin / JS）
@@ -219,10 +219,10 @@ CI 额外做的事（本地可选）：
 
 | 层 | 数量 | 入口 |
 |----|------|------|
-| Dart 单元测试 | **379 例 / 37 文件** | `flutter test --no-pub`（`test/` 下按 `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support` 分目录） |
-| Kotlin JVM 单元测试 | **234 例 / 26 类** | `cd android && ./gradlew :app:testDebugUnitTest`（报告在 `build/app/test-results/testDebugUnitTest/`） |
-| 服务端契约测试 | **29 例** | `cd server && npm test`（`server/test/auth.test.js`） |
-| l10n 词条 | **862 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
+| Dart 单元测试 | **3308 例 / 291 文件** | `flutter test --no-pub`（`test/` 下按 `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support` 分目录） |
+| Kotlin JVM 单元测试 | **619 例 / 75 类** | `cd android && ./gradlew :app:testDebugUnitTest`（报告在 `build/app/test-results/testDebugUnitTest/`） |
+| 服务端契约测试 | **801 例 / 44 文件** | `cd server && npm test`（`server/test/auth.test.js`） |
+| l10n 词条 | **1591 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
 
 跑测试前 `flutter pub get`；Dart 与 Kotlin 两侧的用例数会随功能增长，若你新增/删除测试，
 请同步更新本表的数字（它是文档口径，不是 CI 断言）。

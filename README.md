@@ -247,7 +247,7 @@
 | 数据加密 | Node.js crypto（AES-256-GCM）/ AndroidKeyStore + flutter_secure_storage |
 | 构建工具 | Gradle 9.8.2 + AGP 9.4.1 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 · Kotlin 由 AGP 内置编译（Kotlin 2.4.21 走 classpath 钉版） |
 | 代码质量 | flutter_lints ^6.0.0 · dart format · ktlint 1.8.0 · prettier 3.9.8 · Android lint（含 baseline） |
-| 测试 | flutter test（Dart 2063 例）· JUnit（Kotlin JVM 478 例）· jest + supertest（服务端 599 例）· integration_test |
+| 测试 | flutter test（Dart 3308 例）· JUnit（Kotlin JVM 619 例）· jest + supertest（服务端 801 例）· integration_test |
 | CI/CD | GitHub Actions（analyze / build-apk / integration_test / deploy-pages） |
 | APK 签名 | Gradle signingConfig：V1+V2+V3 全开，密钥仅由环境变量或 `android/key.properties` 注入 |
 
@@ -326,16 +326,16 @@ noticeTransmit/
 │   │   ├── ConfigManager.kt · SecurePrefs.kt · NetworkClient.kt
 │   │   └── channels/                     # 7 个 handler（配置 34 / 权限 26 / 设备 15 / 文件 13
 │   │                                     #   / 幻念 11 / 统计 9 / 远程执行 5 ＝ 113 个方法）
-│   ├── test/                             # Kotlin JVM 单测（55 个测试类 / 478 用例）
+│   ├── test/                             # Kotlin JVM 单测（75 个测试类 / 619 用例）
 │   └── androidTest/                      # 仪器测试（6 个文件）
 ├── server/                               # 服务端（更新服务 + TOTP 后台 + 幻念协议面）
 │   ├── server.js · lib/                  # 入口 + 模块化分层（29 个 JS）
 │   ├── lib/fnthink/                     # 幻念协议面（配对 / 投递 / 能力 / 端点 / 运维 …）
-│   ├── test/                            # jest + supertest 契约测试（34 个文件 / 599 例）
+│   ├── test/                            # jest + supertest 契约测试（44 个文件 / 801 例）
 │   ├── public/                          # 官网与 GitHub Pages 静态站点
 │   ├── data/version.json                # 版本信息（版本/构建号/sha256/多架构下载地址）
 │   └── README.md · GITHUB_PAGES.md       # 部署文档（中英各一份）
-├── test/                                # Dart 测试（170 个文件 / 2063 用例）
+├── test/                                # Dart 测试（291 个文件 / 3308 用例）
 ├── integration_test/                    # 设备侧冒烟（5 个文件，含发版闸门）
 ├── docs/                                # server_deploy_and_update_guide.md · cert_rotation_runbook.md（路线图等内部流水不入库）
 ├── .github/                             # workflows/（CI）与 scripts/（格式、版本一致性、本地发版）
@@ -382,19 +382,19 @@ flutter build apk --release --target-platform android-arm64
 ### 运行测试与质量校验
 
 ```bash
-# Dart 单元测试（170 个文件 / 2063 用例）
+# Dart 单元测试（291 个文件 / 3308 用例）
 flutter test
 
 # 嵌套协议包单测（在包目录里跑）
 cd packages/fnthink_push && dart test && cd ../..
 
-# Kotlin JVM 单元测试（55 个测试类 / 478 用例）
+# Kotlin JVM 单元测试（75 个测试类 / 619 用例）
 cd android && ./gradlew :app:testDebugUnitTest
 
 # Android lint（error 即失败，已知误报由 android/app/lint-baseline.xml 兜住）
 cd android && ./gradlew :app:lintDebug
 
-# 服务端契约测试（599 例，需 Node.js 24 LTS）
+# 服务端契约测试（801 例，需 Node.js 24 LTS）
 cd server && npm ci && npm test
 
 # 三路格式校验（dart format + ktlint 1.8.0 + prettier 3.9.8；加 --fix 就地格式化）
@@ -422,10 +422,10 @@ flutter test integration_test/smoke_test.dart
 
 **测试规模**（均为可执行用例；除设备侧测试外，其余全部纳入 CI 门禁强制执行）：
 
-- **Dart 单元测试** —— 170 个测试文件 / 2063 用例（`test/`）：架构契约（启动顺序、launcher manifest、跨端通道方法齐平、幻念镜像键名守卫）、数据库 schema 与迁移、备份/送达/过滤黄金用例、页面 widget 测试
+- **Dart 单元测试** —— 291 个测试文件 / 3308 用例（`test/`）：架构契约（启动顺序、launcher manifest、跨端通道方法齐平、幻念镜像键名守卫）、数据库 schema 与迁移、备份/送达/过滤黄金用例、页面 widget 测试
 - **共享协议包测试** —— `packages/fnthink_push`：契约校验与向量断言，两端各跑一遍
-- **Kotlin JVM 单元测试** —— 55 个测试类 / 478 用例（`android/app/src/test/`）：双端规则匹配一致性由 `rule_engine_golden.json` 51 条黄金用例锁定，通道行为由 `channel_behavior_golden.json` 逐字节快照锁定
-- **服务端契约测试** —— 599 例（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面七条路由
+- **Kotlin JVM 单元测试** —— 75 个测试类 / 619 用例（`android/app/src/test/`）：双端规则匹配一致性由 `rule_engine_golden.json` 51 条黄金用例锁定，通道行为由 `channel_behavior_golden.json` 逐字节快照锁定
+- **服务端契约测试** —— 801 例（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面七条路由
 - **设备侧测试** —— `integration_test/smoke_test.dart` 主链路冒烟（启动 → 注入 → 通知页 → 送达状态 → 历史 → 服务启停 → 导出），加 `android/app/src/androidTest` 仪器测试，由 `integration_test.yml` 在 API 34 / x86_64 / Pixel 6 模拟器上触发
 
 **CI 工作流**（`.github/workflows/`，均运行于 `ubuntu-24.04`）：
