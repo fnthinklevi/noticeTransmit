@@ -242,7 +242,7 @@ The usual convention for notification tools is "you hand your content to a third
 | Data Encryption | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |
 | Build Tools | Gradle 9.8.2 + AGP 9.4.1 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 · Kotlin compiled by AGP built-in Kotlin (2.4.21 pinned on the classpath) |
 | Code Quality | flutter_lints ^6.0.0 · dart format · ktlint 1.8.0 · prettier 3.9.8 · Android lint (with baseline) |
-| Testing | flutter test (Dart 3308 cases) · JUnit (Kotlin JVM 619 cases) · jest + supertest (server 801 cases) · integration_test |
+| Testing | flutter test (Dart 2063 cases) · JUnit (Kotlin JVM 478 cases) · jest + supertest (server 599 cases) · integration_test |
 | CI/CD | GitHub Actions (analyze / build-apk / integration_test / deploy-pages) |
 | APK Signing | Gradle signingConfig: V1+V2+V3 all enabled (`enableV1/V2/V3Signing`); keys injected only via env vars or `android/key.properties` |
 
@@ -323,16 +323,16 @@ noticeTransmit/
 │   │   ├── BootReceiver.kt · NetworkClient.kt · ConfigManager.kt · SecurePrefs.kt
 │   │   └── channels/                     # 7 handlers (config 34 / permission 26 / device 15 / file 13
 │   │                                     #   / Fnthink 11 / stats 9 / remote-exec 5  = 113 methods)
-│   ├── test/                             # Kotlin JVM unit tests (75 classes / 619 cases) + golden snapshots
+│   ├── test/                             # Kotlin JVM unit tests (55 classes / 478 cases) + golden snapshots
 │   └── androidTest/                      # Instrumented tests (6 files)
 ├── server/                               # Server (update service + TOTP console + Fnthink protocol surface)
 │   ├── server.js · lib/                  # Entry point + modular layers (29 JS files)
 │   │   └── lib/fnthink/                  # Fnthink surface (pairing / delivery / capabilities / endpoints / ops)
-│   ├── test/                             # jest + supertest contract tests (44 files / 801 cases)
+│   ├── test/                             # jest + supertest contract tests (34 files / 599 cases)
 │   ├── public/                           # Official site and GitHub Pages static site
 │   ├── data/version.json                 # Version info (version/build/sha256/per-ABI download URLs)
 │   └── README.md · GITHUB_PAGES.md       # Deployment docs (zh + en each)
-├── test/                                 # Dart tests (291 files / 3308 cases)
+├── test/                                 # Dart tests (170 files / 2063 cases)
 ├── integration_test/                     # On-device smoke (5 files, includes the release gate)
 ├── docs/                                 # server_deploy_and_update_guide.md · cert_rotation_runbook.md (internal ledgers stay out of the repo)
 ├── .github/                              # workflows/ (CI) and scripts/ (format, version consistency, local release)
@@ -384,19 +384,19 @@ flutter build apk --release --target-platform android-arm64
 ### Tests & Quality Checks
 
 ```bash
-# Dart unit tests (291 files / 3308 cases)
+# Dart unit tests (170 files / 2063 cases)
 flutter test
 
 # Shared protocol package tests (must run inside the package directory)
 cd packages/fnthink_push && dart test && cd ../..
 
-# Kotlin JVM unit tests (75 test classes / 619 cases)
+# Kotlin JVM unit tests (55 test classes / 478 cases)
 cd android && ./gradlew :app:testDebugUnitTest
 
 # Android lint (errors fail the build; known false positives are held by android/app/lint-baseline.xml)
 cd android && ./gradlew :app:lintDebug
 
-# Server HTTP contract tests (801 cases, requires Node.js 24 LTS)
+# Server HTTP contract tests (599 cases, requires Node.js 24 LTS)
 cd server && npm ci && npm test
 
 # Three-way format check (dart format + ktlint 1.8.0 + prettier 3.9.8; add --fix to rewrite files)
@@ -424,10 +424,10 @@ Fnthink Push deployment (two regions, where to upload the contract file, reverse
 
 **Test scale** (all executable; every group except the on-device tests is enforced in the PR gate):
 
-- **Dart unit tests** — 291 test files / 3308 cases (`test/`): architecture contracts (bootstrap order, launcher manifest contract, channel-method parity across both ends, the Fnthink mirror key-name guard), database schema and migrations, backup / delivery / filter golden cases, page widget tests
+- **Dart unit tests** — 170 test files / 2063 cases (`test/`): architecture contracts (bootstrap order, launcher manifest contract, channel-method parity across both ends, the Fnthink mirror key-name guard), database schema and migrations, backup / delivery / filter golden cases, page widget tests
 - **Shared protocol package tests** — `packages/fnthink_push`: contract validation and vector assertions, run on both ends
-- **Kotlin JVM unit tests** — 75 test classes / 619 cases (`android/app/src/test/`): Dart/Kotlin rule-matching parity is locked by 51 golden cases in `rule_engine_golden.json`, and channel behaviour by byte-exact snapshots in `channel_behavior_golden.json` (48 payloads + 34 response parses)
-- **Server contract tests** — 801 cases (`server/test/`, jest + supertest): login / TOTP enable & recovery-code consumption / session invalidation / IP blocking, plus the seven Fnthink protocol routes
+- **Kotlin JVM unit tests** — 55 test classes / 478 cases (`android/app/src/test/`): Dart/Kotlin rule-matching parity is locked by 51 golden cases in `rule_engine_golden.json`, and channel behaviour by byte-exact snapshots in `channel_behavior_golden.json` (48 payloads + 34 response parses)
+- **Server contract tests** — 599 cases (`server/test/`, jest + supertest): login / TOTP enable & recovery-code consumption / session invalidation / IP blocking, plus the seven Fnthink protocol routes
 - **On-device tests** — `integration_test/smoke_test.dart` runs the main-path smoke test (launch -> inject -> notification page -> delivery status -> history -> service start/stop -> export), plus the `android/app/src/androidTest` instrumented tests, driven by `integration_test.yml` on an API 34 / x86_64 / Pixel 6 emulator
 
 **CI workflows** (`.github/workflows/`, all on `ubuntu-24.04`):
