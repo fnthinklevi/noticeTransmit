@@ -21,15 +21,15 @@
 
 ## 2. 开发环境要求
 
-本项目使用 **AGP 9.3.0 + Gradle 9.5.0**，对工具链有明确版本要求：
+本项目使用 **AGP 9.4.1 + Gradle 9.8.2**，对工具链有明确版本要求：
 
 | 工具 | 版本 | 说明 |
 |------|------|------|
 | Flutter SDK | 3.47.7 | `analyze.yml` / `build-apk.yml` / `integration_test.yml` 与本地同钉 `3.47.7`（stable channel），自带 Dart 3.13.5 |
 | Dart SDK | ^3.13.0 | `pubspec.yaml` 的 `environment.sdk` |
-| Android Gradle Plugin | 9.3.0 | 见 `android/settings.gradle.kts`，不支持 8.x 及以下 |
-| Gradle | 9.5.0 | 见 `android/gradle/wrapper/gradle-wrapper.properties`；请始终用 `./gradlew`，不要用系统 gradle |
-| Kotlin | 2.4.21 | 见 `android/settings.gradle.kts` |
+| Android Gradle Plugin | 9.4.1 | 见 `android/settings.gradle.kts`，不支持 8.x 及以下 |
+| Gradle | 9.8.2 | 见 `android/gradle/wrapper/gradle-wrapper.properties`；请始终用 `./gradlew`，不要用系统 gradle |
+| Kotlin | 2.4.21 | 由 AGP 内置 Kotlin 编译；`settings.gradle.kts` 的 KGP 声明带 `apply false`，只做编译器版本钉 |
 | JDK | 21 | AGP 9.x 要求；`compileOptions` 与 `jvmTarget` 均为 21 |
 | Android SDK | compileSdk 37 / targetSdk 37 / minSdk 24 | `minSdk = flutter.minSdkVersion`（Flutter 3.47 即 24） |
 | Node.js | **24 LTS** | `server/package.json` 的 `engines.node = ">=24"`；CI 与生产（pm2）同为 24。**旧文档中的「Node 18+ / 20」已失效** |

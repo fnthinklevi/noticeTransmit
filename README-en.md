@@ -13,8 +13,8 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 - **Remote Control** — issued from another paired device, per-item authorization, cancellable, with receipts
 
 [![Flutter](https://badgen.net/badge/Flutter/3.47.7/02569B?icon=flutter)](https://flutter.dev/)
-[![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
-[![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
+[![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
+[![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
 [![Version](https://badgen.net/badge/Version/1.5.76/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
@@ -240,7 +240,7 @@ The usual convention for notification tools is "you hand your content to a third
 | Server Dependencies | bcryptjs · cors · dotenv · express · otplib · qrcode |
 | TOTP / Password Hashing | otplib (^13.0.1) / bcryptjs (^3.0.3) |
 | Data Encryption | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |
-| Build Tools | Gradle 9.5.0 + AGP 9.3.0 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 |
+| Build Tools | Gradle 9.8.2 + AGP 9.4.1 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 · Kotlin compiled by AGP built-in Kotlin (2.4.21 pinned on the classpath) |
 | Code Quality | flutter_lints ^6.0.0 · dart format · ktlint 1.8.0 · prettier 3.9.8 · Android lint (with baseline) |
 | Testing | flutter test (Dart 2063 cases) · JUnit (Kotlin JVM 478 cases) · jest + supertest (server 599 cases) · integration_test |
 | CI/CD | GitHub Actions (analyze / build-apk / integration_test / deploy-pages) |
@@ -347,15 +347,15 @@ noticeTransmit/
 
 ### Environment Requirements
 
-> **Important**: This project uses **AGP 9.3.0** + **Gradle 9.5.0**, which has minimum version requirements for Flutter / Dart / Android Studio.
+> **Important**: This project uses **AGP 9.4.1** + **Gradle 9.8.2**, which has minimum version requirements for Flutter / Dart / Android Studio.
 
 | Tool | Minimum Version | Recommended Version | Description |
 |------|----------------|--------------------|-------------|
 | **Flutter SDK** | 3.47.7 | 3.47.x stable | All three CI workflows and local dev pin 3.47.7 |
 | **Dart SDK** | 3.13.0 | 3.13.5 | `pubspec.yaml` declares `sdk: ^3.13.0`, bundled with Flutter 3.47.7 |
-| **Android Gradle Plugin (AGP)** | 9.3.0 | 9.3.0 | Already configured in project |
-| **Gradle** | 9.5.0 | 9.5.0 | Already configured (see gradle-wrapper.properties) |
-| **Kotlin** | 2.4.21 | 2.4.21 | Explicitly declared via `org.jetbrains.kotlin.android` plugin in `settings.gradle.kts` |
+| **Android Gradle Plugin (AGP)** | 9.4.1 | 9.4.1 | Already configured in project |
+| **Gradle** | 9.8.2 | 9.8.2 | Already configured (see gradle-wrapper.properties) |
+| **Kotlin** | 2.4.21 | 2.4.21 | Kotlin is compiled by AGP built-in Kotlin; the KGP declaration in `settings.gradle.kts` carries `apply false` and only pins the compiler version |
 | **Android Studio** | Koala (2024.1.1) | Latest stable | Need IDE version that supports AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x requires JDK 21+ (`compileOptions` / `jvmTarget` are both 21) |
 | **Android SDK** | 24 (minSdk) | 37 (compileSdk / targetSdk) | minSdk 24 (`flutter.minSdkVersion`), compileSdk and targetSdk are both 37 |
@@ -365,7 +365,8 @@ noticeTransmit/
 
 - **Flutter below 3.47**: `sdk: ^3.13.0` in `pubspec.yaml` rejects the SDK at `pub get`. Please run `flutter upgrade`.
 - **AGP 8.x and below**: This project has migrated to AGP 9.x, cannot be downgraded.
-- **Kotlin**: The project explicitly declares `org.jetbrains.kotlin.android` version 2.4.21 in `settings.gradle.kts`, and keeps `android.builtInKotlin=false` and `android.newDsl=false` in `gradle.properties`.
+- **Kotlin**: compilation is handled by **AGP 9 built-in Kotlin**; the project does not apply KGP. `settings.gradle.kts` still declares `org.jetbrains.kotlin.android` 2.4.21 with `apply false`, purely as a classpath version pin (AGP 9.4.1 bundles 2.2.10).
+- **`android.newDsl=false` must stay**: Flutter 3.47.7 still uses the legacy variant API, and flipping it to the default `true` fails at configuration time. `android.builtInKotlin=true` must also be written explicitly — Flutter's migrator only checks whether the key exists and writes `false` back otherwise.
 
 ### Build APK
 

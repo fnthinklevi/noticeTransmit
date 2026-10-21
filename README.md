@@ -13,8 +13,8 @@
 - **远程控制** —— 由另一台已配对设备下发，逐条授权、可撤销、有回执
 
 [![Flutter](https://badgen.net/badge/Flutter/3.47.7/02569B?icon=flutter)](https://flutter.dev/)
-[![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
-[![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
+[![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
+[![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
 [![Version](https://badgen.net/badge/Version/1.5.76/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#许可证)
@@ -245,7 +245,7 @@
 | 服务端依赖 | bcryptjs · cors · dotenv · express · otplib · qrcode |
 | TOTP / 密码哈希 | otplib (^13.0.1) / bcryptjs (^3.0.3) |
 | 数据加密 | Node.js crypto（AES-256-GCM）/ AndroidKeyStore + flutter_secure_storage |
-| 构建工具 | Gradle 9.5.0 + AGP 9.3.0 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 |
+| 构建工具 | Gradle 9.8.2 + AGP 9.4.1 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 · Kotlin 由 AGP 内置编译（Kotlin 2.4.21 走 classpath 钉版） |
 | 代码质量 | flutter_lints ^6.0.0 · dart format · ktlint 1.8.0 · prettier 3.9.8 · Android lint（含 baseline） |
 | 测试 | flutter test（Dart 2063 例）· JUnit（Kotlin JVM 478 例）· jest + supertest（服务端 599 例）· integration_test |
 | CI/CD | GitHub Actions（analyze / build-apk / integration_test / deploy-pages） |
@@ -350,15 +350,15 @@ noticeTransmit/
 
 ### 环境要求
 
-> **重要提示**：本项目使用 **AGP 9.3.0** + **Gradle 9.5.0**，对 Flutter / Dart / Android Studio 版本有最低要求。
+> **重要提示**：本项目使用 **AGP 9.4.1** + **Gradle 9.8.2**，对 Flutter / Dart / Android Studio 版本有最低要求。
 
 | 工具 | 最低版本 | 推荐版本 | 说明 |
 |------|----------|----------|------|
 | **Flutter SDK** | 3.47.7 | 3.47.x stable | 三份 CI workflow 与本地同钉 3.47.7 |
 | **Dart SDK** | 3.13.0 | 3.13.5 | `pubspec.yaml` 声明 `sdk: ^3.13.0`，随 Flutter 3.47.7 自带 |
-| **Android Gradle Plugin (AGP)** | 9.3.0 | 9.3.0 | 项目已配置 |
-| **Gradle** | 9.5.0 | 9.5.0 | 项目已配置（gradle-wrapper.properties） |
-| **Kotlin** | 2.4.21 | 2.4.21 | 通过 `settings.gradle.kts` 显式声明插件版本 |
+| **Android Gradle Plugin (AGP)** | 9.4.1 | 9.4.1 | 项目已配置 |
+| **Gradle** | 9.8.2 | 9.8.2 | 项目已配置（gradle-wrapper.properties） |
+| **Kotlin** | 2.4.21 | 2.4.21 | AGP 内置 Kotlin 编译；`settings.gradle.kts` 的 KGP 声明带 `apply false`，只做编译器版本钉 |
 | **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x 要求 JDK 21 及以上（`compileOptions` / `jvmTarget` 均为 21） |
 | **Android SDK** | 24 (minSdk) | 37 (compileSdk / targetSdk) | minSdk 24，compileSdk 与 targetSdk 均为 37 |
@@ -368,7 +368,8 @@ noticeTransmit/
 
 - **Flutter 3.47 以下版本**：`pubspec.yaml` 的 `sdk: ^3.13.0` 会在 `pub get` 阶段直接拒绝。请先执行 `flutter upgrade`。
 - **AGP 8.x 及以下**：本项目已迁移到 AGP 9.x，无法降级使用。
-- **Kotlin**：项目通过 `settings.gradle.kts` 显式声明 `org.jetbrains.kotlin.android` 版本 2.4.21，并在 `gradle.properties` 中保留 `android.builtInKotlin=false`、`android.newDsl=false`。
+- **Kotlin**：编译由 **AGP 9 的内置 Kotlin** 承担，项目侧不 apply KGP。`settings.gradle.kts` 仍声明 `org.jetbrains.kotlin.android` 2.4.21 但带 `apply false`，只做 classpath 版本钉（AGP 9.4.1 自带的是 2.2.10）。
+- **`android.newDsl=false` 必须保留**：Flutter 3.47.7 仍在调 legacy variant API，翻成默认的 true 会在配置期直接失败。`android.builtInKotlin=true` 也要显式写 —— Flutter migrator 只看这个 key 在不在，缺了就回写 `false`。
 
 ### 构建 APK
 
