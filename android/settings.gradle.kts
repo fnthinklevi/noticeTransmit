@@ -50,10 +50,14 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "9.3.0" apply false
+    // AGP 9.4.1（2026-10 最新稳定）：⚠ 它内置的 Kotlin 仍是 kotlin-gradle-plugin 2.2.10，
+    // 与 9.3.0 相同 ⇒ 升 AGP 不会抬高 Kotlin 版本，版本只由下面那行 classpath 钉决定。
+    id("com.android.application") version "9.4.1" apply false
     // Kotlin 2.4.21（2026-10 最新稳定）：Flutter 3.47 的 warn 线是 2.3.20、error 线 2.2.20，
-    // 官方模板给新项目的是 2.4.0。这里仍走项目自声明 KGP（builtInKotlin=false）——
-    // AGP 9.3.0 内置 Kotlin 只有 2.2.10，切过去是降级，不是升级。
+    // 官方模板给新项目的是 2.4.0。⚠ 这里 **只做 classpath 版本钉，不 apply**（`apply false`）：
+    // 编译已交给 AGP 9 的内置 Kotlin，而 AGP 9.4.1 自带 KGP 仍是 2.2.10 —— 把 2.4.21 留在
+    // classpath 上，Gradle 的版本冲突解析会把内置 Kotlin 用的那份抬到 2.4.21（AGP 对内置
+    // Kotlin 只设下限 2.1.0，不设上限）。apply 的话就会重新触发 KGP 的弃用警告。
     id("org.jetbrains.kotlin.android") version "2.4.21" apply false
 }
 
