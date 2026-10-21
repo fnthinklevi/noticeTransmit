@@ -25,13 +25,13 @@ This project uses **AGP 9.3.0 + Gradle 9.5.0**, which imposes explicit toolchain
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Flutter SDK | 3.44.x | `analyze.yml` / `build-apk.yml` pin `3.44.4` (stable channel), which bundles Dart 3.12.2 |
-| Dart SDK | ^3.12.2 | `environment.sdk` in `pubspec.yaml` |
+| Flutter SDK | 3.47.7 | `analyze.yml` / `build-apk.yml` / `integration_test.yml` and local dev all pin `3.47.7` (stable channel), which bundles Dart 3.13.5 |
+| Dart SDK | ^3.13.0 | `environment.sdk` in `pubspec.yaml` |
 | Android Gradle Plugin | 9.3.0 | See `android/settings.gradle.kts`; AGP 8.x and below are unsupported |
 | Gradle | 9.5.0 | See `android/gradle/wrapper/gradle-wrapper.properties`; always use `./gradlew`, never a system Gradle |
 | Kotlin | 2.4.21 | See `android/settings.gradle.kts` |
 | JDK | 21 | Required by AGP 9.x; `compileOptions` and `jvmTarget` are both 21 |
-| Android SDK | compileSdk 37 / targetSdk 37 / minSdk 24 | `minSdk = flutter.minSdkVersion` (24 on Flutter 3.44) |
+| Android SDK | compileSdk 37 / targetSdk 37 / minSdk 24 | `minSdk = flutter.minSdkVersion` (24 on Flutter 3.47) |
 | Node.js | **24 LTS** | `server/package.json` declares `engines.node = ">=24"`; CI and production (pm2) both run 24. **Older "Node 18+ / 20" instructions are obsolete** |
 | ktlint | 1.8.0 | Standalone CLI; the fat jar is auto-downloaded to `~/.cache/ktlint` by `check_format.sh`; rules live in the repo-root `.editorconfig` |
 | Prettier | 3.9.8 | A `server/` devDependency, invoked via `npm run format` / `npm run format:check` |
@@ -39,7 +39,7 @@ This project uses **AGP 9.3.0 + Gradle 9.5.0**, which imposes explicit toolchain
 Preparation:
 
 ```bash
-flutter --version         # expect Flutter 3.44.x / Dart 3.12.2
+flutter --version         # expect Flutter 3.47.7 / Dart 3.13.5
 flutter pub get
 
 # Server (only needed when changing server/)

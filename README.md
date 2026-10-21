@@ -12,7 +12,7 @@
 - **幻念推送** —— 两台设备之间直接投递，无第三方账号、无平台转发，签名可验、送达可查
 - **远程控制** —— 由另一台已配对设备下发，逐条授权、可撤销、有回执
 
-[![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
+[![Flutter](https://badgen.net/badge/Flutter/3.47.7/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
@@ -53,7 +53,7 @@
 
 **第三条线：远程控制。** 由已配对的另一台设备下发指令，按 L2（应用动作）/ L3（系统设置）分档逐条授权：L2 四项动作、L3 六项设置，每项单独开关、每次执行前有可撤销的延时窗口、执行结果两段回执。
 
-全应用中英双语国际化（1251 词条 × 2 语言）。Apache License 2.0 开源，免费无广告。
+全应用中英双语国际化（1591 词条 × 2 语言）。Apache License 2.0 开源，免费无广告。
 
 ---
 
@@ -106,7 +106,7 @@
 - 📱 **桌面小组件升级** —— 布局与视觉全面美化（状态圆环 / 提示胶囊 / 当日计数），系统添加弹窗带预览与说明，不支持一键添加的桌面自动弹出分品牌分步引导；短信监听设置中心（监听开关 / 验证码开关 / 监听卡选择）
 - 🖼️ **桌面图标切换** —— 内置 17 款图标 × 中英双语标签 = 34 个 launcher 图标别名，应用内一键切换
 - 🌙 **深色模式** —— 浅色 / 深色 / 跟随系统三种
-- 🌐 **多语言国际化** —— 中英双语（`app_zh.arb` / `app_en.arb` 各 1251 词条，gen-l10n 生成，CI 锁定两侧键集合一致），设置页自由切换；语言标签同步下发原生侧，常驻通知与推送文案随之切换
+- 🌐 **多语言国际化** —— 中英双语（`app_zh.arb` / `app_en.arb` 各 1591 词条，gen-l10n 生成，CI 锁定两侧键集合一致），设置页自由切换；语言标签同步下发原生侧，常驻通知与推送文案随之切换
 - 📄 **文本选择菜单多机型适配** —— 全部 36 处文本组件的选择菜单按钮文案（复制/剪切/粘贴/全选/分享）统一为应用内词条，消除厂商 ROM 上按钮显示英文或空白的问题
 - 📊 **推送统计统一** —— 首页 / 更多页 / 状态栏三处统计共用同一数据源，当日计数实时同步
 - ⏸️ **一键暂停推送** —— 常驻通知 Action 按钮暂停/恢复（监听继续，仅停止发送），状态持久化；暂停期间的消息在历史中标为"用户暂停推送"，可一键"现在推送"补推
@@ -134,7 +134,7 @@
 - 🎭 **混淆规则就绪** —— 已配置 ProGuard/R8 规则（`proguard-rules.pro`），release 启用代码混淆与资源压缩
 - 📡 **Token 安全传输** —— 仅接受 Header 传递，禁止 URL 参数
 - 🎲 **安全随机数** —— 使用 `crypto.randomUUID()` 生成会话 ID
-- 🗄️ **SQLite 加密** —— 通知记录、通道配置与送达日志（schema v20，16 张表）全部经 SQLCipher AES-256 加密，密钥由 flutter_secure_storage 托管于 AndroidKeyStore
+- 🗄️ **SQLite 加密** —— 通知记录、通道配置与送达日志（schema v26，12 张表）全部经 SQLCipher AES-256 加密，密钥由 flutter_secure_storage 托管于 AndroidKeyStore
 - 🔑 **Webhook 密钥安全** —— Webhook URL（含钉钉/企微/飞书认证 key）使用 AndroidKeyStore 加密存储
 - 🔐 **SSL 证书固定** —— 双端 HTTP 客户端（Dart `PinnedHttpClient` + Kotlin `NetworkClient` 的 OkHttp `CertificatePinner`）均已就位，**默认未启用**（须注入 `CERT_PINS` / `ENABLE_CERT_PINNING`，Debug 构建恒关闭），当前通过 CDN 间接保护；轮换与启用流程见 [docs/cert_rotation_runbook.md](docs/cert_rotation_runbook.md)
 - 🧩 **小部件广播防护** —— 桌面小部件的启停广播受签名级自定义权限 `com.fnthink.notice.permission.WIDGET_CONTROL` 保护，第三方应用因签名不匹配无法伪造 `TOGGLE_PUSH`
@@ -224,26 +224,26 @@
 
 | 模块 | 技术 |
 |------|------|
-| 前端 | Flutter 3.44.x（Dart 3.12.2） |
-| 状态管理 / 依赖注入 | get_it (^9.2.1) + Service 类 |
-| 本地数据库 | sqflite_sqlcipher (^3.4.0) · SQLCipher AES-256 · schema v20 / 16 张表 |
-| 键值存储 | shared_preferences · flutter_secure_storage (^9.2.4) + androidx.security EncryptedSharedPreferences |
-| 原生服务 | Kotlin 2.4.21（Android），主源码 78 个 Kotlin 文件 |
-| 网络请求 | http（Dart） / OkHttp 4.12.0（Kotlin） |
+| 前端 | Flutter 3.47.7（Dart 3.13.5） |
+| 状态管理 / 依赖注入 | get_it (^9.3.0) + Service 类 |
+| 本地数据库 | sqflite_sqlcipher (^3.4.1) · SQLCipher AES-256 · schema v26 / 12 张表 |
+| 键值存储 | shared_preferences (^2.5.6) · flutter_secure_storage (^10.3.1，自带 vendored 加密实现) · 原生 SecurePrefs 走 androidx.security 1.1.0 |
+| 原生服务 | Kotlin 2.4.21（Android），主源码 89 个 Kotlin 文件 |
+| 网络请求 | http（Dart） / OkHttp 5.5.0（Kotlin） |
 | 邮件发送 | com.sun.mail:android-mail 1.6.7（SMTP） |
 | 通知监听 | NotificationListenerService |
 | 后台保活 | Foreground Service + WakeLock (PARTIAL_WAKE_LOCK) |
-| 后台任务 | workmanager ^0.6.0（每日归档 + 兜底唤醒） |
+| 后台任务 | workmanager ^0.10.10（每日归档 + 兜底唤醒） |
 | 协程 | kotlinx.coroutines（SupervisorJob + Dispatchers.IO） |
 | 跨端通信 | MethodChannel `com.fnthink.notice/notification`（113 个方法 · 7 个原生 handler） |
 | **协议契约** | `protocol/fnthink-v1.json`（单一真值）＋ `protocol/fnthink-vectors-v1.json`（跨端向量表） |
-| **共享协议包** | `packages/fnthink_push`（24 个 Dart 文件，两端与 CLI 共读同一份契约与向量） |
+| **共享协议包** | `packages/fnthink_push`（29 个 Dart 文件，两端与 CLI 共读同一份契约与向量） |
 | **身份与签名** | Ed25519（AndroidKeyStore 硬件背书，API 33+；30–32 走 KeyStore 包裹软件密钥） |
-| 国际化 | gen-l10n + ARB（zh / en 各 1251 词条） |
+| 国际化 | gen-l10n + ARB（zh / en 各 1591 词条） |
 | 崩溃统计 | 腾讯 Bugly 4.1.9.3（默认关闭） |
 | 服务端 | Node.js 24 LTS（`engines: >=24`）+ Express 5.x（Token 鉴权 + 二步验证 + 幻念协议面）/ GitHub Pages 静态部署 |
 | 服务端依赖 | bcryptjs · cors · dotenv · express · otplib · qrcode |
-| TOTP / 密码哈希 | otplib (^13.0.1) / bcryptjs (^2.4.3) |
+| TOTP / 密码哈希 | otplib (^13.0.1) / bcryptjs (^3.0.3) |
 | 数据加密 | Node.js crypto（AES-256-GCM）/ AndroidKeyStore + flutter_secure_storage |
 | 构建工具 | Gradle 9.5.0 + AGP 9.3.0 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 |
 | 代码质量 | flutter_lints ^6.0.0 · dart format · ktlint 1.8.0 · prettier 3.9.8 · Android lint（含 baseline） |
@@ -279,14 +279,14 @@
 
 ```
 noticeTransmit/
-├── lib/                                  # Flutter 端（150 个 Dart 文件）
+├── lib/                                  # Flutter 端（201 个 Dart 文件）
 │   ├── main.dart                         # 主入口（初始化顺序 + WorkManager 注册）
 │   ├── update_manager.dart               # 应用内更新（多源回退 + sha256 校验）
-│   ├── database/database_helper.dart     # SQLCipher schema v20（16 张表）
+│   ├── database/database_helper.dart     # SQLCipher schema v26（12 张表）
 │   ├── di/service_locator.dart           # get_it 服务注册
-│   ├── l10n/arb/                         # app_zh.arb · app_en.arb（各 1251 词条 + 生成代码）
-│   ├── models/                           # 数据模型（10 个文件）
-│   ├── pages/                            # 页面（40 个文件）
+│   ├── l10n/arb/                         # app_zh.arb · app_en.arb（各 1591 词条 + 生成代码）
+│   ├── models/                           # 数据模型（12 个文件）
+│   ├── pages/                            # 页面（47 个文件）
 │   │   ├── main_page*.dart               # 首页（actions / dialogs / update 同前缀拆分）
 │   │   ├── fnthink_push_page.dart · fnthink_channel_list_page.dart · fnthink_receive_page.dart
 │   │   │                                 # 幻念推送：开关 / 通道 / 收货（远程控制指令从这一档进）
@@ -297,7 +297,7 @@ noticeTransmit/
 │   │   ├── battery_page.dart · temperature_page.dart · device_state_page.dart
 │   │   ├── sms_monitor_settings_page.dart · app_filter_page.dart · keywords_page.dart
 │   │   └── backup_restore_page.dart · permission_settings_page.dart · privacy_policy_page.dart · more_page.dart
-│   ├── services/                         # 服务层（69 个文件）
+│   ├── services/                         # 服务层（107 个文件）
 │   │   ├── platform_channel.dart         # MethodChannel 统一声明
 │   │   ├── fnthink_receive_coordinator.dart  # 幻念协调者（发货 / 收货 / 轮询 / 记录）
 │   │   ├── fnthink_channel_mirror.dart   # 幻念通道配置的跨端镜像（原生读它参与主备路由）
@@ -307,14 +307,14 @@ noticeTransmit/
 │   │   ├── filter_service.dart · rule_template_service.dart · rule_trace.dart
 │   │   └── archive_worker.dart · pinned_http_client.dart · secure_storage_service.dart · icon_service.dart …
 │   ├── theme/                            # 主题（app_colors.dart / app_theme.dart）
-│   └── widgets/                          # 可复用组件（21 个：AppRoot 装配点 + iOS 弹层族 + 选择菜单）
-├── packages/fnthink_push/                # 共享协议包（24 个 Dart 文件）
+│   └── widgets/                          # 可复用组件（25 个：AppRoot 装配点 + iOS 弹层族 + 选择菜单）
+├── packages/fnthink_push/                # 共享协议包（29 个 Dart 文件）
 │   └── lib/src/                          # 契约读取 / 校验 / 向量，两端与 CLI 共读
 ├── protocol/                             # 协议契约（单一真值）
 │   ├── fnthink-v1.json                   # 幻念协议（能力表、限流、私信边界…）
 │   └── fnthink-vectors-v1.json           # 跨端向量表（两端各断言一遍）
 ├── android/app/src/
-│   ├── main/kotlin/com/fnthink/notice/   # 原生主源码（78 个 Kotlin 文件）
+│   ├── main/kotlin/com/fnthink/notice/   # 原生主源码（89 个 Kotlin 文件）
 │   │   ├── MainActivity.kt               # MethodChannel 分发入口
 │   │   ├── NotificationMonitorService.kt  # 通知监听服务（含幻念族的主备路由与转发）
 │   │   ├── NotificationProcessor.kt · BatteryMonitor.kt
@@ -354,9 +354,9 @@ noticeTransmit/
 
 | 工具 | 最低版本 | 推荐版本 | 说明 |
 |------|----------|----------|------|
-| **Flutter SDK** | 3.44.0 | 3.44.x stable | AGP 9.x 支持从 Flutter 3.44 开始（CI 固定 3.44.4） |
-| **Dart SDK** | 3.12.2 | 3.12.x | `pubspec.yaml` 声明 `sdk: ^3.12.2`，随 Flutter 3.44 自带 |
-| **Android Gradle Plugin (AGP)** | 9.0.0 | 9.3.0 | 项目已配置 |
+| **Flutter SDK** | 3.47.7 | 3.47.x stable | 三份 CI workflow 与本地同钉 3.47.7 |
+| **Dart SDK** | 3.13.0 | 3.13.5 | `pubspec.yaml` 声明 `sdk: ^3.13.0`，随 Flutter 3.47.7 自带 |
+| **Android Gradle Plugin (AGP)** | 9.3.0 | 9.3.0 | 项目已配置 |
 | **Gradle** | 9.5.0 | 9.5.0 | 项目已配置（gradle-wrapper.properties） |
 | **Kotlin** | 2.4.21 | 2.4.21 | 通过 `settings.gradle.kts` 显式声明插件版本 |
 | **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
@@ -366,7 +366,7 @@ noticeTransmit/
 
 #### 版本兼容性说明
 
-- **Flutter 3.44 以下版本**：不支持 AGP 9.x，构建会失败。请先执行 `flutter upgrade` 升级到 3.44+。
+- **Flutter 3.47 以下版本**：`pubspec.yaml` 的 `sdk: ^3.13.0` 会在 `pub get` 阶段直接拒绝。请先执行 `flutter upgrade`。
 - **AGP 8.x 及以下**：本项目已迁移到 AGP 9.x，无法降级使用。
 - **Kotlin**：项目通过 `settings.gradle.kts` 显式声明 `org.jetbrains.kotlin.android` 版本 2.4.21，并在 `gradle.properties` 中保留 `android.builtInKotlin=false`、`android.newDsl=false`。
 
