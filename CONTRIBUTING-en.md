@@ -29,7 +29,7 @@ This project uses **AGP 9.3.0 + Gradle 9.5.0**, which imposes explicit toolchain
 | Dart SDK | ^3.12.2 | `environment.sdk` in `pubspec.yaml` |
 | Android Gradle Plugin | 9.3.0 | See `android/settings.gradle.kts`; AGP 8.x and below are unsupported |
 | Gradle | 9.5.0 | See `android/gradle/wrapper/gradle-wrapper.properties`; always use `./gradlew`, never a system Gradle |
-| Kotlin | 2.3.20 | See `android/settings.gradle.kts` |
+| Kotlin | 2.4.21 | See `android/settings.gradle.kts` |
 | JDK | 21 | Required by AGP 9.x; `compileOptions` and `jvmTarget` are both 21 |
 | Android SDK | compileSdk 37 / targetSdk 37 / minSdk 24 | `minSdk = flutter.minSdkVersion` (24 on Flutter 3.44) |
 | Node.js | **24 LTS** | `server/package.json` declares `engines.node = ">=24"`; CI and production (pm2) both run 24. **Older "Node 18+ / 20" instructions are obsolete** |

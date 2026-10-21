@@ -29,7 +29,7 @@
 | Dart SDK | ^3.12.2 | `pubspec.yaml` 的 `environment.sdk` |
 | Android Gradle Plugin | 9.3.0 | 见 `android/settings.gradle.kts`，不支持 8.x 及以下 |
 | Gradle | 9.5.0 | 见 `android/gradle/wrapper/gradle-wrapper.properties`；请始终用 `./gradlew`，不要用系统 gradle |
-| Kotlin | 2.3.20 | 见 `android/settings.gradle.kts` |
+| Kotlin | 2.4.21 | 见 `android/settings.gradle.kts` |
 | JDK | 21 | AGP 9.x 要求；`compileOptions` 与 `jvmTarget` 均为 21 |
 | Android SDK | compileSdk 37 / targetSdk 37 / minSdk 24 | `minSdk = flutter.minSdkVersion`（Flutter 3.44 即 24） |
 | Node.js | **24 LTS** | `server/package.json` 的 `engines.node = ">=24"`；CI 与生产（pm2）同为 24。**旧文档中的「Node 18+ / 20」已失效** |

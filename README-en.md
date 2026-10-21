@@ -223,7 +223,7 @@ The usual convention for notification tools is "you hand your content to a third
 | State Management / DI | get_it (^9.2.1) + Service classes |
 | Local Database | sqflite_sqlcipher (^3.4.0) · SQLCipher AES-256 · schema v20 / 16 tables |
 | Key-Value Storage | shared_preferences · flutter_secure_storage (^9.2.4) + androidx.security EncryptedSharedPreferences |
-| Native Service | Kotlin 2.3.20 (Android), 78 Kotlin files in the main sourceset |
+| Native Service | Kotlin 2.4.21 (Android), 78 Kotlin files in the main sourceset |
 | HTTP Client | http (Dart) / OkHttp 4.12.0 (Kotlin) |
 | Email Sending | com.sun.mail:android-mail 1.6.7 (SMTP) |
 | Notification Listening | NotificationListenerService |
@@ -355,7 +355,7 @@ noticeTransmit/
 | **Dart SDK** | 3.12.2 | 3.12.x | `pubspec.yaml` declares `sdk: ^3.12.2`, bundled with Flutter 3.44, no separate installation needed |
 | **Android Gradle Plugin (AGP)** | 9.0.0 | 9.3.0 | Already configured in project |
 | **Gradle** | 9.5.0 | 9.5.0 | Already configured (see gradle-wrapper.properties) |
-| **Kotlin** | 2.3.20 | 2.3.20 | Explicitly declared via `org.jetbrains.kotlin.android` plugin in `settings.gradle.kts` |
+| **Kotlin** | 2.4.21 | 2.4.21 | Explicitly declared via `org.jetbrains.kotlin.android` plugin in `settings.gradle.kts` |
 | **Android Studio** | Koala (2024.1.1) | Latest stable | Need IDE version that supports AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x requires JDK 21+ (`compileOptions` / `jvmTarget` are both 21) |
 | **Android SDK** | 24 (minSdk) | 37 (compileSdk / targetSdk) | minSdk 24 (`flutter.minSdkVersion`), compileSdk and targetSdk are both 37 |
@@ -365,7 +365,7 @@ noticeTransmit/
 
 - **Flutter below 3.44**: Does not support AGP 9.x, build will fail. Please run `flutter upgrade` to upgrade to 3.44+.
 - **AGP 8.x and below**: This project has migrated to AGP 9.x, cannot be downgraded.
-- **Kotlin**: The project explicitly declares `org.jetbrains.kotlin.android` version 2.3.20 in `settings.gradle.kts`, and keeps `android.builtInKotlin=false` and `android.newDsl=false` in `gradle.properties`.
+- **Kotlin**: The project explicitly declares `org.jetbrains.kotlin.android` version 2.4.21 in `settings.gradle.kts`, and keeps `android.builtInKotlin=false` and `android.newDsl=false` in `gradle.properties`.
 
 ### Build APK
 

@@ -228,7 +228,7 @@
 | 状态管理 / 依赖注入 | get_it (^9.2.1) + Service 类 |
 | 本地数据库 | sqflite_sqlcipher (^3.4.0) · SQLCipher AES-256 · schema v20 / 16 张表 |
 | 键值存储 | shared_preferences · flutter_secure_storage (^9.2.4) + androidx.security EncryptedSharedPreferences |
-| 原生服务 | Kotlin 2.3.20（Android），主源码 78 个 Kotlin 文件 |
+| 原生服务 | Kotlin 2.4.21（Android），主源码 78 个 Kotlin 文件 |
 | 网络请求 | http（Dart） / OkHttp 4.12.0（Kotlin） |
 | 邮件发送 | com.sun.mail:android-mail 1.6.7（SMTP） |
 | 通知监听 | NotificationListenerService |
@@ -358,7 +358,7 @@ noticeTransmit/
 | **Dart SDK** | 3.12.2 | 3.12.x | `pubspec.yaml` 声明 `sdk: ^3.12.2`，随 Flutter 3.44 自带 |
 | **Android Gradle Plugin (AGP)** | 9.0.0 | 9.3.0 | 项目已配置 |
 | **Gradle** | 9.5.0 | 9.5.0 | 项目已配置（gradle-wrapper.properties） |
-| **Kotlin** | 2.3.20 | 2.3.20 | 通过 `settings.gradle.kts` 显式声明插件版本 |
+| **Kotlin** | 2.4.21 | 2.4.21 | 通过 `settings.gradle.kts` 显式声明插件版本 |
 | **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x 要求 JDK 21 及以上（`compileOptions` / `jvmTarget` 均为 21） |
 | **Android SDK** | 24 (minSdk) | 37 (compileSdk / targetSdk) | minSdk 24，compileSdk 与 targetSdk 均为 37 |
@@ -368,7 +368,7 @@ noticeTransmit/
 
 - **Flutter 3.44 以下版本**：不支持 AGP 9.x，构建会失败。请先执行 `flutter upgrade` 升级到 3.44+。
 - **AGP 8.x 及以下**：本项目已迁移到 AGP 9.x，无法降级使用。
-- **Kotlin**：项目通过 `settings.gradle.kts` 显式声明 `org.jetbrains.kotlin.android` 版本 2.3.20，并在 `gradle.properties` 中保留 `android.builtInKotlin=false`、`android.newDsl=false`。
+- **Kotlin**：项目通过 `settings.gradle.kts` 显式声明 `org.jetbrains.kotlin.android` 版本 2.4.21，并在 `gradle.properties` 中保留 `android.builtInKotlin=false`、`android.newDsl=false`。
 
 ### 构建 APK
 
