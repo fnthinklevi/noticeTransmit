@@ -212,6 +212,9 @@ class NotificationProcessor(private val context: Context) {
      * （IMPORTANCE_HIGH→MAX、DEFAULT→DEFAULT、LOW→LOW、MIN→MIN），因此直接读取即可，
      * 无需再自行查询渠道重要性。
      */
+    // 读「收到的通知」的 priority 没有替代 API：渠道重要性只对**自己发的**通知生效，
+    // 这里量的是别人发的。API 26 把它标弃用，但没有等价读法 ⇒ 保留并 suppress。
+    @Suppress("DEPRECATION")
     private fun extractPriority(notification: android.app.Notification): Int {
         val p = notification.priority
         return when {
@@ -446,8 +449,10 @@ class NotificationProcessor(private val context: Context) {
             "ext_org_app_name"
         )
         for (key in vendorExtraKeys) {
-            val value = extras.get(key)
-            if (value is CharSequence && value.isNotEmpty()) {
+            // `Bundle.get(String)` 从 API 33 起弃用，这里是按 key 取任意类型的厂商字段；
+            // 用类型化 getter 读出 CharSequence（String 也实现 CharSequence），语义不变。
+            val value: CharSequence? = extras.getCharSequence(key)
+            if (value != null && value.isNotEmpty()) {
                 val str = value.toString()
                 if (str.isNotEmpty() && str.length <= 12 && !str.contains("push", true) && !str.contains("service", true)) {
                     return str

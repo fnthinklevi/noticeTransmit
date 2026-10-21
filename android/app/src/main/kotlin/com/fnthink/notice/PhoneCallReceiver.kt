@@ -35,6 +35,9 @@ class PhoneCallReceiver : BroadcastReceiver() {
             if (channelConfigs.isEmpty()) return
 
             val stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE)
+            // API 29 起 EXTRA_INCOMING_NUMBER 弃用（要号码得 READ_CALL_LOG / 特权权限）。
+            // 取不到时是空串，后续逻辑本来就按「没有号码」处理。
+            @Suppress("DEPRECATION")
             val incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER) ?: ""
 
             // 统一通过 SimInfoHelper.getSimInfoFromIntent 入口识别 SIM 卡

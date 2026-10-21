@@ -393,6 +393,9 @@ class MainActivity : FlutterActivity() {
      * 原因是最近任务页（Recents）在部分 ROM 上使用 TaskDescription 快照，
      * 若语言在后台期间发生变化（系统语言跟随模式），仅冷启动更新会残留旧名称。
      */
+    // 单参 TaskDescription(String) 从 API 33 起弃用；三参版本要同时给图标与色值，
+    // 换了会改变最近任务卡片的观感 ⇒ 这里保留原行为，不为了消警告去改视觉。
+    @Suppress("DEPRECATION")
     internal fun updateAppLabel() {
         val locale = prefs.getString("flutter.locale", defaultLocaleCode()) ?: defaultLocaleCode()
         val label = if (locale == "en") "NoticeTransmit" else "通知推送助手"

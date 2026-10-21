@@ -49,7 +49,10 @@ class SmsReceiver : BroadcastReceiver() {
             Log.w(TAG, "SMS_RECEIVED 缺少 extras，丢弃")
             return
         }
-        // 个别 ROM 下 extras 类型可能与预期不符，用安全强转避免整条短信丢失
+        // 个别 ROM 下 extras 类型可能与预期不符，用安全强转避免整条短信丢失。
+        // `Bundle.get(String)` 从 API 33 起弃用，但 pdus 是 Object[]、没有类型化 getter
+        // （getSerializable 同样已弃用），这里只能按「取任意对象再安全强转」。
+        @Suppress("DEPRECATION")
         val pdus = bundle.get("pdus") as? Array<*>
         if (pdus == null || pdus.isEmpty()) {
             Log.w(TAG, "SMS_RECEIVED pdus 为空，丢弃")

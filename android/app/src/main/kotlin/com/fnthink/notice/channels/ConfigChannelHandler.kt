@@ -20,6 +20,12 @@ import io.flutter.plugin.common.MethodChannel
  * 电池规则/设置、短信监听设置、通知规则、应用过滤与黑白名单关键词、监听服务启停。
  */
 internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(activity) {
+    // MethodChannel 的 arguments 是 Any?，泛型擦除后只能 unchecked cast 出 Map ——
+    // 四处 `call.arguments as? Map<String, Any?>` 收成一枚，别每处各写一遍同一句。
+    @Suppress("UNCHECKED_CAST")
+    private fun configMapOf(call: MethodCall): Map<String, Any?> =
+        call.arguments as? Map<String, Any?> ?: emptyMap()
+
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "setLocaleLabel" -> {
@@ -62,7 +68,7 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 result.success(true)
             }
             "testEmail" -> {
-                val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
+                val configMap = configMapOf(call)
                 activity.testEmail(configMap, result)
             }
             "testWebhook" -> {
@@ -88,12 +94,12 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
             "probeAppChannelToken" -> {
                 // 6e 非侵入探测（自建应用族）：只换 token，**不发消息**。
                 // 与 testAppChannel 的区别就是这条边界 —— 后者会真发一条测试消息。
-                val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
+                val configMap = configMapOf(call)
                 activity.probeAppChannelToken(configMap, result)
             }
             "verifySmtp" -> {
                 // 6e 非侵入探测（邮件族）：SMTP 握手 + 认证，**不投递**。
-                val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
+                val configMap = configMapOf(call)
                 activity.verifySmtp(configMap, result)
             }
             "getAppChannels" -> {
@@ -106,7 +112,7 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 result.success(true)
             }
             "testAppChannel" -> {
-                val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
+                val configMap = configMapOf(call)
                 activity.testAppChannel(configMap, result)
             }
             "setBatterySetting" -> {

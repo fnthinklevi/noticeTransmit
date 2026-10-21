@@ -82,6 +82,8 @@ internal class DeviceChannelHandler(activity: MainActivity) : ChannelHandler(act
                 try {
                     val info = activity.packageManager.getPackageInfo(activity.packageName, 0)
                     val versionName = info.versionName ?: MainActivity.FALLBACK_VERSION
+                    // API 28 以下没有 longVersionCode，只能读老的 versionCode 字段
+                    @Suppress("DEPRECATION")
                     val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         info.longVersionCode.toInt()
                     } else {

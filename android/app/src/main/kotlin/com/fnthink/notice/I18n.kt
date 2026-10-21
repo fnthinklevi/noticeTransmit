@@ -233,6 +233,10 @@ object I18n {
     fun testDeviceLabel(): String = if (isEn) "Device" else "设备"
 
     // ========== 渠道名（送达详情 / 测试结果显示用） ==========
+    // ⚠ 这里的 `else` 是**故意的**：当前枚举已穷尽，Kotlin 会报「exhaustive so else is
+    // redundant」；但留着它，新增通道没补文案时退回枚举名而不是编译失败（见下面那条注释）。
+    // 某天补上新枚举成员，when 不再穷尽，warning 会自己消失。
+    @Suppress("REDUNDANT_ELSE_IN_WHEN")
     fun channelName(type: WebhookPayloadBuilder.WebhookType): String = when (type) {
         WebhookPayloadBuilder.WebhookType.WECHAT_WORK -> if (isEn) "WeCom" else "企业微信"
         WebhookPayloadBuilder.WebhookType.DINGTALK -> if (isEn) "DingTalk" else "钉钉"

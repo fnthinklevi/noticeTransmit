@@ -36,6 +36,9 @@ object ApkSignatureVerifier {
         MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString("") { "%02x".format(it) }
 
+    // API 28 以下没有 GET_SIGNING_CERTIFICATES / longVersionCode，只能走老的常量与字段。
+    // 两条兼容分支各 suppress 一次：替代 API 在低版本上不存在，不是「懒得改」。
+    @Suppress("DEPRECATION")
     private fun signingFlags(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
@@ -55,6 +58,7 @@ object ApkSignatureVerifier {
         return sigs.map { sha256Hex(it.toByteArray()) }.toSet()
     }
 
+    @Suppress("DEPRECATION")
     private fun versionCodeOf(info: PackageInfo): Long =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode
         else info.versionCode.toLong()
