@@ -81,9 +81,8 @@ void main() {
     });
 
     test('③ 备份恢复缺键回退是关（导入不能把这一族悄悄打开）', () {
-      final src = File(
-        '${projectRoot()}/lib/services/backup_service.dart',
-      ).readAsStringSync();
+      final src = File('${projectRoot()}/lib/services/backup_service.dart')
+          .readAsStringSync();
       final a = lineOf(
         'lib/services/backup_service.dart',
         "'sms_monitor_enabled': _bool(",
@@ -93,9 +92,8 @@ void main() {
       final at = src.indexOf("'sms_monitor_enabled': _bool(");
       final seg = src.substring(at, at + 160);
       expect(
-        RegExp(
-          r"_bool\(\s*sms\['sms_monitor_enabled'\]\s*,\s*false\s*\)",
-        ).hasMatch(seg),
+        RegExp(r"_bool\(\s*sms\['sms_monitor_enabled'\]\s*,\s*false\s*\)")
+            .hasMatch(seg),
         isTrue,
         reason: '恢复时缺键回退不是 false ⇒ 一次导入就能把读短信这一族打开。片段：$a',
       );

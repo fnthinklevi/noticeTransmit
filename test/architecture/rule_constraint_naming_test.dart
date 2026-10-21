@@ -138,9 +138,9 @@ void main() {
       );
       // 反向锚点：至少被点三次（5.7 / 5.8 / 5.9），一次都不点就是整节退出覆盖面。
       expect(
-        RegExp(
-          "_openMoreRow\\(tester, '$label'\\)",
-        ).allMatches(walkthrough).length,
+        RegExp("_openMoreRow\\(tester, '$label'\\)")
+            .allMatches(walkthrough)
+            .length,
         greaterThanOrEqualTo(3),
         reason: '入口被点的次数变少 ⇒ 有整节规则测试退出了闸门',
       );

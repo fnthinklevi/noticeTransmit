@@ -152,9 +152,8 @@ void main() {
     expect(action.tone, FnthinkActionTone.action);
     expect(
       action.label,
-      AppLocalizations.of(
-        tester.element(find.byType(HistoryPage)),
-      ).historyChannelRepush,
+      AppLocalizations.of(tester.element(find.byType(HistoryPage)))
+          .historyChannelRepush,
       reason: '文案取词表那一位，不在页面里写字面量',
     );
   });

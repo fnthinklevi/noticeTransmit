@@ -23,13 +23,11 @@ void main() {
       'forceUpdate': false,
       'changelog': 'x',
       'changelogEn': 'x',
-      'downloadUrl':
-          'https://cdn.fnthink.com/app/notice/update/1.9.9/notice_all_1.9.9.apk',
+      'downloadUrl': 'https://cdn.fnthink.com/app/notice/update/1.9.9/notice_all_1.9.9.apk',
       'fileSize': 1,
       'minSupportedVersion': '1.0.0',
       'downloads': {
-        'all':
-            'https://cdn.fnthink.com/app/notice/update/1.9.9/notice_all_1.9.9.apk',
+        'all': 'https://cdn.fnthink.com/app/notice/update/1.9.9/notice_all_1.9.9.apk',
       },
       'fileSizes': {'all': 1},
       'sha256': {'all': 'aa'},

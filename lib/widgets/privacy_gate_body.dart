@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
+
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 

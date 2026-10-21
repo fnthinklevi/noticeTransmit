@@ -76,9 +76,8 @@ void main() {
       final main = native('MainActivity.kt');
       // Dart：空集必须在递给原生之前就返回，而不是被 `ifEmpty`/`?? ` 之类折掉
       expect(
-        RegExp(
-          r'onlyDeliveryKeys != null && onlyDeliveryKeys\.isEmpty',
-        ).hasMatch(dart),
+        RegExp(r'onlyDeliveryKeys != null && onlyDeliveryKeys\.isEmpty')
+            .hasMatch(dart),
         isTrue,
         reason: 'Dart 侧「空集 = 什么都不做」那一句不见了 ⇒ 空集会被当"不限定"，全部重发',
       );

@@ -193,9 +193,9 @@ void main() {
     });
 
     test('换一份契约副本改了范围 ⇒ 设置层报出来的跟着变', () {
-      final json =
-          jsonDecode(File(fnthinkContractFile()).readAsStringSync())
-              as Map<String, Object?>;
+      final json = jsonDecode(
+        File(fnthinkContractFile()).readAsStringSync(),
+      ) as Map<String, Object?>;
       final poll =
           (json['presence']! as Map<String, Object?>)['pollIntervalSeconds']!
               as Map<String, Object?>;
@@ -283,9 +283,8 @@ void main() {
   group('源码守卫', () {
     test('本文件不出现任何真实域名（真值只在契约与内部手册里）', () {
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/services/fnthink_settings.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/services/fnthink_settings.dart')
+            .readAsStringSync(),
       );
       for (final needle in ['fnthink.top', 'fnthink.com', 'push.fnthink']) {
         expect(src, isNot(contains(needle)), reason: '设置层里出现了真实域名：$needle');

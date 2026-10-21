@@ -83,9 +83,9 @@ void main() {
 
     /// 只把 `camera:snap` 那一格改掉、其余原样 —— 红的只可能是被改的那一维。
     FnthinkContract photoContract([Map<String, Object?> patch = const {}]) {
-      final root =
-          jsonDecode(jsonEncode(FnthinkContract.readFile().raw))
-              as Map<String, dynamic>;
+      final root = jsonDecode(
+        jsonEncode(FnthinkContract.readFile().raw),
+      ) as Map<String, dynamic>;
       final spec =
           root['capabilities']['l2']['reports']['camera:snap']
               as Map<String, dynamic>;
@@ -167,26 +167,22 @@ void main() {
         'omittedField': 'skipped',
         'omittedValue': 'nope',
       });
-      final over =
-          jsonDecode(
-                formatFnthinkPhotoPayload(
-                  snapWith(List<int>.filled(9, 1)),
-                  contract,
-                  'camera:snap',
-                ),
-              )
-              as Map<String, dynamic>;
+      final over = jsonDecode(
+        formatFnthinkPhotoPayload(
+          snapWith(List<int>.filled(9, 1)),
+          contract,
+          'camera:snap',
+        ),
+      ) as Map<String, dynamic>;
       expect(over['skipped'], 'nope');
       expect(over.containsKey('imageBase64'), isFalse);
-      final ok =
-          jsonDecode(
-                formatFnthinkPhotoPayload(
-                  snapWith(List<int>.filled(8, 1)),
-                  contract,
-                  'camera:snap',
-                ),
-              )
-              as Map<String, dynamic>;
+      final ok = jsonDecode(
+        formatFnthinkPhotoPayload(
+          snapWith(List<int>.filled(8, 1)),
+          contract,
+          'camera:snap',
+        ),
+      ) as Map<String, dynamic>;
       expect(ok.containsKey('imageBase64'), isTrue);
     });
 

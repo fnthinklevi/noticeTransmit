@@ -114,9 +114,9 @@ void main() {
       final schedulers = files
           .where((f) => relOf(f).endsWith('.kt'))
           .where(
-            (f) => stripComments(
-              f.readAsStringSync(),
-            ).contains('setExactAndAllowWhileIdle('),
+            (f) =>
+                stripComments(f.readAsStringSync())
+                    .contains('setExactAndAllowWhileIdle('),
           )
           .map(relOf)
           .toSet();

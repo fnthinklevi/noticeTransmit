@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:get_it/get_it.dart';
 import 'package:fnthink_push/fnthink_push.dart';
+
 import '../database/database_helper.dart';
 import '../services/history_paging.dart';
 import '../services/webhook_service.dart';

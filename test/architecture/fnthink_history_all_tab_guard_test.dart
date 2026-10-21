@@ -11,9 +11,9 @@ import '../support/source_guards.dart';
 void main() {
   final root = projectRoot();
   final src = stripComments(
-    File(
-      '$root/lib/pages/history_page.dart',
-    ).readAsStringSync().replaceAll('\r\n', '\n'),
+    File('$root/lib/pages/history_page.dart')
+        .readAsStringSync()
+        .replaceAll('\r\n', '\n'),
   );
 
   String bodyOf(String signature) {

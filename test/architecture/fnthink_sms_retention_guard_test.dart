@@ -104,12 +104,10 @@ void main() {
       reason: '留存那一路按 type 那一列筛；原生改了这个取值而 Dart 没跟上，筛出来就是空表',
     );
 
-    final dartLimit = RegExp(
-      r'const int kFnthinkSmsSearchTotalLimit = (\d+)',
-    ).firstMatch(retention);
-    final nativeLimit = RegExp(
-      r'const val LIMIT = (\d+)',
-    ).firstMatch(kotlinSearch);
+    final dartLimit = RegExp(r'const int kFnthinkSmsSearchTotalLimit = (\d+)')
+        .firstMatch(retention);
+    final nativeLimit = RegExp(r'const val LIMIT = (\d+)')
+        .firstMatch(kotlinSearch);
     expect(dartLimit, isNotNull);
     expect(nativeLimit, isNotNull, reason: '锚点：Kotlin 那个上限没取到＝本守卫空转');
     expect(

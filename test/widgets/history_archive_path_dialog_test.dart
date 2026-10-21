@@ -9,6 +9,7 @@ import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 
 import '../test_setup.dart';
+
 import 'package:notice_transmit/services/archive_worker.dart'
     show kArchiveDirModeKey;
 import 'package:notice_transmit/widgets/app_root.dart';

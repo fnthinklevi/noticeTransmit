@@ -36,12 +36,14 @@ void main() {
     final maxBytes = limits['requestBodyMaxBytes']! as int;
     final kotlin = File(kotlinPath).readAsStringSync();
     // 原生那张表里"字符"口径的上限（`*_BYTES` 是 UTF-8 字节口径，单独算一份）
-    final chars = RegExp(
-      r'const val [A-Z_]+_CHARS = (\d+)',
-    ).allMatches(kotlin).map((m) => int.parse(m.group(1)!)).toList();
-    final bytes = RegExp(
-      r'const val [A-Z_]+_BYTES = (\d+)',
-    ).allMatches(kotlin).map((m) => int.parse(m.group(1)!)).toList();
+    final chars = RegExp(r'const val [A-Z_]+_CHARS = (\d+)')
+        .allMatches(kotlin)
+        .map((m) => int.parse(m.group(1)!))
+        .toList();
+    final bytes = RegExp(r'const val [A-Z_]+_BYTES = (\d+)')
+        .allMatches(kotlin)
+        .map((m) => int.parse(m.group(1)!))
+        .toList();
     expect(chars, isNotEmpty, reason: '原生上限表改名了：这条守卫从此什么都拦不住');
     final widest = chars.reduce((a, b) => a > b ? a : b) * 6;
     // ×6 不是拍脑袋：JSON 里一个非 ASCII 字符转义成 `\uXXXX` 是 6 字节，那是**最坏**编码。
@@ -108,9 +110,8 @@ void main() {
   test('公网面那把必须严于管理面的 1 MB（否则收紧没有发生）', () {
     final maxBytes = limits['requestBodyMaxBytes']! as int;
     final appSrc = File(appPath).readAsStringSync();
-    final admin = RegExp(
-      r"express\.json\(\{ limit: '(\d+)mb' \}\)",
-    ).firstMatch(appSrc);
+    final admin = RegExp(r"express\.json\(\{ limit: '(\d+)mb' \}\)")
+        .firstMatch(appSrc);
     expect(admin, isNotNull, reason: '管理面的上限写法变了：这条断言从此是摆设');
     expect(maxBytes, lessThan(int.parse(admin!.group(1)!) * 1024 * 1024));
   });

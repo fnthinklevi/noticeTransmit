@@ -33,20 +33,17 @@ void main() {
     ...contract.l3Settings.keys,
   };
   String page() => stripComments(
-    File(
-      '${projectRoot()}/lib/pages/fnthink_send_page.dart',
-    ).readAsStringSync(),
+    File('${projectRoot()}/lib/pages/fnthink_send_page.dart')
+        .readAsStringSync(),
   );
   // 同意屏那一格（名单页）：T146 片2 的最后一格 —— 18 行一维平铺到这一页才收口。
   String peersPage() => stripComments(
-    File(
-      '${projectRoot()}/lib/pages/fnthink_peers_page.dart',
-    ).readAsStringSync(),
+    File('${projectRoot()}/lib/pages/fnthink_peers_page.dart')
+        .readAsStringSync(),
   );
   String table() => stripComments(
-    File(
-      '${projectRoot()}/lib/services/fnthink_remote_action_categories.dart',
-    ).readAsStringSync(),
+    File('${projectRoot()}/lib/services/fnthink_remote_action_categories.dart')
+        .readAsStringSync(),
   );
 
   group('这张表与契约的动作集双向差集', () {
@@ -122,9 +119,9 @@ void main() {
       final groups = fnthinkRemoteItemGroups(rows, (row) => row.base);
       expect(
         groups.map((g) => g.slug).toList(),
-        fnthinkRemoteActionGroups([
-          ...rows.map((row) => row.base),
-        ]).map((g) => g.slug).toList(),
+        fnthinkRemoteActionGroups([...rows.map((row) => row.base)])
+            .map((g) => g.slug)
+            .toList(),
         reason:
             '两张清单页的栏次必须一致。不一致的表现是"同一台设备在两页上把同一件事'
             '放在不同位置"，用户来回找 —— 这正是裁定 5 说的"过于杂乱"里没被治掉的那一半',
@@ -254,9 +251,9 @@ void main() {
 
     test('归组与排序在这张表的文件里只有一份实现', () {
       final src = table();
-      final copies = RegExp(
-        RegExp.escape('kFnthinkRemoteCategoryOrder.where('),
-      ).allMatches(src).length;
+      final copies = RegExp(RegExp.escape('kFnthinkRemoteCategoryOrder.where('))
+          .allMatches(src)
+          .length;
       expect(
         copies,
         1,
@@ -266,9 +263,9 @@ void main() {
       );
       // 一处定义 + 两个公开入口各一次调用。数目漂了就说明某一入口不再走它
       // （判数目不判措辞：显式写类型参数 `_byCategoryInOrder<String>(...)` 不算漂移）。
-      final uses = RegExp(
-        RegExp.escape('_byCategoryInOrder'),
-      ).allMatches(src).length;
+      final uses = RegExp(RegExp.escape('_byCategoryInOrder'))
+          .allMatches(src)
+          .length;
       expect(uses, 3, reason: '两个入口都得走那一份实现；少一次就是有人把分堆又抄了一遍');
     });
 

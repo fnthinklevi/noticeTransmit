@@ -1384,16 +1384,11 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           preselectedPeer: peer.peerAddress,
           deps: FnthinkSendDeps(
             loadPeers: _deps.loadPeers,
-            send:
-                ({
-                  required String peer,
-                  required String title,
-                  required String text,
-                }) => _coordinator.sendNotice(
-                  peer: peer,
-                  title: title,
-                  text: text,
-                ),
+            send: ({
+              required String peer,
+              required String title,
+              required String text,
+            }) => _coordinator.sendNotice(peer: peer, title: title, text: text),
             contractOf: () async => _deps.contracts.load(),
             saveRemoteExecution: saveRemoteExecutionRow,
           ),

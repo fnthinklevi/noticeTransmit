@@ -1,12 +1,15 @@
 import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+
 import '../l10n/app_localizations.dart';
 import '../services/installed_apps_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
+
 import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
 
 /// 应用列表条目：组头（已选/未选分组标题）或应用行
@@ -539,9 +542,8 @@ class _AppFilterPageState extends State<AppFilterPage>
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.secondaryLabel(
-                              context,
-                            ).withValues(alpha: 0.1),
+                            color: AppColors.secondaryLabel(context)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -563,9 +565,8 @@ class _AppFilterPageState extends State<AppFilterPage>
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.secondaryLabel(
-                              context,
-                            ).withValues(alpha: 0.1),
+                            color: AppColors.secondaryLabel(context)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(

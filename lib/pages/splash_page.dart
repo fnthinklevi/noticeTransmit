@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+
 import '../l10n/app_localizations.dart';
 import '../services/locale_service.dart';
 import '../services/services.dart';

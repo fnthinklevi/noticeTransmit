@@ -16,11 +16,9 @@ void main() {
   Object? fixtureError;
   List<Map<String, dynamic>> cases = const [];
   try {
-    final fixture =
-        jsonDecode(
-              File('test/fixtures/rule_engine_golden.json').readAsStringSync(),
-            )
-            as Map<String, dynamic>;
+    final fixture = jsonDecode(
+      File('test/fixtures/rule_engine_golden.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
     cases = (fixture['cases'] as List).cast<Map<String, dynamic>>();
   } catch (e) {
     fixtureError = e;

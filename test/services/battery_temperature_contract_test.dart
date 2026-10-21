@@ -6,6 +6,7 @@ import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
 
 import '../support/engine_rule_store_fake.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/source_guards.dart';
@@ -43,9 +44,10 @@ void main() {
       reason: '原生 $name 定义被改名/删除/挪走（T19 后判据只在 NotificationEngine 一处）',
     );
     final end = src.indexOf(')', start);
-    final block = RegExp(
-      r'"([a-z_]+)"',
-    ).allMatches(src.substring(start, end)).map((m) => m.group(1)!).toSet();
+    final block = RegExp(r'"([a-z_]+)"')
+        .allMatches(src.substring(start, end))
+        .map((m) => m.group(1)!)
+        .toSet();
     expect(block, isNotEmpty, reason: '未解析到任何类型字面量，本用例已失效');
     return block;
   }
@@ -70,9 +72,10 @@ void main() {
       final chips = stripComments(
         File('lib/pages/battery_page.dart').readAsStringSync(),
       );
-      final dartTypes = RegExp(
-        r"_buildTypeChip\(\s*'([a-z_]+)'",
-      ).allMatches(chips).map((m) => m.group(1)!).toSet();
+      final dartTypes = RegExp(r"_buildTypeChip\(\s*'([a-z_]+)'")
+          .allMatches(chips)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(dartTypes, isNotEmpty, reason: '没解析到任何类型芯片 ⇒ 页面写法变了，本条已失效');
       expect(
         dartTypes,

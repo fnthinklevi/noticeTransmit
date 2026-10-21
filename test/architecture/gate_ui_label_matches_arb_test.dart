@@ -24,9 +24,9 @@ void main() {
   final root = projectRoot();
 
   String arpValue(String key) {
-    final raw =
-        jsonDecode(File('$root/lib/l10n/arb/app_zh.arb').readAsStringSync())
-            as Map<String, dynamic>;
+    final raw = jsonDecode(
+      File('$root/lib/l10n/arb/app_zh.arb').readAsStringSync(),
+    ) as Map<String, dynamic>;
     final v = raw[key];
     expect(v, isA<String>(), reason: 'ARB 里没有字符串键 $key');
     return v as String;
@@ -36,9 +36,8 @@ void main() {
     final label = arpValue('deviceStatusEntry');
     expect(label, '设备状态快照', reason: '本条判据要改：入口改名了（连同下面两处一起改）');
 
-    final gate = File(
-      '$root/integration_test/release_walkthrough_test.dart',
-    ).readAsStringSync();
+    final gate = File('$root/integration_test/release_walkthrough_test.dart')
+        .readAsStringSync();
     // ⚠ 断的是「**恰好两处**，且都等于现值」，不是「文件里有这个词」——
     //   后者被注释与别处的复述喂成恒绿。计数与取值同时钉。
     final needle = "_openMoreRow(tester, '$label')";
@@ -68,9 +67,8 @@ void main() {
     //   的两条上（"更多页入口「设备状态」不再被点击 ⇒ 覆盖面缩水"）。
     //   那一族断的是**闸门自身有没有被静默削弱**，它靠字面量认入口名 ——
     //   所以改 UI 文案会连带改掉它的主语。三处一起钉，下次改名只红这一条。
-    final meta = File(
-      '$root/test/architecture/release_gate_emulator_test.dart',
-    ).readAsStringSync();
+    final meta = File('$root/test/architecture/release_gate_emulator_test.dart')
+        .readAsStringSync();
     for (final needle in [
       "'$label',",
       "_openMoreRow\\\\(tester, '$label'\\\\)",

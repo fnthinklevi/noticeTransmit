@@ -161,8 +161,9 @@ FnthinkReceiverService buildFnthinkReceiveService(FnthinkLoopSpec spec) {
   );
 }
 
-typedef FnthinkServiceFactory =
-    FnthinkReceiverService Function(FnthinkLoopSpec spec);
+typedef FnthinkServiceFactory = FnthinkReceiverService Function(
+  FnthinkLoopSpec spec,
+);
 
 /// 生产装配：收货服务（HTTP + 签名 + nonce）→ 收货循环（顺序与后果）。
 ///

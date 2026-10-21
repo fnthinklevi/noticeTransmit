@@ -19,9 +19,8 @@ void main() {
   final root = projectRoot();
 
   String readKotlin(String rel) => stripComments(
-    File(
-      '$root/android/app/src/main/kotlin/com/fnthink/notice/$rel',
-    ).readAsStringSync(),
+    File('$root/android/app/src/main/kotlin/com/fnthink/notice/$rel')
+        .readAsStringSync(),
   );
 
   /// 取 `start` 之后到第一个匹配 [endAt] 的位置之前那段源码。
@@ -130,9 +129,10 @@ void main() {
         RegExp('\n    (?:private |internal |public |suspend )*fun '),
         'TemplateEngine.presetTemplate',
       );
-      final used = RegExp(
-        '%([A-Za-z]+)%',
-      ).allMatches(preset).map((m) => m.group(1)!).toSet();
+      final used = RegExp('%([A-Za-z]+)%')
+          .allMatches(preset)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(used, isNotEmpty, reason: '一段 %var% 都没抓到 ⇒ 抽取多半已经落空，这条断言也就永远为真');
       expect(
         used.difference(webhookTemplateVars.map((v) => v.token).toSet()),

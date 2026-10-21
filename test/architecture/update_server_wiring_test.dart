@@ -73,18 +73,14 @@ void main() {
     // T157：探针写**可达性**族；协议面另读 `kFnthinkServerFamily`（id＝host）。
     // 把探针写回协议面，一次 `/health` 200 就会把协议面的失败盖成"有应答"——
     // 而"界面在线、功能全废"正是这么来的。
-    final writesReach = RegExp(
-      r'record\(\s*kFnthinkReachabilityFamily,',
-    ).hasMatch(block);
-    final readsReach = RegExp(
-      r'of\(\s*kFnthinkReachabilityFamily,',
-    ).hasMatch(block);
-    final readsProtocol = RegExp(
-      r'of\(\s*kFnthinkServerFamily,',
-    ).hasMatch(block);
-    final writesProtocol = RegExp(
-      r'record\(\s*kFnthinkServerFamily,',
-    ).hasMatch(block);
+    final writesReach = RegExp(r'record\(\s*kFnthinkReachabilityFamily,')
+        .hasMatch(block);
+    final readsReach = RegExp(r'of\(\s*kFnthinkReachabilityFamily,')
+        .hasMatch(block);
+    final readsProtocol = RegExp(r'of\(\s*kFnthinkServerFamily,')
+        .hasMatch(block);
+    final writesProtocol = RegExp(r'record\(\s*kFnthinkServerFamily,')
+        .hasMatch(block);
     expect(
       [writesReach, readsReach, readsProtocol].where((x) => x).length,
       3,

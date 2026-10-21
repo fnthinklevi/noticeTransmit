@@ -117,9 +117,8 @@ void main() {
             rel == 'lib/services/channel_probe_service.dart') {
           continue;
         }
-        if (stripComments(
-          f.readAsStringSync(),
-        ).contains('ChannelProbeTarget(')) {
+        if (stripComments(f.readAsStringSync())
+            .contains('ChannelProbeTarget(')) {
           offenders.add(rel);
         }
       }
@@ -154,9 +153,8 @@ void main() {
             .replaceAll(r'\', '/')
             .substring(root.replaceAll(r'\', '/').length + 1);
         if (rel == 'lib/services/channel_health_store.dart') continue;
-        if (stripComments(
-          f.readAsStringSync(),
-        ).contains('Duration(minutes: 30)')) {
+        if (stripComments(f.readAsStringSync())
+            .contains('Duration(minutes: 30)')) {
           offenders.add(rel);
         }
       }
@@ -234,9 +232,10 @@ void main() {
     test('原生探测表仍是那三族（幻念不走「原生方法名 + 参数」那条路）', () {
       final src = read('lib/services/active_channels.dart');
       // 探测链路的族名只看 `add('<族>', …)` 那几行 —— 折行/改参数形状不该让判据变红（base.md（75））。
-      final probed = RegExp(
-        "add\\('([^']+)'",
-      ).allMatches(src).map((m) => m.group(1)!).toSet();
+      final probed = RegExp("add\\('([^']+)'")
+          .allMatches(src)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(
         probed,
         equals({'webhook', 'app', 'email'}),
@@ -358,9 +357,8 @@ void main() {
             .replaceAll(r'\', '/')
             .substring(root.replaceAll(r'\', '/').length + 1);
         if (rel == 'lib/di/service_locator.dart') continue;
-        if (stripComments(
-          f.readAsStringSync(),
-        ).contains('FnthinkChannelService()')) {
+        if (stripComments(f.readAsStringSync())
+            .contains('FnthinkChannelService()')) {
           offenders.add(rel);
         }
       }

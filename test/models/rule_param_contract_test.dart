@@ -78,9 +78,9 @@ void main() {
           // 数"读取处"（排除 `params['k'] = v` 这种赋值左侧），再数"包在统一口径里"的处数。
           // ⚠ 不能用"同一行内有没有 is int"来判：旧写法是
           //   `final w = params['w']; if (w is int …)` 跨两行，行内匹配抓不到（反证测过）。
-          final reads = RegExp(
-            "params\\['$key'\\](?!\\s*=[^=])",
-          ).allMatches(src).length;
+          final reads = RegExp("params\\['$key'\\](?!\\s*=[^=])")
+              .allMatches(src)
+              .length;
           final wrapped = RegExp(
             "ruleParam(Int|Bool)\\([^)]*params\\['$key'\\]",
           ).allMatches(src).length;
@@ -172,9 +172,9 @@ void f(Map<String, dynamic> params) {
 }
 ''';
       // 计数判据要能抓住这个**跨两行**的旧形状：读取 1 处、包装 0 处 ⇒ 不等 ⇒ 红。
-      final reads = RegExp(
-        r"params\['windowSeconds'\](?!\s*=[^=])",
-      ).allMatches(oldShape).length;
+      final reads = RegExp(r"params\['windowSeconds'\](?!\s*=[^=])")
+          .allMatches(oldShape)
+          .length;
       final wrapped = RegExp(
         r"ruleParam(Int|Bool)\([^)]*params\['windowSeconds'\]",
       ).allMatches(oldShape).length;
@@ -183,9 +183,8 @@ void f(Map<String, dynamic> params) {
       expect(wrapped == reads, isFalse);
       // 赋值左侧不该被算成读取（否则新写的保存路径会假红）。
       expect(
-        RegExp(
-          r"params\['windowSeconds'\](?!\s*=[^=])",
-        ).hasMatch("  params['windowSeconds'] = 30;\n"),
+        RegExp(r"params\['windowSeconds'\](?!\s*=[^=])")
+            .hasMatch("  params['windowSeconds'] = 30;\n"),
         isFalse,
       );
       const oldGroup = "  final g = params['groupByTitle'] == true;\n";

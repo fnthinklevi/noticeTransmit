@@ -63,9 +63,8 @@ void main() {
         // 锚在**声明**上（`void` / `Future<void>` 前缀），不是光秃秃的函数名：
         // 长按菜单里的 `onTap: () => _duplicateChannel(index)` 出现在声明之前，
         // 用函数名当锚会截到调用点那一块，守卫就变成"看运气"。
-        final decl = RegExp(
-          '(?:Future<void>|void)\\s+_duplicate\\w*\\(',
-        ).firstMatch(src);
+        final decl = RegExp('(?:Future<void>|void)\\s+_duplicate\\w*\\(')
+            .firstMatch(src);
         if (decl == null) {
           offenders.add('$rel（找不到 _duplicate* 声明）');
           continue;

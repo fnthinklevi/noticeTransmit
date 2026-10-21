@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+
 import '../l10n/app_localizations.dart';
 import '../models/device_snapshot.dart';
 import '../services/device_info_service.dart';
@@ -58,9 +59,8 @@ class _DeviceSnapshotPageState extends State<DeviceSnapshotPage> {
     if (!mounted) return;
     setState(() => _pushing = false);
     // 只说"已交给通道"：送达结果要等原生回传，此刻任何"成功/失败"的说法都是猜。
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.pushDeviceInfoSent)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.pushDeviceInfoSent)));
   }
 
   /// 一行一项：`(字段名, 标签, 取值)`。字段名必须与原生 `DeviceSnapshot.KEY_*` 逐字一致 ——

@@ -26,9 +26,8 @@ void main() {
       reason: '构造参数若是 List，页面画的就是进页那一刻的快照，回前台无从重算',
     );
     expect(
-      RegExp(
-        r'final\s+List<FnthinkL3GrantRow>\s+l3GrantRows\s*;',
-      ).hasMatch(page),
+      RegExp(r'final\s+List<FnthinkL3GrantRow>\s+l3GrantRows\s*;')
+          .hasMatch(page),
       isFalse,
       reason: '留一份注入的快照 = 长出第二个"此刻的读数"，两处迟早漂开',
     );

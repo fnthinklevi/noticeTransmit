@@ -33,11 +33,12 @@ void main() {
 
   /// 整棵 `android/app/src/main` 的 Kotlin 源（剥注释）。
   /// ⚠ 刻意不逐个文件点名：只查四份的话，第五份新文件读这三个键就绕过了。
-  List<File> androidKotlinFiles() => Directory('$root/android/app/src/main')
-      .listSync(recursive: true)
-      .whereType<File>()
-      .where((f) => f.path.endsWith('.kt'))
-      .toList();
+  List<File> androidKotlinFiles() =>
+      Directory('$root/android/app/src/main')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.kt'))
+          .toList();
 
   Map<String, String> androidKotlinSources() => {
     for (final f in androidKotlinFiles())
@@ -96,9 +97,8 @@ void main() {
       );
       final produced = stripComments(librarySource(root, 'lib/$producer'));
       expect(
-        RegExp(
-          "RemoteCommandRejected\\([\\s\\S]{0,120}?'$reason'",
-        ).hasMatch(produced),
+        RegExp("RemoteCommandRejected\\([\\s\\S]{0,120}?'$reason'")
+            .hasMatch(produced),
         isTrue,
         reason: '$reason 不在"造拒绝"那一段里 ⇒ 它变成页面自己造的第二个理由',
       );
@@ -128,9 +128,8 @@ void main() {
           '整条路 fail-closed 成"谁都不许"，而界面上写着已开启',
     );
     expect(
-      androidSourceNamed(
-        'RemoteExecChannelHandler.kt',
-      ).contains('"package" to'),
+      androidSourceNamed('RemoteExecChannelHandler.kt')
+          .contains('"package" to'),
       isTrue,
       reason: '取口不再回那一格 ⇒ Dart 侧只会把它当"现在没有指令"',
     );
@@ -172,9 +171,10 @@ void main() {
     const defaulted =
         'fun offer(content: String?, packageName: String? = null): Boolean';
     expect(
-      RegExp(
-        r'fun offer\(([^)]*)\)',
-      ).firstMatch(defaulted)!.group(1)!.contains('packageName: String? ='),
+      RegExp(r'fun offer\(([^)]*)\)')
+          .firstMatch(defaulted)!
+          .group(1)!
+          .contains('packageName: String? ='),
       isTrue,
       reason: '④ 的坏形状认不出来 ⇒ 那条守卫拦的是不存在的事',
     );

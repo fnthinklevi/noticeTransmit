@@ -1,6 +1,8 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/notification_rule.dart';
 import 'platform_channel.dart';
 
@@ -72,24 +74,20 @@ class FilterService {
             conditionMatch = value == '*' || packageName == value;
             break;
           case ConditionType.titleContains:
-            conditionMatch = FilterService.normalizeForMatch(
-              title,
-            ).contains(FilterService.normalizeForMatch(value));
+            conditionMatch = FilterService.normalizeForMatch(title)
+                .contains(FilterService.normalizeForMatch(value));
             break;
           case ConditionType.titleNotContains:
-            conditionMatch = !FilterService.normalizeForMatch(
-              title,
-            ).contains(FilterService.normalizeForMatch(value));
+            conditionMatch = !FilterService.normalizeForMatch(title)
+                .contains(FilterService.normalizeForMatch(value));
             break;
           case ConditionType.contentContains:
-            conditionMatch = FilterService.normalizeForMatch(
-              content,
-            ).contains(FilterService.normalizeForMatch(value));
+            conditionMatch = FilterService.normalizeForMatch(content)
+                .contains(FilterService.normalizeForMatch(value));
             break;
           case ConditionType.contentNotContains:
-            conditionMatch = !FilterService.normalizeForMatch(
-              content,
-            ).contains(FilterService.normalizeForMatch(value));
+            conditionMatch = !FilterService.normalizeForMatch(content)
+                .contains(FilterService.normalizeForMatch(value));
             break;
           case ConditionType.priority:
             conditionMatch = _evaluatePriorityCondition(value, notification);

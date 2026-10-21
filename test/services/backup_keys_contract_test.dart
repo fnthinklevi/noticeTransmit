@@ -1,4 +1,5 @@
 import '../support/source_guards.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -80,9 +81,10 @@ void main() {
     final codec = stripComments(
       File('$root/lib/services/engine_rule_codec.dart').readAsStringSync(),
     );
-    final families = RegExp(
-      r"static const family\w+ = '([a-z_]+)';",
-    ).allMatches(codec).map((m) => m.group(1)!).toSet();
+    final families = RegExp(r"static const family\w+ = '([a-z_]+)';")
+        .allMatches(codec)
+        .map((m) => m.group(1)!)
+        .toSet();
 
     /// payload 类别键是 camelCase（`device_state` → `deviceState`），与其余键同风格。
     String categoryOf(String family) => family.replaceAllMapped(
@@ -167,11 +169,11 @@ Set<String> _blockKeys(String source, String methodName) {
 /// 提取 restore 分支处理的键。两种实现形式都要覆盖：
 /// ① 直接分支 `payload['key']`；② 键→方法名映射表 `'key': 'saveXxx'`（动态调用）。
 Set<String> _restoreKeys(String source) {
-  final direct = RegExp(
-    r"payload\['([a-zA-Z][a-zA-Z0-9]*)'\]",
-  ).allMatches(source).map((m) => m.group(1)!);
-  final mapped = RegExp(
-    r"'([a-zA-Z][a-zA-Z0-9]*)':\s*'save[A-Za-z]*'",
-  ).allMatches(source).map((m) => m.group(1)!);
+  final direct = RegExp(r"payload\['([a-zA-Z][a-zA-Z0-9]*)'\]")
+      .allMatches(source)
+      .map((m) => m.group(1)!);
+  final mapped = RegExp(r"'([a-zA-Z][a-zA-Z0-9]*)':\s*'save[A-Za-z]*'")
+      .allMatches(source)
+      .map((m) => m.group(1)!);
   return {...direct, ...mapped};
 }

@@ -63,9 +63,9 @@ void main() {
     return hits;
   }
 
-  final contract =
-      jsonDecode(File('$root/protocol/fnthink-v1.json').readAsStringSync())
-          as Map<String, dynamic>;
+  final contract = jsonDecode(
+    File('$root/protocol/fnthink-v1.json').readAsStringSync(),
+  ) as Map<String, dynamic>;
   // 这三个键都住在 `identity.identityKey` 那一节（与 Dart 侧 `contract.dart` 里
   // `boolOf(['identity','identityKey','keystoreBackedCapability'])` 同一个节点）。
   final identityKey =

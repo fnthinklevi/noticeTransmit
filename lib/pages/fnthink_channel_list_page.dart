@@ -135,9 +135,8 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
     if (!mounted) return;
     await _reload();
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.fnthinkChannelDeleted)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.fnthinkChannelDeleted)));
   }
 
   Future<void> _setEnabled(FnthinkChannel channel, bool enabled) async {

@@ -27,17 +27,17 @@ void main() {
   test('原生交付的键名与 Dart 读取的键名是同一对（派生，不重抄）', () {
     final kt = stripComments(read(handler));
     final branch = kt.substring(kt.indexOf('"drainOfflineCache"'));
-    final recordsKey = RegExp(
-      r'"([A-Za-z_]+)"\s+to\s+drained\.records',
-    ).firstMatch(branch)?.group(1);
-    final droppedKey = RegExp(
-      r'"([A-Za-z_]+)"\s+to\s+drained\.dropped',
-    ).firstMatch(branch)?.group(1);
+    final recordsKey = RegExp(r'"([A-Za-z_]+)"\s+to\s+drained\.records')
+        .firstMatch(branch)
+        ?.group(1);
+    final droppedKey = RegExp(r'"([A-Za-z_]+)"\s+to\s+drained\.dropped')
+        .firstMatch(branch)
+        ?.group(1);
     // T133 量级②新增的第三枚：原生一次只交一批，"还有没有"由这一键说。
     // 它比前两枚更容易静默 —— 缺了它 Dart 只会当"没有下一批"，历史只进来头一批。
-    final truncatedKey = RegExp(
-      r'"([A-Za-z_]+)"\s+to\s+drained\.truncated',
-    ).firstMatch(branch)?.group(1);
+    final truncatedKey = RegExp(r'"([A-Za-z_]+)"\s+to\s+drained\.truncated')
+        .firstMatch(branch)
+        ?.group(1);
     expect(recordsKey, isNotNull, reason: '原生不再用 records 交记录 ⇒ 这条契约要跟着改');
     expect(droppedKey, isNotNull, reason: '原生不再交丢弃数 ⇒ #94-A 的可见性落空了');
     expect(

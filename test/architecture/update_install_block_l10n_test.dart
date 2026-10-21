@@ -20,9 +20,8 @@ void main() {
 
   /// 枚举 `UpdateInstallBlockReason` 的全部档（从源码现取，不在测试里抄第二份名单）。
   List<String> enumValues() {
-    final m = RegExp(
-      r'enum\s+UpdateInstallBlockReason\s*\{([^}]*)\}',
-    ).firstMatch(manager);
+    final m = RegExp(r'enum\s+UpdateInstallBlockReason\s*\{([^}]*)\}')
+        .firstMatch(manager);
     expect(m, isNotNull, reason: '枚举没了？那 ③④ 两断言都在测空气');
     return m!
         .group(1)!
@@ -35,9 +34,8 @@ void main() {
   /// 界面 `switch` 里的 `码 => _l10n.词条` 对应关系。
   Map<String, String> mappingInPage() {
     final body = page.substring(page.indexOf('String _installBlockText('));
-    final pairs = RegExp(
-      r'UpdateInstallBlockReason\.(\w+)\s*=>\s*_l10n\.(\w+)',
-    ).allMatches(body);
+    final pairs = RegExp(r'UpdateInstallBlockReason\.(\w+)\s*=>\s*_l10n\.(\w+)')
+        .allMatches(body);
     return {for (final p in pairs) p.group(1)!: p.group(2)!};
   }
 
@@ -121,9 +119,8 @@ void main() {
     });
 
     test('⑥ 失败的每一码在界面接到对的词条（枚举现取 + 对应关系逐个断）', () {
-      final m = RegExp(
-        r'enum\s+UpdateFailure\s*\{([^}]*)\}',
-      ).firstMatch(manager);
+      final m = RegExp(r'enum\s+UpdateFailure\s*\{([^}]*)\}')
+          .firstMatch(manager);
       expect(m, isNotNull, reason: '枚举没了 ⇒ 下面两条在测空气');
       final codes = m!
           .group(1)!
@@ -140,9 +137,8 @@ void main() {
       final body = page.substring(
         page.indexOf('String _failureText(Object e)'),
       );
-      final pairs = RegExp(
-        r'UpdateFailure\.(\w+)\s*=>\s*_l10n\.(\w+)',
-      ).allMatches(body);
+      final pairs = RegExp(r'UpdateFailure\.(\w+)\s*=>\s*_l10n\.(\w+)')
+          .allMatches(body);
       final mapping = {for (final p in pairs) p.group(1)!: p.group(2)!};
       expect(
         mapping.keys.toSet().difference(codes.toSet()),
@@ -171,9 +167,10 @@ void main() {
       final body = page.substring(
         page.indexOf('String _failureText(Object e)'),
       );
-      final keys = RegExp(
-        r'_l10n\.(updateFail\w+)',
-      ).allMatches(body).map((m) => m.group(1)!).toSet();
+      final keys = RegExp(r'_l10n\.(updateFail\w+)')
+          .allMatches(body)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(keys, isNotEmpty, reason: '界面一个词条都没引用 ⇒ 这条守卫在测空气');
       for (final key in keys) {
         expect(zh[key], isA<String>(), reason: '$key 缺中文那份');

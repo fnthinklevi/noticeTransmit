@@ -751,9 +751,8 @@ void main() {
       );
       expect(body, contains("insert(\n          'webhook_channels'"));
       expect(
-        RegExp(
-          r"'channel_type':\s*c\['channel_type'\]\?\.toString\(\)\s*\?\?",
-        ).hasMatch(body),
+        RegExp(r"'channel_type':\s*c\['channel_type'\]\?\.toString\(\)\s*\?\?")
+            .hasMatch(body),
         isTrue,
         reason:
             '列名键必须排在 camel 之前：否则只带 channel_type 的行（老备份、legacy 迁移）'

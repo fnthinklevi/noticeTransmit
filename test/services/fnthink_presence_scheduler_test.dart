@@ -27,9 +27,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   final realContractText = File(fnthinkContractFile()).readAsStringSync();
-  final realDefault = FnthinkContract.parse(
-    realContractText,
-  ).pollIntervalSeconds;
+  final realDefault = FnthinkContract.parse(realContractText)
+      .pollIntervalSeconds;
 
   /// 一份**改过数值**的契约副本：与真契约只差 `presence.pollIntervalSeconds.default`。
   /// 取 [min,max] 内的另一个数，为的是"改完之后这张表仍然自洽"——否则红的是校验，

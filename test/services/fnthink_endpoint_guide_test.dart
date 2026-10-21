@@ -54,10 +54,9 @@ void main() {
 
     test('改契约里的路径 ⇒ 教程跟着变（证明没在页面侧另写一份）', () {
       final moved = contract(
-        File('protocol/fnthink-v1.json').readAsStringSync().replaceAll(
-          postPath,
-          '/api/fnthink/ingress/:endpointId',
-        ),
+        File('protocol/fnthink-v1.json')
+            .readAsStringSync()
+            .replaceAll(postPath, '/api/fnthink/ingress/:endpointId'),
       );
       final guide = build(endpointId: 'ep_1', contractOverride: moved);
       expect(
@@ -95,9 +94,9 @@ void main() {
 
     test('契约缺那两条路径就抛，不补默认值', () {
       final stripped = contract(
-        File(
-          'protocol/fnthink-v1.json',
-        ).readAsStringSync().replaceAll('"postBearerPath": "$postPath",', ''),
+        File('protocol/fnthink-v1.json')
+            .readAsStringSync()
+            .replaceAll('"postBearerPath": "$postPath",', ''),
       );
       expect(
         () => build(contractOverride: stripped),

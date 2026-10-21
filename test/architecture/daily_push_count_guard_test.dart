@@ -102,9 +102,8 @@ void main() {
         reason: '三个读数（栏里两态 + 小部件）必须都读这一个作者',
       );
       expect(
-        read(
-          'android/app/src/main/kotlin/com/fnthink/notice/I18n.kt',
-        ).contains('当日已推送'),
+        read('android/app/src/main/kotlin/com/fnthink/notice/I18n.kt')
+            .contains('当日已推送'),
         isTrue,
         reason: '那句话还在（改的是数，不是把句子藏起来）',
       );
@@ -113,9 +112,8 @@ void main() {
     test('另一个口径（今日记录数）没被牵连：首页统计仍走 DB', () {
       // 「今日记录数」与「当日已推送」是两件事，这一条钉的是前者没被顺手改成后者。
       expect(
-        read(
-          'lib/services/notification_service.dart',
-        ).contains('getTodayCount'),
+        read('lib/services/notification_service.dart')
+            .contains('getTodayCount'),
         isTrue,
         reason: '今日记录数没了 ⇒ 统计页那个数就没人作了',
       );

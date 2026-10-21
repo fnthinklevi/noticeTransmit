@@ -108,9 +108,8 @@ void main() {
           '片1 的占位写法。留着它，那张表勾什么都到不了载荷，'
           '而屏幕上那句"已同意"是真的 —— 最难查的那种静默',
     );
-    final passed = RegExp(
-      r'items:\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,)]',
-    ).firstMatch(code);
+    final passed = RegExp(r'items:\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,)]')
+        .firstMatch(code);
     expect(passed, isNotNull, reason: 'pairConfirm 那一发现在交的是字面量（或根本没交）');
   });
 

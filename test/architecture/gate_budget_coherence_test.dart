@@ -32,15 +32,15 @@ void main() {
     final clamped = RegExp(
       r'timeout:\s*Timeout\(\s*gateCaseBudgetFor\(\s*_case[A-Z]Budget\s*\)\s*\)',
     ).allMatches(src).length;
-    final raw = RegExp(
-      r'timeout:\s*const\s+Timeout\(\s*_case[A-Z]Budget',
-    ).allMatches(src).length;
-    final declared = RegExp(
-      r'const\s+_case[A-Z]Budget\s*=\s*Duration\(',
-    ).allMatches(src).length;
-    final defs = RegExp(
-      r'Duration\s+gateCaseBudgetFor\s*\(',
-    ).allMatches(src).length;
+    final raw = RegExp(r'timeout:\s*const\s+Timeout\(\s*_case[A-Z]Budget')
+        .allMatches(src)
+        .length;
+    final declared = RegExp(r'const\s+_case[A-Z]Budget\s*=\s*Duration\(')
+        .allMatches(src)
+        .length;
+    final defs = RegExp(r'Duration\s+gateCaseBudgetFor\s*\(')
+        .allMatches(src)
+        .length;
     // 反向自证：常量声明与 timeout 使用点都还在 —— 否则这条判据拦的是已经不存在的事，
     // 而"全都合规"与"这段代码被人删光了"在尺上是同一个绿。
     if (declared < 4) {
@@ -169,9 +169,8 @@ void main() {
     final src = stripComments(File('$root/$gatePath').readAsStringSync());
     final start = src.indexOf('Future<void> _tap(');
     expect(start, greaterThan(-1), reason: '认不出 `_tap` ⇒ 这条判据无从计算');
-    final nextMember = RegExp(
-      r'\nFuture<',
-    ).firstMatch(src.substring(start + 5));
+    final nextMember = RegExp(r'\nFuture<')
+        .firstMatch(src.substring(start + 5));
     final body = nextMember == null
         ? src.substring(start)
         : src.substring(start, start + 5 + nextMember.start);

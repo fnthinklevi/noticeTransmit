@@ -23,9 +23,10 @@ void main() {
   final dartPage = read('lib/pages/fnthink_receive_page.dart');
 
   test('交付给 Dart 的那三枚读数，键名两侧同源（派生，不重抄）', () {
-    final sent = RegExp(
-      r'"([A-Za-z]+)"\s+to\s+alarm\.([A-Za-z]+)\(\)',
-    ).allMatches(kotlinHandler).map((m) => m.group(1)!).toSet();
+    final sent = RegExp(r'"([A-Za-z]+)"\s+to\s+alarm\.([A-Za-z]+)\(\)')
+        .allMatches(kotlinHandler)
+        .map((m) => m.group(1)!)
+        .toSet();
     expect(
       sent,
       containsAll(<String>['nextRoundAt', 'cadenceSeconds', 'everArmedAt']),

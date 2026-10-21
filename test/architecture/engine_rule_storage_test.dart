@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../support/source_guards.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 
 /// T20：引擎规则存储的跨语言接线守卫。
@@ -21,9 +22,8 @@ void main() {
   String dart(String rel) =>
       stripComments(File('$root/$rel').readAsStringSync());
   String kotlin(String rel) => stripComments(
-    File(
-      '$root/android/app/src/main/kotlin/com/fnthink/notice/$rel',
-    ).readAsStringSync(),
+    File('$root/android/app/src/main/kotlin/com/fnthink/notice/$rel')
+        .readAsStringSync(),
   );
 
   /// Dart 侧所有 lib 源码（注释已剥离）。
@@ -179,13 +179,14 @@ void main() {
       // 这条与 Kotlin 侧 EngineRuleMirrorContractTest 是一对：那边从 Dart 源码取
       // uiKeys 与本文件比对，这边钉住 Dart 侧的定义处只有一份。
       final codec = dart('lib/services/engine_rule_codec.dart');
-      final keys = RegExp(
-        r"uiKeys\s*=\s*\[([^\]]*)\]",
-      ).firstMatch(codec)?.group(1);
+      final keys = RegExp(r"uiKeys\s*=\s*\[([^\]]*)\]")
+          .firstMatch(codec)
+          ?.group(1);
       expect(keys, isNotNull, reason: '未解析到 uiKeys，本用例已失效');
-      final listed = RegExp(
-        r"'([a-z_]+)'",
-      ).allMatches(keys!).map((m) => m.group(1)!).toSet();
+      final listed = RegExp(r"'([a-z_]+)'")
+          .allMatches(keys!)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(listed, {
         'id',
         'type',

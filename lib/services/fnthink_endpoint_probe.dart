@@ -20,8 +20,9 @@ import 'package:http/http.dart' as http;
 ///
 /// ⚠ **"答了"就算可达，不看状态码**：403/404 同样证明服务器在、答了，
 /// 而把非 2xx 当不可达会让"服务在但这一档被拒"被读成"这一台不通"。
-typedef EndpointLatencyProbe =
-    Future<Map<String, Duration>> Function(List<String> hosts);
+typedef EndpointLatencyProbe = Future<Map<String, Duration>> Function(
+  List<String> hosts,
+);
 
 /// 给 [hosts] 各测一次往返时延。**测不到的（超时/连接失败/DNS 失败）不进表**。
 ///

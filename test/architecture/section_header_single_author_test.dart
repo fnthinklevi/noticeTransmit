@@ -274,9 +274,8 @@ class _State extends State {
     if (name == null) {
       return const ['那一处取法所在的成员里认不出函数名（它得是顶层 `String xxx(` 那一族）'];
     }
-    if (!RegExp(
-      'widgetList<Text>\\(\\s*\\w+\\s*\\)',
-    ).hasMatch(gateReaderBody(gate)!)) {
+    if (!RegExp('widgetList<Text>\\(\\s*\\w+\\s*\\)')
+        .hasMatch(gateReaderBody(gate)!)) {
       return [
         '$name 只往下读、没直接读那一格自己 ⇒ key 挪到 `Text` 上之后恒得空串，'
             '闸门绿着量一件不存在的事',
@@ -292,9 +291,9 @@ class _State extends State {
     if (name == null) {
       return const ['认不出那把尺 ⇒ 调用点无从核对（"没量到"不许当成通过）'];
     }
-    final calls = RegExp(
-      'final (\\w+) = $name\\(tester,',
-    ).allMatches(gate).toList();
+    final calls = RegExp('final (\\w+) = $name\\(tester,')
+        .allMatches(gate)
+        .toList();
     if (calls.isEmpty) {
       return ['$name 定义了却没有一个调用点 ⇒ 闸门里那段读数不再走它（尺与用的人分了家）'];
     }

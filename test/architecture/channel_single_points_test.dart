@@ -241,9 +241,10 @@ void main() {
         r"const List<String> channelFamilies = \[([^\]]*)\];",
       ).firstMatch(codec);
       expect(declared, isNotNull, reason: '那份清单不在了 ⇒ 作者换了地方，先看清再谈覆盖');
-      final families = RegExp(
-        r"'([a-z]+)'",
-      ).allMatches(declared!.group(1)!).map((m) => m.group(1)!).toSet();
+      final families = RegExp(r"'([a-z]+)'")
+          .allMatches(declared!.group(1)!)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(
         families,
         containsAll(<String>['webhook', 'email', 'app', 'fnthink']),
@@ -290,9 +291,10 @@ void main() {
       final declared = RegExp(
         r"const List<String> channelFamilies = \[([^\]]*)\];",
       ).firstMatch(codec)!;
-      final families = RegExp(
-        r"'([a-z]+)'",
-      ).allMatches(declared.group(1)!).map((m) => m.group(1)!).toSet();
+      final families = RegExp(r"'([a-z]+)'")
+          .allMatches(declared.group(1)!)
+          .map((m) => m.group(1)!)
+          .toSet();
       final block = display.substring(
         display.indexOf('const Map<String, (String, String)> _familyNames = {'),
       );
@@ -339,9 +341,8 @@ void main() {
         reason: '页面里再留一枚私有副本 ⇒ 两份又会各自长',
       );
       expect(
-        read(
-          'lib/widgets/channel_visuals.dart',
-        ).contains('String channelFamilySummary('),
+        read('lib/widgets/channel_visuals.dart')
+            .contains('String channelFamilySummary('),
         isTrue,
         reason: '装配点必须在公共件那一处',
       );
@@ -447,9 +448,9 @@ void main() {
       ).listSync(recursive: true).whereType<File>()) {
         if (!f.path.endsWith('.dart')) continue;
         final n =
-            stripComments(
-              f.readAsStringSync(),
-            ).split('splitHomeChannels(').length -
+            stripComments(f.readAsStringSync())
+                .split('splitHomeChannels(')
+                .length -
             1;
         if (n > 0) hits[f.path.replaceAll('\\', '/').split('/').last] = n;
       }

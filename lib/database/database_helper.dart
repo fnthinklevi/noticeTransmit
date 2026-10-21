@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
@@ -11,8 +12,10 @@ import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
 import '../models/fnthink_pair_request_record.dart';
 import '../models/fnthink_remote_execution_record.dart';
+
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../services/channel_display.dart';
 import '../services/engine_rule_codec.dart';
 import '../services/fnthink_remote_execution.dart';
@@ -114,9 +117,8 @@ class DatabaseHelper
     var key = await secureStorage.read(_encryptionKeyStoreKey);
     if (key == null || key.length != 64) {
       final databasesPath = await getDatabasesPath();
-      final encryptedExists = await File(
-        join(databasesPath, _encryptedDbName),
-      ).exists();
+      final encryptedExists = await File(join(databasesPath, _encryptedDbName))
+          .exists();
       if (!encryptedExists) {
         // 首次启动（无库无钥）：生成 256 位随机十六进制密钥
         key = _generateRandomHexKey();
@@ -1266,12 +1268,10 @@ class DatabaseHelper
     final args = <dynamic>[limit];
 
     if (type != null) {
-      sql =
-          'SELECT * FROM notifications WHERE type = ? ORDER BY post_time DESC LIMIT ?';
+      sql = 'SELECT * FROM notifications WHERE type = ? ORDER BY post_time DESC LIMIT ?';
       args.insert(0, type);
     } else if (packageName != null) {
-      sql =
-          'SELECT * FROM notifications WHERE package_name = ? ORDER BY post_time DESC LIMIT ?';
+      sql = 'SELECT * FROM notifications WHERE package_name = ? ORDER BY post_time DESC LIMIT ?';
       args.insert(0, packageName);
     }
 
@@ -2143,8 +2143,7 @@ class DatabaseHelper
     final db = await database;
     return await db.delete(
       'notifications',
-      where:
-          'id IN (SELECT id FROM notifications ORDER BY post_time DESC, rowid DESC LIMIT ?)',
+      where: 'id IN (SELECT id FROM notifications ORDER BY post_time DESC, rowid DESC LIMIT ?)',
       whereArgs: [n],
     );
   }

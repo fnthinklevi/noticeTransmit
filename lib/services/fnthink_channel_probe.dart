@@ -30,20 +30,20 @@ const Duration kFnthinkProbeBudget = Duration(seconds: 3);
 const int kFnthinkProbeAttempts = 3;
 
 /// 一发探针的调用口（生产装配是 `FnthinkReceiveCoordinator.probePeer`）。
-typedef FnthinkProbeCall =
-    Future<FnthinkProbeResult> Function({required String peer});
+typedef FnthinkProbeCall = Future<FnthinkProbeResult> Function({
+  required String peer,
+});
 
 /// 端点档那一发的调用口（T106 片①b 格2；生产就是 `postFnthinkEndpointDryRun` 那一发，
 /// 由 `probeChannelsAcrossFamilies` 直接挂上来）。
 ///
 /// 三个参数都在**签名之外**：这一发没有签名 —— 它靠一把长期口令出示身份，
 /// 而口令从 `Authorization: Bearer` 走（契约 `endpoint.probe.secretPlacement` 钉着）。
-typedef FnthinkEndpointProbeCall =
-    Future<FnthinkProbeResult> Function({
-      required FnthinkContract contract,
-      required Uri probeUrl,
-      required String secret,
-    });
+typedef FnthinkEndpointProbeCall = Future<FnthinkProbeResult> Function({
+  required FnthinkContract contract,
+  required Uri probeUrl,
+  required String secret,
+});
 
 /// 这一轮能不能问端点档那一发：随包契约 + 这台设备**当前正在用的那一台**服务器。
 ///

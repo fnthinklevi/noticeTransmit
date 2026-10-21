@@ -25,14 +25,16 @@ void main() {
 
   group('快照字段名是跨端契约', () {
     /// 原生那侧的键清单（`private const val KEY_X = "x"`）
-    final nativeKeys = RegExp(
-      r'const val KEY_\w+ = "([a-zA-Z]+)"',
-    ).allMatches(native).map((m) => m.group(1)!).toSet();
+    final nativeKeys = RegExp(r'const val KEY_\w+ = "([a-zA-Z]+)"')
+        .allMatches(native)
+        .map((m) => m.group(1)!)
+        .toSet();
 
     /// 页面里用来查 `unavailable` 的字段名（元组第一项）
-    final pageFields = RegExp(
-      r"\(\s*'([a-zA-Z]+)',\s*l10n\.",
-    ).allMatches(page).map((m) => m.group(1)!).toSet();
+    final pageFields = RegExp(r"\(\s*'([a-zA-Z]+)',\s*l10n\.")
+        .allMatches(page)
+        .map((m) => m.group(1)!)
+        .toSet();
 
     test('原生键清单取到了（提取失效不得让本组空转）', () {
       expect(
@@ -105,9 +107,8 @@ void main() {
         reason: '页面绕过服务自己拼记录 = 送达快照与历史形状会漂',
       );
       expect(
-        RegExp(
-          r'Future<NotificationRecord>\s+pushSynthesizedRecord',
-        ).hasMatch(notify),
+        RegExp(r'Future<NotificationRecord>\s+pushSynthesizedRecord')
+            .hasMatch(notify),
         isTrue,
         reason: '服务侧那个入口不见了 ⇒ 页面调用会断，或各处自己拼一份记录',
       );

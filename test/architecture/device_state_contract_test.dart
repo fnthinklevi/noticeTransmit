@@ -30,9 +30,10 @@ void main() {
       );
       final body = src.substring(start, src.indexOf(')', start));
       // 剥注释后仍需剔掉行尾注释：`"a", // 说明` 里的中文不该被当成类型名
-      return RegExp(
-        r'"([a-z_]+)"',
-      ).allMatches(body).map((m) => m.group(1)!).toSet();
+      return RegExp(r'"([a-z_]+)"')
+          .allMatches(body)
+          .map((m) => m.group(1)!)
+          .toSet();
     }
 
     test('Dart 的四种触发类型 == 原生 DEVICE_STATE_RULE_TYPES', () {

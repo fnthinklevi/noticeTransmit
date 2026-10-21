@@ -334,9 +334,8 @@ void main() {
           'lib/services/channel_display.dart',
         );
         expect(
-          stripComments(
-            src,
-          ).contains("_resolveSlugOrNull(rawType) ?? 'generic'"),
+          stripComments(src)
+              .contains("_resolveSlugOrNull(rawType) ?? 'generic'"),
           isTrue,
           reason:
               '存储兜底没了 ⇒ 认不出的键在写侧就会返回 null，'

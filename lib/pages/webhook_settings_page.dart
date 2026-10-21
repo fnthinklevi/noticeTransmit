@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+
 import '../l10n/app_localizations.dart';
 import '../models/webhook_channel.dart';
 import '../services/channel_config_codec.dart';

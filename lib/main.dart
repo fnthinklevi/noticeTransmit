@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+
 import 'l10n/app_localizations.dart';
 import 'pages/main_page.dart';
 import 'pages/privacy_policy_page.dart';

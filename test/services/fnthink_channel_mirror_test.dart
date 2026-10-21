@@ -67,9 +67,8 @@ void main() {
     });
 
     test('角色归一后落盘（认不出的词不许原样过去）', () {
-      final row = decode(
-        encodeFnthinkChannelMirror([ch(role: 'TERTIARY')]),
-      ).single;
+      final row = decode(encodeFnthinkChannelMirror([ch(role: 'TERTIARY')]))
+          .single;
       expect(row['role'], 'primary');
       expect(
         decode(encodeFnthinkChannelMirror([ch(role: 'Backup')])).single['role'],

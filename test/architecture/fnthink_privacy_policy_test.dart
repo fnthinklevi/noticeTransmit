@@ -224,8 +224,7 @@ void main() {
     expect(
       en['fnthinkReadCameraSubtitle'] as String,
       contains('image is sent back'),
-      reason:
-          'English camera subtitle still says the photo never leaves the device',
+      reason: 'English camera subtitle still says the photo never leaves the device',
     );
     // 旧口径的反面：这三处都不许再留着「照片只在本机、不回传」。
     expect(

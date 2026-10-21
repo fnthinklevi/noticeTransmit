@@ -15,9 +15,10 @@ import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/fnthink_outcome.dart';
 
 /// 现读源码（本仓的源码守卫一律自持读口，不引共享 helper —— 那些文件常被折行）。
-String _read(String rel) => File(
-  '${Directory.current.path}/$rel',
-).readAsStringSync().replaceAll('\r\n', '\n');
+String _read(String rel) =>
+    File('${Directory.current.path}/$rel')
+        .readAsStringSync()
+        .replaceAll('\r\n', '\n');
 
 /// 剥掉整行注释。守卫必须剥注释：注释里出现过的那个词不算用过（本仓砸过四次）。
 String _code(String src) =>
@@ -152,9 +153,9 @@ void main() {
   test('那一页只有一个发 poll 的口子，且它的结论走同一个弹层', () {
     final src = _code(_read('lib/pages/fnthink_peers_page.dart'));
     final body = src.substring(src.indexOf('Future<void> _refreshPairing()'));
-    final calls = RegExp(
-      r'_coordinator\.receiveOnce\(\)',
-    ).allMatches(src).length;
+    final calls = RegExp(r'_coordinator\.receiveOnce\(\)')
+        .allMatches(src)
+        .length;
     expect(calls, 1, reason: '页面自己再发一轮 poll = 第二个"这一轮有没有货"的读者（T33 那一族踩过的形）');
     expect(
       body.substring(

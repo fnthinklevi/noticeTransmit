@@ -379,9 +379,8 @@ void main() {
         reason: '合成样本都不被认成跨行 ⇒ 上面那条判据是恒真的',
       );
       expect(
-        RegExp(
-          r';\s*then\b',
-        ).hasMatch(r'[ "$a" != "0" ] && { echo x; } || true'),
+        RegExp(r';\s*then\b')
+            .hasMatch(r'[ "$a" != "0" ] && { echo x; } || true'),
         isFalse,
         reason: '单行形状被误判 ⇒ 会把合规写法判红',
       );
@@ -476,9 +475,9 @@ void main() {
     test('每条用例都有自己的超时', () {
       final src = smokeSrc();
       final cases = RegExp(r"'冒烟 \d+/\d+").allMatches(src).length;
-      final timeouts = RegExp(
-        r'timeout: const Timeout\(',
-      ).allMatches(src).length;
+      final timeouts = RegExp(r'timeout: const Timeout\(')
+          .allMatches(src)
+          .length;
       // 正面锚点：cases 为 0 时下面这条不等式对任何 timeouts 都成立（空断言）。
       expect(cases, greaterThanOrEqualTo(4), reason: '没数到冒烟用例 ⇒ 计数正则已失效');
       expect(
@@ -645,9 +644,9 @@ void main() {
       // 一起钉住 —— 闸门第一轮就红在这：Dart 侧 SharedPreferences 用逻辑键，
       // `flutter.` 前缀是插件写原生 XML 时才加的，照着文件名写就会永远读到 null。
       final svc = stripComments(read('lib/services/device_state_service.dart'));
-      final mirrorKey = RegExp(
-        "prefsKey:\\s*'([^']+)'",
-      ).firstMatch(svc)!.group(1);
+      final mirrorKey = RegExp("prefsKey:\\s*'([^']+)'")
+          .firstMatch(svc)!
+          .group(1);
       expect(
         flat,
         contains("prefs.getString('$mirrorKey')"),
@@ -795,9 +794,10 @@ void main() {
       // 而这一页的行 + 那页自己的 AppBar 标题在它的射程之外 —— 改名当天闸门不会红，
       // 只会等一次 10+ 分钟的发版闸门红在"找不到入口"（2026-10-07 CI run 37599710957 就是这个形状）。
       final src = walkSrc();
-      final gateLabels = RegExp(
-        r"_openEngineRow\(\s*\w+\s*,\s*'([^']+)'\s*\)",
-      ).allMatches(src).map((m) => m.group(1)!).toSet();
+      final gateLabels = RegExp(r"_openEngineRow\(\s*\w+\s*,\s*'([^']+)'\s*\)")
+          .allMatches(src)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(
         gateLabels.length,
         greaterThanOrEqualTo(4),
@@ -860,9 +860,8 @@ void main() {
         read('lib/pages/fnthink_peers_page.dart'),
       );
       expect(
-        RegExp(
-          r"AppBar\(title: Text\(l10n\.fnthinkPeersTitle\)\)",
-        ).hasMatch(peersPage),
+        RegExp(r"AppBar\(title: Text\(l10n\.fnthinkPeersTitle\)\)")
+            .hasMatch(peersPage),
         isTrue,
         reason: '目标页的 AppBar 不再读 fnthinkPeersTitle ⇒ 行与页标题从此可以各漂各的',
       );
@@ -983,25 +982,21 @@ void main() {
 
       // **每一项**都要被核对：页面加了新行而闸门没跟上时，这一条红（不靠人记得）
       final page = stripComments(
-        File(
-          '${projectRoot()}/lib/pages/device_snapshot_page.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/pages/device_snapshot_page.dart')
+            .readAsStringSync(),
       );
-      final labelGetters = RegExp(
-        r"\(\s*'[a-zA-Z]+',\s*l10n\.(\w+),",
-      ).allMatches(page).map((m) => m.group(1)!).toSet();
+      final labelGetters = RegExp(r"\(\s*'[a-zA-Z]+',\s*l10n\.(\w+),")
+          .allMatches(page)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(
         labelGetters.length,
         greaterThanOrEqualTo(10),
         reason: '提取失效 = 空守卫',
       );
-      final arb =
-          jsonDecode(
-                File(
-                  '${projectRoot()}/lib/l10n/arb/app_zh.arb',
-                ).readAsStringSync(),
-              )
-              as Map<String, dynamic>;
+      final arb = jsonDecode(
+        File('${projectRoot()}/lib/l10n/arb/app_zh.arb').readAsStringSync(),
+      ) as Map<String, dynamic>;
       // ⚠ 只在 5.14 那一节的源码里找标签：`'电池温度'` 在温度页那几步里也是 chip 文案，
       // 全文搜索会让"这一项不再核对"绿着过关（反证 G1 实测撞到的）。
       final sectionStart = src.indexOf('5.14 设备状态页');
@@ -1028,18 +1023,17 @@ void main() {
       final between = src.substring(at, at + 400);
       // 标记名从"闸门实际打出来的那个字符串"里取，不在下面重打一遍字面量：
       // 两侧各写一份、朝同一个方向写错，正是本项目撞过的那类"守卫自己成了第二份拷贝"。
-      final printed = RegExp(
-        r"'(GATE-DIFF-[A-Z]+)",
-      ).firstMatch(between)?.group(1);
+      final printed = RegExp(r"'(GATE-DIFF-[A-Z]+)")
+          .firstMatch(between)
+          ?.group(1);
       expect(
         printed,
         isNotNull,
         reason: '读了环，却没打出以 GATE-DIFF-* 开头的字符串 ⇒ 报告里看不见这一行',
       );
       expect(
-        RegExp(
-          r'\bif\s*\(',
-        ).hasMatch(between.substring(0, between.indexOf(printed!))),
+        RegExp(r'\bif\s*\(')
+            .hasMatch(between.substring(0, between.indexOf(printed!))),
         isFalse,
         reason: '打印被 if 包住（典型是"有差异才打"）⇒ 清零与出口失效在报告里长得一样',
       );
@@ -1157,9 +1151,8 @@ void main() {
       // 拆开之后"用例级超时"有**四条**（每条用例一个），所以判据取逐条比较而不是抓第一条：
       // 任何一条短到兜不住两次节内挂住，先说话的就不是"哪一节挂住"而是"这条用例没结论"。
       final whole = read('integration_test/release_walkthrough_test.dart');
-      final budget = RegExp(
-        r'const _stepBudget = Duration\(minutes: (\d+)\)',
-      ).firstMatch(whole);
+      final budget = RegExp(r'const _stepBudget = Duration\(minutes: (\d+)\)')
+          .firstMatch(whole);
       expect(budget, isNotNull, reason: '节内预算的形状变了 ⇒ 这条判据要跟着改，别让它静默失效');
       final caseBudgets = RegExp(
         r'const _case([A-Z])Budget = Duration\(minutes: (\d+)\)',
@@ -1271,9 +1264,8 @@ void main() {
       // 不是"四条同时挂满"那种病态叠加 —— 那种情况 job 会先掐，这是**已知并被接受的**：
       // 每条调用的结论都已逐条写进 LOG，且 test_report 步骤 `if: always()` 照样上传，
       // 所以不再退化成"一个 124 换一片空白"。
-      final gateJob = RegExp(
-        r'name: 发版全功能点击闸门[\s\S]*?timeout-minutes:\s*(\d+)',
-      ).firstMatch(read('.github/workflows/integration_test.yml'));
+      final gateJob = RegExp(r'name: 发版全功能点击闸门[\s\S]*?timeout-minutes:\s*(\d+)')
+          .firstMatch(read('.github/workflows/integration_test.yml'));
       expect(
         gateJob,
         isNotNull,
@@ -1447,8 +1439,7 @@ void main() {
       expect(
         assemble.indexOf('allowReassignment'),
         lessThan(assemble.indexOf('setupLocator()')),
-        reason:
-            'allowReassignment 必须开在 setupLocator **之前** ⇒ 第二次装配当场抛 already registered',
+        reason: 'allowReassignment 必须开在 setupLocator **之前** ⇒ 第二次装配当场抛 already registered',
       );
       // 需要现场的用例必须自己灌，而且灌的必须是断言读的那几样
       expect(

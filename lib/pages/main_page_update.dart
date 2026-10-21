@@ -284,9 +284,8 @@ extension _MainPageUpdate on _MainPageState {
           final block = _updateService.lastInstallBlock;
           final reason = block == null ? null : _installBlockText(block);
           if (reason != null && reason.isNotEmpty) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(reason)));
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(reason)));
           }
         })
         .catchError((e) {

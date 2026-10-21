@@ -545,9 +545,8 @@ class _RemoteTriggerFilterPageState extends State<RemoteTriggerFilterPage>
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.secondaryLabel(
-                              context,
-                            ).withValues(alpha: 0.1),
+                            color: AppColors.secondaryLabel(context)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -569,9 +568,8 @@ class _RemoteTriggerFilterPageState extends State<RemoteTriggerFilterPage>
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.secondaryLabel(
-                              context,
-                            ).withValues(alpha: 0.1),
+                            color: AppColors.secondaryLabel(context)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(

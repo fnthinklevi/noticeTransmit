@@ -189,9 +189,9 @@ void main() {
   group('收取间隔那一档（T88 之后也归进「意图」）', () {
     Future<FnthinkContractLoader> loadedLoader() async {
       final loader = FnthinkContractLoader(
-        readAsset: (_) async => File(
-          '${projectRoot()}/protocol/fnthink-v1.json',
-        ).readAsStringSync(),
+        readAsset: (_) async =>
+            File('${projectRoot()}/protocol/fnthink-v1.json')
+                .readAsStringSync(),
       );
       await loader.load();
       return loader;

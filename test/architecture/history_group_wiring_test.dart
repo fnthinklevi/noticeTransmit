@@ -12,9 +12,8 @@ void main() {
   final root = projectRoot();
 
   String native(String rel) => stripComments(
-    File(
-      '$root/android/app/src/main/kotlin/com/fnthink/notice/$rel',
-    ).readAsStringSync(),
+    File('$root/android/app/src/main/kotlin/com/fnthink/notice/$rel')
+        .readAsStringSync(),
   );
 
   String dart(String rel) => stripComments(librarySource(root, 'lib/$rel'));

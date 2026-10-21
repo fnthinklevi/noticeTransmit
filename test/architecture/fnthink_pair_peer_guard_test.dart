@@ -130,9 +130,9 @@ void main() {
     final submit = sliceFn(raw, 'Future<void> _pairWithPeer({');
     expect(submit, contains('pairingCode: input.code'));
     expect(
-      RegExp(
-        r'String\??\s*_pair\w*(Code|Target|Pairing)\s*[=;]',
-      ).allMatches(pageSrc).length,
+      RegExp(r'String\??\s*_pair\w*(Code|Target|Pairing)\s*[=;]')
+          .allMatches(pageSrc)
+          .length,
       0,
       reason: '页面里出现"装着口令/地址码的字段"= 那份一次性的东西开始有副本',
     );

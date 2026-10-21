@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 // T61：pickUpdateChangelog 的参数类型（`Locale` 住在 widgets/dart:ui 那层）。
 import 'package:flutter/widgets.dart' show Locale;
@@ -9,10 +10,12 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
+
 import 'services/pinned_http_client.dart';
 import 'services/platform_channel.dart';
 import 'services/update_download_urls.dart';
 import 'services/update_server_regions.dart';
+
 import 'package:permission_handler/permission_handler.dart';
 
 /// SSL 证书固定（默认关闭）
@@ -566,12 +569,10 @@ class AppUpdateManager {
       await Future.delayed(const Duration(milliseconds: 600));
       Map<Object?, Object?> info;
       try {
-        info =
-            await AppChannels.notification.invokeMethod(
-                  'getSystemDownloadProgress',
-                  {'downloadId': _lastDownloadId},
-                )
-                as Map<Object?, Object?>;
+        info = await AppChannels.notification.invokeMethod(
+          'getSystemDownloadProgress',
+          {'downloadId': _lastDownloadId},
+        ) as Map<Object?, Object?>;
       } catch (e) {
         throw const UpdateFailureException(UpdateFailure.progressQueryFailed);
       }

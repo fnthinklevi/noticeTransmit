@@ -105,16 +105,11 @@ class _FnthinkRemotePageState extends State<FnthinkRemotePage> {
           // 名单**只**从协调者那条读咽喉取，不另开一条读库的路 —— 两处各读一次就会有两个排序口径。
           deps: FnthinkSendDeps(
             loadPeers: widget.deps.loadPeers,
-            send:
-                ({
-                  required String peer,
-                  required String title,
-                  required String text,
-                }) => coordinator.sendNotice(
-                  peer: peer,
-                  title: title,
-                  text: text,
-                ),
+            send: ({
+              required String peer,
+              required String title,
+              required String text,
+            }) => coordinator.sendNotice(peer: peer, title: title, text: text),
             contractOf: () async => widget.deps.contracts.load(),
             saveRemoteExecution: saveRemoteExecutionRow,
           ),

@@ -29,10 +29,11 @@ void main() {
   }
 
   /// main_page.dart 里 destinations 列表的实际顺序（按 label 表达式出现次序取）
-  List<String> navLabelKeys(String src) => RegExp(r'label: l10n\.(\w+)')
-      .allMatches(sliceBetween(src, 'destinations: [', '],\n'))
-      .map((m) => m.group(1)!)
-      .toList();
+  List<String> navLabelKeys(String src) =>
+      RegExp(r'label: l10n\.(\w+)')
+          .allMatches(sliceBetween(src, 'destinations: [', '],\n'))
+          .map((m) => m.group(1)!)
+          .toList();
 
   test('三个 tab 的顺序就是 首页 / 通知引擎 / 更多', () {
     final keys = navLabelKeys(source('lib/pages/main_page.dart'));

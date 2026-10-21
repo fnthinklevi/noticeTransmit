@@ -51,9 +51,8 @@ void main() {
 
     test('载荷的两端都从包里那一枚常量取（字面量在包里也只出现一次）', () {
       final src = stripComments(
-        File(
-          '$root/packages/fnthink_push/lib/src/remote_command.dart',
-        ).readAsStringSync(),
+        File('$root/packages/fnthink_push/lib/src/remote_command.dart')
+            .readAsStringSync(),
       );
       expect(
         RegExp("'exec'").allMatches(src).length,

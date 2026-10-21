@@ -137,9 +137,8 @@ void main() {
   });
 
   String historyPage() => stripComments(
-    File(
-      '${projectRoot()}/lib/pages/remote_history_page.dart',
-    ).readAsStringSync(),
+    File('${projectRoot()}/lib/pages/remote_history_page.dart')
+        .readAsStringSync(),
   );
 
   test('历史页那一行的**名**走那张表，契约裸名不许出现在插值里（T146 片2）', () {

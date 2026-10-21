@@ -6,6 +6,7 @@ import 'package:notice_transmit/pages/battery_page.dart';
 import 'package:notice_transmit/pages/notification_engine_page.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
 import 'package:notice_transmit/pages/device_state_page.dart';
+
 import 'dart:io';
 
 import 'package:notice_transmit/models/fnthink_peer.dart';
@@ -22,6 +23,7 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 import '../support/engine_rule_store_fake.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test_setup.dart';
@@ -38,9 +40,10 @@ import '../test_setup.dart';
 /// 为什么剥：注释里会写"为什么不再读 gate"这类历史说法，不剥的话上一条守卫会被自己的
 /// 解释文字打红（本仓记过"锚定在注释上的尺，改注释就能让守卫假红/假绿"）。
 /// 只剥整行 `//…`，不碰行尾与字符串里的 `://`。
-String _readSource(String rel) => File(
-  rel,
-).readAsStringSync().replaceAll(RegExp(r'^[ \t]*//.*$', multiLine: true), '');
+String _readSource(String rel) =>
+    File(rel)
+        .readAsStringSync()
+        .replaceAll(RegExp(r'^[ \t]*//.*$', multiLine: true), '');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

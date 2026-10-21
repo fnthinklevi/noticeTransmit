@@ -481,9 +481,8 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
   Widget _buildChannelTypeSelector(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isAuto = _channelType.isEmpty || _channelType == 'auto';
-    final detectedSlug = WebhookChannel.detectTypeFromUrl(
-      _urlController.text,
-    ).value;
+    final detectedSlug = WebhookChannel.detectTypeFromUrl(_urlController.text)
+        .value;
     final display = isAuto
         ? (detectedSlug == 'generic'
               ? l10n.channelTypeAuto
@@ -553,9 +552,8 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
   /// （要么就这样，要么给 `IosPickerOption` 补一个带底色的口）；先按现状换，不自己改样式。
   Future<void> _showChannelTypePicker(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
-    final detectedSlug = WebhookChannel.detectTypeFromUrl(
-      _urlController.text,
-    ).value;
+    final detectedSlug = WebhookChannel.detectTypeFromUrl(_urlController.text)
+        .value;
 
     final picked = await showIosOptionPicker<String>(
       context,

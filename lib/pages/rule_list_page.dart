@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../l10n/app_localizations.dart';
 import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
@@ -264,9 +265,8 @@ class _RuleListPageState extends State<RuleListPage> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.systemBlue(
-                                  context,
-                                ).withAlpha(20),
+                                color: AppColors.systemBlue(context)
+                                    .withAlpha(20),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -284,9 +284,8 @@ class _RuleListPageState extends State<RuleListPage> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.systemGreen(
-                                  context,
-                                ).withAlpha(20),
+                                color: AppColors.systemGreen(context)
+                                    .withAlpha(20),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(

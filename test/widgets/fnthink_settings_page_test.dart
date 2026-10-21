@@ -154,8 +154,7 @@ void main() {
         '{"endpointId":"ep_live","rotated":true,"secret":"ZZZ7RABQKPZ3STVWX234",'
         '"rotatingUntil":1800003600000,"serverTime":1800000000000}',
     int sendStatus = 202,
-    String sendBody =
-        '{"receipt":"queued","messageId":"m_send_1","action":"new","evicted":[]}',
+    String sendBody = '{"receipt":"queued","messageId":"m_send_1","action":"new","evicted":[]}',
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
@@ -2993,9 +2992,9 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'flutter.${'fnthink.consent_version'}': 1,
       });
-      final raw =
-          jsonDecode(File('protocol/fnthink-v1.json').readAsStringSync())
-              as Map<String, Object?>;
+      final raw = jsonDecode(
+        File('protocol/fnthink-v1.json').readAsStringSync(),
+      ) as Map<String, Object?>;
       final shrunk = {
         ...raw,
         'endpoint': {
@@ -3623,8 +3622,7 @@ void main() {
       });
       final h = harness(
         endpointListBody: twoRows,
-        endpointRevokeBody:
-            '{"endpointId":"ep_live","revoked":false,"serverTime":1800000000000}',
+        endpointRevokeBody: '{"endpointId":"ep_live","revoked":false,"serverTime":1800000000000}',
       );
       final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
@@ -3804,8 +3802,7 @@ void main() {
       });
       final h = harness(
         endpointListBody: oneLive,
-        endpointRotateBody:
-            '{"endpointId":"ep_live","rotated":false,"serverTime":1800000000000}',
+        endpointRotateBody: '{"endpointId":"ep_live","rotated":false,"serverTime":1800000000000}',
       );
       final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
@@ -4427,9 +4424,9 @@ void main() {
 
     testWidgets('把契约的封顶降到最低一档 ⇒ 界面上只剩那一枚（数从契约读，不是抄来的）', (tester) async {
       stubChannels();
-      final raw =
-          jsonDecode(File('protocol/fnthink-v1.json').readAsStringSync())
-              as Map<String, Object?>;
+      final raw = jsonDecode(
+        File('protocol/fnthink-v1.json').readAsStringSync(),
+      ) as Map<String, Object?>;
       (raw['pairing']! as Map)['maxRequestableLevelFromPairing'] = 'L1';
       final h = harness(contractText: jsonEncode(raw));
       final l10n = await pumpPeers(tester, h);

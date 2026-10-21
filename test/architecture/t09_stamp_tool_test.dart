@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../support/source_guards.dart';
+
 import 'package:flutter_test/flutter_test.dart';
+
 import '../../tools/t09_stamp.dart' as stamp_tool;
 
 /// T09 盖章工具的守卫。
@@ -83,9 +85,10 @@ void main() {
         isTrue,
         reason: 'allowRealDevice 不再默认 false ⇒ 真机路线变成随手可达',
       );
-      final noTarget = RegExp(
-        r"Process\.runSync\(\s*adb,\s*<String>\[[^\]]*\]",
-      ).allMatches(src).where((m) => !m.group(0)!.contains("'-s'")).toList();
+      final noTarget = RegExp(r"Process\.runSync\(\s*adb,\s*<String>\[[^\]]*\]")
+          .allMatches(src)
+          .where((m) => !m.group(0)!.contains("'-s'"))
+          .toList();
       expect(
         noTarget.map((m) => m.group(0)!).where((s) => !s.contains("'devices'")),
         isEmpty,
@@ -101,9 +104,8 @@ void main() {
     late List<String> allTypes;
 
     setUp(() {
-      original = f(
-        'test/evidence/channel_availability_matrix.json',
-      ).readAsStringSync();
+      original = f('test/evidence/channel_availability_matrix.json')
+          .readAsStringSync();
       allTypes = ((jsonDecode(original) as Map)['types'] as List)
           .map((r) => (r as Map)['type'].toString())
           .toList();
@@ -278,9 +280,8 @@ void main() {
       expect(o.unknown, ['--devcie=emulator-5554', '--yes-i-think']);
       final src = stripComments(f('tools/t09_stamp.dart').readAsStringSync());
       expect(
-        RegExp(
-          r'if \(opt\.unknown\.isNotEmpty\) \{[\s\S]{0,200}?exitCode = 2',
-        ).hasMatch(src),
+        RegExp(r'if \(opt\.unknown\.isNotEmpty\) \{[\s\S]{0,200}?exitCode = 2')
+            .hasMatch(src),
         isTrue,
         reason: '拼错的 --device 若被丢掉，下一步就是"自动挑设备"——最不该静默的地方',
       );

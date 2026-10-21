@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../support/source_guards.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 
 /// app_channels 表 schema 契约守卫（静态源码断言，**注释已剥离**）。
@@ -52,9 +53,8 @@ void main() {
       ) +
       blockAfter(
         stripComments(
-          File(
-            '$root/lib/services/channel_config_codec.dart',
-          ).readAsStringSync(),
+          File('$root/lib/services/channel_config_codec.dart')
+              .readAsStringSync(),
         ),
         'appFromDb(',
       );
@@ -95,28 +95,25 @@ void main() {
       expect(readColumns.difference(createBlocks.first), isEmpty);
     });
 
-    test(
-      '写入列覆盖全部业务列（id/name/app_type/base_url/secret/config/message_format/enabled）',
-      () {
-        final writeColumns = _writeColumns(dbSource);
-        for (final col in const [
-          'id',
-          'name',
-          'app_type',
-          'base_url',
-          'secret',
-          'config',
-          'message_format',
-          'enabled',
-        ]) {
-          expect(
-            writeColumns,
-            contains(col),
-            reason: 'saveAppChannels 未写入 $col —— 该字段会在保存后丢失',
-          );
-        }
-      },
-    );
+    test('写入列覆盖全部业务列（id/name/app_type/base_url/secret/config/message_format/enabled）', () {
+      final writeColumns = _writeColumns(dbSource);
+      for (final col in const [
+        'id',
+        'name',
+        'app_type',
+        'base_url',
+        'secret',
+        'config',
+        'message_format',
+        'enabled',
+      ]) {
+        expect(
+          writeColumns,
+          contains(col),
+          reason: 'saveAppChannels 未写入 $col —— 该字段会在保存后丢失',
+        );
+      }
+    });
   });
 
   group('app_channels – 存储接口', () {
@@ -135,9 +132,8 @@ void main() {
     test('DatabaseHelper 实现四个存储接缝', () {
       // 用正则取 implements 子句而不是 contains('class X implements')：
       // 后者对 dart format 的换行敏感，一行变两行就静默失效（实测踩过）。
-      final clause = RegExp(
-        r'class DatabaseHelper\s+implements\s+([^{]+)\{',
-      ).firstMatch(dbSource);
+      final clause = RegExp(r'class DatabaseHelper\s+implements\s+([^{]+)\{')
+          .firstMatch(dbSource);
       expect(clause, isNotNull, reason: '没找到 DatabaseHelper 的 implements 子句');
       for (final store in [
         'WebhookChannelStore',
@@ -182,16 +178,18 @@ Set<String> _writeColumns(String source) {
   if (start < 0) return {};
   final end = source.indexOf('};', start);
   final body = source.substring(start, end < 0 ? source.length : end);
-  return RegExp(
-    r"'([a-z][a-z0-9_]*)':",
-  ).allMatches(body).map((m) => m.group(1)!).toSet();
+  return RegExp(r"'([a-z][a-z0-9_]*)':")
+      .allMatches(body)
+      .map((m) => m.group(1)!)
+      .toSet();
 }
 
 /// 提取 AppChannelService 读取的 DB 列名（`row['col']` 形式）。
 Set<String> _serviceReadColumns(String source) {
-  return RegExp(
-    r"row\['([a-z][a-z0-9_]*)'\]",
-  ).allMatches(source).map((m) => m.group(1)!).toSet();
+  return RegExp(r"row\['([a-z][a-z0-9_]*)'\]")
+      .allMatches(source)
+      .map((m) => m.group(1)!)
+      .toSet();
 }
 
 /// 提取接口声明块（`abstract class X { ... }`）。

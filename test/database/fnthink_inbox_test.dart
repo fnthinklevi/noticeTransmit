@@ -100,9 +100,8 @@ void main() {
   /// ⚠ 源码扫描只在测试体里读文件：锚点找不到时若在 `main()` 顶层抛，
   ///   CI 表现是"这个文件没有用例"而不是红（base.md（75）撞过两次）。
   String dbSource() => stripComments(
-    File(
-      '${projectRoot()}/lib/database/database_helper.dart',
-    ).readAsStringSync(),
+    File('${projectRoot()}/lib/database/database_helper.dart')
+        .readAsStringSync(),
   );
 
   group('fnthink_messages 建表', () {
@@ -461,9 +460,8 @@ void main() {
       // 两处口径分家的表现：新库有这一列、老库升上来没有（或默认值不同）——
       // 而那要等一台真设备升级才现形。这里把两处钉在同一句话上。
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/database/database_helper.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/database/database_helper.dart')
+            .readAsStringSync(),
       );
       expect(
         src.contains("direction TEXT NOT NULL DEFAULT 'in'"),
@@ -555,9 +553,9 @@ void main() {
         reason: '既有行由 DEFAULT 补成 0：补成 1 等于替用户伪造一段没发生过的降级',
       );
       expect(
-        (await helper.loadFnthinkInbox(
-          direction: kFnthinkDirectionOut,
-        )).single.viaBackup,
+        (await helper.loadFnthinkInbox(direction: kFnthinkDirectionOut))
+            .single
+            .viaBackup,
         isFalse,
         reason: '夹具那一条是 direction=out，而不带参数的那一读口只回收件档 ⇒ 空列表',
       );
@@ -589,9 +587,8 @@ void main() {
       // 读源码这一条留着：它抓的是**两处定义逐字分家**（新库有、老库没有或默认值不同），
       // 那是行为用例抓不到的一半（行为只验"升级后能写"，验不出建表那一份的默认值改了）。
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/database/database_helper.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/database/database_helper.dart')
+            .readAsStringSync(),
       );
       expect(
         src.contains('via_backup INTEGER NOT NULL DEFAULT 0'),
@@ -635,9 +632,8 @@ void main() {
         isTrue,
       );
       expect(
-        FnthinkInboxMessage.fromDbRow(
-          out(viaBackup: false).toDbRow(),
-        ).viaBackup,
+        FnthinkInboxMessage.fromDbRow(out(viaBackup: false).toDbRow())
+            .viaBackup,
         isFalse,
       );
       expect(
@@ -700,9 +696,8 @@ void main() {
       // 路线图定的是"收件计入统计 + 可按方向筛选"，没有"随备份离开这台机"。
       // 这条守卫钉的是：哪天要导出，必须先在这里登记、并写清是谁同意过的。
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/services/backup_service.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/services/backup_service.dart')
+            .readAsStringSync(),
       );
       expect(src, isNot(contains('fnthink_messages')));
       expect(src, isNot(contains('FnthinkInbox')));

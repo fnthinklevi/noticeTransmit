@@ -39,9 +39,11 @@ void main() {
 
   /// 源清单里组件写成多行属性，`<activity` 之后是换行而非空格；
   /// 又必须与 `<activity-alias` 区分，故用 `[\s>]` 限定后随字符。
-  List<String> activityBlocks(String src) => RegExp(
-    r'<activity[\s>][\s\S]*?</activity>',
-  ).allMatches(src).map((m) => m.group(0)!).toList();
+  List<String> activityBlocks(String src) =>
+      RegExp(r'<activity[\s>][\s\S]*?</activity>')
+          .allMatches(src)
+          .map((m) => m.group(0)!)
+          .toList();
 
   String blockOf(String src, String name) {
     for (final b in activityBlocks(src)) {
@@ -54,9 +56,8 @@ void main() {
     test('四个变体清单都在（缺文件要红，不许表现为"没有用例"）', () {
       for (final variant in const ['main', 'debug', 'release', 'profile']) {
         expect(
-          File(
-            '$root/android/app/src/$variant/AndroidManifest.xml',
-          ).existsSync(),
+          File('$root/android/app/src/$variant/AndroidManifest.xml')
+              .existsSync(),
           isTrue,
           reason:
               'src/$variant/AndroidManifest.xml 不见了：'
@@ -76,15 +77,14 @@ void main() {
       expect(
         block,
         contains('android.intent.category.LAUNCHER'),
-        reason:
-            '缺 LAUNCHER 时 flutter test integration_test 报 launch activity not found',
+        reason: '缺 LAUNCHER 时 flutter test integration_test 报 launch activity not found',
       );
     });
 
     test('带 LAUNCHER 的 activity 恰好 1 个（防 debug 双入口）', () {
-      final n = activityBlocks(
-        manifest('main'),
-      ).where((b) => b.contains('android.intent.category.LAUNCHER')).length;
+      final n = activityBlocks(manifest('main'))
+          .where((b) => b.contains('android.intent.category.LAUNCHER'))
+          .length;
       expect(n, 1, reason: 'main 清单里带 LAUNCHER 的 activity 必须恰好 1 个');
     });
 
@@ -92,9 +92,9 @@ void main() {
       const expected = launcherIconCount * launcherLanguageCount;
       final mainManifest = manifest('main');
       // 从清单实际解析：原始标签数（含任何不符合命名约定的 alias）
-      final rawCount = RegExp(
-        r'<activity-alias[\s>]',
-      ).allMatches(mainManifest).length;
+      final rawCount = RegExp(r'<activity-alias[\s>]')
+          .allMatches(mainManifest)
+          .length;
       // 解析出 (图标基名, 语言后缀)；不匹配约定的 alias 不会进入此列表
       final named = RegExp(
         r'<activity-alias\s+android:name="\.Launcher([A-Za-z0-9]+)(Zh|En)"',

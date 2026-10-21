@@ -12,6 +12,7 @@ import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
+
 import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 /// 自建应用通道设置页 widget 冒烟测试。

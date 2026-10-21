@@ -58,49 +58,46 @@ void main() {
       expect(getIt.isRegistered<DeviceL3Executor>(), isTrue);
     });
 
-    test(
-      'DI 起来的 coordinator 五条副作用都在（recordPeer/removePeer/recordDelivery 被漏掉时全场仍绿，所以只能靠这条）',
-      () {
-        setupLocator();
-        final c = getIt<FnthinkReceiveCoordinator>();
-        expect(c.persist, isNotNull);
-        expect(
-          c.display,
-          isNotNull,
-          reason: '收货链路只落库不显示 ⇒ 用户看不见，而服务端按 delivered 之外的那档留着正文',
-        );
-        expect(
-          c.recordAck,
-          isNotNull,
-          reason:
-              'DI 漏接这一行时全场测试仍然绿，而 `ack_result`/`acked_at` 永远空着 —— '
-              '收件详情那一带"回执状态"的界面就会开始显示猜出来的东西',
-        );
-        expect(
-          c.recordDelivery,
-          isNotNull,
-          reason:
-              'DI 漏接这一行时全场测试仍然绿，而历史里每一条幻念转发都永远停在'
-              '「已推送到服务器·待目标设备上线」—— 对端明明早取走了。'
-              '服务端的回执一直在路上（`/poll` 的 receipts），丢的是本机这一格',
-        );
-        expect(
-          c.recordPeer,
-          isNotNull,
-          reason:
-              '`fnthink_peers` 在生产代码里**只有这一个写入者**。漏接时同意照样成功、'
-              '服务端照样投得进来，而本机名单一直是空的',
-        );
-        expect(
-          c.removePeer,
-          isNotNull,
-          reason:
-              '撤销那一发在服务端生效之后要靠它删本机那一行。漏接时的表现不是报错，'
-              '是"点了撤销而那一行一直在"——用户会以为撤销没成而再点一次，'
-              '而第二次换来的是一句幂等的成功（对面其实早就推不进来了）',
-        );
-      },
-    );
+    test('DI 起来的 coordinator 五条副作用都在（recordPeer/removePeer/recordDelivery 被漏掉时全场仍绿，所以只能靠这条）', () {
+      setupLocator();
+      final c = getIt<FnthinkReceiveCoordinator>();
+      expect(c.persist, isNotNull);
+      expect(
+        c.display,
+        isNotNull,
+        reason: '收货链路只落库不显示 ⇒ 用户看不见，而服务端按 delivered 之外的那档留着正文',
+      );
+      expect(
+        c.recordAck,
+        isNotNull,
+        reason:
+            'DI 漏接这一行时全场测试仍然绿，而 `ack_result`/`acked_at` 永远空着 —— '
+            '收件详情那一带"回执状态"的界面就会开始显示猜出来的东西',
+      );
+      expect(
+        c.recordDelivery,
+        isNotNull,
+        reason:
+            'DI 漏接这一行时全场测试仍然绿，而历史里每一条幻念转发都永远停在'
+            '「已推送到服务器·待目标设备上线」—— 对端明明早取走了。'
+            '服务端的回执一直在路上（`/poll` 的 receipts），丢的是本机这一格',
+      );
+      expect(
+        c.recordPeer,
+        isNotNull,
+        reason:
+            '`fnthink_peers` 在生产代码里**只有这一个写入者**。漏接时同意照样成功、'
+            '服务端照样投得进来，而本机名单一直是空的',
+      );
+      expect(
+        c.removePeer,
+        isNotNull,
+        reason:
+            '撤销那一发在服务端生效之后要靠它删本机那一行。漏接时的表现不是报错，'
+            '是"点了撤销而那一行一直在"——用户会以为撤销没成而再点一次，'
+            '而第二次换来的是一句幂等的成功（对面其实早就推不进来了）',
+      );
+    });
 
     test('收货循环的启动点不许只有页面（T33 第一片）', () {
       // 这一条存在的理由是一段已经上线的行为：`startIfEnabled()` 全仓只有 `fnthink_settings_page`
@@ -449,9 +446,9 @@ void main() {
       for (final entity in Directory('$root/lib').listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         calls +=
-            stripComments(
-              entity.readAsStringSync(),
-            ).split('.upsertFnthinkPeer').length -
+            stripComments(entity.readAsStringSync())
+                .split('.upsertFnthinkPeer')
+                .length -
             1;
       }
       expect(
@@ -830,15 +827,18 @@ void main() {
       //
       // 这条判据断的是**差集为空**，不是某一行写对写错 —— 下一枚新服务忘了注册它立刻红。
       final locator = read('lib/di/service_locator.dart');
-      final reads = RegExp(
-        r'getIt<([A-Za-z_][A-Za-z0-9_]*)>\s*\(',
-      ).allMatches(locator).map((m) => m.group(1)!).toSet();
-      final regs = RegExp(
-        r'register[A-Za-z]*<([A-Za-z_][A-Za-z0-9_]*)>',
-      ).allMatches(locator).map((m) => m.group(1)!).toSet();
-      final aliases = RegExp(
-        r'as\s+([A-Za-z_][A-Za-z0-9_]*)\s*\)',
-      ).allMatches(locator).map((m) => m.group(1)!).toSet();
+      final reads = RegExp(r'getIt<([A-Za-z_][A-Za-z0-9_]*)>\s*\(')
+          .allMatches(locator)
+          .map((m) => m.group(1)!)
+          .toSet();
+      final regs = RegExp(r'register[A-Za-z]*<([A-Za-z_][A-Za-z0-9_]*)>')
+          .allMatches(locator)
+          .map((m) => m.group(1)!)
+          .toSet();
+      final aliases = RegExp(r'as\s+([A-Za-z_][A-Za-z0-9_]*)\s*\)')
+          .allMatches(locator)
+          .map((m) => m.group(1)!)
+          .toSet();
       // ⚠ 别名必须一起收（`registerSingleton<X>(...) as Y` 会制造假差集），
       //   但也**不能**因为"差集算得出来"就当它必然为空 —— 下面那条正面锚点盯着解析本身。
       expect(reads, isNotEmpty, reason: 'getIt<X>() 一个都没解析到：本条守卫在空跑（口径漂移了）');
@@ -1499,9 +1499,9 @@ void main() {
       // 两处调用点是**两条不同的路**，不是冗余：一条管冷启动、一条管切回来。
       // 只剩一处时这一条会红 —— 而它红的时候正是少了一类形状。
       expect(
-        RegExp(
-          r'unawaited\(_sweepInterruptedRemoteExecutions\(\)\)',
-        ).allMatches(main).length,
+        RegExp(r'unawaited\(_sweepInterruptedRemoteExecutions\(\)\)')
+            .allMatches(main)
+            .length,
         2,
         reason:
             '调用点恰好 2 处（启动链 + `resumed`）。多出来的那一处要么是重复接线，'

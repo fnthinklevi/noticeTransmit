@@ -257,9 +257,8 @@ void main() {
           .toList();
       final authors = <String>[];
       for (final f in libFiles) {
-        if (stripComments(
-          f.readAsStringSync(),
-        ).contains('Future<bool> requireFnthinkRelayConsent(')) {
+        if (stripComments(f.readAsStringSync())
+            .contains('Future<bool> requireFnthinkRelayConsent(')) {
           authors.add(f.path.replaceAll('\\', '/').split('/lib/').last);
         }
       }

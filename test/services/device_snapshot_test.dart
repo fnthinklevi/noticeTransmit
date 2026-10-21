@@ -127,18 +127,19 @@ void main() {
       File('$root/lib/models/device_snapshot.dart').readAsStringSync(),
     );
 
-    final kotlinKeys = RegExp(
-      r'KEY_[A-Z_]+ = "([A-Za-z]+)"',
-    ).allMatches(kotlinSrc).map((m) => m.group(1)!).toSet();
+    final kotlinKeys = RegExp(r'KEY_[A-Z_]+ = "([A-Za-z]+)"')
+        .allMatches(kotlinSrc)
+        .map((m) => m.group(1)!)
+        .toSet();
 
     /// Dart 从快照里读的键：helper 形式（`str('x')`）与直接下标（`map['x']`）两种都要收
     final dartKeys = <String>{
-      ...RegExp(
-        r"\b(?:str|intOf|doubleOf)\('([A-Za-z]+)'\)",
-      ).allMatches(dartSrc).map((m) => m.group(1)!),
-      ...RegExp(
-        r"\bmap\['([A-Za-z]+)'\]",
-      ).allMatches(dartSrc).map((m) => m.group(1)!),
+      ...RegExp(r"\b(?:str|intOf|doubleOf)\('([A-Za-z]+)'\)")
+          .allMatches(dartSrc)
+          .map((m) => m.group(1)!),
+      ...RegExp(r"\bmap\['([A-Za-z]+)'\]")
+          .allMatches(dartSrc)
+          .map((m) => m.group(1)!),
     };
 
     test('两侧都解析到了键名（否则下面两条形同虚设）', () {

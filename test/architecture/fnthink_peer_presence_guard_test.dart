@@ -119,12 +119,12 @@ void main() {
         expect(arb, contains('"$key"'), reason: '缺 $key');
       }
     }
-    final zhUnknown = RegExp(
-      r'"fnthinkPeerPresenceUnknown": "([^"]*)"',
-    ).firstMatch(zh)!.group(1)!;
-    final zhNotShared = RegExp(
-      r'"fnthinkPeerPresenceNotShared": "([^"]*)"',
-    ).firstMatch(zh)!.group(1)!;
+    final zhUnknown = RegExp(r'"fnthinkPeerPresenceUnknown": "([^"]*)"')
+        .firstMatch(zh)!
+        .group(1)!;
+    final zhNotShared = RegExp(r'"fnthinkPeerPresenceNotShared": "([^"]*)"')
+        .firstMatch(zh)!
+        .group(1)!;
     expect(zhUnknown, contains('还没上过线'));
     expect(zhNotShared, contains('没有共享'));
     expect(zhUnknown, isNot(contains('离线')));

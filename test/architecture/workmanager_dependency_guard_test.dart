@@ -15,11 +15,9 @@ void main() {
   final root = projectRoot();
 
   test('androidx.work 与 workmanager_android 要求的版本同档（派生，不抄数字）', () {
-    final config =
-        jsonDecode(
-              File('$root/.dart_tool/package_config.json').readAsStringSync(),
-            )
-            as Map<String, dynamic>;
+    final config = jsonDecode(
+      File('$root/.dart_tool/package_config.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
     final packages = (config['packages'] as List).cast<Map<String, dynamic>>();
     final androidPackage = packages.firstWhere(
       (p) => p['name'] == 'workmanager_android',
@@ -30,20 +28,18 @@ void main() {
     final packageRoot = rootUri.hasScheme
         ? rootUri.toFilePath()
         : configFile.parent.uri.resolveUri(rootUri).toFilePath();
-    final pluginGradle = File(
-      '$packageRoot/android/build.gradle',
-    ).readAsStringSync();
-    final required = RegExp(
-      r'def work_version = "([^"]+)"',
-    ).firstMatch(pluginGradle)?.group(1);
+    final pluginGradle = File('$packageRoot/android/build.gradle')
+        .readAsStringSync();
+    final required = RegExp(r'def work_version = "([^"]+)"')
+        .firstMatch(pluginGradle)
+        ?.group(1);
     expect(required, isNotNull, reason: '插件 build.gradle 的版本声明换了形状，守卫要先跟着改');
 
-    final appGradle = File(
-      '$root/android/app/build.gradle.kts',
-    ).readAsStringSync();
-    final pinned = RegExp(
-      r'androidx\.work:work-runtime:([0-9][^")\s]*)',
-    ).firstMatch(appGradle)?.group(1);
+    final appGradle = File('$root/android/app/build.gradle.kts')
+        .readAsStringSync();
+    final pinned = RegExp(r'androidx\.work:work-runtime:([0-9][^")\s]*)')
+        .firstMatch(appGradle)
+        ?.group(1);
 
     expect(
       pinned,

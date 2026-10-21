@@ -97,9 +97,9 @@ void main() {
                     .replaceFirst(RegExp(r'^\./'), ''),
               )
               .where(
-                (p) => read(
-                  p.substring(p.indexOf('lib/')),
-                ).contains('runFnthinkPresenceRound ='),
+                (p) =>
+                    read(p.substring(p.indexOf('lib/')))
+                        .contains('runFnthinkPresenceRound ='),
               )
               .toList()
             ..sort();
@@ -243,9 +243,8 @@ void main() {
 
     test('通道名与 prefs 键名：Dart 那份与 Kotlin 那份逐字相同', () {
       String dartChannelName(String constant) {
-        final m = RegExp(
-          "$constant\\s*=\\s*MethodChannel\\(\\s*'([^']+)'",
-        ).firstMatch(channelNames);
+        final m = RegExp("$constant\\s*=\\s*MethodChannel\\(\\s*'([^']+)'")
+            .firstMatch(channelNames);
         if (m == null) throw StateError('platform_channel.dart 里找不到 $constant');
         return m.group(1)!;
       }

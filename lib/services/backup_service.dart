@@ -175,9 +175,8 @@ class BackupService {
     final cipherText = _decodeB64(container['ciphertext'], 'ciphertext');
     // KDF 参数从文件头读取（迭代次数随容器走），前向兼容参数变化
     final iterations = (kdf['iterations'] as num?)?.toInt() ?? kdfIterations;
-    final key = await _kdfFor(
-      iterations,
-    ).deriveKey(secretKey: SecretKey(utf8.encode(password)), nonce: salt);
+    final key = await _kdfFor(iterations)
+        .deriveKey(secretKey: SecretKey(utf8.encode(password)), nonce: salt);
     final clear = await _aes.decrypt(
       SecretBox(cipherText, nonce: nonce, mac: Mac(mac)),
       secretKey: key,

@@ -379,9 +379,8 @@ void main() {
       final src = codeByPath['lib/pages/history_page.dart']!;
       for (final key in const ['fnthink-inbox-reply', 'fnthink-inbox-resend']) {
         expect(
-          RegExp(
-            "FnthinkInlineAction\\(\\s*key: const ValueKey\\('$key'\\)",
-          ).hasMatch(src),
+          RegExp("FnthinkInlineAction\\(\\s*key: const ValueKey\\('$key'\\)")
+              .hasMatch(src),
           isTrue,
           reason:
               '$key 不再由 `FnthinkInlineAction` 给出 ⇒ 这一族的字号与语义色又回到页面自己挑'
@@ -390,9 +389,8 @@ void main() {
         );
       }
       expect(
-        RegExp(
-          "TextButton\\(\\s*key: const ValueKey\\('fnthink-inbox-",
-        ).hasMatch(src),
+        RegExp("TextButton\\(\\s*key: const ValueKey\\('fnthink-inbox-")
+            .hasMatch(src),
         isFalse,
         reason: '详情弹层里再出现裸 `TextButton` ⇒ 台账那一格 2 枚的读数就是它长回来的',
       );
@@ -400,9 +398,8 @@ void main() {
     test('筛选面板那一双「一实一虚」照页脚那一对同形（片7）', () {
       final src = codeByPath['lib/pages/history_page.dart']!;
       expect(
-        RegExp(
-          "SecondaryActionButton\\(\\s*keyName: 'history-filter-reset',",
-        ).hasMatch(src),
+        RegExp("SecondaryActionButton\\(\\s*keyName: 'history-filter-reset',")
+            .hasMatch(src),
         isTrue,
         reason:
             '「重置」不再由 `SecondaryActionButton` 给出 ⇒ 这一对虚的那一枚又回到页面自挑配色'
@@ -472,9 +469,8 @@ void main() {
             '（台账那一列 2→1 的读数也就是它长回来的）',
       );
       expect(
-        RegExp(
-          r"CupertinoButton\(\s*key: ValueKey\('remote-history-cancel-",
-        ).hasMatch(src),
+        RegExp(r"CupertinoButton\(\s*key: ValueKey\('remote-history-cancel-")
+            .hasMatch(src),
         isFalse,
         reason: '同一个动作被搭了两遍（件在、自搭壳也在）⇒ 键集判据看不出，这一条才看得出',
       );
@@ -496,9 +492,8 @@ void main() {
       final src = codeByPath['lib/pages/remote_history_page.dart']!;
       for (final key in const ['in', 'out', 'all']) {
         expect(
-          RegExp(
-            "FnthinkChoiceChip\\(\\s*keyName: 'remote-history-dir-$key'",
-          ).hasMatch(src),
+          RegExp("FnthinkChoiceChip\\(\\s*keyName: 'remote-history-dir-$key'")
+              .hasMatch(src),
           isTrue,
           reason:
               'remote-history-dir-$key 不再由 `FnthinkChoiceChip` 给出 ⇒ 这一族又回到页面自己搭，'
@@ -729,9 +724,8 @@ class FnthinkStatusMark extends StatelessWidget {
     test('两枚实心动作都由 `FnthinkFilledAction` 给出（片15：差异⑧ 最后两格收口）', () {
       final src = codeByPath['lib/pages/history_page.dart']!;
       expect(
-        RegExp(
-          r"FnthinkFilledAction\(\s*key: ValueKey\('history-push-now-",
-        ).hasMatch(src),
+        RegExp(r"FnthinkFilledAction\(\s*key: ValueKey\('history-push-now-")
+            .hasMatch(src),
         isTrue,
         reason:
             '行内那枚「现在推送」不再由件给出 ⇒ 台账那一列（`GestureDetector(`）只看得见"多了一枚形状"，'
@@ -969,9 +963,9 @@ class FnthinkStatusMark extends StatelessWidget {
       final page = codeByPath['lib/pages/fnthink_peers_page.dart']!;
       expect(page.contains('l10n.fnthinkPeerLine('), isTrue);
       expect(page.contains('l10n.fnthinkPeerForwardToggle'), isTrue);
-      final arb =
-          jsonDecode(File('$root/lib/l10n/arb/app_zh.arb').readAsStringSync())
-              as Map<String, dynamic>;
+      final arb = jsonDecode(
+        File('$root/lib/l10n/arb/app_zh.arb').readAsStringSync(),
+      ) as Map<String, dynamic>;
       for (final k in const ['fnthinkPeerLine', 'fnthinkPeerForwardToggle']) {
         expect(
           (arb[k] as String).contains('→'),
@@ -994,9 +988,8 @@ class FnthinkStatusMark extends StatelessWidget {
             '放宽成"没抛就算通"就是给一条没送到的通道发绿',
       );
       expect(
-        RegExp(
-          r'probe\.health\.record\(\s*kFnthinkChannelSlug,\s*channel\.id,',
-        ).hasMatch(page),
+        RegExp(r'probe\.health\.record\(\s*kFnthinkChannelSlug,\s*channel\.id,')
+            .hasMatch(page),
         isTrue,
         reason: '记账键必须是 (kFnthinkChannelSlug, 通道 id) —— 与列表页徽标读的那一对逐字相同',
       );
@@ -1400,9 +1393,8 @@ class FnthinkStatusMark extends StatelessWidget {
         reason: '维护者第 1 条要的就是"红字"：12px 灰字那一版说了等于没说',
       );
       expect(
-        RegExp(
-          r"""FnthinkNote\(\s*keyName:\s*'fnthink-channel-note'""",
-        ).hasMatch(src),
+        RegExp(r"""FnthinkNote\(\s*keyName:\s*'fnthink-channel-note'""")
+            .hasMatch(src),
         isFalse,
         reason: '校验话又搬回卡片底下那行灰字 ⇒ 与"这条为什么没存上"混在一起',
       );
@@ -1489,12 +1481,11 @@ class FnthinkStatusMark extends StatelessWidget {
 
     test('没有文件在台账之外新增长对话框', () {
       expect(
-        hittingRe(
-          materialDialogs,
-        ).toSet().difference(kMaterialDialogSites.keys.toSet()),
+        hittingRe(materialDialogs)
+            .toSet()
+            .difference(kMaterialDialogSites.keys.toSet()),
         isEmpty,
-        reason:
-            '新一处 Material AlertDialog ⇒ 与 Cupertino 风格不一致；确认框请用 IosDialogActions',
+        reason: '新一处 Material AlertDialog ⇒ 与 Cupertino 风格不一致；确认框请用 IosDialogActions',
       );
     });
 
@@ -1943,11 +1934,12 @@ const Map<String, int> kMaterialDialogSites = <String, int>{
   // 输入弹层刻意不用 `IosDialogActions`：那是**确认框**（一问一答），这里要的是三个输入项 + 选档。
 };
 
-List<File> _dartFilesIn(String root, String dir) => Directory('$root/$dir')
-    .listSync(recursive: true)
-    .whereType<File>()
-    .where((f) => f.path.endsWith('.dart'))
-    .toList();
+List<File> _dartFilesIn(String root, String dir) =>
+    Directory('$root/$dir')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))
+        .toList();
 
 /// 相对仓库根、正斜杠的路径（Windows 下 listSync 给反斜杠，登记表按正斜杠写）。
 String _relative(String root, String path) =>

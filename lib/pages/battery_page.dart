@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
+
 import '../l10n/app_localizations.dart';
 import '../services/battery_service.dart';
 import '../services/platform_channel.dart';

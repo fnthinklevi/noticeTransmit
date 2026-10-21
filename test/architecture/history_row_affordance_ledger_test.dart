@@ -31,9 +31,10 @@ void main() {
   final root = projectRoot();
 
   /// 每个文件的行体按**剥注释后**的整行取（锚点是整行字面，逐行比不会漂）。
-  List<String> strippedLines(String rel) => stripComments(
-    librarySource(root, 'lib/$rel'),
-  ).replaceAll('\r\n', '\n').split('\n');
+  List<String> strippedLines(String rel) =>
+      stripComments(librarySource(root, 'lib/$rel'))
+          .replaceAll('\r\n', '\n')
+          .split('\n');
 
   testWidgets('① 这本账不许为空', (tester) async {
     expect(

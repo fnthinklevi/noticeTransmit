@@ -235,9 +235,8 @@ void main() {
 
   group('页面不得再抄一份表单事实', () {
     final src = stripComments(
-      File(
-        '${projectRoot()}/lib/pages/email_settings_page.dart',
-      ).readAsStringSync(),
+      File('${projectRoot()}/lib/pages/email_settings_page.dart')
+          .readAsStringSync(),
     );
 
     test('必填清单与键→标签映射已从页面消失（事实只在描述符里）', () {

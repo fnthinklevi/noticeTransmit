@@ -650,9 +650,8 @@ void main() {
   // 哪天真有值要注入，先解释为什么"现读"那条路走不通，再动这一页的公开构造。
   test('T140 ㉔①：六枚死构造参数不许回到这一页', () {
     final src = stripComments(
-      File(
-        '${projectRoot()}/lib/pages/permission_settings_page.dart',
-      ).readAsStringSync(),
+      File('${projectRoot()}/lib/pages/permission_settings_page.dart')
+          .readAsStringSync(),
     );
     const dead = <String>[
       'notificationListenerGranted',

@@ -117,8 +117,7 @@ void main() {
   /// 挂口令那一发的假服务器：只记请求、按脚本回话（真接线由服务层那片的两条用例保证）。
   FnthinkServiceFactory armFactory({
     int status = 200,
-    String body =
-        '{"armed":true,"expiresAt":1800000300000,"ttlSeconds":300,"serverTime":1800000000000}',
+    String body = '{"armed":true,"expiresAt":1800000300000,"ttlSeconds":300,"serverTime":1800000000000}',
     required List<http.Request> sink,
     List<String>? steps,
   }) =>
@@ -901,11 +900,9 @@ void main() {
         '"serverTime":1800000000000}';
 
     /// 从签出去的那一发里把**载荷**取回来（`fields.body` 是 json 字符串，套两层）。
-    Map<String, Object?> sentPayload(http.Request request) =>
-        jsonDecode(
-              (jsonDecode(request.body)['fields']! as Map)['body']! as String,
-            )
-            as Map<String, Object?>;
+    Map<String, Object?> sentPayload(http.Request request) => jsonDecode(
+      (jsonDecode(request.body)['fields']! as Map)['body']! as String,
+    ) as Map<String, Object?>;
 
     test('名单里那一行记的是服务端回的档位，不是本机刚发出去的那一档', () async {
       SharedPreferences.setMockInitialValues({
@@ -1525,11 +1522,9 @@ void main() {
         '{"revoked":$revoked,"serverTime":1800000000000}';
 
     /// 从签出去的那一发里把**载荷**取回来（`fields.body` 是 json 字符串，套两层）。
-    Map<String, Object?> revokePayload(http.Request request) =>
-        jsonDecode(
-              (jsonDecode(request.body)['fields']! as Map)['body']! as String,
-            )
-            as Map<String, Object?>;
+    Map<String, Object?> revokePayload(http.Request request) => jsonDecode(
+      (jsonDecode(request.body)['fields']! as Map)['body']! as String,
+    ) as Map<String, Object?>;
 
     test('撤的是契约声明的那条路径，而载荷里那个地址就是签名针对的那台', () async {
       final asked = <http.Request>[];

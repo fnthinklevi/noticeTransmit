@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../l10n/app_localizations.dart';
 import '../services/archive_worker.dart' show kArchiveDirModeKey;
 import '../services/channel_display.dart';
@@ -402,9 +404,8 @@ class _HistoryPageState extends State<HistoryPage> {
     final l10n = AppLocalizations.of(context);
     final pool = _batchPool;
     if (pool.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.batchPushNothingToResend)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.batchPushNothingToResend)));
       return;
     }
     setState(() {
@@ -450,9 +451,8 @@ class _HistoryPageState extends State<HistoryPage> {
         .toList();
     if (targets.isEmpty) return;
     if (widget.onPushNow == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.batchPushUnsupported)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.batchPushUnsupported)));
       return;
     }
     // T90 片13：确认那一发换成唯一装配点（外壳与钮的形状从此只有一份作者）。
@@ -501,9 +501,8 @@ class _HistoryPageState extends State<HistoryPage> {
       _batchMode = false;
       _batchSelected.clear();
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.batchPushDone(submitted))));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.batchPushDone(submitted))));
   }
 
   @override
@@ -2757,9 +2756,8 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                         child: SelectableText(
                           contextMenuBuilder: AppTextSelectionMenu.editableText,
-                          const JsonEncoder.withIndent(
-                            '  ',
-                          ).convert(record.toMap()),
+                          const JsonEncoder.withIndent('  ')
+                              .convert(record.toMap()),
                           style: TextStyle(
                             fontSize: 12,
                             fontFamily: 'monospace',

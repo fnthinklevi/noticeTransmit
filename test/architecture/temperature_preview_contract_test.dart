@@ -59,18 +59,19 @@ void main() {
 
     test('标签分支引用的 l10n 键，中英两份 ARB 都得有值', () {
       final page = stripComments(read('lib/pages/temperature_page.dart'));
-      final labels = RegExp(
-        r"'(?:[A-Z][A-Z0-9_]+|FIRE)'\s*=>\s*l10n\.(\w+)",
-      ).allMatches(page).map((m) => m.group(1)!).toList();
+      final labels = RegExp(r"'(?:[A-Z][A-Z0-9_]+|FIRE)'\s*=>\s*l10n\.(\w+)")
+          .allMatches(page)
+          .map((m) => m.group(1)!)
+          .toList();
       expect(
         labels.length,
         greaterThanOrEqualTo(8),
         reason: '没数到标签键 ⇒ 正则已失效（这条会变成空守卫）',
       );
       for (final locale in const ['zh', 'en']) {
-        final arb =
-            jsonDecode(read('lib/l10n/arb/app_$locale.arb'))
-                as Map<String, dynamic>;
+        final arb = jsonDecode(
+          read('lib/l10n/arb/app_$locale.arb'),
+        ) as Map<String, dynamic>;
         for (final key in labels) {
           expect(
             arb[key],

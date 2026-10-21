@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
+
 import '../l10n/app_localizations.dart';
 import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
@@ -12,6 +13,7 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_option_picker.dart';
+
 import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
 import 'package:notice_transmit/widgets/ios_form_dialog.dart';
 

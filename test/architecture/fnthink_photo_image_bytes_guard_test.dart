@@ -13,9 +13,8 @@ import '../support/source_guards.dart';
 void main() {
   final root = projectRoot();
   final kt = stripComments(
-    File(
-      '$root/android/app/src/main/kotlin/com/fnthink/notice/CameraSnap.kt',
-    ).readAsStringSync(),
+    File('$root/android/app/src/main/kotlin/com/fnthink/notice/CameraSnap.kt')
+        .readAsStringSync(),
   );
   final report = stripComments(
     librarySource(root, 'lib/services/fnthink_photo_report.dart'),

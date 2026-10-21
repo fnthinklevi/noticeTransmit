@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
@@ -276,9 +277,8 @@ class _KeywordsPageState extends State<KeywordsPage>
                             decoration: BoxDecoration(
                               color: isWhitelist
                                   ? AppColors.green.withValues(alpha: 0.12)
-                                  : const Color(
-                                      0xFFFF9500,
-                                    ).withValues(alpha: 0.12),
+                                  : const Color(0xFFFF9500)
+                                        .withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(

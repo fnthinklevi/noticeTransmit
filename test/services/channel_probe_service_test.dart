@@ -345,9 +345,10 @@ void main() {
       // `authFailure` 是这一片新加的那一格。没有这条守卫时，原生改名成 `isAuthFailure`
       // 或 `authFailed`，Dart 的 `r['authFailure'] == true` 恒为 false ⇒ 冷却静默失效，
       // 而两侧各自都"编译通过、测试全绿"。
-      final dartRead = RegExp(
-        r"r\['([A-Za-z][A-Za-z0-9]*)'\]",
-      ).allMatches(_dartProbeSource()).map((m) => m.group(1)!).toSet();
+      final dartRead = RegExp(r"r\['([A-Za-z][A-Za-z0-9]*)'\]")
+          .allMatches(_dartProbeSource())
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(dartRead, isNotEmpty, reason: '提取式没匹配到 ⇒ 本条已失效');
       final nativeWritten = <String>{};
       for (final fn in const [
@@ -368,9 +369,8 @@ void main() {
 
 /// `channel_probe_service.dart` 里读回包那一段源码（去掉注释）。
 String _dartProbeSource() => stripComments(
-  File(
-    '${projectRoot()}/lib/services/channel_probe_service.dart',
-  ).readAsStringSync(),
+  File('${projectRoot()}/lib/services/channel_probe_service.dart')
+      .readAsStringSync(),
 );
 
 /// 解析 `MainActivity` 某枚探测方法 `result.success(mapOf(...))` 里写的键集合。
@@ -381,9 +381,10 @@ Set<String> _nativeReplyKeys(String functionName) {
     ).readAsStringSync(),
   );
   final block = blockAfter(kotlin, 'internal fun $functionName(');
-  final keys = RegExp(
-    r'"([A-Za-z][A-Za-z0-9]*)" to ',
-  ).allMatches(block).map((m) => m.group(1)!).toSet();
+  final keys = RegExp(r'"([A-Za-z][A-Za-z0-9]*)" to ')
+      .allMatches(block)
+      .map((m) => m.group(1)!)
+      .toSet();
   expect(keys, isNotEmpty, reason: '未解析到任何回包键 ⇒ 原生改了写法，本用例已失效（$functionName）');
   return keys;
 }
@@ -398,9 +399,10 @@ Set<String> nativeMapKeys(String functionName) {
     ).readAsStringSync(),
   );
   final block = blockAfter(kotlin, 'fun $functionName(');
-  final keys = RegExp(
-    r'configMap\["([A-Za-z_][A-Za-z0-9_]*)"\]',
-  ).allMatches(block).map((m) => m.group(1)!).toSet();
+  final keys = RegExp(r'configMap\["([A-Za-z_][A-Za-z0-9_]*)"\]')
+      .allMatches(block)
+      .map((m) => m.group(1)!)
+      .toSet();
   expect(keys, isNotEmpty, reason: '未解析到任何 configMap 键 ⇒ 原生改了读取写法，本用例已失效');
   return keys;
 }

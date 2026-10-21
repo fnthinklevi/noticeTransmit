@@ -96,9 +96,8 @@ void main() {
       final dartReader = File(
         '$root/packages/fnthink_push/test/title_envelope_test.dart',
       ).readAsStringSync();
-      final jsReader = File(
-        '$root/server/test/fnthink-title-envelope.test.js',
-      ).readAsStringSync();
+      final jsReader = File('$root/server/test/fnthink-title-envelope.test.js')
+          .readAsStringSync();
       expect(occurrences(dartReader, "'titleEnvelope'"), greaterThan(0));
       expect(occurrences(jsReader, 'titleEnvelope'), greaterThan(0));
       expect(

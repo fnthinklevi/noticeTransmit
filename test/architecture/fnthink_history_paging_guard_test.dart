@@ -55,9 +55,8 @@ void main() {
     });
 
     test('调用点不许把条数写成裸字面量', () {
-      final bare = RegExp(
-        r'list(?:Sent)?\(\s*limit:\s*\d',
-      ).hasMatch(strip('pages/history_page.dart'));
+      final bare = RegExp(r'list(?:Sent)?\(\s*limit:\s*\d')
+          .hasMatch(strip('pages/history_page.dart'));
       expect(
         bare,
         isFalse,
@@ -135,9 +134,8 @@ void main() {
 
   group('读口本身要接得住翻页', () {
     test('远程执行历史的读口有 offset 并把它交给查询', () {
-      final src = File(
-        '$root/lib/database/database_helper.dart',
-      ).readAsStringSync();
+      final src = File('$root/lib/database/database_helper.dart')
+          .readAsStringSync();
       final block = memberSlice(
         src,
         'loadRemoteExecutionRecords({',

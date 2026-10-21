@@ -102,9 +102,8 @@ void main() {
               .listSync(recursive: true)
               .whereType<File>()
               .where((f) => f.path.endsWith('.dart'))) {
-        if (stripComments(
-          f.readAsStringSync(),
-        ).contains('remove(keyConsentVersion)')) {
+        if (stripComments(f.readAsStringSync())
+            .contains('remove(keyConsentVersion)')) {
           writers.add(
             f.path
                 .substring(root.length + 1)

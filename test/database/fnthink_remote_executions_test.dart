@@ -87,9 +87,8 @@ void main() {
   );
 
   String dbSource() => stripComments(
-    File(
-      '${projectRoot()}/lib/database/database_helper.dart',
-    ).readAsStringSync(),
+    File('${projectRoot()}/lib/database/database_helper.dart')
+        .readAsStringSync(),
   );
 
   group('fnthink_remote_executions 建表', () {
@@ -103,9 +102,9 @@ void main() {
         reason: '建表 SQL 被复制成多处：两处列迟早写漂',
       );
       expect(
-        RegExp(
-          r'await _createFnthinkRemoteExecutions\(db\);',
-        ).allMatches(src).length,
+        RegExp(r'await _createFnthinkRemoteExecutions\(db\);')
+            .allMatches(src)
+            .length,
         2,
         reason: '少一处 = 新装正常、升级设备一进远程执行历史就 no such table',
       );

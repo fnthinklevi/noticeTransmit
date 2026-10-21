@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
 import '../test_setup.dart';
+
 import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 /// 邮件页（列表 + 单条编辑弹层）。

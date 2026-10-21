@@ -143,9 +143,9 @@ void main() {
       // 而猜一个键名会让它恒 `null` —— 最坏的一种（看不见）。
       expect(contract.versionEchoField, isNotEmpty, reason: '前置：仓库那份契约有这一段');
 
-      final decoded =
-          jsonDecode(File(fnthinkContractPath).readAsStringSync())
-              as Map<String, Object?>;
+      final decoded = jsonDecode(
+        File(fnthinkContractPath).readAsStringSync(),
+      ) as Map<String, Object?>;
       final stripped = Map<String, Object?>.from(decoded)
         ..remove('versionEcho');
       final bare = FnthinkContract.parse(jsonEncode(stripped));
@@ -720,9 +720,9 @@ void main() {
     });
 
     test('契约的能力词表里没有那个词 ⇒ 抛，不许在代码里补一个默认词', () async {
-      final doc =
-          jsonDecode(File(fnthinkContractFile()).readAsStringSync())
-              as Map<String, Object?>;
+      final doc = jsonDecode(
+        File(fnthinkContractFile()).readAsStringSync(),
+      ) as Map<String, Object?>;
       final caps = Map<String, Object?>.from(
         doc['capabilities']! as Map<String, Object?>,
       );

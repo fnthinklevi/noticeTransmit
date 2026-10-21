@@ -34,12 +34,12 @@ void main() {
         : '';
 
     test('API 门槛：Kotlin 的常量必须等于契约里那一个', () {
-      final inKotlin = RegExp(
-        r'const val NATIVE_MIN_SDK_VERSION\s*=\s*(\d+)',
-      ).firstMatch(_withoutComments(source))?.group(1);
-      final inContract = RegExp(
-        r'"nativeMinSdkVersion"\s*:\s*(\d+)',
-      ).firstMatch(contract)?.group(1);
+      final inKotlin = RegExp(r'const val NATIVE_MIN_SDK_VERSION\s*=\s*(\d+)')
+          .firstMatch(_withoutComments(source))
+          ?.group(1);
+      final inContract = RegExp(r'"nativeMinSdkVersion"\s*:\s*(\d+)')
+          .firstMatch(contract)
+          ?.group(1);
       expect(inContract, isNotNull, reason: '契约里找不到 nativeMinSdkVersion');
       expect(
         inKotlin,
@@ -49,12 +49,12 @@ void main() {
     });
 
     test('降级路径的名字：Kotlin 枚举的 contractValue 必须等于契约字符串', () {
-      final inKotlin = RegExp(
-        r'KEYSTORE_WRAPPED\("([^"]+)"\)',
-      ).firstMatch(_withoutComments(source))?.group(1);
-      final inContract = RegExp(
-        r'"belowNativeSdk"\s*:\s*"([^"]+)"',
-      ).firstMatch(contract)?.group(1);
+      final inKotlin = RegExp(r'KEYSTORE_WRAPPED\("([^"]+)"\)')
+          .firstMatch(_withoutComments(source))
+          ?.group(1);
+      final inContract = RegExp(r'"belowNativeSdk"\s*:\s*"([^"]+)"')
+          .firstMatch(contract)
+          ?.group(1);
       expect(inKotlin, inContract, reason: 'Kotlin=$inKotlin 契约=$inContract');
     });
 
@@ -68,9 +68,9 @@ void main() {
     test('SPKI 的 12 字节 DER 头：Kotlin 那份必须等于契约声明的那份', () {
       // 两份各写各的时的表现：客户端导出的公钥服务端永远解不开（拼出来的 DER 头不同），
       // 而 Kotlin 与 JS 各自的单元测试都还是绿的 —— 因为两边都只比自己那份。
-      final inKotlin = RegExp(
-        r'SPKI_PREFIX\s*=\s*byteArrayOf\(([^)]*)\)',
-      ).firstMatch(_withoutComments(source))?.group(1);
+      final inKotlin = RegExp(r'SPKI_PREFIX\s*=\s*byteArrayOf\(([^)]*)\)')
+          .firstMatch(_withoutComments(source))
+          ?.group(1);
       expect(inKotlin, isNotNull, reason: 'Kotlin 里找不到 SPKI_PREFIX 常量');
       final bytes = inKotlin!
           .split(',')
@@ -78,9 +78,9 @@ void main() {
           .where((t) => t.isNotEmpty)
           .map((t) => int.parse(t.replaceFirst('0x', ''), radix: 16))
           .toList();
-      final inContract = RegExp(
-        r'"spkiPrefixHex"\s*:\s*"([0-9a-f]+)"',
-      ).firstMatch(contract)?.group(1);
+      final inContract = RegExp(r'"spkiPrefixHex"\s*:\s*"([0-9a-f]+)"')
+          .firstMatch(contract)
+          ?.group(1);
       expect(
         inContract,
         isNotNull,
@@ -99,9 +99,9 @@ void main() {
         : '';
 
     test('30 以下用的曲线实现：契约声明的坐标必须就是编进去的那一个', () {
-      final declared = RegExp(
-        r'"softwareLibrary"\s*:\s*"([^"]+)"',
-      ).firstMatch(contract)?.group(1);
+      final declared = RegExp(r'"softwareLibrary"\s*:\s*"([^"]+)"')
+          .firstMatch(contract)
+          ?.group(1);
       expect(declared, startsWith('net.i2p.crypto:eddsa:'));
       final applied = RegExp(
         r'implementation\("(net\.i2p\.crypto:eddsa:[^"]+)"\)',

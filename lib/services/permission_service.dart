@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:permission_handler/permission_handler.dart';
+
 import 'installed_apps_service.dart';
 import 'platform_channel.dart';
 
@@ -59,15 +60,15 @@ class PermissionService {
 
   Future<void> checkAllPermissions() async {
     try {
-      final listenerGranted =
-          await _channel.invokeMethod('isNotificationPermissionGranted')
-              as bool?;
-      final postGranted =
-          await _channel.invokeMethod('isPostNotificationPermissionGranted')
-              as bool?;
-      final batteryOk =
-          await _channel.invokeMethod('isIgnoringBatteryOptimizations')
-              as bool?;
+      final listenerGranted = await _channel.invokeMethod(
+        'isNotificationPermissionGranted',
+      ) as bool?;
+      final postGranted = await _channel.invokeMethod(
+        'isPostNotificationPermissionGranted',
+      ) as bool?;
+      final batteryOk = await _channel.invokeMethod(
+        'isIgnoringBatteryOptimizations',
+      ) as bool?;
       final smsGranted =
           await _channel.invokeMethod('isSmsPermissionGranted') as bool?;
       final phoneGranted =

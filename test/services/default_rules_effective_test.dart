@@ -234,9 +234,9 @@ void main() {
       //   `Future<void> _ensureDefaultRulesActive(SharedPreferences prefs) async {`（参数带类型），
       //   调用是 `await _ensureDefaultRulesActive(prefs);`。
       //   只匹配 `(prefs)` 会漏掉定义处 → 恒得 1 → 假失败。
-      final calls = RegExp(
-        r'_ensureDefaultRulesActive\(',
-      ).allMatches(filterService).length;
+      final calls = RegExp(r'_ensureDefaultRulesActive\(')
+          .allMatches(filterService)
+          .length;
       expect(
         calls,
         greaterThanOrEqualTo(2),
@@ -244,35 +244,36 @@ void main() {
       );
     });
 
-    test('原生侧 setNotificationRules 必须落到 flutter.notification_rules 并广播配置变更', () {
-      final handler = stripComments(
-        File(
-          'android/app/src/main/kotlin/com/fnthink/notice/channels/ConfigChannelHandler.kt',
-        ).readAsStringSync(),
-      );
-      expect(handler.contains('"setNotificationRules"'), true);
-      final activity = stripComments(
-        File(
-          'android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt',
-        ).readAsStringSync(),
-      );
-      expect(
-        activity.contains('flutter.notification_rules'),
-        true,
-        reason: '原生必须把规则写到 RuleEngine 读取的那个 key',
-      );
-      expect(
-        activity.contains('notifyServiceConfigChanged'),
-        true,
-        reason: '写规则后必须广播让 Service 刷新 ConfigSnapshot，否则规则要等重启才生效',
-      );
-    });
+    test(
+      '原生侧 setNotificationRules 必须落到 flutter.notification_rules 并广播配置变更',
+      () {
+        final handler = stripComments(
+          File(
+            'android/app/src/main/kotlin/com/fnthink/notice/channels/ConfigChannelHandler.kt',
+          ).readAsStringSync(),
+        );
+        expect(handler.contains('"setNotificationRules"'), true);
+        final activity = stripComments(
+          File('android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt')
+              .readAsStringSync(),
+        );
+        expect(
+          activity.contains('flutter.notification_rules'),
+          true,
+          reason: '原生必须把规则写到 RuleEngine 读取的那个 key',
+        );
+        expect(
+          activity.contains('notifyServiceConfigChanged'),
+          true,
+          reason: '写规则后必须广播让 Service 刷新 ConfigSnapshot，否则规则要等重启才生效',
+        );
+      },
+    );
 
     test('原生 RuleEngine 读取的 key 必须与 Flutter 写入的 key 完全一致', () {
       final cm = stripComments(
-        File(
-          'android/app/src/main/kotlin/com/fnthink/notice/ConfigManager.kt',
-        ).readAsStringSync(),
+        File('android/app/src/main/kotlin/com/fnthink/notice/ConfigManager.kt')
+            .readAsStringSync(),
       );
       // ⚠ 原生不是直接写字符串字面量，而是走 KEY_NOTIFICATION_RULES 常量：
       //   `fun getNotificationRules() { return prefs.getString(KEY_NOTIFICATION_RULES, "") }`
@@ -295,9 +296,8 @@ void main() {
 
     test('notification_service 不得在启动时用空表覆盖规则（回归防护）', () {
       expect(
-        RegExp(
-          r"setString\(\s*'notification_rules'\s*,\s*'\[\]'\s*\)",
-        ).hasMatch(notificationService),
+        RegExp(r"setString\(\s*'notification_rules'\s*,\s*'\[\]'\s*\)")
+            .hasMatch(notificationService),
         false,
         reason: '启动时写空数组会把用户规则表清空',
       );

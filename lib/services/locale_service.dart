@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppLanguage { system, zh, en }

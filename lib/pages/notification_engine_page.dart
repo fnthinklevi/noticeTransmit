@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+
 import '../l10n/app_localizations.dart';
 import '../services/battery_service.dart';
 import '../services/device_state_service.dart';
@@ -459,9 +460,9 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
       subtitle: subtitle,
       // 转场走 Cupertino：这本「Material 路由站点」台账只许变薄，而 hub 这三行
       // 就是它在**这个文件里的全部**（换完这一格从账上删掉，不是留 0）。
-      onTap: () => Navigator.of(
-        context,
-      ).push(CupertinoPageRoute<void>(builder: (_) => page)),
+      onTap: () =>
+          Navigator.of(context)
+              .push(CupertinoPageRoute<void>(builder: (_) => page)),
     );
   }
 

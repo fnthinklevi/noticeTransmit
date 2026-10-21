@@ -699,9 +699,8 @@ void main() {
         ),
       ),
     );
-    final line = lookupAppLocalizations(
-      const Locale('zh'),
-    ).fnthinkChannelNameEmpty;
+    final line = lookupAppLocalizations(const Locale('zh'))
+        .fnthinkChannelNameEmpty;
 
     await tester.tap(find.byKey(const ValueKey('fnthink-channel-save')));
     await tester.pumpAndSettle();

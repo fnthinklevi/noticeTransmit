@@ -296,9 +296,8 @@ void main() {
     });
 
     test('L3 toggle 的目标词只认契约那两个', () {
-      final toggle = pairItemRows(
-        contract,
-      ).firstWhere((r) => r.kind == FnthinkGrantArgumentKind.toggle);
+      final toggle = pairItemRows(contract)
+          .firstWhere((r) => r.kind == FnthinkGrantArgumentKind.toggle);
       expect(
         grantItemProblem(contract, '${toggle.base}/up'),
         'unknown-target-word:up',

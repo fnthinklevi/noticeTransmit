@@ -14,9 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 ///  ③ 读之前不刷新（`serviceRunning` 默认 false ⇒ 把「我们没问」显示成「用户没给」）。
 void main() {
   final actions = File('lib/pages/main_page_actions.dart').readAsStringSync();
-  final notifService = File(
-    'lib/services/notification_service.dart',
-  ).readAsStringSync();
+  final notifService = File('lib/services/notification_service.dart')
+      .readAsStringSync();
   final deviceHandler = File(
     'android/app/src/main/kotlin/com/fnthink/notice/channels/DeviceChannelHandler.kt',
   ).readAsStringSync();
@@ -42,9 +41,8 @@ void main() {
   });
 
   test('② 通道方法名两边一致：Dart 调的那个名字，Kotlin 侧真有分支', () {
-    final call = RegExp(
-      r"invokeMethod\('(isServiceRunning)'\)",
-    ).firstMatch(notifService);
+    final call = RegExp(r"invokeMethod\('(isServiceRunning)'\)")
+        .firstMatch(notifService);
     expect(call, isNotNull, reason: 'Dart 侧不再调 isServiceRunning ⇒ 这条断言要跟着改主语');
     final name = call!.group(1)!;
     expect(

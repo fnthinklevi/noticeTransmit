@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../support/source_guards.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:path/path.dart';
@@ -67,13 +68,13 @@ void main() {
       // 而漏改的表现是"守卫红在一件本来正确的事上"（v15 加进来时就把收件表那条测试打红过）。
       // 真正长期成立的不变量是**两个数必须相等**，所以把它推出来而不是抄下来。
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/database/database_helper.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/database/database_helper.dart')
+            .readAsStringSync(),
       );
-      final branches = RegExp(
-        r'if \(oldVersion < (\d+)\)',
-      ).allMatches(src).map((m) => int.parse(m.group(1)!)).toList();
+      final branches = RegExp(r'if \(oldVersion < (\d+)\)')
+          .allMatches(src)
+          .map((m) => int.parse(m.group(1)!))
+          .toList();
       expect(branches, isNotEmpty);
       expect(
         branches.reduce((a, b) => a > b ? a : b),
@@ -332,9 +333,9 @@ void main() {
       final db = await openV10WithLegacyData();
       await helper.upgradeSchemaForTest(db, 10, 11);
 
-      final info =
-          jsonDecode((await deliveryInfoOf(db))['n-legacy']!)
-              as Map<String, dynamic>;
+      final info = jsonDecode(
+        (await deliveryInfoOf(db))['n-legacy']!,
+      ) as Map<String, dynamic>;
       expect(info.keys.toSet(), {
         'chan:wechat_work',
         'chan:email',

@@ -160,9 +160,8 @@ void main() {
 
     test('本文件不 import shared_preferences：口令不许落明文 XML', () {
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/services/fnthink_credential_store.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/services/fnthink_credential_store.dart')
+            .readAsStringSync(),
       );
       expect(src, isNot(contains('shared_preferences')));
       expect(src, isNot(contains('SharedPreferences')));
@@ -170,9 +169,8 @@ void main() {
 
     test('位数与 ttl 都不写在代码里（只有一个出处：契约）', () {
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/services/fnthink_credential_store.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/services/fnthink_credential_store.dart')
+            .readAsStringSync(),
       );
       // 地址码 18 / 口令 20 / ttl 300 这三个数一旦在这里出现，就是在抄第二份。
       expect(RegExp(r'\b(18|20|300)\b').hasMatch(src), isFalse, reason: src);

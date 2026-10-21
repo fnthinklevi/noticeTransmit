@@ -48,9 +48,9 @@ void main() {
 
   test('那一串只有一个读者、一个出口', () {
     expect(
-      RegExp(
-        r"'takeFnthinkPairLink'",
-      ).allMatches(stripComments(read(reader))).length,
+      RegExp(r"'takeFnthinkPairLink'")
+          .allMatches(stripComments(read(reader)))
+          .length,
       1,
       reason: '第二个调用点 = 第二个读者；而 take() 取走即清，第二个读者只会拿到 null',
     );
@@ -69,9 +69,9 @@ void main() {
   test('首页两个入口都指向同一个方法，且 null 必须早退', () {
     final src = librarySource(root, 'lib/pages/main_page.dart');
     expect(
-      RegExp(
-        r'_consumeFnthinkPairLink\(\)',
-      ).allMatches(stripComments(src)).length,
+      RegExp(r'_consumeFnthinkPairLink\(\)')
+          .allMatches(stripComments(src))
+          .length,
       3,
       reason:
           '三处 = 定义一次 + 冷启动那一发 + 热恢复那一发。少一处就是某种进入形状没人接：'
@@ -144,9 +144,9 @@ void main() {
     expect(src, contains('bool _pairLinkRejected = false;'));
     final sheet = stripComments(read(dialog));
     expect(
-      RegExp(
-        r'widget\.prefill\?\.(addressCode|pairingCode)',
-      ).allMatches(sheet).length,
+      RegExp(r'widget\.prefill\?\.(addressCode|pairingCode)')
+          .allMatches(sheet)
+          .length,
       2,
       reason: '预填只用于两枚 controller 的初值；第三处就要问是不是页面开始自己填东西',
     );

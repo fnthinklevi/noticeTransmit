@@ -290,13 +290,11 @@ void main() {
     testWidgets('accepted ⇒ 说"已发出，等两条回执"', (tester) async {
       await pumpSend(
         tester,
-        send:
-            ({
-              required String peer,
-              required String title,
-              required String text,
-            }) async =>
-                const FnthinkSendResult(status: FnthinkSendStatus.accepted),
+        send: ({
+          required String peer,
+          required String title,
+          required String text,
+        }) async => const FnthinkSendResult(status: FnthinkSendStatus.accepted),
       );
       await tester.tap(
         find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),

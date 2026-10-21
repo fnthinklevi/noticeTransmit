@@ -124,13 +124,15 @@ const List<String> _generatedL10n = [
 /// 判据本体（独立成函数是为了能被合成样本反证）。
 /// [arbKeys] ARB 里的键集合；[sourceText] 已剥注释的全部 lib/ 代码。
 List<String> deadEntries(Iterable<String> arbKeys, String sourceText) {
-  final bare = RegExp(
-    r'[A-Za-z_][A-Za-z0-9_]*',
-  ).allMatches(sourceText).map((m) => m.group(0)!).toSet();
+  final bare = RegExp(r'[A-Za-z_][A-Za-z0-9_]*')
+      .allMatches(sourceText)
+      .map((m) => m.group(0)!)
+      .toSet();
   // 关键字族只认成员访问：`try {} on X catch` 里的 `on` 不是"用过了词条 on"。
-  final memberAccessed = RegExp(
-    r'\.([A-Za-z_][A-Za-z0-9_]*)',
-  ).allMatches(sourceText).map((m) => m.group(1)!).toSet();
+  final memberAccessed = RegExp(r'\.([A-Za-z_][A-Za-z0-9_]*)')
+      .allMatches(sourceText)
+      .map((m) => m.group(1)!)
+      .toSet();
   bool used(String k) => _dartReservedWords.contains(k)
       ? memberAccessed.contains(k)
       : bare.contains(k);

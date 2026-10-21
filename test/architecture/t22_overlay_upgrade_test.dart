@@ -68,9 +68,8 @@ void main() {
           )
           .join('\n');
       expect(
-        stripShellComments(
-          commented,
-        ).contains('build apk --debug --target-platform'),
+        stripShellComments(commented)
+            .contains('build apk --debug --target-platform'),
         isFalse,
         reason: '注释掉的编包仍被当成现役代码 ⇒ 把这一步改成注释，守卫还是绿的（假绿）',
       );
@@ -218,9 +217,8 @@ void main() {
     test('旧构建没建出加密库就停（没库就没有"迁移"这回事）', () {
       final src = script();
       expect(
-        RegExp(
-          r'notice_transmit_encrypted\.db[\s\S]{0,200}?exit 1',
-        ).hasMatch(src),
+        RegExp(r'notice_transmit_encrypted\.db[\s\S]{0,200}?exit 1')
+            .hasMatch(src),
         isTrue,
         reason: '旧构建没建库还继续跑，比对的其实是"新装"',
       );
@@ -315,9 +313,10 @@ String read(String path) =>
 /// `${NAME:-…}` / `:+` / `:=` 自带兜底不会炸；`\$NAME` 是打印给人看的字面美元号。
 Set<String> undefinedShellVars(List<String> lines) {
   final src = stripShellComments('${lines.join('\n')}\n');
-  final assigned = RegExp(
-    r'(?:^|\n)[ \t]*([A-Z][A-Z0-9_]*)=',
-  ).allMatches(src).map((m) => m.group(1)!).toSet();
+  final assigned = RegExp(r'(?:^|\n)[ \t]*([A-Z][A-Z0-9_]*)=')
+      .allMatches(src)
+      .map((m) => m.group(1)!)
+      .toSet();
   final out = <String>{};
   for (final m in RegExp(r'(?<!\\)\$\{?([A-Z][A-Z0-9_]*)\b').allMatches(src)) {
     final rest = src.substring(m.end);

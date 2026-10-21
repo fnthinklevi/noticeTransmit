@@ -17,14 +17,13 @@ void main() {
     int? probedAt,
   }) => ChannelHealth.fromMap(
     jsonDecode(
-          jsonEncode({
-            'reachable': reachable,
-            'latencyMs': latencyMs,
-            'httpCode': reachable ? 200 : 0,
-            'probedAt': probedAt ?? DateTime.now().millisecondsSinceEpoch,
-          }),
-        )
-        as Map<String, dynamic>,
+      jsonEncode({
+        'reachable': reachable,
+        'latencyMs': latencyMs,
+        'httpCode': reachable ? 200 : 0,
+        'probedAt': probedAt ?? DateTime.now().millisecondsSinceEpoch,
+      }),
+    ) as Map<String, dynamic>,
   );
 
   Future<void> show(

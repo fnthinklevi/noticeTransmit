@@ -84,11 +84,12 @@ void main() {
     };
 
     /// 极简 .gitignore 判定：目录/文件被任一条「前缀或路径等于」命中即算被挡。
-    List<String> ignoreLines() => read('.gitignore')
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty && !l.startsWith('#'))
-        .toList();
+    List<String> ignoreLines() =>
+        read('.gitignore')
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty && !l.startsWith('#'))
+            .toList();
 
     bool ignoredBy(String rel, List<String> lines) => lines.any((pat) {
       var p = pat;

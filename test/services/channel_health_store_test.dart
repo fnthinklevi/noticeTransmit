@@ -126,9 +126,9 @@ void main() {
       await first.record('webhook', 'wh_1', reachable: true, latencyMs: 10);
 
       final prefs = await SharedPreferences.getInstance();
-      final stored =
-          jsonDecode(prefs.getString('channel_health_webhook:wh_1')!)
-              as Map<String, dynamic>;
+      final stored = jsonDecode(
+        prefs.getString('channel_health_webhook:wh_1')!,
+      ) as Map<String, dynamic>;
       expect(
         stored['okSuccesses'],
         2,

@@ -99,9 +99,9 @@ void main() {
   test('教程那一格的出现条件只有一处，且它判的是"真用过"', () {
     final src = stripComments(read(page));
     expect(
-      RegExp(
-        r'if \(_endpointUsed\(created, rotated, listing\)\)',
-      ).allMatches(src).length,
+      RegExp(r'if \(_endpointUsed\(created, rotated, listing\)\)')
+          .allMatches(src)
+          .length,
       1,
       reason:
           '出现条件被摘掉或挪走 ⇒ 教程再也不出现（或每次都不分状态地出现）—— '

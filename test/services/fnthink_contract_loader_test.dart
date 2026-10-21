@@ -186,9 +186,8 @@ void main() {
 
     test('App 侧只有这一处契约读法（不许再出现 readFile / 手拼路径）', () {
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/services/fnthink_contract_loader.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/services/fnthink_contract_loader.dart')
+            .readAsStringSync(),
       );
       expect(
         RegExp(r"protocol/fnthink-v1\.json").allMatches(src).length,
@@ -207,9 +206,8 @@ void main() {
                 f.path.endsWith('.dart') &&
                 // 必须剥注释：那个 loader 文件里的注释正是在解释"为什么不许用 readFile"，
                 // 不剥就会把说明读成调用（这条纪律在别的源码守卫上已经咬过几次）。
-                stripComments(
-                  f.readAsStringSync(),
-                ).contains('FnthinkContract.readFile'),
+                stripComments(f.readAsStringSync())
+                    .contains('FnthinkContract.readFile'),
           )
           .toList();
       expect(

@@ -22,9 +22,10 @@ void main() {
 
   group('幻念推送那一格的白名单', () {
     test('类别里只允许点名的那五个字段（新增必须显式登记）', () {
-      final fields = RegExp(
-        r"static const field\w+ = '([a-z_]+)';",
-      ).allMatches(backup).map((m) => m.group(1)!).toSet();
+      final fields = RegExp(r"static const field\w+ = '([a-z_]+)';")
+          .allMatches(backup)
+          .map((m) => m.group(1)!)
+          .toSet();
       expect(
         fields,
         {

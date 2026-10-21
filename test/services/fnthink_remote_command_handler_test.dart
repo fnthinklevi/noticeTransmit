@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
@@ -575,9 +576,9 @@ void main() {
         reason: '一份什么都没勾的授权 ⇒ 天花板够也不给过（这条正是本片要的那一维）',
       );
       expect(
-        (await r.parse(msg(wire(item: 'channel:toggle/webhook:acme:off')))
-                as RemoteCommandRejected)
-            .reason,
+        (await r.parse(
+          msg(wire(item: 'channel:toggle/webhook:acme:off')),
+        ) as RemoteCommandRejected).reason,
         'item:not-granted:channel:toggle/webhook:acme:off',
       );
       // 同一台、同一档，勾了这一整串就过 —— 名单那一格判的确实是"这一条"。

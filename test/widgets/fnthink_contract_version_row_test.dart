@@ -90,12 +90,11 @@ void main() {
                 for (final h in hosts) h: const Duration(milliseconds: 20),
               };
             },
-            recordHealth:
-                ({
-                  required String host,
-                  required bool reachable,
-                  required int latencyMs,
-                }) async {},
+            recordHealth: ({
+              required String host,
+              required bool reachable,
+              required int latencyMs,
+            }) async {},
           ),
         ),
       ),
@@ -230,9 +229,8 @@ void main() {
   //   `readFile` 按"向上找仓库根"定位，**设备沙箱里没有仓库根** ⇒ 真机上会抛。
   //   这条判的是**签名**（不是实现），因为正是那个默认值让 lib/ 里长出了那一声调用。
   test('⚠ 读口不许自己找契约：键名必填，lib/ 里零个 readFile 调用点', () {
-    final src = File(
-      'lib/services/fnthink_endpoint_probe.dart',
-    ).readAsStringSync();
+    final src = File('lib/services/fnthink_endpoint_probe.dart')
+        .readAsStringSync();
     // ⚠ 必须剥注释再判：这个函数的**说明里**就写着 `FnthinkContract.readFile()`（讲
     //   它为什么被删），不剥就会把说明读成调用 —— 与既有守卫同一条教训。
     expect(
@@ -252,9 +250,8 @@ void main() {
     // 尺的第二维：剥注释这一步本身得有效 —— 喂一段**只在注释里**出现的目标串，
     //   剥完必须读不到。喂得进来说明这一维退化成恒真。
     expect(
-      stripComments(
-        '// FnthinkContract.readFile()\nvoid f() {}',
-      ).contains('FnthinkContract.readFile'),
+      stripComments('// FnthinkContract.readFile()\nvoid f() {}')
+          .contains('FnthinkContract.readFile'),
       isFalse,
       reason: '剥注释这一维没生效 ⇒ 上面那句量的是"连注释里都躲不掉"',
     );

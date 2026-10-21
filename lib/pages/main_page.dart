@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+
 import '../l10n/app_localizations.dart';
 import '../database/database_helper.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../services/platform_channel.dart';
 import '../services/services.dart';
 import '../services/theme_service.dart';

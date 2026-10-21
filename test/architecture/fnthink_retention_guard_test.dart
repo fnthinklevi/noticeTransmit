@@ -78,9 +78,10 @@ void main() {
 
   test('每枚 prefs 键都要在备份那一格有着落', () {
     // 尺子从声明处现取，不抄一份名单：抄的那一份会在加键那天就过期（守卫仍然绿）。
-    final keys = RegExp(
-      r'static const (key[A-Za-z0-9_]+)\s*=',
-    ).allMatches(settings).map((m) => m.group(1)!).toSet();
+    final keys = RegExp(r'static const (key[A-Za-z0-9_]+)\s*=')
+        .allMatches(settings)
+        .map((m) => m.group(1)!)
+        .toSet();
     expect(keys, isNotEmpty, reason: '锚点：一枚键都没取到 = 本守卫对谁都放行');
     // 具名例外：今天一枚都没有。将来真有"故意不进备份"的键，要连着理由一起登记在这里，
     // 而不是让守卫闭嘴 —— 静默漏掉的症状是"换机后一切正常，只有这一档回到缺省"。

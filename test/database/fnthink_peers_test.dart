@@ -84,18 +84,17 @@ void main() {
   );
 
   String dbSource() => stripComments(
-    File(
-      '${projectRoot()}/lib/database/database_helper.dart',
-    ).readAsStringSync(),
+    File('${projectRoot()}/lib/database/database_helper.dart')
+        .readAsStringSync(),
   );
 
   group('fnthink_peers 建表', () {
     test('建表 SQL 一处定义、两处入口都调它（_onCreate 与 v15 升级）', () {
       final src = dbSource();
       expect(
-        RegExp(
-          r'CREATE TABLE IF NOT EXISTS \$\{FnthinkPeer\.table\} \(',
-        ).allMatches(src).length,
+        RegExp(r'CREATE TABLE IF NOT EXISTS \$\{FnthinkPeer\.table\} \(')
+            .allMatches(src)
+            .length,
         1,
         reason: '建表 SQL 被复制成多处：两处列迟早写漂',
       );
@@ -637,9 +636,8 @@ void main() {
       // 换机恢复过来的一份名单，配的是一把**不在新机 KeyStore 里**的私钥 ——
       // 那是一张点不动、却显示"已授权"的名单。要导出得先解决"身份不随行"这件事。
       final src = stripComments(
-        File(
-          '${projectRoot()}/lib/services/backup_service.dart',
-        ).readAsStringSync(),
+        File('${projectRoot()}/lib/services/backup_service.dart')
+            .readAsStringSync(),
       );
       expect(src, isNot(contains('fnthink_peers')));
       expect(src, isNot(contains('FnthinkPeer')));

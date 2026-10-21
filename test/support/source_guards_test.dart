@@ -34,9 +34,10 @@ const keys = {
 }; // 尾注释
 ''';
       final out = stripComments(src);
-      final keys = RegExp(
-        r"'(\w+)':",
-      ).allMatches(out).map((m) => m.group(1)).toSet();
+      final keys = RegExp(r"'(\w+)':")
+          .allMatches(out)
+          .map((m) => m.group(1))
+          .toSet();
       expect(keys, {'webhook', 'sms'});
       // 值同样必须完整：截断版会把 'https://…' 从中间切断，留下未闭合的字符串
       expect(out, contains("'https://example.com/a//b'"));
@@ -117,9 +118,8 @@ const keys = {
     test('声明了不存在的 part ⇒ 抛，而不是静默少读一个文件', () {
       final tmp = Directory.systemTemp.createTempSync('nt-library-source-');
       try {
-        File(
-          '${tmp.path}/entry.dart',
-        ).writeAsStringSync("part 'missing.dart';\n");
+        File('${tmp.path}/entry.dart')
+            .writeAsStringSync("part 'missing.dart';\n");
         expect(() => librarySource(tmp.path, 'entry.dart'), throwsStateError);
       } finally {
         tmp.deleteSync(recursive: true);

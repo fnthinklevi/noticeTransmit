@@ -128,8 +128,9 @@ class UpdateServerProbe {
 /// ⚠ 为什么用回调而不是在这一层直接 import `ChannelHealthStore`：这一层在后台引擎里也会跑，
 ///   让服务自己去容器里捞另一个服务，测试与启动顺序就都变成第二件事 —— 幻念协调者
 ///   已经按这个形状接过一次（`fnthink_receive_wiring_test` 那条守卫防的就是"漏接"）。
-typedef UpdateProbeReport =
-    Future<void> Function({required UpdateServerProbe probe});
+typedef UpdateProbeReport = Future<void> Function({
+  required UpdateServerProbe probe,
+});
 
 /// 偏好里存的字符串 → 方式。认不出来返回 null。
 UpdateServerMode? parseUpdateServerMode(String? raw) {

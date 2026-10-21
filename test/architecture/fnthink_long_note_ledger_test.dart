@@ -24,9 +24,9 @@ import '../support/source_guards.dart';
 /// 确认框与输入框的正文本来就是弹窗，那是 T90 认的去处，不许被这一族当成违规清掉。
 void main() {
   final root = projectRoot();
-  final arb =
-      jsonDecode(File('$root/lib/l10n/arb/app_zh.arb').readAsStringSync())
-          as Map<String, dynamic>;
+  final arb = jsonDecode(
+    File('$root/lib/l10n/arb/app_zh.arb').readAsStringSync(),
+  ) as Map<String, dynamic>;
 
   int cjkLen(String s) => s.runes.where((c) => c > 0x7f).length;
 

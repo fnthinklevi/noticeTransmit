@@ -33,13 +33,13 @@ void main() {
   ///   锚点也不写返回类型/可见性 —— `Future<void> _createEngineRules` 改成别的写法
   ///   不该让守卫以为建表没了。
   String dbSource() => stripComments(
-    File(
-      '${projectRoot()}/lib/database/database_helper.dart',
-    ).readAsStringSync(),
+    File('${projectRoot()}/lib/database/database_helper.dart')
+        .readAsStringSync(),
   );
-  int engineRuleCreateSites() => RegExp(
-    r'CREATE TABLE IF NOT EXISTS engine_rules \(',
-  ).allMatches(dbSource()).length;
+  int engineRuleCreateSites() =>
+      RegExp(r'CREATE TABLE IF NOT EXISTS engine_rules \(')
+          .allMatches(dbSource())
+          .length;
   int engineRuleCreateCallers() =>
       RegExp(r'await _createEngineRules\(db\);').allMatches(dbSource()).length;
 
@@ -155,8 +155,7 @@ void main() {
         batteryRules:
             '[{"id":"low20","type":"level_below","value":20,"enabled":true,"title":"低电量"},'
             '{"id":"charging","type":"charging","value":0,"enabled":false,"title":"充电"}]',
-        temperatureRules:
-            '[{"id":"t1","type":"device_temp_above","value":45,"enabled":true,"title":"过热"}]',
+        temperatureRules: '[{"id":"t1","type":"device_temp_above","value":45,"enabled":true,"title":"过热"}]',
       );
       expect(await rowCount(db, EngineRuleCodec.familyBattery), 2);
       expect(await rowCount(db, EngineRuleCodec.familyTemperature), 1);
@@ -305,9 +304,9 @@ void main() {
         _rule('c', 'charging', 0),
       ]);
       expect(
-        (await helper.getEngineRules(
-          EngineRuleCodec.familyBattery,
-        )).map((r) => r['id']).toList(),
+        (await helper.getEngineRules(EngineRuleCodec.familyBattery))
+            .map((r) => r['id'])
+            .toList(),
         ['a', 'b', 'c'],
       );
     });
@@ -369,15 +368,13 @@ void main() {
     });
 
     test('toLegacyJson 的每条都带全部 uiKeys（原生按这些键取值，缺一个就用默认）', () {
-      final decoded =
-          jsonDecode(
-                EngineRuleCodec.toLegacyJson([
-                  EngineRuleCodec.normalize(const {
-                    'id': 'x',
-                  }, EngineRuleCodec.familyBattery)!,
-                ]),
-              )
-              as List;
+      final decoded = jsonDecode(
+        EngineRuleCodec.toLegacyJson([
+          EngineRuleCodec.normalize(const {
+            'id': 'x',
+          }, EngineRuleCodec.familyBattery)!,
+        ]),
+      ) as List;
       expect(
         (decoded.single as Map).keys.toSet(),
         EngineRuleCodec.uiKeys.toSet(),

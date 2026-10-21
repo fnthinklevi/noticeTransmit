@@ -187,9 +187,8 @@ void main() {
     test('CI 的建 Release 那一格仍然认 v 前缀（两边不会各自漂掉）', () {
       // 读 CI 源文件本身：`startsWith(github.ref, 'refs/tags/v')` 一旦改了，
       // 这里就红 —— 而不是等到某次 CDN 挂掉、回退地址 404 才���现。
-      final workflow = File(
-        '${projectRoot()}/.github/workflows/build-apk.yml',
-      ).readAsStringSync();
+      final workflow = File('${projectRoot()}/.github/workflows/build-apk.yml')
+          .readAsStringSync();
       expect(
         workflow.contains("startsWith(github.ref, 'refs/tags/v')"),
         isTrue,

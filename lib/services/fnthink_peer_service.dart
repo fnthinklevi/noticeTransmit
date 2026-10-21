@@ -1,6 +1,7 @@
 import '../database/database_helper.dart';
 import '../models/fnthink_peer.dart';
 import 'fnthink_contract_loader.dart';
+
 import 'package:fnthink_push/fnthink_push.dart' as push;
 
 /// 本机配对名单（`fnthink_peers`）的唯一读写咽喉（T42「配对名单」那一格的数据源）。

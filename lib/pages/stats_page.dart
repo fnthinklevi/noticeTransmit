@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../l10n/app_localizations.dart';
 import '../services/channel_display.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
+
 import 'package:get_it/get_it.dart';
 
 class StatsPage extends StatefulWidget {

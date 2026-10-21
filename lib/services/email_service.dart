@@ -1,7 +1,9 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../database/database_helper.dart';
 import '../models/email_channel.dart';
 import 'channel_health_store.dart';

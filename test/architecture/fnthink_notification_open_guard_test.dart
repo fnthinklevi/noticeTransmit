@@ -38,9 +38,9 @@ void main() {
 
   String wakeMethodFromKotlin() {
     final src = stripComments(read(activity));
-    return RegExp(
-          r'''invokeMethod\("([A-Za-z_]*NotificationOpened)"''',
-        ).firstMatch(src)?.group(1) ??
+    return RegExp(r'''invokeMethod\("([A-Za-z_]*NotificationOpened)"''')
+            .firstMatch(src)
+            ?.group(1) ??
         fail(
           '原生侧不再推那一发讯号 ⇒ App 活着时点通知没有人跳，'
           '而那正是 T83 的原始缺陷（三种进入形状里的热恢复那一半）',
@@ -69,9 +69,8 @@ void main() {
     });
 
     test('extra 的键名只有一个作者：Dart 侧不许重打一遍', () {
-      final literal = RegExp(
-        r'EXTRA_MESSAGE_ID\s*=\s*"([^"]+)"',
-      ).firstMatch(read(displayKt));
+      final literal = RegExp(r'EXTRA_MESSAGE_ID\s*=\s*"([^"]+)"')
+          .firstMatch(read(displayKt));
       expect(literal, isNotNull, reason: '键名的作者换了地方 ⇒ 派生的源头没了，这条守卫要跟着改口径');
       final value = literal!.group(1)!;
       for (final rel in [display, mainPage, actions, historyPage]) {
@@ -125,9 +124,9 @@ void main() {
       final src = stripComments(read(historyPage));
       // 定义那一处写作 `_applyPendingFocus() {`，调用点写作 `_applyPendingFocus()`：
       // 只有后者算数。两处调用点（initState 与标已读后的重读）＝ 用户按了返回它又起来。
-      final callSites = RegExp(
-        r'_applyPendingFocus\(\)(?!\s*\{)',
-      ).allMatches(src).length;
+      final callSites = RegExp(r'_applyPendingFocus\(\)(?!\s*\{)')
+          .allMatches(src)
+          .length;
       expect(
         callSites,
         1,

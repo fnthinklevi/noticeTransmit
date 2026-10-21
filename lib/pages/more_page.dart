@@ -1,8 +1,10 @@
 import 'dart:ui';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../services/battery_service.dart';
 import '../services/update_service.dart';
 import '../services/locale_service.dart';

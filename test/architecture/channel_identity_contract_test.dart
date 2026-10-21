@@ -142,9 +142,8 @@ void main() {
         ).readAsStringSync(),
       );
       expect(
-        RegExp(
-          r'"(wechat_work|dingtalk|feishu|generic)",\s*"\d+"',
-        ).hasMatch(configManager),
+        RegExp(r'"(wechat_work|dingtalk|feishu|generic)",\s*"\d+"')
+            .hasMatch(configManager),
         isFalse,
         reason:
             'ConfigManager 又自己存了一份 channel_type 映射表 ⇒ 与描述符表两处真相，'
@@ -165,9 +164,8 @@ void main() {
         if (typeMatch == null) continue;
         final slug = typeMatch.group(1)!.toLowerCase();
         kotlinNames.add(slug);
-        final tokens = RegExp(
-          r'legacyTokens = listOf\(([^)]*)\)',
-        ).firstMatch(chunk);
+        final tokens = RegExp(r'legacyTokens = listOf\(([^)]*)\)')
+            .firstMatch(chunk);
         for (final m in RegExp(r'"(\d+)"').allMatches(tokens?.group(1) ?? '')) {
           kotlinDigits[m.group(1)!] = slug;
         }
@@ -336,9 +334,8 @@ void main() {
       expect(page, contains('bool get _supportsSigning'));
       // 列表页只显示状态，不该另算一次"这条要不要密钥"
       final list = stripComments(
-        File(
-          '$root/lib/pages/webhook_channel_list_page.dart',
-        ).readAsStringSync(),
+        File('$root/lib/pages/webhook_channel_list_page.dart')
+            .readAsStringSync(),
       );
       expect(
         list,

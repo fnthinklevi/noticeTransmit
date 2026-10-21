@@ -52,9 +52,8 @@ List<String> orderChannelsByAttention(
 ) {
   final indexed = rows.asMap().entries.toList();
   indexed.sort((a, b) {
-    final byAttention = deliveryAttention(
-      _statusOf(deliveryStatus, a.value),
-    ).compareTo(deliveryAttention(_statusOf(deliveryStatus, b.value)));
+    final byAttention = deliveryAttention(_statusOf(deliveryStatus, a.value))
+        .compareTo(deliveryAttention(_statusOf(deliveryStatus, b.value)));
     return byAttention != 0 ? byAttention : a.key.compareTo(b.key);
   });
   return indexed.map((e) => e.value).toList();

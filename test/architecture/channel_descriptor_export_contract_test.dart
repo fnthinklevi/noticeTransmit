@@ -104,9 +104,10 @@ void main() {
       final arbZh = arbOf('lib/l10n/arb/app_zh.arb');
       final arbEn = arbOf('lib/l10n/arb/app_en.arb');
 
-      final cases = RegExp(
-        r"case '([A-Za-z0-9_]+)':",
-      ).allMatches(src).map((m) => m.group(1)!).toSet();
+      final cases = RegExp(r"case '([A-Za-z0-9_]+)':")
+          .allMatches(src)
+          .map((m) => m.group(1)!)
+          .toSet();
       // 文件里出现的、名字确实在 ARB 中的字符串字面量 = 本表引用到的词条
       final referenced = RegExp(r"'([A-Za-z][A-Za-z0-9]+)'")
           .allMatches(src)
@@ -237,9 +238,8 @@ void main() {
         File('$root/lib/pages/webhook_settings_item.dart').readAsStringSync(),
       );
       final list = stripComments(
-        File(
-          '$root/lib/pages/webhook_channel_list_page.dart',
-        ).readAsStringSync(),
+        File('$root/lib/pages/webhook_channel_list_page.dart')
+            .readAsStringSync(),
       );
       for (final src in [page, item, list]) {
         expect(
@@ -280,9 +280,8 @@ void main() {
 
     test('应用通道设置页不得再手抄字段清单', () {
       final page = stripComments(
-        File(
-          '$root/lib/pages/app_channel_settings_page.dart',
-        ).readAsStringSync(),
+        File('$root/lib/pages/app_channel_settings_page.dart')
+            .readAsStringSync(),
       );
       for (final key in [
         'corpid',
@@ -313,9 +312,8 @@ void main() {
           '$root/android/app/src/main/kotlin/com/fnthink/notice/TemplateEngine.kt',
         ).readAsStringSync(),
       );
-      final decl = RegExp(
-        r'val formatOptions[^=]*=\s*listOf\(([^)]*)\)',
-      ).firstMatch(kt);
+      final decl = RegExp(r'val formatOptions[^=]*=\s*listOf\(([^)]*)\)')
+          .firstMatch(kt);
       expect(
         decl,
         isNotNull,
@@ -452,9 +450,8 @@ void main() {
           '$root/android/app/src/main/kotlin/com/fnthink/notice/EmailSender.kt',
         ).readAsStringSync(),
       );
-      final native = RegExp(
-        r'val DEFAULT_SUBJECT = "([^"]*)"',
-      ).firstMatch(sender);
+      final native = RegExp(r'val DEFAULT_SUBJECT = "([^"]*)"')
+          .firstMatch(sender);
       expect(native, isNotNull, reason: 'EmailSender 里找不到 DEFAULT_SUBJECT');
       final subject = emailFields.firstWhere(
         (f) => f['key'] == 'subjectTemplate',

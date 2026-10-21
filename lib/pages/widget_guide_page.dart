@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../services/vendor_family.dart';
