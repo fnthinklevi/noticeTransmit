@@ -153,21 +153,25 @@ android {
             when {
                 targetPlatform.contains("arm64") && !targetPlatform.contains(",") -> {
                     abiFilters.add("arm64-v8a")
-                    println("[abiFilter] 单架构 arm64-v8a")
+                    println("[abiFilter] single-arch arm64-v8a")
                 }
                 targetPlatform.contains("x64") && !targetPlatform.contains(",") -> {
                     abiFilters.add("x86_64")
-                    println("[abiFilter] 单架构 x86_64")
+                    println("[abiFilter] single-arch x86_64")
                 }
                 targetPlatform.contains("arm") && !targetPlatform.contains("arm64") && !targetPlatform.contains(",") -> {
                     abiFilters.add("armeabi-v7a")
-                    println("[abiFilter] 单架构 armeabi-v7a")
+                    println("[abiFilter] single-arch armeabi-v7a")
                 }
                 else -> {
                     abiFilters.add("arm64-v8a")
                     abiFilters.add("armeabi-v7a")
                     abiFilters.add("x86_64")
-                    println("[abiFilter] 融合包（全架构）")
+                    // ⚠ 这四行 println 一律用 ASCII：Gradle 的 stdout 是 UTF-8，
+                    // 而 Windows 控制台默认代码页是 936（GBK）⇒ 中文会显示成
+                    // 「铻嶅悎鍖咃紙鍏ㄦ灦鏋勶級」这类乱码（同一串 UTF-8 字节被按 GBK 解）。
+                    // 要么把控制台切到 65001，要么像这里一样别在构建脚本里打非 ASCII。
+                    println("[abiFilter] universal (all ABIs)")
                 }
             }
         }
