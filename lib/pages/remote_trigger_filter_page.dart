@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/services/installed_apps_service.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
+import 'package:notice_transmit/widgets/app_permission_prompt.dart';
 import 'package:notice_transmit/widgets/app_text_selection_menu.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
@@ -394,29 +395,6 @@ class _RemoteTriggerFilterPageState extends State<RemoteTriggerFilterPage>
     );
   }
 
-  /// 无权限时应用列表区域显示的提示文案，点击整段文字直接发起权限申请
-  Widget _buildNoPermissionPrompt(AppLocalizations l10n) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: GestureDetector(
-          onTap: () {
-            _apps.requestQueryAllPackages();
-          },
-          child: Text(
-            l10n.appFilterNoPermPrompt,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.6,
-              color: AppColors.blue,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildAppListView(AppLocalizations l10n) {
     return Column(
       children: [
@@ -629,7 +607,7 @@ class _RemoteTriggerFilterPageState extends State<RemoteTriggerFilterPage>
         const SizedBox(height: 16),
         Expanded(
           child: !_hasPermission
-              ? _buildNoPermissionPrompt(l10n)
+              ? AppPermissionPrompt(onTap: _apps.requestQueryAllPackages)
               : _loading
               ? const Center(
                   child: CircularProgressIndicator(color: AppColors.blue),

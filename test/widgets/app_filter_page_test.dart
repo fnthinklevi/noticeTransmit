@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/pages/app_filter_page.dart';
 import 'package:notice_transmit/services/installed_apps_service.dart';
+import 'package:notice_transmit/widgets/app_permission_prompt.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 
 const _channel = MethodChannel('com.fnthink.notice/notification');
@@ -148,6 +149,7 @@ void main() {
       await tester.tap(find.text('拒绝'));
       await tester.pumpAndSettle();
       expect(requestCalls, 0);
+      expect(find.byType(AppPermissionPrompt), findsOneWidget);
       final promptFinder = find.textContaining('当前无应用列表读取权限');
       expect(promptFinder, findsOneWidget);
 
@@ -155,6 +157,42 @@ void main() {
       await tester.tap(promptFinder);
       await tester.pumpAndSettle();
       expect(requestCalls, 1);
+    });
+
+    testWidgets('授权后从系统设置返回：提示消失、清单出现', (tester) async {
+      var allowed = false;
+      TestWidgetsFlutterBinding.ensureInitialized();
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            switch (call.method) {
+              case 'canQueryAllPackages':
+                return allowed;
+              case 'requestQueryAllPackagesPermission':
+                allowed = true;
+                return true;
+              case 'getCachedInstalledApps':
+              case 'getInstalledApps':
+                return _installedApps;
+              default:
+                return null;
+            }
+          });
+
+      await tester.pumpWidget(
+        _buildApp(const AppFilterPage(installedApps: [], enabledPackages: [])),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('拒绝'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AppPermissionPrompt), findsOneWidget);
+
+      await tester.tap(find.textContaining('当前无应用列表读取权限'));
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AppPermissionPrompt), findsNothing);
+      expect(find.text('Alpha'), findsOneWidget);
     });
   });
 

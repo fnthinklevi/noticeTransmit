@@ -6,6 +6,7 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/remote_trigger_filter_page.dart';
 import 'package:notice_transmit/services/installed_apps_service.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
+import 'package:notice_transmit/widgets/app_permission_prompt.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 
 /// T153 片1：远程触发专用筛选页的**语义判据**。
@@ -140,5 +141,37 @@ void main() {
     final element = tester.element(find.byType(RemoteTriggerFilterPage));
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
     expect(scaffold.backgroundColor, AppColors.bgColor(element));
+  });
+
+  testWidgets('无权限：提示走共用件，点一下直接发权限申请', (tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    if (!GetIt.instance.isRegistered<InstalledAppsService>()) {
+      GetIt.instance.registerLazySingleton<InstalledAppsService>(
+        () => InstalledAppsService(),
+      );
+    }
+    var requestCalls = 0;
+    TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, (call) async {
+          switch (call.method) {
+            case 'canQueryAllPackages':
+              return false;
+            case 'requestQueryAllPackagesPermission':
+              requestCalls++;
+              return true;
+            default:
+              return null;
+          }
+        });
+
+    await tester.pumpWidget(_buildApp(const RemoteTriggerFilterPage()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('拒绝'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppPermissionPrompt), findsOneWidget);
+    await tester.tap(find.textContaining('当前无应用列表读取权限'));
+    await tester.pumpAndSettle();
+    expect(requestCalls, 1);
   });
 }

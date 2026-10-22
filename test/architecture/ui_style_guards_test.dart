@@ -1375,6 +1375,82 @@ class FnthinkStatusMark extends StatelessWidget {
     });
   });
 
+  // ── 裸文字点击件（T166 ③）──────────────────────────────────────────────
+  group('非幻念页的裸文字点击件（T166 ③ 的台账）', () {
+    // 只认「`GestureDetector`/`InkWell` 的 child 直接是 `Text`」：
+    // `child: Container(... Text)` 不算 —— 那是自搭了外观的件。
+    final bareTextTap = RegExp(
+      r'(GestureDetector|InkWell)\((?:(?!\bchild:).){0,400}?child:\s*Text\(',
+      dotAll: true,
+    );
+
+    bool isNonFnthinkPage(String path) =>
+        path.startsWith('lib/pages/') && !path.startsWith('lib/pages/fnthink_');
+
+    Map<String, int> actual() => {
+      for (final e in countingRe(bareTextTap).entries)
+        if (isNonFnthinkPage(e.key)) e.key: e.value,
+    };
+
+    test('账外的页长出裸文字点击件就红', () {
+      expect(
+        actual().keys.toSet().difference(kTextOnlyTapTargets.keys.toSet()),
+        isEmpty,
+        reason:
+            '某张非幻念页出现了 `GestureDetector/InkWell + 裸 Text` ⇒ '
+            '那一段在屏上读不出可点、按下也没反馈；改走公共件或自带外观的容器',
+      );
+    });
+
+    test('逐文件枚数与台账相等（这本账就是剩余工作量）', () {
+      final found = actual();
+      for (final entry in kTextOnlyTapTargets.entries) {
+        expect(
+          found[entry.key] ?? 0,
+          entry.value,
+          reason:
+              '${entry.key} 里裸文字点击件实际 ${found[entry.key] ?? 0} 枚、'
+              '台账记 ${entry.value} 枚 ⇒ 换掉一枚就把账改小',
+        );
+      }
+    });
+
+    test('这把尺认得合成样本（防退化成恒绿）', () {
+      expect(
+        bareTextTap.hasMatch('GestureDetector(onTap: f, child: Text("x"))'),
+        isTrue,
+      );
+      expect(
+        bareTextTap.hasMatch(
+          'GestureDetector(onTap: f, child: Container(child: Text("x")))',
+        ),
+        isFalse,
+        reason: '自带外观的容器不该被这本账算进来',
+      );
+    });
+
+    test('T166 ③：无权限提示只有共用件一个作者', () {
+      final pageHits = hitting('appFilterNoPermPrompt')
+          .where((p) => p.startsWith('lib/pages/'))
+          .toList();
+      expect(
+        pageHits,
+        isEmpty,
+        reason: '无权限提示的文案还在页面里 ⇒ 两页又各写一份；一律走 AppPermissionPrompt',
+      );
+      for (final p in const [
+        'lib/pages/app_filter_page.dart',
+        'lib/pages/remote_trigger_filter_page.dart',
+      ]) {
+        expect(
+          codeByPath[p]!.contains('AppPermissionPrompt('),
+          isTrue,
+          reason: '$p 没接共用件 ⇒ 另一页改了它还停在旧形状',
+        );
+      }
+    });
+  });
+
   // ── 「新建幻念通道」那一页（维护者 2026-10-08 点名的四条）───────────────────
   // 页面级证据在 `test/widgets/fnthink_channel_page_test.dart`（六条新的）。这一册钉的是
   // 那四条的**形状**：红字挂在哪儿、保存默认带不带探测、那一档画的是译文还是 token。
@@ -1903,6 +1979,17 @@ const Map<String, int> kPlainTextButtons = <String, int>{
   'lib/pages/webhook_settings_page.dart': 1,
   'lib/pages/battery_page.dart': 1,
   'lib/pages/temperature_page.dart': 1,
+};
+
+/// 非幻念页的**裸文字点击件**（T166 ③ 的台账，只许减少）。
+///
+/// 判据只认「`GestureDetector`/`InkWell` 的 child 直接是 `Text`」——那正是
+/// 「屏上读不出可点、按下也没反馈」那一种；包着 `Container` 的分段条／按钮不算
+/// （它们有自己的外观）。
+/// 唯一具名例外：`more_page` 的版本号连点 7 次是**有意隐藏**的诊断入口（`DiagLog`），
+/// 不许换成按钮。其余页面改完必须清零。
+const Map<String, int> kTextOnlyTapTargets = <String, int>{
+  'lib/pages/more_page.dart': 1,
 };
 
 /// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
