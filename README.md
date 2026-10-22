@@ -235,7 +235,7 @@
 | 后台保活 | Foreground Service + WakeLock (PARTIAL_WAKE_LOCK) |
 | 后台任务 | workmanager ^0.10.10（每日归档 + 兜底唤醒） |
 | 协程 | kotlinx.coroutines（SupervisorJob + Dispatchers.IO） |
-| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（113 个方法 · 7 个原生 handler） |
+| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（122 个方法 · 7 个原生 handler + 2 个 Worker） |
 | **协议契约** | `protocol/fnthink-v1.json`（单一真值）＋ `protocol/fnthink-vectors-v1.json`（跨端向量表） |
 | **共享协议包** | `packages/fnthink_push`（29 个 Dart 文件，两端与 CLI 共读同一份契约与向量） |
 | **身份与签名** | Ed25519（AndroidKeyStore 硬件背书，API 33+；30–32 走 KeyStore 包裹软件密钥） |
@@ -268,10 +268,16 @@
 | `SCHEDULE_EXACT_ALARM` | 延迟/定时推送准时触发（未授予时降级为非精确闹钟） |
 | `RECEIVE_SMS` / `READ_SMS` | 短信广播 + 短信库双链路监听、验证码提取 |
 | `READ_PHONE_STATE` | 来电状态识别与推送 |
+| `READ_CALL_LOG` | 远程执行「按关键词搜通话记录」（需用户在本机授权） |
+| `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` | 远程执行「读取最近一次定位」（需用户在本机授权） |
+| `CAMERA` | 远程执行「让这台拍一张」（需用户在本机授权） |
+| `READ_CONTACTS` | 远程执行「按关键词搜通讯录」（需用户在本机授权） |
 | `QUERY_ALL_PACKAGES` | 已安装应用列表（应用筛选 / 规则适用应用） |
 | `REQUEST_INSTALL_PACKAGES` | 应用内更新的安装确认 |
 | `READ_EXTERNAL_STORAGE`（≤ API 32）/ `WRITE_EXTERNAL_STORAGE`（≤ API 28） | 旧机型的归档/导出目录读写 |
 | `com.fnthink.notice.permission.WIDGET_CONTROL`（signature，自定义） | 小部件启停广播防护，防第三方伪造 |
+
+> 远程执行涉及的通话记录 / 定位 / 相机 / 通讯录四类权限，只在你于本机逐项授权后才可用；普通通知转发链路不会读取它们。未授权时对应指令直接拒绝，不会降级成"读别的"。
 
 ---
 
@@ -324,12 +330,12 @@ noticeTransmit/
 │   │   ├── RuleEngine.kt · FilterEngine.kt · TemplateEngine.kt
 │   │   ├── RetryQueue.kt · DelayedPushManager.kt · MergePushManager.kt
 │   │   ├── ConfigManager.kt · SecurePrefs.kt · NetworkClient.kt
-│   │   └── channels/                     # 7 个 handler（配置 34 / 权限 26 / 设备 15 / 文件 13
-│   │                                     #   / 幻念 11 / 统计 9 / 远程执行 5 ＝ 113 个方法）
+│   │   └── channels/                     # 7 个 handler（配置 34 / 权限 29 / 设备 17 / 文件 12
+│   │                                     #   / 幻念 15 / 统计 8 / 远程执行 5 ＝ 120 个方法；+2 个 Worker 各 1 ＝ 122）
 │   ├── test/                             # Kotlin JVM 单测（75 个测试类 / 619 用例）
-│   └── androidTest/                      # 仪器测试（6 个文件）
+│   └── androidTest/                      # 仪器测试（7 个文件）
 ├── server/                               # 服务端（更新服务 + TOTP 后台 + 幻念协议面）
-│   ├── server.js · lib/                  # 入口 + 模块化分层（29 个 JS）
+│   ├── server.js · lib/                  # 入口 + 模块化分层（32 个 JS：server.js + lib/ 31）
 │   ├── lib/fnthink/                     # 幻念协议面（配对 / 投递 / 能力 / 端点 / 运维 …）
 │   ├── test/                            # jest + supertest 契约测试（44 个文件 / 801 例）
 │   ├── public/                          # 官网与 GitHub Pages 静态站点
@@ -425,7 +431,7 @@ flutter test integration_test/smoke_test.dart
 - **Dart 单元测试** —— 291 个测试文件 / 3308 用例（`test/`）：架构契约（启动顺序、launcher manifest、跨端通道方法齐平、幻念镜像键名守卫）、数据库 schema 与迁移、备份/送达/过滤黄金用例、页面 widget 测试
 - **共享协议包测试** —— `packages/fnthink_push`：契约校验与向量断言，两端各跑一遍
 - **Kotlin JVM 单元测试** —— 75 个测试类 / 619 用例（`android/app/src/test/`）：双端规则匹配一致性由 `rule_engine_golden.json` 51 条黄金用例锁定，通道行为由 `channel_behavior_golden.json` 逐字节快照锁定
-- **服务端契约测试** —— 801 例（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面七条路由
+- **服务端契约测试** —— 801 例（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面 18 条路由（14 条协议路由 + 4 条接入入口）
 - **设备侧测试** —— `integration_test/smoke_test.dart` 主链路冒烟（启动 → 注入 → 通知页 → 送达状态 → 历史 → 服务启停 → 导出），加 `android/app/src/androidTest` 仪器测试，由 `integration_test.yml` 在 API 34 / x86_64 / Pixel 6 模拟器上触发
 
 **CI 工作流**（`.github/workflows/`，均运行于 `ubuntu-24.04`）：
@@ -457,7 +463,9 @@ flutter test integration_test/smoke_test.dart
 | 数据类型 | 是否采集 | 说明 |
 |----------|----------|------|
 | **通知内容** | ⚠️ 取决于你启用的通道 | 经通道族与幻念通道**发往你指定的目标**，开发者不经手、不落库；幻念链路服务端只存元数据 |
-| **通讯录 / 短信** | ❌ 不上传 | 仅本地监听用于推送 |
+| **通讯录 / 通话记录** | ⚠️ 仅远程执行时 | 普通转发链路不读取；只有你授权并收到已配对设备的远程指令时，才按关键词检索并把结果回传给发送方。服务端不落正文 |
+| **短信** | ⚠️ 取决于你开启的功能 | 开启短信监听时用于通知转发 / 验证码识别；远程检索仅在授权且收到已配对设备的指令时发生。服务端不落正文 |
+| **相机 / 定位** | ⚠️ 仅远程执行时 | 只在收到「拍一张 / 读取最近定位」指令且你已授权时调用；结果回传给已配对设备，服务端不落正文 |
 | **设备标识** | ⚠️ 仅崩溃上报开启时 | Bugly SDK 用于设备去重统计；崩溃上报默认关闭 |
 | **崩溃信息** | ⚠️ 仅崩溃上报开启时 | 用户主动开启后才通过 Bugly 收集崩溃堆栈 |
 | **幻念投递元数据** | ✅ 是 | 发件人地址码、消息类型、时间、投递状态。**不含正文**，且配对关系与授权清单存在被投的那台设备上，不在服务端 |
@@ -469,7 +477,7 @@ flutter test integration_test/smoke_test.dart
 - **采集内容**：崩溃堆栈、应用版本号、系统版本、设备型号、CPU 架构
 - **日志保护**：release 构建通过 R8 移除全部调试/信息级日志；日志输出不含通知标题、短信正文、验证码、号码等敏感内容
 - **数据去向**：上传至腾讯 Bugly 服务器（[https://bugly.qq.com](https://bugly.qq.com)），仅开发者可访问
-- **不采集**：通讯录、短信内容、通知内容、位置信息等任何个人隐私数据
+- **Bugly 不采集**：通讯录、短信内容、通知内容、位置信息等任何个人隐私数据
 - **如何关闭**：关闭「更多 → 崩溃上报」开关即可；因 SDK 无反初始化能力，关闭在下次冷启动后完全生效
 - **合规依据**：上述范围按《个人信息保护法》(PIPL) 最小必要原则披露；未开启开关前不发生任何数据出网
 

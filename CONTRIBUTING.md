@@ -125,14 +125,13 @@ bash .github/scripts/check_format.sh --fix    # 就地格式化（三路一并�
 
 ### 6.1 Flutter / Dart（`lib/`）
 
-- **必须通过** `bash .github/scripts/check_format.sh` 与 `flutter analyze`。CI 只在 analyze
-  输出里出现 `error •` 时判红，风格提示（info/warning）不阻塞合入。
+- **必须通过** `bash .github/scripts/check_format.sh` 与 `flutter analyze --fatal-infos`。CI 对 error / warning / info 全部判红，按退出码判定；本地也按 `No issues found!` 要求。
 - **空安全优先**：禁止对可能为空的数据做硬转换。本项目曾因 `rule['type'] as String` 在旧数据缺字段时整页崩溃——读取外部/存储数据时统一用 `as Type? ?? 默认值` 或 `map['x'] as int? ?? 0`。
 - **主题与配色**：统一使用 `AppColors`（Cupertino 风格语义色，`lib/theme/app_colors.dart`）与 `AppThemeColors`（`ThemeExtension`，`lib/theme/app_theme.dart`），**不要硬编码颜色**，否则深色模式会错。
 - **跨端通信**：Flutter ↔ Android 走单通道 `MethodChannel('com.fnthink.notice/notification')`
-  （Dart 侧常量在 `lib/services/platform_channel.dart`）。原生侧按域拆成 5 个 handler
+  （Dart 侧常量在 `lib/services/platform_channel.dart`）。原生侧按域拆成 7 个 handler
   （`android/app/src/main/kotlin/com/fnthink/notice/channels/` 下的 Config / Device / File /
-  Permission / Stats），共 **87** 个方法名，由 `test/services/channel_method_parity_test.dart`
+  Permission / Stats / Fnthink / RemoteExec），共 **122** 个方法名（7 个 handler 120 + 2 个 Worker 各 1），由 `test/services/channel_method_parity_test.dart`
   钉住双端契约（新增/重命名方法必须同时更新 Dart 调用与该测试的期望总数）。
 - **状态与依赖**：使用 `get_it` 注入的 Service 类（注册于 `lib/di/service_locator.dart`），不要在 Widget 中直接 new 单例。
 - **日志**：`analysis_options.yaml` 启用 `avoid_print`，统一用 `debugPrint`。
@@ -159,7 +158,7 @@ bash .github/scripts/check_format.sh --fix    # 就地格式化（三路一并�
   ```bash
   cd server
   node --check server.js      # 语法自检
-  npm test                    # HTTP 契约测试（jest，29 例）
+  npm test                    # HTTP 契约测试（jest，44 个文件 / 801 例）
   npm run format:check        # Prettier；或 npm run format 就地修
   npm start                   # 本地起服务，访问 /health 自测
   ```
@@ -192,7 +191,7 @@ cd android && ./gradlew :app:testDebugUnitTest --console=plain
 # 5) Android lint（debug 变体，error 即红）
 ./gradlew :app:lintDebug --console=plain
 
-# 6) 服务端契约测试（29 例，Node 24）
+# 6) 服务端契约测试（44 个文件 / 801 例，Node 24）
 cd ../server && npm ci && npm test
 
 # 7) 三路格式闸门（Dart / Kotlin / JS）
@@ -219,26 +218,25 @@ CI 额外做的事（本地可选）：
 
 | 层 | 数量 | 入口 |
 |----|------|------|
-| Dart 单元测试 | **379 例 / 37 文件** | `flutter test --no-pub`（`test/` 下按 `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support` 分目录） |
+| Dart 单元测试 | **3308 例 / 291 文件** | `flutter test --no-pub`（`test/` 下按 `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support` 分目录） |
 | Kotlin JVM 单元测试 | **619 例 / 75 类** | `cd android && ./gradlew :app:testDebugUnitTest`（报告在 `build/app/test-results/testDebugUnitTest/`） |
-| 服务端契约测试 | **29 例** | `cd server && npm test`（`server/test/auth.test.js`） |
-| l10n 词条 | **862 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
+| 服务端契约测试 | **801 例 / 44 文件** | `cd server && npm test`（`server/test/*.test.js`） |
+| l10n 词条 | **1591 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
 
 跑测试前 `flutter pub get`；Dart 与 Kotlin 两侧的用例数会随功能增长，若你新增/删除测试，
 请同步更新本表的数字（它是文档口径，不是 CI 断言）。
 
 ### 8.2 设备侧测试（手动触发）
 
-- `integration_test/smoke_test.dart` 是 7 步主链路冒烟测试。CI 由
-  `.github/workflows/integration_test.yml` 运行，该工作流 **只有 `workflow_dispatch`
-  触发**（模拟器按分钟计费，不挂 PR）。
+- `integration_test/smoke_test.dart` 是 **4 条独立用例**的主链路冒烟测试。CI 由
+  `.github/workflows/integration_test.yml` 运行：`workflow_dispatch` + 每周二 03:00 UTC 自动一次（不挂 PR）。
 - 本地跑（需真机或模拟器）：
   ```bash
   flutter devices                                  # 取设备 id
   flutter test integration_test/smoke_test.dart -d <device-id>
   ```
 - 同一工作流还会在存活的模拟器上跑仪表测试：`cd android && ./gradlew connectedDebugAndroidTest`
-  （含 `ApkSignatureVerifierInstrumentedTest`）。
+  （7 个类：签名校验 / 描述符 codec / 应用列表权限 / 幻念身份 / 幻念收件 / 渲染快照 / 前置服务类型）。
 - 若改动导致启动入口结构变化，参见 6.2 关于 MAIN/LAUNCHER overlay 的说明。
 
 ### 8.3 静态源码守卫与双份 golden fixture（改行为前必读）
@@ -284,10 +282,11 @@ flutter gen-l10n
 
 ### 8.5 数据库
 
-`lib/database/database_helper.dart` 的 `dbVersion = 11`，当前 6 张表（`notifications`、
+`lib/database/database_helper.dart` 的 `dbVersion = 26`，当前 12 张表（`notifications`、
 `pending_notifications`、`email_channels`、`webhook_channels`、`webhook_delivery_log`、
-`app_channels`）。新增表/字段必须递增 `dbVersion` 并补 `onUpgrade` 分支；**只改存量数据的值**
-（如 v11 把送达键从本地化显示名改写为 `chan:<slug>`）同样要递增版本号并补分支，
+`app_channels`、`engine_rules`，以及幻念五表 `fnthink_messages` / `fnthink_peers` /
+`fnthink_remote_executions` / `fnthink_channels` / `fnthink_pair_requests`）。新增表/字段必须递增 `dbVersion` 并补 `onUpgrade` 分支；**只改存量数据的值**
+（如 v11 把送达键从本地化显示名改写为 `chan:<slug>`、v25 新增 `delivery_bucket`）同样要递增版本号并补分支，
 且必须幂等（重复执行结果一致）、坏数据跳过而非抛出——`onUpgrade` 抛错的后果是
 「备份原库 + 重建空库」，等于清空用户历史。
 `test/database/database_helper_test.dart` 钉住了版本号与建表增量一致，也禁止迁移期建库使用字面量版本。
@@ -366,7 +365,7 @@ flutter build apk --release --target-platform android-arm64
 
 版本号不只在 `pubspec.yaml`。以下必须一致，否则 `check_version_consistency.sh` 判失败：
 
-1. `pubspec.yaml` 的 `version: X.Y.Z+NN`（`versionName` 与 `versionCode` 同步递增，当前为 `1.5.74+113`）；
+1. `pubspec.yaml` 的 `version: X.Y.Z+NN`（`versionName` 与 `versionCode` 同步递增，当前为 `1.5.76+116`）；
 2. `lib/update_manager.dart` 的 `_fallbackVersion` / `_fallbackBuild`；
 3. `android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt` 的 `FALLBACK_VERSION` / `FALLBACK_BUILD`；
 4. `server/data/version.json` 的 `latestVersion` / `latestBuild`；
@@ -379,7 +378,7 @@ bash .github/scripts/check_version_consistency.sh   # 任一不符即 exit 1
 ### 10.2 半自动发版脚本（推荐）
 
 ```bash
-bash .github/scripts/release_local.sh <A.B.C>       # 例：release_local.sh 1.5.74
+bash .github/scripts/release_local.sh <A.B.C>       # 例：release_local.sh 1.5.76
 ```
 
 它固化了已验证的机械步骤：

@@ -8,7 +8,7 @@ This document describes the security-support scope, vulnerability-reporting proc
 
 ## 1. Supported Versions
 
-- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.74 (build 113)**.
+- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.76 (build 116)**.
 - Older versions (including those no longer maintained) are not patched — please upgrade to the latest release.
 - The server runtime follows the same boundary: `server/package.json` declares `engines.node` as
   **`>=24`** (Node.js 24 LTS). Deployments on EOL Node (18 / 20) are unsupported — the dependency
@@ -44,9 +44,7 @@ This document describes the security-support scope, vulnerability-reporting proc
 - **Notification content is processed and forwarded on-device only**: system notifications are matched
   against rules, keyword-filtered and aggregated locally, then forwarded only to the Webhook / SMTP
   targets the user configures — **never uploaded to any third-party server**.
-- **No contacts collection**: the manifest never requests `READ_CONTACTS`, and this project's privacy
-  policy lists contacts as not collected. SMS is only read for the "verification-code recognition"
-  flow after the user explicitly grants `READ_SMS` / `RECEIVE_SMS`.
+- **Contacts / call log / location / camera are not collected by default**: these four permissions are used only by the remote-execution actions (T124) and must be granted item-by-item on this device. An ungranted action is rejected rather than silently falling back to other data. Results are returned only to the paired device; the server stores no body text. SMS is read only after the user explicitly grants `READ_SMS` / `RECEIVE_SMS`, for verification-code recognition and remote-action search; the normal forwarding path never reads it.
 - **Encrypted local storage**: push history and statistics use SQLCipher (`sqflite_sqlcipher`,
   AES-256); channel credentials and sensitive settings use `flutter_secure_storage` / native
   `SecurePrefs` (AndroidKeyStore-backed EncryptedSharedPreferences, with the same master-key source
@@ -145,7 +143,7 @@ Deployment rules:
 
 - Release builds enable R8 obfuscation and resource shrinking (`isMinifyEnabled` / `isShrinkResources` + `proguard-rules.pro`); keep the deobfuscation mapping file for readable crash logs.
 - Notification-listener, battery-optimization whitelist, and auto-start permissions are granted by the user; missing permissions are functional limitations, not security vulnerabilities.
-- The app requests only what its features need (no contacts, location or call-log permissions in the manifest; `QUERY_ALL_PACKAGES` is used only for the "filter by app" rule configuration).
+- The app requests only what its features need. Contacts, location, call log and camera are used only by paired remote-execution actions and require per-item user grants; `QUERY_ALL_PACKAGES` is used only for the "filter by app" rule configuration.
 
 ### 4.4 APK Integrity Verification — sha256 (v1.5.69+)
 

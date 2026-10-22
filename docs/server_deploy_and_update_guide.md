@@ -18,14 +18,14 @@
 
 ---
 
-## 0. 现状快照（2026-09-29 复测；上一版 2026-09-28）
+## 0. 现状快照（2026-10-22 复测；上一版 2026-09-29）
 
 | 项 | 状态 |
 | --- | --- |
 | 更新服务 | **已上线**：`notice.fnthink.top`。⚠ 2026-10-06 起 App 侧**不再是编译期常量**：两档地址（`notice.fnthink.com` / `notice.fnthink.top`）住在 `lib/services/update_server_regions.dart`，应用内「更多 → 更新服务器」可选（T95） |
-| 幻念推送公网面 | **代码就绪**：`/api/fnthink/{register,poll,ack,message,pair-arm,pair,pair-confirm}` + 三层限流 + 体积闸（#129/#130/#131）；**两个推送域名都已上线**（`.top` 见 8.9 第十一轮、`.com` 见 8.9 第十三轮，2026-09-29 外网实测：七条路由一律 403 `rejected_unsigned`、暴露七条一律 404、大 body 413+`{}`） |
+| 幻念推送公网面 | **代码就绪（2026-10-22 现读 18 条）**：`/api/fnthink/*` = 14 条协议路由 + 4 条 `/p/…` 接入入口；含 `probe`、`peer-presence`（T156）、`pair-revoke`、端点管理与 `/api/echo`（T09）。三层限流 + 体积闸（#129/#130/#131）；**两个推送域名都已上线**（`.top` 见 8.9 第十一轮、`.com` 见 8.9 第十三轮；2026-09-29 外网实测的是**当时的七条**：403 `rejected_unsigned` / 暴露 404 / 大 body 413+`{}`。此后新增的路由需按新总表复跑） |
 | ⚠ 两域名在**两个不同的 CDN** 后面 | `.top` → Cloudflare；`.com` → 腾讯云 EdgeOne（`*.eo.dnse1.com`）。 ⇒ #140「真实客户端 IP」**不是一次修完两处**：两边的回源头不一样，要各配一次、各验一遍（验收命令见 8.9 第十三轮末尾） |
-| 设备侧 fnthink 客户端 | **未做**（#126）。上线后公网面只有探针流量，没有真实推送 |
+| 设备侧 fnthink 客户端 | **已做**：App 内已有幻念身份/配对/收发/远程执行/端点管理等完整客户端（T71–T156）。公网面需要两台设备完成配对后才有真实推送流量；单机只有探针流量 |
 | 契约 | `protocol/fnthink-v1.json`（**不在 `server/` 里**，每次它变了必须重传） |
 | 地理回读端点 | **两台都已部署并实测**（2026-10-07）：`GET /api/version/region` 回 `{country,source,edge}`。⚠ `.top`（Cloudflare）那台的 `.env` 还需要加一行 `FNTHINK_GEO_TRUST=cf`，那台的 `country` 才会出结论（没加就恒回 `country:null`，客户端自动退回只按实测时延挑一台 —— 不是故障）。实测记录与判定见 4.2/4.3 |
 | 域名分工 | `notice.fnthink.top` = 更新/下载/管理后台；`push.fnthink.top`（海外）+ `push.fnthink.com`（大陆，已备案）= 幻念面 |
@@ -66,6 +66,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # →
 #   ADMIN_TOKEN_HASH=…
 #   ENCRYPTION_KEY=…
 #   TRUST_PROXY=1            # 挂 Nginx 就设 1；Nginx+CDN 按跳数
+#   ECHO_TOKEN=…             # 可选：/api/echo 的口令；不设则该端点按 404 处理
 
 # 5) 启动
 pm2 start server.js --name update-server     # 或 systemd（见 README 方案四）
@@ -318,7 +319,7 @@ curl -sS -H 'cf-ipcountry: US' https://notice.fnthink.com/api/version/region
 | `.com` 伪造 | `{"country":null,"source":"none","edge":"unknown","geoHeaderUntrusted":true,"sawCfHeaders":true}` | ✅✅ **洞堵上了**：头到了、值也成形状，但没声明信任 ⇒ 拒绝当结论 |
 
 回归一并复跑：两台 `/api/version/check` 都 200（`1.5.76+116`；`.top` 的 downloads 落 `cdn2.fnthink.top`、`.com` 落 `cdn.fnthink.com`）、
-`/health` 都 200 且契约字段齐（`contractVersion:1` / `protocolVersion:"fnthink-v1"` / 无 `contractError`）、
+`/health` 都 200 且契约字段齐（`contractVersion:1` / `protocolVersion:"fnthink-v1"` / `clientContractVersionMismatch` 为 `null` 或 `match` / 无 `contractError`）、
 `POST /api/version/region` 两台都 404（只有 GET）。缓存口径没变：`no-store` 在 `.top` 上与边缘那条 `no-cache` 并列、
 在 `.com` 上合并成 `no-cache, no-store`；`cf-cache-status:DYNAMIC` / `EO-Cache-Status:MISS`。
 
@@ -800,7 +801,7 @@ curl -sS --ssl-no-revoke -o /dev/null -w '%{http_code}\n' -X POST https://push.f
 rsync -av ./protocol/fnthink-v1.json user@host:$ROOT/../protocol/
 # ② 或放任意位置 + .env 里显式指定
 #   FNTHINK_CONTRACT=/绝对路径/fnthink-v1.json
-pm2 restart update-server && pm2 logs update-server --lines 40   # 横幅应列出 7 个端点 + 请求体上限 65536
+pm2 restart update-server && pm2 logs update-server --lines 40   # 横幅应列出全部 18 条公网路由（逐条限流档位）+ 请求体上限 65536
 ```
 改完再跑验收：`poll` 应回 **403 + `{"receipt":"rejected_unsigned"}`**。
 

@@ -229,8 +229,9 @@ server/
 │   ├── store.js           # Storage / persistence (rate limits, sessions, IP blocks, TOTP, recovery-code lock)
 │   ├── otp.js             # TOTP wrapper (otplib v13, explicit crypto/base32 plugins)
 │   ├── middleware.js      # Security headers / rate limit / blocking / auth / errors
-│   └── routes/            # Routes (auth.js / version.js)
-├── test/auth.test.js      # HTTP contract tests (jest + supertest, 29 cases)
+│   ├── routes/            # Routes (auth.js / version.js / alerts.js / ops.js / echo.js)
+│   └── fnthink/           # Fnthink surface (22 modules: routes / delivery / pairing / endpoints / rate limit / version echo …)
+├── test/                  # HTTP contract tests (jest + supertest, 44 files / 801 cases)
 ├── package.json           # Dependencies and scripts (engines.node = ">=24")
 ├── package-lock.json      # Lock file used by npm ci
 ├── babel.config.js        # Jest ESM compatibility
@@ -283,6 +284,7 @@ Provided via `.env` (template: `server/.env.example`) or real environment variab
 | `RATE_LIMIT_AUTH_MAX` | Extra limit for `/api/admin`: max requests per IP per minute | `5` |
 | `RATE_LIMIT_FNTHINK_MAX` | Rate limit for the **whole** public face (`/api/fnthink/*`), per IP per minute — a flood brake only. The per-endpoint quotas (per IP: `register` = 30/min · 3000/day; per device address: the three pairing steps and `/message` = 60/min · 5000/day; `poll`/`ack` derived from `presence` = 14/min, no daily cap) all come from the contract's `limits` section and are **not** configured here — tune the contract for those; this knob only bounds "one IP fanning out across every endpoint" | `300` |
 | `FNTHINK_CONTRACT` | Override for the contract file path. The default is derived from the code location (`lib/fnthink`, three levels up, then `protocol/fnthink-v1.json` — the repo-root copy in the repository). **Set an absolute path explicitly when deploying**: the derived location changes with how deep you place the server code | auto-detected |
+| `ECHO_TOKEN` | Secret for `/api/echo` (the T09 generic intake echo). **If unset, the endpoint always returns 404**, indistinguishable from an unknown route | unset (endpoint off) |
 | `DISABLE_IP_BLOCKING` | `1` / `true` / `yes` disables IP blocking (failures are still counted, nothing is rejected) — emergency escape hatch for a wrongly blocked NAT egress | off |
 
 Generate the two secrets (after `npm install`; substitute real values, **never paste them into a doc or commit them**):
@@ -341,13 +343,15 @@ PORT=8080 npm start
 
 ## 🔌 API Reference
 
-All endpoints (route definitions in `lib/routes/version.js` and `lib/routes/auth.js`; the latter is mounted at `/api/admin`):
+All endpoints (admin routes in `lib/routes/{auth,version,alerts,ops}.js`; public face in `lib/fnthink/routes.js` and `lib/routes/echo.js`):
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
 | `GET`  | `/api/version/check` | public (exempt from IP blocks) | App version check |
 | `GET`  | `/api/version/region` | public (exempt from IP blocks) | Geo read-back `{country,source,edge}` — reports the country code the edge saw; **the client decides which host to use**. ⚠ whether that header is trustworthy must be declared by the deployment (`FNTHINK_GEO_TRUST`); undeclared means `country:null` |
-| `GET`  | `/health` | public (exempt from IP blocks) | Health check `{status:'ok',timestamp}` |
+| `GET`  | `/health` | public (exempt from IP blocks) | Health check: `status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch` (`null` = no versioned request seen yet) |
+| `POST` | `/api/echo` | `ECHO_TOKEN` (404 when unset) | Generic intake echo (T09; used for generic stamping) |
+| `POST/GET` | `/api/fnthink/*` | per route (signature / secret / rate limit) | Fnthink surface, **18 routes**: 14 protocol routes + 4 `/p/…` intake forms; full table below |
 | `POST` | `/api/admin/login` | Token (+ OTP / recovery code) | Login, returns `sessionId` |
 | `POST` | `/api/admin/logout` | Session/Token | Revoke the current session |
 | `GET`  | `/api/admin/totp/setup` | Session/Token | Generates secret + QR when 2FA is off; only status when it is on (secret never leaked again) |
@@ -449,7 +453,7 @@ The body is the version.json content (what the console's "版本管理" tab subm
 GET /health
 ```
 
-For monitoring service liveness; returns `{"status":"ok","timestamp":"…"}`. Exempt from IP blocking along with `/api/version/*`, so a wrong block never stops existing devices from checking for updates.
+For monitoring service liveness; currently returns `status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch`. The last field is the T155 contract-version echo: `null` = no versioned request seen yet, otherwise `match` / `mismatch` / `unreadable`. **A mismatch is reported with HTTP 200 and never blocks service.** Exempt from IP blocking along with `/api/version/*`, so a wrong block never stops existing devices from checking for updates.
 
 ### Error codes
 
@@ -583,6 +587,8 @@ Expect these lines (do not continue if any is missing):
   突增告警：near 线 = 额度的 50%，同一主体同一结论 300s 内合并，内存环上限 200 条
     ⚠ 告警不落盘（契约 alerts.persistToDisk=false）：列表为空只代表"本进程起来以后没触发"
 ```
+
+> The sample above is abbreviated. The current banner lists **all 18 public routes** from `router.stack` (14 protocol + 4 `/p/…` intake forms), each with its rate-limit tier.
 (last two lines are the anomaly-report banner; the log is Chinese-only by design)
 
 **Step 5 — acceptance (5 curls, including the "update channel still works" regression)**
@@ -709,7 +715,27 @@ handing the server a new signing key.
 `revocation` keys (`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`). Renaming a state
 means shipping the contract with it — the implementation keeps no hidden default.
 
-### Endpoints: how far this actually got (T38–T41)
+### Public route table (as of 2026-10-22, 18 routes)
+
+`server/lib/fnthink/routes.js` registers **14 protocol routes + 4 `/p/…` intake forms**. The startup banner reads this list from `router.stack` instead of keeping a second copy.
+
+| Route (all under `/api/fnthink`) | Purpose |
+|---|---|
+| `POST /message` | Deliver one Fnthink message (signature-checked; L1/L2/L3 all use it) |
+| `POST /poll` | Pull pending messages for a device (rate-limited by device address) |
+| `POST /ack` | Acknowledge receipt (the only delivery proof) |
+| `POST /probe` | Non-intrusive probe (does not deliver; returns `PROBE_READY_FIELD` + server time) |
+| `POST /register` | Device registration (rate-limited by IP) |
+| `POST /pair-arm` / `POST /pair` / `POST /pair-confirm` / `POST /pair-revoke` | Pairing three-step and revoke |
+| `POST /endpoint-create` / `POST /endpoint-list` / `POST /endpoint-revoke` / `POST /endpoint-rotate` | Local endpoint management (T38–T41 / T120) |
+| `POST /peer-presence` | Peer "last fetched X seconds ago" readout (T156; empty payload, cannot query a specific peer) |
+| `POST /p/:endpointId/probe` | Intake endpoint probe |
+| `GET /p/:endpointId/:secret` / `POST /p/:endpointId/:secret` | Intake entry (secret in path) |
+| `POST /p/:endpointId` | Intake entry (secret in `Authorization: Bearer`) |
+
+> The historical "seven routes" wording refers to the first T38–T41 batch (`message/poll/ack/register/pair-arm/pair/pair-confirm`); `probe`, `peer-presence`, `pair-revoke`, endpoint management and the four `/p/…` intake forms were added later.
+
+### Endpoints: current state (since T38–T41)
 
 An endpoint is a long-lived shared-secret entry point for "something else pushes notifications into this
 instance" (a NAS, a cron job, a monitoring platform). Separating what exists from what doesn't is more
@@ -1371,7 +1397,7 @@ Scripts from `package.json` (run inside `server/`, Node 24 required):
 | --- | --- | --- |
 | `npm start` | `node server.js` | Start the service |
 | `npm run dev` | `node server.js` | Same (no hot reload) |
-| `npm test` | `jest --verbose` | HTTP contract tests: `test/auth.test.js` drives real requests through supertest — security headers, login/logout/session expiry, the version save chain, the full TOTP flow, concurrent recovery-code replay, prototype-key forgery, and the 5-failure IP block |
+| `npm test` | `jest --verbose` | HTTP contract tests: **44 files / 801 cases** under `server/test/` drive real requests through supertest — security headers, login/logout/session expiry, the version save chain, the full TOTP flow, concurrent recovery-code replay, prototype-key forgery, the 5-failure IP block, and the Fnthink surface |
 | `npm run format` | `prettier --write "lib/**/*.js" server.js "test/**/*.js"` | Format |
 | `npm run format:check` | `prettier --check …` | Check only (used by CI) |
 

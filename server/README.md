@@ -173,8 +173,9 @@ server/
 │   ├── store.js           # 存储/持久化（限流、会话、IP 封锁、TOTP 配置、恢复码临界区）
 │   ├── otp.js             # TOTP 封装（otplib v13，需显式注入 crypto/base32 插件）
 │   ├── middleware.js      # 安全头/限流/封锁/鉴权/错误处理
-│   └── routes/            # 路由（auth.js / version.js）
-├── test/auth.test.js      # HTTP 契约测试（jest + supertest，29 例）
+│   ├── routes/            # 路由（auth.js / version.js / alerts.js / ops.js / echo.js）
+│   └── fnthink/           # 幻念协议面（22 个模块：routes / 投递 / 配对 / 端点 / 限流 / 版本回声 …）
+├── test/                  # HTTP 契约测试（jest + supertest，44 个文件 / 801 例）
 ├── package.json           # 依赖与 scripts（engines.node = ">=24"）
 ├── package-lock.json      # 依赖锁（npm ci 使用）
 ├── babel.config.js        # Jest ESM 兼容
@@ -227,6 +228,7 @@ server/
 | `RATE_LIMIT_AUTH_MAX`        | `/api/admin` 认证类限流：每 IP 每分钟最大请求数 | `5` |
 | `RATE_LIMIT_FNTHINK_MAX`     | 公网面（`/api/fnthink/*`）**整个面**每 IP 每分钟的上限，只当洪水闸用。各端点真正的额度（按 IP 的 `register`＝30/分·3000/天；按设备地址的配对三步与 `/message`＝60/分·5000/天；`poll`/`ack` 从 `presence` 节奏推导＝14/分、无日档）全部从契约 `limits` 段读，**不在这里配** —— 想调它们改契约，改这一项只影响"一个 IP 扇出打全部端点"的兜底 | `300` |
 | `FNTHINK_CONTRACT`           | 契约文件路径覆盖。默认从代码位置算：`lib/fnthink` 往上三级进 `protocol/fnthink-v1.json`（仓库里就是根目录那份）。**部署时建议显式写死一个绝对路径** —— 算出来的位置随"server 的内容放在哪一级"而变，写死最不容易错 | 自动定位 |
+| `ECHO_TOKEN`                 | `/api/echo` 的口令（T09 通用收件回声口）。**未配置时该端点一律 404**，与未知路由同形 | 未设（端点关闭） |
 | `DISABLE_IP_BLOCKING`        | `1` / `true` / `yes` 时关闭 IP 封锁（仍统计失败次数，不执行拦截），用于 NAT 出口误封时应急 | 关闭 |
 
 生成两个密钥（先 `npm install`，占位符自行替换为真实值，**不要写进任何文档或提交**）：
@@ -285,13 +287,15 @@ PORT=8080 npm start
 
 ## 🔌 API 接口文档
 
-所有端点（路由定义见 `lib/routes/version.js` 与 `lib/routes/auth.js`，后者挂载于 `/api/admin`）：
+所有端点（管理面路由见 `lib/routes/{auth,version,alerts,ops}.js`；公网面见 `lib/fnthink/routes.js` 与 `lib/routes/echo.js`）：
 
 | 方法 | 路径 | 鉴权 | 说明 |
 | ---- | ---- | ---- | ---- |
 | `GET`  | `/api/version/check` | 公开（豁免 IP 封锁） | App 检查版本更新 |
 | `GET`  | `/api/version/region` | 公开（豁免 IP 封锁） | 地理回读 `{country,source,edge}`：报**边缘**看到的国家码，**选哪台由客户端判**；⚠ 该头是否可信要部署声明（`FNTHINK_GEO_TRUST`），没声明就回 `country:null` |
-| `GET`  | `/health` | 公开（豁免 IP 封锁） | 健康检查 `{status:'ok',timestamp}` |
+| `GET`  | `/health` | 公开（豁免 IP 封锁） | 健康检查：`status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch`（`null` = 还没收到过带版本的请求） |
+| `POST` | `/api/echo` | `ECHO_TOKEN`（未配置则 404） | 通用收件回声口（T09；generic 盖章用） |
+| `POST/GET` | `/api/fnthink/*` | 按路由（验签 / 口令 / 限流） | 幻念协议面 **18 条**：14 条协议路由 + 4 条 `/p/…` 接入入口；完整表见下文「公网路由总表」 |
 | `POST` | `/api/admin/login` | Token（+ OTP / 恢复码） | 登录，成功返回 `sessionId` |
 | `POST` | `/api/admin/logout` | 会话/Token | 吊销当前会话 |
 | `GET`  | `/api/admin/totp/setup` | 会话/Token | 未启用时生成 secret + 二维码；已启用时只回状态（不再泄露 secret） |
@@ -393,7 +397,7 @@ Content-Type: application/json
 GET /health
 ```
 
-用于监控服务是否存活，返回 `{"status":"ok","timestamp":"…"}`；与 `/api/version/*` 一并豁免 IP 封锁（NAT 共享出口下误封不会殃及全体设备的更新检查）。
+用于监控服务是否存活；当前返回 `status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch`。最后一项是 T155 的契约版本关联结论：`null` = 还没收到过带版本的请求，`match` / `mismatch` / `unreadable` 三档；**不一致时仍回 200，只报不拦**。与 `/api/version/*` 一并豁免 IP 封锁（NAT 共享出口下误封不会殃及全体设备的更新检查）。
 
 ### 错误码约定
 
@@ -582,6 +586,8 @@ pm2 restart update-server && pm2 logs update-server --lines 40
     ⚠ 告警不落盘（契约 alerts.persistToDisk=false）：列表为空只代表"本进程起来以后没触发"
 ```
 
+> 上面只节选两行。当前横幅会从 `router.stack` 列出**全部 18 条**公网路由（14 条协议 + 4 条 `/p/…` 入口），并逐条标明限流档位。
+
 **第 5 步：验收（5 条，含"更新通道没被弄坏"的回归）**
 
 ```bash
@@ -695,7 +701,27 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
 （`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`）。改档位名要连同契约一起改，
 实现里没有一份"看不见的缺省"。
 
-### 接入端点：这一批做到哪儿了（T38–T41）
+### 公网路由总表（2026-10-22 现读，18 条）
+
+`server/lib/fnthink/routes.js` 当前注册 **14 条协议路由 + 4 条 `/p/…` 接入入口**；启动横幅从 `router.stack` 取这份清单，不另抄一遍：
+
+| 路由（均在 `/api/fnthink` 下） | 用途 |
+|---|---|
+| `POST /message` | 投递一条幻念消息（验签；L1/L2/L3 都走这里） |
+| `POST /poll` | 设备拉取待收消息（按设备地址限流） |
+| `POST /ack` | 确认收到（唯一送达依据） |
+| `POST /probe` | 非浸入探针（不投递，只回 `PROBE_READY_FIELD` 与服务端时间） |
+| `POST /register` | 设备登记（按 IP 限流） |
+| `POST /pair-arm` / `POST /pair` / `POST /pair-confirm` / `POST /pair-revoke` | 配对三步与撤销 |
+| `POST /endpoint-create` / `POST /endpoint-list` / `POST /endpoint-revoke` / `POST /endpoint-rotate` | 本机端点管理（T38–T41 / T120） |
+| `POST /peer-presence` | 对端「上次收取 X 秒前」读口（T156；载荷恒空，不能点名查某一台） |
+| `POST /p/:endpointId/probe` | 接入端点探针 |
+| `GET /p/:endpointId/:secret` / `POST /p/:endpointId/:secret` | 接入端点入口（口令在路径） |
+| `POST /p/:endpointId` | 接入端点入口（口令在 `Authorization: Bearer`） |
+
+> 历史章节里的「七条路由」指的是 T38–T41 首次上线时的那一批（`message/poll/ack/register/pair-arm/pair/pair-confirm`）；此后新增了 `probe`、`peer-presence`、`pair-revoke`、端点管理与四条 `/p/…` 入口。
+
+### 接入端点：当前状态（T38–T41 起）
 
 端点是"第三方往这台实例推通知"的长期口令入口（NAS、脚本、监控平台）。把已做的和没做的分清楚，
 比写一份"看起来完整"的文档有用：
@@ -1315,7 +1341,7 @@ curl -sk -o /dev/null -w '%{http_code}\n' https://push.example.com/admin.html
 |------|----------|------|
 | `npm start` | `node server.js` | 启动服务 |
 | `npm run dev` | `node server.js` | 同上（无热重载） |
-| `npm test` | `jest --verbose` | HTTP 契约测试：`test/auth.test.js` 用 supertest 打真实请求，覆盖安全头、登录/注销/会话过期、版本保存链路、TOTP 全流程、恢复码并发重放、原型键伪造、2FA 连续失败触发封锁 |
+| `npm test` | `jest --verbose` | HTTP 契约测试：`server/test/` 共 **44 个文件 / 801 例**，用 supertest 打真实请求，覆盖安全头、登录/注销/会话过期、版本保存链路、TOTP 全流程、恢复码并发重放、原型键伪造、2FA 连续失败触发封锁，以及幻念协议面 |
 | `npm run format` | `prettier --write "lib/**/*.js" server.js "test/**/*.js"` | 格式化 |
 | `npm run format:check` | `prettier --check …` | 只检查不改（CI 用） |
 

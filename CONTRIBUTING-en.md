@@ -126,13 +126,13 @@ It covers three toolchains:
 
 ### 6.1 Flutter / Dart (`lib/`)
 
-- **Must pass** `bash .github/scripts/check_format.sh` and `flutter analyze`. CI fails only when the analyze output contains `error •`; style hints (info/warning) do not block a merge.
+- **Must pass** `bash .github/scripts/check_format.sh` and `flutter analyze --fatal-infos`. CI fails on any error / warning / info (exit-code based); local runs must also report `No issues found!`.
 - **Null-safety first**: never hard-cast data that may be absent. This project once crashed an entire page due to `rule['type'] as String` when legacy data lacked a field — always read external/stored data with `as Type? ?? default` (e.g. `map['x'] as int? ?? 0`).
 - **Theme & colors**: use `AppColors` (Cupertino-style semantic colors, `lib/theme/app_colors.dart`) and `AppThemeColors` (`ThemeExtension`, `lib/theme/app_theme.dart`). **Do not hardcode colors**, or dark mode will break.
 - **Cross-platform comms**: Flutter ↔ Android use a single `MethodChannel('com.fnthink.notice/notification')`
   (the Dart constant lives in `lib/services/platform_channel.dart`). The native side is split by
-  domain into 5 handlers (`Config` / `Device` / `File` / `Permission` / `Stats` under
-  `android/app/src/main/kotlin/com/fnthink/notice/channels/`), **87** method names in total. The
+  domain into 7 handlers (`Config` / `Device` / `File` / `Permission` / `Stats` / `Fnthink` / `RemoteExec` under
+  `android/app/src/main/kotlin/com/fnthink/notice/channels/`), **122** method names in total (7 handlers = 120, plus 2 workers = 2). The
   two-sided contract is pinned by `test/services/channel_method_parity_test.dart` — adding or
   renaming a method requires updating both the Dart call sites and that test's expected total.
 - **State & DI**: use the `get_it`-injected Service classes (registered in `lib/di/service_locator.dart`); do not `new` singletons inside Widgets.
@@ -165,7 +165,7 @@ It covers three toolchains:
   ```bash
   cd server
   node --check server.js      # syntax self-check
-  npm test                    # HTTP contract tests (jest, 29 cases)
+  npm test                    # HTTP contract tests (jest, 44 files / 801 cases)
   npm run format:check        # Prettier; or npm run format to fix in place
   npm start                   # run locally and hit /health
   ```
@@ -191,16 +191,16 @@ flutter analyze --no-pub
 #    plus version.json sha256 completeness, website i18n coverage, l10n zh/en key parity)
 bash .github/scripts/check_version_consistency.sh
 
-# 3) Dart unit tests (379 cases / 37 files) + coverage
+# 3) Dart unit tests (3308 cases / 291 files) + coverage
 flutter test --no-pub --coverage
 
-# 4) Android JVM unit tests (234 cases / 26 classes, JDK 21; no signing keys needed)
+# 4) Android JVM unit tests (619 cases / 75 classes, JDK 21; no signing keys needed)
 cd android && ./gradlew :app:testDebugUnitTest --console=plain
 
 # 5) Android lint (debug variant; errors fail the build)
 ./gradlew :app:lintDebug --console=plain
 
-# 6) Server contract tests (29 cases, Node 24)
+# 6) Server contract tests (44 files / 801 cases, Node 24)
 cd ../server && npm ci && npm test
 
 # 7) Three-way formatting gate (Dart / Kotlin / JS)
@@ -230,26 +230,25 @@ Extra things CI does (optional locally):
 
 | Layer | Count | Entry point |
 |-------|-------|-------------|
-| Dart unit tests | **379 cases / 37 files** | `flutter test --no-pub` (`test/` is grouped into `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support`) |
-| Kotlin JVM unit tests | **234 cases / 26 classes** | `cd android && ./gradlew :app:testDebugUnitTest` (reports under `build/app/test-results/testDebugUnitTest/`) |
-| Server contract tests | **29 cases** | `cd server && npm test` (`server/test/auth.test.js`) |
-| l10n keys | **862 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
+| Dart unit tests | **3308 cases / 291 files** | `flutter test --no-pub` (`test/` is grouped into `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support`) |
+| Kotlin JVM unit tests | **619 cases / 75 classes** | `cd android && ./gradlew :app:testDebugUnitTest` (reports under `build/app/test-results/testDebugUnitTest/`) |
+| Server contract tests | **801 cases / 44 files** | `cd server && npm test` (`server/test/*.test.js`) |
+| l10n keys | **1591 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
 
 Run `flutter pub get` before testing. Counts grow with features; if you add or remove tests, update
 the numbers above too (they are documentation, not a CI assertion).
 
 ### 8.2 On-device tests (manual trigger only)
 
-- `integration_test/smoke_test.dart` is the 7-step main-path smoke test. In CI it runs from
-  `.github/workflows/integration_test.yml`, which is **triggered only by `workflow_dispatch`**
-  (emulator minutes are billed; it is not attached to PRs).
+- `integration_test/smoke_test.dart` is the main-path smoke test split into **4 independent cases**. In CI it runs from
+  `.github/workflows/integration_test.yml` on `workflow_dispatch` plus a weekly Tuesday 03:00 UTC schedule (not attached to PRs).
 - Run it locally (real device or emulator required):
   ```bash
   flutter devices                                  # list device ids
   flutter test integration_test/smoke_test.dart -d <device-id>
   ```
 - The same workflow also runs the instrumented tests while the emulator is alive:
-  `cd android && ./gradlew connectedDebugAndroidTest` (includes `ApkSignatureVerifierInstrumentedTest`).
+  `cd android && ./gradlew connectedDebugAndroidTest` (7 classes: signature check / descriptor codec / app-list permission / Fnthink identity / Fnthink inbox / render snapshot / foreground service type).
 - If your change affects the launch-entry structure, see the MAIN/LAUNCHER overlay note in 6.2.
 
 ### 8.3 Static source guards and duplicated golden fixtures (read before changing behavior)
@@ -303,11 +302,13 @@ flutter gen-l10n
 
 ### 8.5 Database
 
-`lib/database/database_helper.dart` declares `dbVersion = 11`, with 6 tables currently
+`lib/database/database_helper.dart` declares `dbVersion = 26`, with 12 tables currently
 (`notifications`, `pending_notifications`, `email_channels`, `webhook_channels`,
-`webhook_delivery_log`, `app_channels`). Any new table/column must bump `dbVersion` and add an
+`webhook_delivery_log`, `app_channels`, `engine_rules`, plus the five Fnthink tables
+`fnthink_messages` / `fnthink_peers` / `fnthink_remote_executions` / `fnthink_channels` /
+`fnthink_pair_requests`). Any new table/column must bump `dbVersion` and add an
 `onUpgrade` branch; so does a migration that only rewrites the **values** of existing rows (v11
-rewrote the delivery keys from localized display names to `chan:<slug>`). Such migrations must be
+rewrote the delivery keys from localized display names to `chan:<slug>`; v25 added `delivery_bucket`). Such migrations must be
 idempotent and must skip bad rows instead of throwing — an `onUpgrade` exception makes the app
 "back up the database and rebuild an empty one", i.e. it wipes the user's history.
 `test/database/database_helper_test.dart` pins the version against the schema increments and
@@ -379,7 +380,7 @@ flutter build apk --release --target-platform android-arm64
 
 The version is not only in `pubspec.yaml`. All of the following must match, otherwise `check_version_consistency.sh` fails:
 
-1. `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together; currently `1.5.74+113`);
+1. `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together; currently `1.5.76+116`);
 2. `_fallbackVersion` / `_fallbackBuild` in `lib/update_manager.dart`;
 3. `FALLBACK_VERSION` / `FALLBACK_BUILD` in `android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt`;
 4. `latestVersion` / `latestBuild` in `server/data/version.json`;
@@ -392,7 +393,7 @@ bash .github/scripts/check_version_consistency.sh   # exit 1 on any mismatch
 ### 10.2 Semi-automated release script (recommended)
 
 ```bash
-bash .github/scripts/release_local.sh <A.B.C>       # e.g. release_local.sh 1.5.74
+bash .github/scripts/release_local.sh <A.B.C>       # e.g. release_local.sh 1.5.76
 ```
 
 It hardcodes the mechanical steps that are known to work:
