@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import sys
+from urllib.parse import urlparse
 
 ARCHES = ("arm64", "arm32", "x86_64", "all")
 PREFIX = {"arm64": "notice_arm64_", "arm32": "notice_arm32_", "x86_64": "notice_x86_", "all": "notice_all_"}
@@ -49,11 +50,26 @@ def main():
               f"sha256 字段只检查了形状")
         return 0
 
+    downloads = data.get("downloads") or {}
+
+    def apk_candidates(arch):
+        """版本号后的构件号是 T66 起的一部分；以 version.json 的下载名为准，再退回旧命名。"""
+        names = []
+        url = downloads.get(arch) or ""
+        if url:
+            base = os.path.basename(urlparse(url).path)
+            if base:
+                names.append(base)
+        legacy = f"{PREFIX[arch]}{version}.apk"
+        if legacy not in names:
+            names.append(legacy)
+        return [os.path.join(root, n) for n in names]
+
     problems, checked = [], 0
     for arch in ARCHES:
-        apk = os.path.join(root, f"{PREFIX[arch]}{version}.apk")
-        if not os.path.isfile(apk):
-            problems.append(f"{arch}: 找不到 {apk}")
+        apk = next((p for p in apk_candidates(arch) if os.path.isfile(p)), None)
+        if apk is None:
+            problems.append(f"{arch}: 找不到 {apk_candidates(arch)}")
             continue
         actual = sha256_of(apk)
         expected = declared.get(arch)

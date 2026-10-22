@@ -1,4 +1,4 @@
-﻿# Contributing (CONTRIBUTING)
+# Contributing (CONTRIBUTING)
 
 [中文](CONTRIBUTING.md) / English
 
@@ -380,7 +380,7 @@ flutter build apk --release --target-platform android-arm64
 
 The version is not only in `pubspec.yaml`. All of the following must match, otherwise `check_version_consistency.sh` fails:
 
-1. `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together; currently `1.5.76+116`);
+1. `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together; currently `1.6.0+160`);
 2. `_fallbackVersion` / `_fallbackBuild` in `lib/update_manager.dart`;
 3. `FALLBACK_VERSION` / `FALLBACK_BUILD` in `android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt`;
 4. `latestVersion` / `latestBuild` in `server/data/version.json`;
@@ -393,7 +393,7 @@ bash .github/scripts/check_version_consistency.sh   # exit 1 on any mismatch
 ### 10.2 Semi-automated release script (recommended)
 
 ```bash
-bash .github/scripts/release_local.sh <A.B.C>       # e.g. release_local.sh 1.5.76
+bash .github/scripts/release_local.sh <A.B.C>       # e.g. release_local.sh 1.6.0
 ```
 
 It hardcodes the mechanical steps that are known to work:

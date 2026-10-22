@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="assets/app_icon.png" width="128" alt="Notice Push Assistant">
 
@@ -16,7 +16,7 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.76/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.0/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
 
 🌐 **Official site**: [notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — introduction, client download and admin console
@@ -343,7 +343,7 @@ noticeTransmit/
 ├── docs/                                 # server_deploy_and_update_guide.md · cert_rotation_runbook.md (internal ledgers stay out of the repo)
 ├── .github/                              # workflows/ (CI) and scripts/ (format, version consistency, local release)
 ├── assets/                               # Resource files
-├── pubspec.yaml                          # Flutter configuration (version: 1.5.76+116)
+├── pubspec.yaml                          # Flutter configuration (version: 1.6.0+160)
 └── README.md
 ```
 
