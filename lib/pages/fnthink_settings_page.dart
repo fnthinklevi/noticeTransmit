@@ -17,6 +17,7 @@ import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../services/fnthink_relay_consent.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_info_note_box.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/fnthink_outcome.dart';
@@ -1026,25 +1027,30 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
                   : l10n.fnthinkContractVersionUnreadable,
             ),
           ),
-        Text(
-          l10n.fnthinkHostDesc,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.secondaryLabel(context),
-          ),
-        ),
-        // T76 ⓐ：更新通道**不跟随**这一格，必须在界面上写明 ——
-        // §6 把它列为"不定就会变成隐性双源"的那一件：不写，用户以为切到成都、
-        // 实际还在洛杉矶那边收更新，而两边版本可能不一样。
-        // ⚠ 这句话**不再报出更新服务器的主机名**（T95 之前它是 `{host}`）：
-        //   那一台现在也分两档、也可以用户选，写死在提示文案里就等于替用户
-        //   宣布一个随时会被他自己改掉的事实。
-        Text(
-          l10n.fnthinkHostUpdateNote,
-          key: const ValueKey('fnthink-host-update-note'),
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.secondaryLabel(context),
+        AppInfoNoteBox(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.fnthinkHostDesc,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // T76 ⓐ：更新通道不跟随这一格，必须在界面上写明（不改主机名）。
+              Text(
+                l10n.fnthinkHostUpdateNote,
+                key: const ValueKey('fnthink-host-update-note'),
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ],
           ),
         ),
         if (_hostError != null)
@@ -1064,6 +1070,7 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.separator(context)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

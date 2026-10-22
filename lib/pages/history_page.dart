@@ -28,6 +28,7 @@ import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution_state_words.dart';
 import '../services/fnthink_remote_reason_words.dart';
+import '../widgets/app_info_note_box.dart';
 import '../widgets/card_action_sheet.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
@@ -2390,11 +2391,11 @@ class _HistoryPageState extends State<HistoryPage> {
     return Padding(
       key: const ValueKey<String>('history-all-note'),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: Text(
+      child: AppInfoNoteBox(
         // 圆点在前 = §1 的「底部无序列表」那一形状（与设置页 `fnthink-boundary`、
         // 远程历史页那句边界句同一做法）；这句一字未改，只换了它挂的形状。
-        '• ${l10n.fnthinkAllScopeNote}',
-        style: TextStyle(fontSize: 12, color: AppColors.tertiaryLabel(context)),
+        text: '• ${l10n.fnthinkAllScopeNote}',
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
     );
   }

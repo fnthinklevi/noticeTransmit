@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_info_note_box.dart';
 
 class PrivacyPolicyPage extends StatelessWidget {
   const PrivacyPolicyPage({super.key});
@@ -101,35 +102,11 @@ class PrivacyPolicyPage extends StatelessWidget {
     required String content,
     required BuildContext context,
   }) {
-    return Container(
-      width: double.infinity,
+    return AppInfoNoteBox(
+      title: title,
+      text: content,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg(context),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryLabel(context),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            content,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.6,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-        ],
-      ),
+      radius: 12,
     );
   }
 }

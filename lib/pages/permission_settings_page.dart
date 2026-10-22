@@ -6,6 +6,7 @@ import '../services/fnthink_l3_grants.dart';
 import '../services/permission_service.dart';
 import '../services/vendor_family.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_info_note_box.dart';
 import '../widgets/pull_to_refresh_list.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -438,22 +439,28 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              l10n.l3SettingsSectionDesc,
-              style: TextStyle(
-                color: AppColors.secondaryLabel(context),
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              l10n.appListPermDesc,
-              style: TextStyle(
-                color: AppColors.secondaryLabel(context),
-                fontSize: 12,
+            child: AppInfoNoteBox(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.l3SettingsSectionDesc,
+                    style: TextStyle(
+                      color: AppColors.secondaryLabel(context),
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.appListPermDesc,
+                    style: TextStyle(
+                      color: AppColors.secondaryLabel(context),
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

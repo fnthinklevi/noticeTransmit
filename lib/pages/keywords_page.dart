@@ -196,6 +196,11 @@ class _KeywordsPageState extends State<KeywordsPage>
                     ? AppColors.green.withValues(alpha: 0.1)
                     : const Color(0xFFFF9500).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color:
+                      (isWhitelist ? AppColors.green : const Color(0xFFFF9500))
+                          .withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

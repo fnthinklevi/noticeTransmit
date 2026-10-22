@@ -17,6 +17,7 @@ import '../services/fnthink_relay_consent.dart';
 import '../services/fnthink_settings.dart';
 import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_info_note_box.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -494,14 +495,15 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
         Row(
           children: [
             Expanded(
-              child: Text(
-                l10n.fnthinkReceiveDesc,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.secondaryLabel(context),
+              child: AppInfoNoteBox(
+                text: l10n.fnthinkReceiveDesc,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
                 ),
               ),
             ),
+            const SizedBox(width: 10),
             // onChanged 传 null 就是灰态：契约拿不到时这一格不许被翻开。
             CupertinoSwitch(
               key: const ValueKey('fnthink-receive-switch'),

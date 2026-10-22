@@ -1468,6 +1468,34 @@ class FnthinkStatusMark extends StatelessWidget {
     });
   });
 
+  // ── 长说明文本框 ───────────────────────────────────────────────────────
+  group('长说明文本框（AppInfoNoteBox）', () {
+    test('新件只有一个装配点', () {
+      expect(hitting('class AppInfoNoteBox'), const <String>[
+        'lib/widgets/app_info_note_box.dart',
+      ], reason: '文本框必须只有一件；页面各搭一份就又回到"每条说明一个样"');
+    });
+
+    test('这些页的长说明必须装在文本框里', () {
+      const sites = <String>[
+        'lib/pages/privacy_policy_page.dart',
+        'lib/pages/permission_settings_page.dart',
+        'lib/pages/rule_tester_page.dart',
+        'lib/pages/history_page.dart',
+        'lib/pages/fnthink_receive_page.dart',
+        'lib/pages/fnthink_settings_page.dart',
+        'lib/pages/channel_status_page.dart',
+      ];
+      for (final p in sites) {
+        expect(
+          codeByPath[p]!.contains('AppInfoNoteBox('),
+          isTrue,
+          reason: '$p 的长说明又裸着了 —— 一律装进带边界的 AppInfoNoteBox',
+        );
+      }
+    });
+  });
+
   // ── 「新建幻念通道」那一页（维护者 2026-10-08 点名的四条）───────────────────
   // 页面级证据在 `test/widgets/fnthink_channel_page_test.dart`（六条新的）。这一册钉的是
   // 那四条的**形状**：红字挂在哪儿、保存默认带不带探测、那一档画的是译文还是 token。

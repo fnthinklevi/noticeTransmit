@@ -10,6 +10,7 @@ import '../services/backup_mode.dart';
 import '../services/channel_config_codec.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
+import '../widgets/app_info_note_box.dart';
 import '../widgets/channel_health_badge.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
@@ -119,6 +120,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
       decoration: BoxDecoration(
         color: AppColors.orange.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.orange.withValues(alpha: 0.30)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,13 +440,12 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
                       color: AppColors.primaryLabel(context),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    l10n.mainBackupHint,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      height: 1.4,
-                      color: AppColors.secondaryLabel(context),
+                  const SizedBox(height: 8),
+                  AppInfoNoteBox(
+                    text: l10n.mainBackupHint,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
                   ),
                   if (primaryCount > _recommendedPrimaryMax)

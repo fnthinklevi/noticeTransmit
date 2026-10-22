@@ -7,6 +7,7 @@ import '../services/filter_service.dart';
 import '../services/installed_apps_service.dart';
 import '../services/rule_trace.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_info_note_box.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_dialog_actions.dart';
 
@@ -104,14 +105,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
               children: [
-                Text(
-                  l10n.testerHint,
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
+                AppInfoNoteBox(text: l10n.testerHint),
                 const SizedBox(height: 12),
                 _buildInputCard(context, l10n),
                 const SizedBox(height: 12),

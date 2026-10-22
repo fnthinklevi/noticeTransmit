@@ -387,6 +387,7 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.separator(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

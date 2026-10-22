@@ -116,6 +116,10 @@ class EngineSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Material(
             color: AppColors.cardBg(context),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: AppColors.separator(context)),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: rows,
