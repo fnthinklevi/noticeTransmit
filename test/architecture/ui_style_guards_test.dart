@@ -1377,10 +1377,13 @@ class FnthinkStatusMark extends StatelessWidget {
 
   // ── 裸文字点击件（T166 ③）──────────────────────────────────────────────
   group('非幻念页的裸文字点击件（T166 ③ 的台账）', () {
-    // 只认「`GestureDetector`/`InkWell` 的 child 直接是 `Text`」：
-    // `child: Container(... Text)` 不算 —— 那是自搭了外观的件。
+    // 认「`GestureDetector`/`InkWell` 的 child 直接是 `Text`」以及中间只隔排版件那一形
+    // （`InkWell → Padding → Center → Text` 就是「知道了」动作行）。
+    // 一旦中间出现 `Container`/`Row` 等有外观的件就不再算「裸文字」。
+    const layout = r'(?:Padding|Center|Align|SizedBox|Expanded|Flexible)';
     final bareTextTap = RegExp(
-      r'(GestureDetector|InkWell)\((?:(?!\bchild:).){0,400}?child:\s*Text\(',
+      '(GestureDetector|InkWell)\\((?:(?!\\bchild:).){0,400}?child:\\s*'
+      '(?:$layout\\((?:(?!\\bchild:).){0,200}?child:\\s*){0,3}Text\\(',
       dotAll: true,
     );
 
@@ -1422,10 +1425,24 @@ class FnthinkStatusMark extends StatelessWidget {
       );
       expect(
         bareTextTap.hasMatch(
+          'InkWell(onTap: f, child: Padding(padding: p, child: Center(child: Text("x"))))',
+        ),
+        isTrue,
+        reason: '只隔排版件的文字动作行也要算进来（「知道了」那一形）',
+      );
+      expect(
+        bareTextTap.hasMatch(
           'GestureDetector(onTap: f, child: Container(child: Text("x")))',
         ),
         isFalse,
         reason: '自带外观的容器不该被这本账算进来',
+      );
+      expect(
+        bareTextTap.hasMatch(
+          'InkWell(onTap: f, child: Padding(padding: p, child: Row(children: [Text("x")])))',
+        ),
+        isFalse,
+        reason: '中间有 Row 等有外观的件就不再是裸文字',
       );
     });
 
@@ -1983,13 +2000,17 @@ const Map<String, int> kPlainTextButtons = <String, int>{
 
 /// 非幻念页的**裸文字点击件**（T166 ③ 的台账，只许减少）。
 ///
-/// 判据只认「`GestureDetector`/`InkWell` 的 child 直接是 `Text`」——那正是
-/// 「屏上读不出可点、按下也没反馈」那一种；包着 `Container` 的分段条／按钮不算
-/// （它们有自己的外观）。
-/// 唯一具名例外：`more_page` 的版本号连点 7 次是**有意隐藏**的诊断入口（`DiagLog`），
-/// 不许换成按钮。其余页面改完必须清零。
+/// 判据认「child 直接是 `Text`」与「中间只隔 `Padding`/`Center` 等排版件」两形 ——
+/// 那正是「屏上读不出可点、按下也没反馈」的那一种；包着 `Container` 的分段条／
+/// 按钮不算（它们有自己的外观）。
+/// 具名例外只有两处：`more_page` 的版本号连点 7 次（有意隐藏的诊断入口，`DiagLog`）
+/// 与 `app_channel_settings_page` 浮层底部「知道了」（iOS 动作行）。其余页面必须清零。
 const Map<String, int> kTextOnlyTapTargets = <String, int>{
+  // 有意隐藏的诊断入口：版本号连点 7 次（`DiagLog`），不许换成按钮。
   'lib/pages/more_page.dart': 1,
+  // 接入引导浮层底部「知道了」：iOS 动作行的标准形态（整行 `InkWell` + 纯文字，
+  // 按压有反馈）。保留文字档；若浮层壳换掉，这一格跟着改。
+  'lib/pages/app_channel_settings_page.dart': 1,
 };
 
 /// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
