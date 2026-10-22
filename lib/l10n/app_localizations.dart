@@ -6374,6 +6374,18 @@ abstract class AppLocalizations {
   /// **'切换服务'**
   String get fnthinkHostSwitch;
 
+  /// No description provided for @fnthinkHostProbeNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'测延迟'**
+  String get fnthinkHostProbeNow;
+
+  /// No description provided for @fnthinkHostProbing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在测延迟…'**
+  String get fnthinkHostProbing;
+
   /// No description provided for @fnthinkHostRegionInternational.
   ///
   /// In zh, this message translates to:

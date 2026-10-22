@@ -3593,6 +3593,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkHostSwitch => 'Switch service';
 
   @override
+  String get fnthinkHostProbeNow => 'Test latency';
+
+  @override
+  String get fnthinkHostProbing => 'Testing latency...';
+
+  @override
   String get fnthinkHostRegionInternational => 'Overseas (Los Angeles)';
 
   @override

@@ -1177,9 +1177,10 @@ class FnthinkStatusMark extends StatelessWidget {
       // T119 又加了第 8 枚：**撤销中转同意**（破坏性档）—— 台账跟着 +1，
       // 少一枚就是有人把它改回默认蓝或自己搭了个 TextButton。
       // T47 加了第 9 枚：**收件保留选档**（中性档；不走 l10n.edit，那一句是宿主行的）。
+      // T168 加了第 10 枚：**测延迟**（中性档；只读探测，不改地址、不重启收件循环）。
       expect(
         n('lib/pages/fnthink_settings_page.dart', 'FnthinkInlineAction('),
-        9,
+        10,
       );
       expect(
         n('lib/pages/fnthink_endpoint_page.dart', 'FnthinkInlineAction('),
@@ -1218,7 +1219,9 @@ class FnthinkStatusMark extends StatelessWidget {
         // **中性这一档没有少，是换了宿主**：剩下那一枚是教程里的「复制」，
         // 它才是真正的"行内次要动作"（跟在某段命令旁边）。
         'lib/pages/fnthink_endpoint_page.dart': 1,
-        'lib/pages/fnthink_settings_page.dart': 3,
+        // T168：3 → **4**。新增那一枚是「测延迟」（只读探测）—— 它属于"再看一眼"，
+        // 不是"往前走一步"，所以走中性档；改成默认蓝就等于把它升格成主操作。
+        'lib/pages/fnthink_settings_page.dart': 4,
       };
       for (final (table, needle) in const [
         (destructive, 'FnthinkActionTone.destructive'),

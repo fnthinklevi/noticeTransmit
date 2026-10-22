@@ -233,7 +233,7 @@ Extra things CI does (optional locally):
 | Dart unit tests | **3308 cases / 291 files** | `flutter test --no-pub` (`test/` is grouped into `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support`) |
 | Kotlin JVM unit tests | **619 cases / 75 classes** | `cd android && ./gradlew :app:testDebugUnitTest` (reports under `build/app/test-results/testDebugUnitTest/`) |
 | Server contract tests | **801 cases / 44 files** | `cd server && npm test` (`server/test/*.test.js`) |
-| l10n keys | **1591 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
+| l10n keys | **1593 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
 
 Run `flutter pub get` before testing. Counts grow with features; if you add or remove tests, update
 the numbers above too (they are documentation, not a CI assertion).

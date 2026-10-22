@@ -3436,6 +3436,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHostSwitch => '切换服务';
 
   @override
+  String get fnthinkHostProbeNow => '测延迟';
+
+  @override
+  String get fnthinkHostProbing => '正在测延迟…';
+
+  @override
   String get fnthinkHostRegionInternational => '海外（洛杉矶）';
 
   @override

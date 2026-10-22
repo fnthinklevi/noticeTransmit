@@ -1786,6 +1786,8 @@
   "fnthinkHostDesc": "只填主机名（可带端口）；scheme 由协议决定，不用写 https://",
   "fnthinkHostReset": "恢复默认",
   "fnthinkHostSwitch": "切换服务",
+  "fnthinkHostProbeNow": "测延迟",
+  "fnthinkHostProbing": "正在测延迟…",
   "fnthinkHostRegionInternational": "海外（洛杉矶）",
   "fnthinkHostRegionMainland": "大陆（成都）",
   "fnthinkHostNoCandidates": "契约里没有声明可选的服务地址",

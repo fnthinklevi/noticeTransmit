@@ -1414,6 +1414,236 @@ void main() {
       });
     });
 
+    group('T168：手动测延迟那一枚', () {
+      /// 探测与记账两个替身指向**同一份 map** —— "写进去的那一份"与"读数读的那一份"
+      /// 必须同源。分成两份容器时，漏接任何一边都只表现为"界面上停在上一轮的数"，
+      /// 而那正是这套用例最难发现的一种假绿。
+      ({
+        List<List<String>> probed,
+        Map<String, ChannelHealth> store,
+        Future<Map<String, Duration>> Function(
+          List<String> hosts, {
+          void Function(String host, Map<String, Object?> body)? onHealthBody,
+        })
+        probe,
+        Future<void> Function({
+          required String host,
+          required bool reachable,
+          required int latencyMs,
+        })
+        record,
+      })
+      fakeProbeHosts(
+        Map<String, Duration> Function(List<String> hosts, int round) answer,
+      ) {
+        final probed = <List<String>>[];
+        final store = <String, ChannelHealth>{};
+        return (
+          probed: probed,
+          store: store,
+          probe: (hosts, {onHealthBody}) async {
+            final round = probed.length + 1;
+            probed.add(hosts);
+            return answer(hosts, round);
+          },
+          record:
+              ({required host, required reachable, required latencyMs}) async {
+                store[host] = ChannelHealth(
+                  reachable: reachable,
+                  latencyMs: latencyMs,
+                  probedAt: DateTime.now().millisecondsSinceEpoch,
+                );
+              },
+        );
+      }
+
+      Future<String> hostOnScreen(WidgetTester tester) async => tester
+          .widget<Text>(find.byKey(const ValueKey('fnthink-host-value')))
+          .data!;
+
+      testWidgets('点一下：只探屏幕上这一台，并把读数换成这一轮', (tester) async {
+        stubChannels();
+        final probe = fakeProbeHosts(
+          (hosts, round) => {
+            for (final h in hosts) h: const Duration(milliseconds: 42),
+          },
+        );
+        final h = harness(
+          probeHosts: probe.probe,
+          recordHealth: probe.record,
+          reachabilityOf: (host) => probe.store[host],
+        );
+        await pump(tester, h.page);
+        final btn = find.byKey(const ValueKey('fnthink-host-probe'));
+        await revealTo(tester, btn);
+        await tester.tap(btn);
+        await tester.pumpAndSettle();
+
+        final shown = await hostOnScreen(tester);
+        expect(probe.probed, [
+          [shown],
+        ], reason: '测延迟只该打屏幕上这一台；把候选两台都打一遍是「切换服务」那一格的口径');
+        expect(probe.store[shown]?.reachable, isTrue);
+        expect(probe.store[shown]?.latencyMs, 42);
+        final reach = tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-host-reachability')),
+            )
+            .data!;
+        expect(reach, contains('42'));
+        expect(reach, contains('可达'));
+      });
+
+      testWidgets('只测不改：不落地址、不重启收件循环', (tester) async {
+        stubChannels();
+        final probe = fakeProbeHosts(
+          (hosts, round) => {
+            for (final h in hosts) h: const Duration(milliseconds: 42),
+          },
+        );
+        final h = harness(
+          probeHosts: probe.probe,
+          recordHealth: probe.record,
+          reachabilityOf: (host) => probe.store[host],
+        );
+        await pump(tester, h.page);
+        final buildsBefore = h.builds();
+        final btn = find.byKey(const ValueKey('fnthink-host-probe'));
+        await revealTo(tester, btn);
+        await tester.tap(btn);
+        await tester.pumpAndSettle();
+
+        // ⚠ 这一枚**只测不改**：地址是用户设的那一份，收件循环是"地址变了"才需要重启。
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getString(FnthinkSettings.keyHost),
+          isNull,
+          reason: '点一次测延迟就把地址落盘 ⇒ 读数是副作用，用户以为自己在看数、其实换了服务器',
+        );
+        expect(
+          h.builds(),
+          buildsBefore,
+          reason: '测延迟重启了收件循环 —— 那一发属于改地址，不属于"再看一眼"',
+        );
+        expect(h.coordinator.isRunning, isFalse);
+      });
+
+      testWidgets('在飞那一档：文案换「正在测延迟…」、这枚禁用、转圈在场，收尾全收回', (tester) async {
+        stubChannels();
+        final done = Completer<Map<String, Duration>>();
+        final asked = <String>[];
+        final h = harness(
+          probeHosts: (hosts, {onHealthBody}) async {
+            asked.addAll(hosts);
+            return done.future;
+          },
+          recordHealth: ({
+            required host,
+            required reachable,
+            required latencyMs,
+          }) async {},
+        );
+        final l10n = await pump(tester, h.page);
+        final btn = find.byKey(const ValueKey('fnthink-host-probe'));
+        await revealTo(tester, btn);
+        await tester.tap(btn);
+        // 只推进一帧：探测还挂着，此时断的是"在飞"那三件事。
+        await tester.pump();
+        expect(find.text(l10n.fnthinkHostProbing), findsOneWidget);
+        expect(
+          tester.widget<FnthinkInlineAction>(btn).onPressed,
+          isNull,
+          reason: '在飞时再点就是发第二发探测；禁掉比"这次点击被忽略了"诚实',
+        );
+        expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+
+        done.complete({asked.single: const Duration(milliseconds: 7)});
+        await tester.pumpAndSettle();
+        expect(
+          find.text(l10n.fnthinkHostProbeNow),
+          findsOneWidget,
+          reason: '探完不把文案换回来，屏幕上就常驻一句正在做的谎',
+        );
+        expect(find.byType(CupertinoActivityIndicator), findsNothing);
+      });
+
+      testWidgets('探不到 ⇒ 翻成不可达，不许停在上一轮那 42 毫秒', (tester) async {
+        stubChannels();
+        // 第一轮答、第二轮不答：只断"界面没有 42"是不够的，那会让"从没探过"
+        // 与"这一轮探失败了"长成一个样 —— 两者本来就是两件事（与 `null 不是 false` 同族）。
+        final probe = fakeProbeHosts(
+          (hosts, round) => switch (round) {
+            1 => {for (final h in hosts) h: const Duration(milliseconds: 42)},
+            _ => {},
+          },
+        );
+        final h = harness(
+          probeHosts: probe.probe,
+          recordHealth: probe.record,
+          reachabilityOf: (host) => probe.store[host],
+        );
+        await pump(tester, h.page);
+        final btn = find.byKey(const ValueKey('fnthink-host-probe'));
+        await revealTo(tester, btn);
+        await tester.tap(btn);
+        await tester.pumpAndSettle();
+        final first = tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-host-reachability')),
+            )
+            .data!;
+        expect(first, contains('42'));
+
+        await tester.tap(btn);
+        await tester.pumpAndSettle();
+        final shown = await hostOnScreen(tester);
+        expect(probe.store[shown]?.reachable, isFalse);
+        final second = tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-host-reachability')),
+            )
+            .data!;
+        expect(second, contains('不可达'));
+        expect(
+          second,
+          isNot(contains('42')),
+          reason: '留着上一轮的毫秒数 = 用一次的旧读数替这一台说话',
+        );
+      });
+
+      testWidgets('没接探测链路时那一枚什么都不写（不许退化成"没探到就当可达"）', (tester) async {
+        stubChannels();
+        // ⚠ 记账口与读口**照旧接上**，只把探测口留空：否则这条用例恒真 ——
+        //   它要防的正是"探不到就顺手写一发可达"，那个分支必须有地方留下痕迹才看得见。
+        final probe = fakeProbeHosts((hosts, round) => {});
+        final h = harness(
+          recordHealth: probe.record,
+          reachabilityOf: (host) => probe.store[host],
+        );
+        final l10n = await pump(tester, h.page);
+        final btn = find.byKey(const ValueKey('fnthink-host-probe'));
+        await revealTo(tester, btn);
+        await tester.tap(btn);
+        await tester.pumpAndSettle();
+        expect(
+          probe.store,
+          isEmpty,
+          reason: '探测链路没接也把结论写进健康度 ⇒ 那一发"可达"是凭空报出来的',
+        );
+        final reach = tester
+            .widget<Text>(
+              find.byKey(const ValueKey('fnthink-host-reachability')),
+            )
+            .data!;
+        expect(reach, l10n.fnthinkReachabilityNever);
+        expect(
+          h.coordinator.isRunning,
+          isFalse,
+          reason: '探测链路没接也把循环起来 ⇒ 一次只读动作长出了写的副作用',
+        );
+      });
+    });
+
     testWidgets('合法值按归一后的那一份显示（大小写不是两台服务）', (tester) async {
       stubChannels();
       final h = harness();

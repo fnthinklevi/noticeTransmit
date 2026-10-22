@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
@@ -199,6 +200,11 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
   /// 改地址失败的原因（校验在 `FnthinkSettings` 那一处，这里只显示）。
   String? _hostError;
   bool _busy = false;
+
+  /// 只给「测延迟」那一枚用。⚠ **不复用 `_busy`**：那一枚是"这台正在改东西"
+  /// （改地址码／撤销口令／重置地址），把它借给一次只读探测会让按钮在**别的**操作
+  /// 进行中显示「正在测延迟…」—— 那是一句屏幕上正在撒的谎。
+  bool _probingHost = false;
 
   @override
   void initState() {
@@ -495,6 +501,25 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     if (!mounted) return;
     // 卡片上那枚徽标读的就是这一轮：不刷新就会画着上一轮的数，而用户刚看着它做完决定。
     setState(() {});
+  }
+
+  /// 手动测一次**当前这台**服务器的延迟（T168：「测延迟」那一枚）。
+  ///
+  /// ⚠ **只测、不改**：这一发不写 `fnthink.host`、不调 `_applyHost`、也不重启收件循环
+  ///   （重启是"地址变了"的副作用，见 `_applyHost` 那一段）。它改的只有健康度那一份读数。
+  /// ⚠ **与「切换服务」共用 `_probeDeclaredHosts`**：先记账、后刷新这条顺序只有一个作者。
+  ///   另起一条"探完直接 setState"的副本，就会出现一条把结论漏记的入口（§6 同族）。
+  /// ⚠ 地址为空（只可能出现在契约那一格没读出来的路上，那时整页已被错误卡顶掉）时，
+  ///   把**空列表**交给 `_probeDeclaredHosts` —— "什么都不做"那一支仍然只有那一个作者，
+  ///   这里不再自己判一遍、也不多一条没被测到的 return。
+  Future<void> _probeCurrentHost() async {
+    if (_probingHost) return;
+    setState(() => _probingHost = true);
+    try {
+      await _probeDeclaredHosts(_host.isEmpty ? const [] : [_host]);
+    } finally {
+      if (mounted) setState(() => _probingHost = false);
+    }
   }
 
   /// 两档合并成**更坏**的那一档（T155，纯函数）。
@@ -962,6 +987,30 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
               tone: FnthinkActionTone.neutral,
               onPressed: _restoreDefaultHost,
             ),
+          ],
+        ),
+        // T168：手动测一次延迟。T95 片5 那一发只在**打开「切换服务」时**探，
+        // 所以"我不换、只想知道这台现在多少毫秒"没有入口 —— 而这一格下面两行读数
+        // 恰恰是探测写出来的。按钮摆在读数正上方，谁刷新谁。
+        Row(
+          children: [
+            FnthinkInlineAction(
+              key: const ValueKey('fnthink-host-probe'),
+              label: _probingHost
+                  ? l10n.fnthinkHostProbing
+                  : l10n.fnthinkHostProbeNow,
+              // 中性档：它是"再看一眼"，不是"往前走一步"（与「恢复默认」同档）。
+              tone: FnthinkActionTone.neutral,
+              onPressed: _probingHost ? null : _probeCurrentHost,
+            ),
+            if (_probingHost) ...[
+              const SizedBox(width: 8),
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CupertinoActivityIndicator(radius: 7),
+              ),
+            ],
           ],
         ),
         // T157：这一格拆成两行 —— **服务可达**只读 `/health` 探针写的那一族；

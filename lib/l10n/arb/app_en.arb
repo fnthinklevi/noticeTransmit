@@ -1765,6 +1765,8 @@
   "fnthinkHostDesc": "Host name only (port allowed); the scheme comes from the protocol, do not type https://",
   "fnthinkHostReset": "Restore default",
   "fnthinkHostSwitch": "Switch service",
+  "fnthinkHostProbeNow": "Test latency",
+  "fnthinkHostProbing": "Testing latency...",
   "fnthinkHostRegionInternational": "Overseas (Los Angeles)",
   "fnthinkHostRegionMainland": "Mainland China (Chengdu)",
   "fnthinkHostNoCandidates": "The contract declares no selectable service address",
