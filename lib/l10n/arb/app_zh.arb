@@ -1361,6 +1361,8 @@
   "updateCurrentVersionLabel": "当前版本：",
   "updateFileSizeLabel": "文件大小：",
   "updateChangelogTitle": "更新内容",
+  "updateChangelogShowAll": "查看完整更新内容",
+  "updateChangelogCollapse": "收起",
   "updateIgnore": "忽略",
   "updateLater": "稍后",
   "updateButton": "更新",

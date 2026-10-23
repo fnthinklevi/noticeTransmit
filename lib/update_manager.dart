@@ -1123,6 +1123,35 @@ String pickUpdateChangelog({
   return trimmed.isEmpty ? zh : trimmed;
 }
 
+/// 更新日志的**显示文本**：把 CRLF 与字面量 `\n` 统一成真换行。
+///
+/// 服务端历史上把换行存成 JSON 里的字面量 `\n`（两个字符），旧界面在渲染前才替换。
+/// 现在摘要与全文都要读同一份 → 这一句就是唯一作者，别在两处各 replace 一次。
+String normalizeUpdateChangelog(String raw) =>
+    raw.replaceAll('\r\n', '\n').replaceAll('\\n', '\n');
+
+/// 首屏摘要：按行取前 [maxLines] 条**非空**行（T169）。
+///
+/// 不替服务端识别"标题行"：日志的写法是那一侧的自由，猜哪一行是标题只会在下一版
+/// 换写法时静默丢内容。取前几条非空行是唯一不需要猜的规则。
+List<String> updateChangelogSummary(String raw, {int maxLines = 4}) {
+  return normalizeUpdateChangelog(raw)
+      .split('\n')
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .take(maxLines)
+      .toList(growable: false);
+}
+
+/// 摘要之外还有没有内容（决定要不要画「查看完整更新内容」）。
+bool updateChangelogHasMore(String raw, {int maxLines = 4}) {
+  final total = normalizeUpdateChangelog(raw)
+      .split('\n')
+      .where((line) => line.trim().isNotEmpty)
+      .length;
+  return total > maxLines;
+}
+
 class VersionCheckResult {
   final bool hasUpdate;
   final String latestVersion;

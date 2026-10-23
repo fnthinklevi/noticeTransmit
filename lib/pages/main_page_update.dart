@@ -140,83 +140,17 @@ extension _MainPageUpdate on _MainPageState {
     return null;
   }
 
-  /// 三行版本号 + 可滚的更新日志。
+  /// 三行版本号 + 首屏摘要（完整日志点开再看）。
   Widget _updateDialogBody(VersionCheckResult result) {
-    final l10n = _l10n;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _infoRow(l10n.updateLatestVersionLabel, 'v${result.latestVersion}'),
-        _infoRow(
-          l10n.updateCurrentVersionLabel,
-          'v${_updateService.currentVersion}',
-        ),
-        _infoRow(
-          l10n.updateFileSizeLabel,
-          result.fileSizeStr ?? l10n.updateSizeUnknown,
-        ),
-        const SizedBox(height: 16),
-        Text(
-          l10n.updateChangelogTitle,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.inputBg(context),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          // ⚠ 这里**不套**滚动：`CupertinoAlertDialog` 已把 content 放在有界且可滚的位置里
-          // （与 `IosFormDialog` / `showIosOptionPicker` 同一课，反证 PK5/FM1 都验过）。
-          child: Text(
-            // T61 更新流双语：按软件语言**只显示一种**，英文那一份没有就回退中文
-            // （裁决在 `pickUpdateChangelog`，是纯函数 ⇒ 能被单测直接断）。
-            pickUpdateChangelog(
-              zh: result.changelog,
-              en: result.changelogEn,
-              locale: Localizations.localeOf(context),
-            ).replaceAll('\\n', '\n'),
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              color: AppColors.primaryLabel(context),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 「标签 + 值」一行（版本号 / 文件大小三处共用）。
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.primaryLabel(context),
-              ),
-            ),
-          ),
-        ],
+    return UpdateDialogBody(
+      result: result,
+      currentVersion: _updateService.currentVersion,
+      // T61 更新流双语：按软件语言**只显示一种**，英文那一份没有就回退中文
+      // （裁决在 `pickUpdateChangelog`，是纯函数 ⇒ 能被单测直接断）。
+      changelog: pickUpdateChangelog(
+        zh: result.changelog,
+        en: result.changelogEn,
+        locale: Localizations.localeOf(context),
       ),
     );
   }

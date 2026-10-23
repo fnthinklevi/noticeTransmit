@@ -1361,6 +1361,8 @@
   "updateCurrentVersionLabel": "Current version: ",
   "updateFileSizeLabel": "File size: ",
   "updateChangelogTitle": "What's new",
+  "updateChangelogShowAll": "Show full changelog",
+  "updateChangelogCollapse": "Collapse",
   "updateIgnore": "Ignore",
   "updateLater": "Later",
   "updateButton": "Update",

@@ -2697,6 +2697,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateChangelogTitle => 'What\'s new';
 
   @override
+  String get updateChangelogShowAll => 'Show full changelog';
+
+  @override
+  String get updateChangelogCollapse => 'Collapse';
+
+  @override
   String get updateIgnore => 'Ignore';
 
   @override

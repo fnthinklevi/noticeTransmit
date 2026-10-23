@@ -175,33 +175,37 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
             selected: !(_settings?.isAuto ?? true),
             onTap: _busy ? null : () => _pin(_currentOrFallback()),
           ),
-          const SizedBox(height: 16),
+          // T169：重探与「选择方式」挨着放。它问的是"现在这两台怎么样"，
+          // 紧跟着模式那两档读起来才是一件事；原来吊在整页末尾，要滑到底才够得着。
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Row(
+              children: [
+                FnthinkInlineAction(
+                  key: const ValueKey('update-server-reprobe'),
+                  label: _busy
+                      ? l10n.updateServerProbing
+                      : l10n.updateServerProbeNow,
+                  // 中性档：它是"再看一眼"（重探一次），不是"往前走一步"。
+                  tone: FnthinkActionTone.neutral,
+                  onPressed: _busy ? null : _probeAll,
+                ),
+                if (_busy)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CupertinoActivityIndicator(radius: 7),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           _sectionHeader(
             l10n.updateServerListSection,
             keyName: 'update-server-section-list',
           ),
           for (final region in UpdateServerRegion.ordered)
             _regionTile(l10n, region),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              FnthinkInlineAction(
-                key: const ValueKey('update-server-reprobe'),
-                label: _busy
-                    ? l10n.updateServerProbing
-                    : l10n.updateServerProbeNow,
-                // 中性档：它是"再看一眼"（重探一次），不是"往前走一步"。
-                tone: FnthinkActionTone.neutral,
-                onPressed: _busy ? null : _probeAll,
-              ),
-              if (_busy)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CupertinoActivityIndicator(radius: 7),
-                ),
-            ],
-          ),
           if (_settings?.autoUnprobed ?? false)
             _note(
               keyName: 'update-server-auto-unprobed',
@@ -269,9 +273,9 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
         : l10n.updateRegionInternational;
     return Padding(
       key: ValueKey('update-server-row-${region.name}'),
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 6),
       child: CupertinoButton(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
         minimumSize: Size.zero,
         // 自动档下这一行也可点：点它就等于"我要钉住这台"（切手动）。
         // 反过来说不行的时候，界面必须解释为什么不行 —— 这里选择让它一直可行。
@@ -279,6 +283,8 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // T169：一行标题 + 一行「主机 · 状态 + 徽标」。原来四行竖排（标题、主机、
+            // 状态、徽标）把两台服务器拉成了大半屏，而这一页要回答的只有"用哪台"。
             Row(
               children: [
                 Expanded(
@@ -290,31 +296,41 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
                     ),
                   ),
                 ),
-                if (inUse)
+                ChannelHealthBadge(
+                  health: _healthStore.of(kUpdateHealthFamily, region.name),
+                ),
+                if (inUse) ...[
+                  const SizedBox(width: 6),
                   Text(
                     l10n.updateServerInUse,
                     key: ValueKey('update-server-inuse-${region.name}'),
                     style: const TextStyle(fontSize: 12, color: AppColors.blue),
                   ),
+                ],
               ],
             ),
-            Text(
-              region.apiHost,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.secondaryLabel(context),
-              ),
-            ),
-            Text(
-              _statusLine(l10n, probe),
-              key: ValueKey('update-server-status-${region.name}'),
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.secondaryLabel(context),
-              ),
-            ),
-            ChannelHealthBadge(
-              health: _healthStore.of(kUpdateHealthFamily, region.name),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  region.apiHost,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _statusLine(l10n, probe),
+                    key: ValueKey('update-server-status-${region.name}'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

@@ -4850,6 +4850,18 @@ abstract class AppLocalizations {
   /// **'更新内容'**
   String get updateChangelogTitle;
 
+  /// No description provided for @updateChangelogShowAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看完整更新内容'**
+  String get updateChangelogShowAll;
+
+  /// No description provided for @updateChangelogCollapse.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get updateChangelogCollapse;
+
   /// No description provided for @updateIgnore.
   ///
   /// In zh, this message translates to:

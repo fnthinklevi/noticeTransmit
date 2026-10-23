@@ -340,4 +340,42 @@ void main() {
     expect(find.text(l10n.updateServerHelpBody), findsOneWidget);
     expect(find.text(l10n.updateServerHelpTitle), findsOneWidget);
   });
+
+  testWidgets('T169 紧凑行：主机与状态同一行，重探挪到列表之前', (tester) async {
+    await open(
+      tester,
+      answers: {
+        UpdateServerRegion.mainland: reached(
+          UpdateServerRegion.mainland,
+          ms: 50,
+          version: '1.9.9',
+          cdn: 'cdn.fnthink.com',
+        ),
+        UpdateServerRegion.international: reached(
+          UpdateServerRegion.international,
+          ms: 400,
+          version: '1.9.9',
+          cdn: 'cdn2.fnthink.top',
+        ),
+      },
+    );
+
+    // 「压成紧凑行」的结构判据：主机与状态两枚 Text 的顶边在同一行。
+    // 原来四行竖排时它们差着一整行（约 16px），这条断言会红。
+    for (final region in UpdateServerRegion.ordered) {
+      final hostDy = tester.getTopLeft(find.text(region.apiHost)).dy;
+      final statusDy = tester.getTopLeft(status(region)).dy;
+      expect(
+        (hostDy - statusDy).abs(),
+        lessThan(1.0),
+        reason: '${region.name} 那一行又回到主机、状态各占一行的形状了',
+      );
+    }
+
+    // 「模式与重探靠近」：重探必须排在服务器列表之前（原来吊在整页末尾）。
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('update-server-reprobe'))).dy,
+      lessThan(tester.getTopLeft(row(UpdateServerRegion.mainland)).dy),
+    );
+  });
 }

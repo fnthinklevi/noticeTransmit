@@ -2590,6 +2590,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get updateChangelogTitle => '更新内容';
 
   @override
+  String get updateChangelogShowAll => '查看完整更新内容';
+
+  @override
+  String get updateChangelogCollapse => '收起';
+
+  @override
   String get updateIgnore => '忽略';
 
   @override
