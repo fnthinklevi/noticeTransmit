@@ -10,6 +10,7 @@ import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../models/fnthink_peer.dart';
 import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_inbox_channel_check.dart';
 import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
@@ -35,6 +36,7 @@ class FnthinkReceiveDeps {
     required this.loadPeers,
     this.healthOf,
     this.permission,
+    this.inboxCheck,
   });
 
   factory FnthinkReceiveDeps.fromLocator() => FnthinkReceiveDeps(
@@ -44,6 +46,8 @@ class FnthinkReceiveDeps {
     presence: GetIt.instance<FnthinkPresenceScheduler>(),
     // T176：后台自检要读「精确闹钟 / 忽略电池优化」两项授权。测试构造时不传 ⇒ 那两行不画。
     permission: GetIt.instance<PermissionService>(),
+    // T173：收件通知渠道自检（读状态 / 重建 / 测试通知）。
+    inboxCheck: FnthinkInboxChannelCheck(),
     // 远程指令的「发一条」要挑收件人，而名单只能从协调者那一个读咽喉取。
     // 它不是「接收设置需要名单」，而是「这一格要推的那个页需要」——
     // 另开一条读库的路就会有两个排序口径。
@@ -64,6 +68,9 @@ class FnthinkReceiveDeps {
 
   /// 权限读数（T176）。null = 测试没注入 ⇒ 自检那两行不画。
   final PermissionService? permission;
+
+  /// 收件渠道自检（T173）。null = 测试没注入 ⇒ 那一张卡不画。
+  final FnthinkInboxChannelCheck? inboxCheck;
 }
 
 /// 接收设置（T44 的② + T56 同意门 + T88 间隔 + §4-9 保活那一行）与远程执行（T94 片2）。
@@ -132,6 +139,11 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   /// T176 自检：两项后台授权（null = 还没读到 / 测试没注入权限服务）。
   bool? _exactAlarmGranted;
   bool? _batteryOptimizationIgnored;
+
+  /// T173：收件渠道读数与自检动作的结果。
+  FnthinkInboxChannelState? _inboxChannelState;
+  String? _inboxCheckNote;
+  bool _checkingInbox = false;
 
   bool _busy = false;
 
@@ -261,14 +273,78 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
         debugPrint('[fnthink] 读后台授权失败：$e');
       }
     }
+    final inboxState = _deps.inboxCheck == null
+        ? null
+        : await _deps.inboxCheck!.state();
     if (!mounted) return;
     setState(() {
       _presence = status;
       _lastRoundAt = lastRoundAt;
       _exactAlarmGranted = exactAlarm;
       _batteryOptimizationIgnored = batteryIgnored;
+      _inboxChannelState = inboxState;
     });
   }
+
+  Future<void> _refreshInboxCheck() async {
+    final check = _deps.inboxCheck;
+    if (check == null || _checkingInbox) return;
+    setState(() {
+      _checkingInbox = true;
+      _inboxCheckNote = null;
+    });
+    final state = await check.state();
+    if (!mounted) return;
+    setState(() {
+      _checkingInbox = false;
+      _inboxChannelState = state;
+    });
+  }
+
+  Future<void> _rebuildInboxChannel() async {
+    final check = _deps.inboxCheck;
+    if (check == null || _checkingInbox) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _checkingInbox = true);
+    final id = await check.rebuild();
+    final state = await check.state();
+    if (!mounted) return;
+    setState(() {
+      _checkingInbox = false;
+      _inboxChannelState = state;
+      _inboxCheckNote = id == null
+          ? l10n.fnthinkInboxSelfCheckTestFailed
+          : l10n.fnthinkInboxSelfCheckRebuilt(id);
+    });
+  }
+
+  Future<void> _testInboxNotification() async {
+    final check = _deps.inboxCheck;
+    if (check == null) return;
+    final l10n = AppLocalizations.of(context);
+    final ok = await check.showTest();
+    if (!mounted) return;
+    setState(() {
+      _inboxCheckNote = ok
+          ? l10n.fnthinkInboxSelfCheckTestSent
+          : l10n.fnthinkInboxSelfCheckTestFailed;
+    });
+  }
+
+  String _inboxIssueText(
+    AppLocalizations l10n,
+    FnthinkInboxChannelIssue issue,
+  ) => switch (issue) {
+    FnthinkInboxChannelIssue.notificationsDisabled =>
+      l10n.fnthinkInboxIssueNotificationsOff,
+    FnthinkInboxChannelIssue.channelMissing =>
+      l10n.fnthinkInboxIssueChannelMissing,
+    FnthinkInboxChannelIssue.notHighImportance => l10n.fnthinkInboxIssueNotHigh,
+    FnthinkInboxChannelIssue.noSound => l10n.fnthinkInboxIssueNoSound,
+    FnthinkInboxChannelIssue.noVibration => l10n.fnthinkInboxIssueNoVibration,
+    FnthinkInboxChannelIssue.lockscreenNotPublic =>
+      l10n.fnthinkInboxIssueLockscreen,
+  };
 
   Future<void> _requestExactAlarm() async {
     await _deps.permission?.requestExactAlarmPermission();
@@ -546,9 +622,62 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
             // 与这一页（这台收不收别人的东西）代价不同，混一页会让"我关了接收"被读成
             // "远程执行也关了"。入口在通知引擎 hub 那一行（带前置三选一）。
             _buildReceiveCard(l10n),
+            if (_deps.inboxCheck != null) _buildInboxCheckCard(l10n),
           ],
         ],
       ),
+    );
+  }
+
+  /// T173：收件通知自检。只读原生渠道状态；三个动作都不改收件设置。
+  Widget _buildInboxCheckCard(AppLocalizations l10n) {
+    final state = _inboxChannelState;
+    final issues = state == null
+        ? const <FnthinkInboxChannelIssue>[]
+        : fnthinkInboxChannelIssues(state);
+    return FnthinkCard(
+      title: l10n.fnthinkInboxSelfCheckTitle,
+      children: [
+        if (state != null)
+          FnthinkNote(
+            keyName: 'fnthink-inbox-selfcheck-state',
+            text: issues.isEmpty
+                ? l10n.fnthinkInboxSelfCheckOk
+                : issues.map((i) => _inboxIssueText(l10n, i)).join('、'),
+          ),
+        if (_inboxCheckNote case final String note)
+          FnthinkNote(keyName: 'fnthink-inbox-selfcheck-note', text: note),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FnthinkInlineAction(
+              key: const ValueKey('fnthink-inbox-selfcheck-refresh'),
+              label: l10n.fnthinkInboxSelfCheckRefresh,
+              tone: FnthinkActionTone.neutral,
+              onPressed: _checkingInbox ? null : _refreshInboxCheck,
+            ),
+            FnthinkInlineAction(
+              key: const ValueKey('fnthink-inbox-selfcheck-settings'),
+              label: l10n.fnthinkInboxSelfCheckSettings,
+              tone: FnthinkActionTone.neutral,
+              onPressed: () => _deps.inboxCheck?.openSystemSettings(),
+            ),
+            FnthinkInlineAction(
+              key: const ValueKey('fnthink-inbox-selfcheck-rebuild'),
+              label: l10n.fnthinkInboxSelfCheckRebuild,
+              tone: FnthinkActionTone.neutral,
+              onPressed: _checkingInbox ? null : _rebuildInboxChannel,
+            ),
+            FnthinkInlineAction(
+              key: const ValueKey('fnthink-inbox-selfcheck-test'),
+              label: l10n.fnthinkInboxSelfCheckTest,
+              tone: FnthinkActionTone.neutral,
+              onPressed: _testInboxNotification,
+            ),
+          ],
+        ),
+      ],
     );
   }
 

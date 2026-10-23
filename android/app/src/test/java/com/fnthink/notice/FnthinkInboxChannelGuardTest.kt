@@ -41,7 +41,7 @@ class FnthinkInboxChannelGuardTest {
         )
         // 删除要在"见到新渠道就 return"那一句**之前**：提前 return 的老设备永远清不到旧渠道
         val deleteAt = ensure.indexOf("deleteNotificationChannel(LEGACY_CHANNEL_ID)")
-        val earlyReturnAt = ensure.indexOf("if (manager.getNotificationChannel(CHANNEL_ID) != null) return")
+        val earlyReturnAt = ensure.indexOf("if (manager.getNotificationChannel(id) != null) return")
         assertTrue(
             "守卫锚点丢了（ensureChannel 的结构变了）—— 本守卫需要按新结构重排",
             deleteAt >= 0 && earlyReturnAt >= 0,
@@ -50,19 +50,28 @@ class FnthinkInboxChannelGuardTest {
             "删除旧渠道必须发生在「新渠道已存在就 return」之前，否则老设备永远清不到它",
             deleteAt < earlyReturnAt,
         )
+        assertTrue(
+            "ensureChannel 必须把建渠道交给 createHighChannel（T173 起重建也走同一条）",
+            ensure.contains("createHighChannel(manager, id)"),
+        )
     }
 
     @Test
     fun channelCreationSetsVibrationAndSoundExplicitly() {
-        val ensure = extractFunction(displaySource, "internal fun ensureChannel(")
+        // T173：建渠道那段挪进了 `createHighChannel`（重建也走它），断言跟着去那儿读。
+        val create = extractFunction(displaySource, "private fun createHighChannel(")
+        assertTrue(
+            "没找到 createHighChannel 函数体 —— 守卫本身失效了",
+            create.isNotEmpty(),
+        )
         assertTrue(
             "渠道创建必须显式给震动模板（真机取证：mVibrationPattern=null 是我们没配，不是 ROM 关的）",
-            ensure.contains("vibrationPattern = longArrayOf(") && ensure.contains("enableVibration(true)"),
+            create.contains("vibrationPattern = longArrayOf(") && create.contains("enableVibration(true)"),
         )
         assertTrue(
             "渠道创建必须显式给声音（setSound + 系统默认通知音）—— 声音只在创建那一刻绑定",
-            ensure.contains("setSound(") &&
-                ensure.contains("DEFAULT_NOTIFICATION_URI"),
+            create.contains("setSound(") &&
+                create.contains("DEFAULT_NOTIFICATION_URI"),
         )
     }
 

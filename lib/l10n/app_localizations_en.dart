@@ -4575,6 +4575,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkGrantNow => 'Grant';
 
   @override
+  String get fnthinkInboxSelfCheckTitle => 'Notification self-check';
+
+  @override
+  String get fnthinkInboxSelfCheckOk => 'Inbox channel is configured correctly';
+
+  @override
+  String get fnthinkInboxIssueNotificationsOff =>
+      'System notifications are disabled';
+
+  @override
+  String get fnthinkInboxIssueChannelMissing =>
+      'Inbox channel not created yet (created on the first message)';
+
+  @override
+  String get fnthinkInboxIssueNotHigh =>
+      'Channel was downgraded (no more heads-up)';
+
+  @override
+  String get fnthinkInboxIssueNoSound => 'Channel has no sound';
+
+  @override
+  String get fnthinkInboxIssueNoVibration => 'Channel has no vibration';
+
+  @override
+  String get fnthinkInboxIssueLockscreen => 'Hidden on lock screen';
+
+  @override
+  String get fnthinkInboxSelfCheckSettings => 'System settings';
+
+  @override
+  String get fnthinkInboxSelfCheckRebuild => 'Rebuild channel';
+
+  @override
+  String get fnthinkInboxSelfCheckTest => 'Send test';
+
+  @override
+  String get fnthinkInboxSelfCheckRefresh => 'Re-check';
+
+  @override
+  String fnthinkInboxSelfCheckRebuilt(Object id) {
+    return 'Switched to a new high-priority channel: $id';
+  }
+
+  @override
+  String get fnthinkInboxSelfCheckTestSent =>
+      'Test notification sent: check the lock screen for sound and vibration';
+
+  @override
+  String get fnthinkInboxSelfCheckTestFailed =>
+      'Test notification was not shown (check system notification permission first)';
+
+  @override
   String get fnthinkPollIntervalTitle => 'Poll interval';
 
   @override

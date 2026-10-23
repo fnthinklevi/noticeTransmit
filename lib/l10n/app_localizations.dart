@@ -7885,6 +7885,96 @@ abstract class AppLocalizations {
   /// **'去授权'**
   String get fnthinkGrantNow;
 
+  /// No description provided for @fnthinkInboxSelfCheckTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知自检'**
+  String get fnthinkInboxSelfCheckTitle;
+
+  /// No description provided for @fnthinkInboxSelfCheckOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'收件渠道配置正常'**
+  String get fnthinkInboxSelfCheckOk;
+
+  /// No description provided for @fnthinkInboxIssueNotificationsOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统通知权限关着'**
+  String get fnthinkInboxIssueNotificationsOff;
+
+  /// No description provided for @fnthinkInboxIssueChannelMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'收件渠道还没建（第一次收件会自动建）'**
+  String get fnthinkInboxIssueChannelMissing;
+
+  /// No description provided for @fnthinkInboxIssueNotHigh.
+  ///
+  /// In zh, this message translates to:
+  /// **'渠道被系统降级（不再弹横幅）'**
+  String get fnthinkInboxIssueNotHigh;
+
+  /// No description provided for @fnthinkInboxIssueNoSound.
+  ///
+  /// In zh, this message translates to:
+  /// **'渠道没有声音'**
+  String get fnthinkInboxIssueNoSound;
+
+  /// No description provided for @fnthinkInboxIssueNoVibration.
+  ///
+  /// In zh, this message translates to:
+  /// **'渠道没有震动'**
+  String get fnthinkInboxIssueNoVibration;
+
+  /// No description provided for @fnthinkInboxIssueLockscreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁屏不显示'**
+  String get fnthinkInboxIssueLockscreen;
+
+  /// No description provided for @fnthinkInboxSelfCheckSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'去系统设置'**
+  String get fnthinkInboxSelfCheckSettings;
+
+  /// No description provided for @fnthinkInboxSelfCheckRebuild.
+  ///
+  /// In zh, this message translates to:
+  /// **'重建渠道'**
+  String get fnthinkInboxSelfCheckRebuild;
+
+  /// No description provided for @fnthinkInboxSelfCheckTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'发测试通知'**
+  String get fnthinkInboxSelfCheckTest;
+
+  /// No description provided for @fnthinkInboxSelfCheckRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新自检'**
+  String get fnthinkInboxSelfCheckRefresh;
+
+  /// No description provided for @fnthinkInboxSelfCheckRebuilt.
+  ///
+  /// In zh, this message translates to:
+  /// **'已切到新的高优先级渠道：{id}'**
+  String fnthinkInboxSelfCheckRebuilt(Object id);
+
+  /// No description provided for @fnthinkInboxSelfCheckTestSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试通知已发出：去锁屏看一眼，确认响铃与震动'**
+  String get fnthinkInboxSelfCheckTestSent;
+
+  /// No description provided for @fnthinkInboxSelfCheckTestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试通知没发出去（先看系统通知权限）'**
+  String get fnthinkInboxSelfCheckTestFailed;
+
   /// No description provided for @fnthinkPollIntervalTitle.
   ///
   /// In zh, this message translates to:

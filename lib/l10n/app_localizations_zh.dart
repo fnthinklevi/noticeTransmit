@@ -4355,6 +4355,53 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkGrantNow => '去授权';
 
   @override
+  String get fnthinkInboxSelfCheckTitle => '通知自检';
+
+  @override
+  String get fnthinkInboxSelfCheckOk => '收件渠道配置正常';
+
+  @override
+  String get fnthinkInboxIssueNotificationsOff => '系统通知权限关着';
+
+  @override
+  String get fnthinkInboxIssueChannelMissing => '收件渠道还没建（第一次收件会自动建）';
+
+  @override
+  String get fnthinkInboxIssueNotHigh => '渠道被系统降级（不再弹横幅）';
+
+  @override
+  String get fnthinkInboxIssueNoSound => '渠道没有声音';
+
+  @override
+  String get fnthinkInboxIssueNoVibration => '渠道没有震动';
+
+  @override
+  String get fnthinkInboxIssueLockscreen => '锁屏不显示';
+
+  @override
+  String get fnthinkInboxSelfCheckSettings => '去系统设置';
+
+  @override
+  String get fnthinkInboxSelfCheckRebuild => '重建渠道';
+
+  @override
+  String get fnthinkInboxSelfCheckTest => '发测试通知';
+
+  @override
+  String get fnthinkInboxSelfCheckRefresh => '重新自检';
+
+  @override
+  String fnthinkInboxSelfCheckRebuilt(Object id) {
+    return '已切到新的高优先级渠道：$id';
+  }
+
+  @override
+  String get fnthinkInboxSelfCheckTestSent => '测试通知已发出：去锁屏看一眼，确认响铃与震动';
+
+  @override
+  String get fnthinkInboxSelfCheckTestFailed => '测试通知没发出去（先看系统通知权限）';
+
+  @override
   String get fnthinkPollIntervalTitle => '收取间隔';
 
   @override

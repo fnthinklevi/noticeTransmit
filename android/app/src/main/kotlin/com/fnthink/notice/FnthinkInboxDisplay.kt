@@ -56,6 +56,16 @@ object FnthinkInboxDisplay {
     /** 点通知时带的那枚 extra。读者是 `MainActivity`（T83），Dart 侧不许重打这个字符串。 */
     const val EXTRA_MESSAGE_ID = "extra_fnthink_message_id"
 
+    /** T173：重建渠道后把新 id 存在这里；缺省仍是 [CHANNEL_ID]。 */
+    private const val PREFS_NAME = "fnthink_inbox_channel"
+    private const val KEY_CHANNEL_ID = "channel_id"
+
+    /** 当前实际使用的渠道 id（重建过就是新 id）。 */
+    fun currentChannelId(context: Context): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_CHANNEL_ID, CHANNEL_ID)
+            ?.takeIf { it.isNotBlank() } ?: CHANNEL_ID
+
     /** 一条要显示的东西的**全部决定**都在这里，`show` 只负责执行 —— 纯函数部分能在 JVM 上测。 */
     data class Spec(
         val messageId: String,
@@ -86,6 +96,7 @@ object FnthinkInboxDisplay {
         body: String,
         appName: String = "",
         unreadCount: Int = 0,
+        channel: String = CHANNEL_ID,
     ): Spec {
         val trimmedTitle = title.trim()
         val trimmedApp = appName.trim()
@@ -106,7 +117,7 @@ object FnthinkInboxDisplay {
             messageId = messageId,
             tag = messageId,
             notificationId = NOTIFICATION_ID,
-            channel = CHANNEL_ID,
+            channel = channel,
             // 按发送方归组：一台 NAS 推十条会收成一组，而不是把通知栏刷满。
             groupKey = "fnthink:$sender",
             title = displayTitle,
@@ -193,6 +204,70 @@ object FnthinkInboxDisplay {
      * 那个 return），所以谁先建都对；这一条由 `FnthinkAlertDisplay` 的用例钉住
      * （它读的就是这个常量，改这里它当场红）。
      */
+    /**
+     * T173：把当前收件渠道的**可读事实**交出去（自检页只读、不猜）。
+     *
+     * `channelExists=false` 时其余几格给的是"没有"而不是"正常"：第一次收件会建渠道，
+     * 那之前读到的是"还没建"，不是"配置坏了"。
+     */
+    fun state(context: Context): Map<String, Any?> {
+        val enabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val id = currentChannelId(context)
+        val channel = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            manager?.getNotificationChannel(id)
+        } else {
+            null
+        }
+        return mapOf(
+            "channelId" to id,
+            "channelExists" to (channel != null),
+            "notificationsEnabled" to enabled,
+            "importance" to (channel?.importance ?: 0),
+            "highImportance" to (channel?.importance == NotificationManager.IMPORTANCE_HIGH),
+            "sound" to (channel?.sound?.toString() ?: ""),
+            "vibration" to (channel?.shouldVibrate() ?: false),
+            "lockscreenVisibility" to (channel?.lockscreenVisibility ?: -1),
+            "showBadge" to (channel?.canShowBadge() ?: false),
+        )
+    }
+
+    /**
+     * T173：重建一条**新的**高优先级渠道并切过去。
+     *
+     * 为什么必须换 id：渠道的 importance/声音/震动在创建后**不可由程序改**；在旧 id 上
+     * `createNotificationChannel` 只会更新名称与描述，用户降过的那几档不会回来。
+     * 旧 id 不删：它上面可能还挂着用户的历史设置，删除等于顺手抹掉他没要求动的东西。
+     */
+    fun rebuildChannel(context: Context): String {
+        val id = "fnthink_inbox_v${System.currentTimeMillis()}"
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val manager = context.getSystemService(NotificationManager::class.java)
+            if (manager != null) createHighChannel(manager, id)
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_CHANNEL_ID, id)
+            .apply()
+        return id
+    }
+
+    /** T173：发一条测试通知（不落收件表、不产生未读）。返回 false = 这次没显示。 */
+    fun showTest(context: Context): Boolean {
+        val spec = Spec(
+            messageId = "fnthink-selfcheck-${System.currentTimeMillis()}",
+            tag = "fnthink-selfcheck",
+            notificationId = NOTIFICATION_ID,
+            channel = currentChannelId(context),
+            groupKey = "fnthink:selfcheck",
+            title = I18n.fnthinkInboxTestTitle(),
+            text = I18n.fnthinkInboxTestText(),
+            sender = "selfcheck",
+            unreadCount = 0,
+        )
+        return show(context, spec)
+    }
+
     internal fun ensureChannel(context: Context) {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return
         try {
@@ -204,41 +279,42 @@ object FnthinkInboxDisplay {
             if (manager.getNotificationChannel(LEGACY_CHANNEL_ID) != null) {
                 manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
             }
-            if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    I18n.fnthinkInboxChannelName(),
-                    // T55 ① 上岛：DEFAULT 只进通知栏、不弹 heads-up；HIGH 才弹。
-                    // ⚠ 这一行**只在渠道不存在时生效**（下一行就是那个 return），
-                    // 所以升档只能换 CHANNEL_ID —— 见 CHANNEL_ID 上面那段取舍。
-                    NotificationManager.IMPORTANCE_HIGH,
-                ).apply {
-                    description = I18n.fnthinkInboxChannelDescription()
-                    // T55 ② 锁屏：这一层是**用户可在系统设置里改的那一档**，
-                    // 通知那一层的 `setVisibility` 管不了它 —— 两层都要 PUBLIC。
-                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                    // T55 ③ 角标：渠道默认 `setShowBadge(true)`，这里**显式写出来**而不是靠默认 ——
-                    // 靠默认的那天默认值一改，这条就静默失效，而报告里看不出任何东西。
-                    setShowBadge(true)
-                    // T137 验收②：震动与声音**显式给**，不靠系统默认兜着。
-                    // 真机取证：这枚渠道盘上 `mVibrationPattern=null`＋`mVibrationEnabled=false`，
-                    // 而同机别家 HIGH 渠道写着 `[100,100,200]` —— "不震"是我们没配，不是 ROM 关的。
-                    // ⚠ 与 importance 同一个物理事实：这些只在**渠道创建那一次**生效；
-                    //   已装设备盘上的旧渠道不会被这行改写 —— 那一半由界面引导去系统设置（T137 验收③）。
-                    vibrationPattern = longArrayOf(100, 100, 200)
-                    enableVibration(true)
-                    setSound(
-                        android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
-                        android.media.AudioAttributes.Builder()
-                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
-                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build(),
-                    )
-                },
-            )
+            val id = currentChannelId(context)
+            if (manager.getNotificationChannel(id) != null) return
+            createHighChannel(manager, id)
         } catch (e: Exception) {
             android.util.Log.e("FnthinkInboxDisplay", "收件通知渠道创建失败", e)
         }
+    }
+
+    private fun createHighChannel(manager: NotificationManager, channelId: String) {
+        manager.createNotificationChannel(
+            NotificationChannel(
+                channelId,
+                I18n.fnthinkInboxChannelName(),
+                // T55 ① 上岛：DEFAULT 只进通知栏、不弹 heads-up；HIGH 才弹。
+                // ⚠ 这一行**只在渠道不存在时生效**（上一处就是那个 return），
+                // 所以升档只能换 id —— 见 CHANNEL_ID 上面那段取舍。
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = I18n.fnthinkInboxChannelDescription()
+                // T55 ② 锁屏：这一层是**用户可在系统设置里改的那一档**，
+                // 通知那一层的 `setVisibility` 管不了它 —— 两层都要 PUBLIC。
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                // T55 ③ 角标：渠道默认 `setShowBadge(true)`，这里**显式写出来**而不是靠默认 ——
+                // 靠默认的那天默认值一改，这条就静默失效，而报告里看不出任何东西。
+                setShowBadge(true)
+                // T137 验收②：震动与声音**显式给**，不靠系统默认兜着。
+                vibrationPattern = longArrayOf(100, 100, 200)
+                enableVibration(true)
+                setSound(
+                    android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
+            },
+        )
     }
 }

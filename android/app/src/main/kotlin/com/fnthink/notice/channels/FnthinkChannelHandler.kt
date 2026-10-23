@@ -87,6 +87,8 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                     body = call.argument<String>("body").orEmpty(),
                     // T172：来源应用名（转发通知才有）。缺失按空串 —— 旧 Dart 调不到这一格。
                     appName = call.argument<String>("appName").orEmpty(),
+                    // T173：重建过渠道的设备用新 id 显示；没重建过就是 v2。
+                    channel = FnthinkInboxDisplay.currentChannelId(context),
                     // T55 ③ 角标那个数。**数法只有 Dart 一处**（`countFnthinkInboxUnread`）：
                     // 原生这边不去查库也不自己数 —— 数法抄第二份迟早与首页那张卡对不上，
                     // 而"角标 3、首页写 5"是用户会当场看见的那种不一致。
@@ -99,6 +101,13 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             // 与收件显示同一条渠道与同一条"没显示就回 false"的纪律：
             // 回 false 的那一次执行会被记成失败（对面收到 done 会以为用户被提醒过了）。
             "showFnthinkAlert" -> result.success(FnthinkAlertDisplay.show(context))
+            // ── T173：收件通知自检（只读状态 / 重建渠道 / 发测试通知）──
+            "fnthinkInboxChannelState" ->
+                result.success(FnthinkInboxDisplay.state(context))
+            "fnthinkInboxChannelRebuild" ->
+                result.success(FnthinkInboxDisplay.rebuildChannel(context))
+            "fnthinkInboxShowTest" ->
+                result.success(FnthinkInboxDisplay.showTest(context))
             // ── T124 片B：打开本机登记过的一条入口（`app:launch`）──
             // 目标是 Dart 侧校验过的串（`pkg/cls` 或一条带 scheme 的 URI）；
             // 原生这一层只负责"把它交给系统"，打开不了就回 false（与显示那几发同一条纪律）。

@@ -276,6 +276,12 @@ object I18n {
     fun fnthinkInboxChannelDescription(): String =
         if (isEn) "Messages pushed to this device by paired devices and endpoints"
         else "由已配对设备与接入端点推给本机的消息"
+    // T173：通知自检发出的那一条测试通知（不走收件表、不产生未读）。
+    fun fnthinkInboxTestTitle(): String =
+        if (isEn) "Fnthink inbox test" else "幻念推送 · 收件测试"
+    fun fnthinkInboxTestText(): String =
+        if (isEn) "If you can see this on the lock screen, with sound and vibration, the inbox channel is healthy."
+        else "能在锁屏看到这一条、并且响铃/震动，说明收件渠道配置正常。"
     // ── 远程「让这台响一条」（T124 片B 的 alert:ring）──
     // 与收件那条通知**同一条渠道**（见 FnthinkAlertDisplay 的类注释：另开一条等于
     // 把用户关掉的声音偷偷打开），文案上分得开这两类事。
