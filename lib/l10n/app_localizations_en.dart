@@ -3579,6 +3579,29 @@ class AppLocalizationsEn extends AppLocalizations {
       'The server decides expiry and whether it was used; this phone only puts it out there';
 
   @override
+  String get fnthinkPairingLifecycleActive =>
+      'This code still looks valid: the other device can pair with it now';
+
+  @override
+  String get fnthinkPairingLifecycleConsumed =>
+      'This code has been used: it paired successfully once and will not be accepted again';
+
+  @override
+  String get fnthinkPairingLifecycleExpired =>
+      'This code looks expired: generate a new one';
+
+  @override
+  String get fnthinkPairingLifecycleNotPublished =>
+      'This code is invalid: the server never received it, so pairing will fail';
+
+  @override
+  String get fnthinkPairingLifecycleUnknown =>
+      'Lifecycle readings are incomplete (age or server acknowledgement is unknown)';
+
+  @override
+  String get fnthinkPairingRegenerate => 'Generate new';
+
+  @override
   String get fnthinkIdentityKey => 'Identity key';
 
   @override

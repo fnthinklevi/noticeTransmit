@@ -3424,6 +3424,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairingExpireNote => '是否过期、有没有被用掉都由服务器判，这台手机只负责把它挂出来';
 
   @override
+  String get fnthinkPairingLifecycleActive => '这一枚看起来还有效：对端现在可以用它配对';
+
+  @override
+  String get fnthinkPairingLifecycleConsumed => '这一枚已经用过了：成功配对过一次，它不会再被接受';
+
+  @override
+  String get fnthinkPairingLifecycleExpired => '这一枚看起来过期了：请重新生成';
+
+  @override
+  String get fnthinkPairingLifecycleNotPublished => '这一枚已失效：服务器没收到它，对端配上不去';
+
+  @override
+  String get fnthinkPairingLifecycleUnknown => '这一枚的时限读数不完整（不知道挂了多久/服务器收没收到）';
+
+  @override
+  String get fnthinkPairingRegenerate => '重新生成';
+
+  @override
   String get fnthinkIdentityKey => '身份密钥';
 
   @override

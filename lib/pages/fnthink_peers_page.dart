@@ -15,6 +15,7 @@ import '../services/fnthink_grant_items.dart';
 import '../services/fnthink_l2_actions.dart';
 import '../services/fnthink_pair_items.dart';
 import '../services/fnthink_pair_link.dart';
+import '../services/fnthink_pairing_lifecycle.dart';
 import '../services/fnthink_peer_presence_display.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
@@ -1238,6 +1239,11 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       // 不是"我打算授出去的清单"（两件事两个名字，见 confirmPairing 里那段）。
       items: (_pairChecked[request.requestId] ?? const <String>[]).toList(),
     );
+    // T171：成功同意一次 ⇒ 本机刚挂出的那枚口令已经用掉了。标记在**答复成功之后**写，
+    // 失败/拒绝都不算「用过」（那两件事之后那枚码仍可被重试）。
+    if (approve && answer.ok) {
+      await FnthinkPairingLifecycleStore.markConsumed();
+    }
     if (!mounted) return;
     setState(() {
       _busy = false;

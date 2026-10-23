@@ -14,6 +14,7 @@ import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_endpoint_probe.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_pairing_ack.dart';
+import '../services/fnthink_pairing_lifecycle.dart';
 import '../services/fnthink_peer_presence_display.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
@@ -173,6 +174,9 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
   /// 剩余时间那一行说的是本机倒计时，所以三态下都可以显示 —— 但必须和这一行一起读。
   bool? _pairingAcked;
 
+  /// T171：这一枚口令在本机记下的「成功配对过」。
+  bool _pairingConsumed = false;
+
   /// `_pairingAcked == false` 时服务器/前置给的原话（与状态行同一条纪律：不折叠成"出错了"）。
   String? _pairingPublishNote;
 
@@ -250,6 +254,9 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     // 读的是 prefs 那一枚版本号（与协调者、接收页同一个判据），不在这里另算一遍。
     final consented = await settings.hasRelayConsent();
     final retentionDays = await settings.retentionDays();
+    final pairingConsumed = pairing == null
+        ? false
+        : await FnthinkPairingLifecycleStore.isConsumed();
     if (!mounted) return;
     setState(() {
       _settings = settings;
@@ -258,6 +265,7 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       _retentionDays = retentionDays;
       _addressCode = addressCode;
       _pairing = pairing;
+      _pairingConsumed = pairingConsumed;
       _identity = identity;
       _identityUnavailable = identity == null;
       _consented = consented;
@@ -319,12 +327,15 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     setState(() {
       _pairing = armed;
       _addressCode = code.value;
+      _pairingConsumed = false;
       _credentialError = null;
       // 刚挂的那一发还没问过服务器：先按"不知道"显示，别沿用上一枚的确认状态。
       _pairingAcked = null;
       _pairingPublishNote = null;
       _busy = false;
     });
+    // T171：上一枚的「用过」不能算到这一枚头上。
+    await FnthinkPairingLifecycleStore.clear();
     // 本机写完了，还要服务器也认这枚口令 —— 那才是对端能不能配上唯一取决于的东西。
     await _publishPairingCode(armed.code.value);
   }
@@ -364,9 +375,11 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     final credentials = _credentials;
     if (credentials == null) return;
     await credentials.clearPairingCode();
+    await FnthinkPairingLifecycleStore.clear();
     if (!mounted) return;
     setState(() {
       _pairing = null;
+      _pairingConsumed = false;
       // 撤掉之后再进这一页，"服务器收没收"又回到"不知道"：留着上一次的确认会变成假信息。
       _pairingAcked = null;
       _pairingPublishNote = null;
@@ -877,10 +890,29 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
               ),
             ],
           ),
-        if (pairing != null)
+        if (pairing != null) ...[
+          // T171：只有还看起来有效时才报「已挂出 N 秒」；过期/用过/没上到服务器
+          // 再报时长会让用户以为它还有效。
+          if (_pairingLifecycle(pairing) == FnthinkPairingLifecycle.active ||
+              _pairingLifecycle(pairing) == FnthinkPairingLifecycle.unknown)
+            FnthinkNote(
+              keyName: 'fnthink-pairing-age',
+              text: l10n.fnthinkPairingHeld(_heldSeconds(pairing)),
+            ),
           FnthinkNote(
-            keyName: 'fnthink-pairing-age',
-            text: l10n.fnthinkPairingHeld(_heldSeconds(pairing)),
+            keyName: 'fnthink-pairing-lifecycle',
+            text: _pairingLifecycleText(l10n, pairing),
+          ),
+        ],
+        if (pairing != null &&
+            _pairingLifecycle(pairing) != FnthinkPairingLifecycle.active)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FnthinkInlineAction(
+              key: const ValueKey('fnthink-pairing-regenerate'),
+              label: l10n.fnthinkPairingRegenerate,
+              onPressed: _busy ? null : _armPairingCode,
+            ),
           ),
         // 「已挂出」那一句说的是本机的倒计时；这一句才回答"对端能不能拿它来配"。
         // 三态分开写：没问过服务器与问过但没成，是两种完全不同的用户动作（等一等 vs 重来一次）。
@@ -962,6 +994,27 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     if (age == null) return AppLocalizations.of(context).unknown;
     return '${(age / 1000).floor()}s';
   }
+
+  FnthinkPairingLifecycle _pairingLifecycle(FnthinkArmedPairingCode pairing) =>
+      fnthinkPairingLifecycleOf(
+        consumed: _pairingConsumed,
+        looksExpired: pairing.looksExpired(
+          DateTime.now().toUtc().millisecondsSinceEpoch,
+        ),
+        acked: _pairingAcked,
+      );
+
+  String _pairingLifecycleText(
+    AppLocalizations l10n,
+    FnthinkArmedPairingCode pairing,
+  ) => switch (_pairingLifecycle(pairing)) {
+    FnthinkPairingLifecycle.active => l10n.fnthinkPairingLifecycleActive,
+    FnthinkPairingLifecycle.consumed => l10n.fnthinkPairingLifecycleConsumed,
+    FnthinkPairingLifecycle.expired => l10n.fnthinkPairingLifecycleExpired,
+    FnthinkPairingLifecycle.notPublished =>
+      l10n.fnthinkPairingLifecycleNotPublished,
+    FnthinkPairingLifecycle.unknown => l10n.fnthinkPairingLifecycleUnknown,
+  };
 
   /// T47：收件保留的选档弹层（与换服务器同一件形状：标题 + 若干行 + 选中回一个值）。
   /// 取消 ⇒ 什么都不写；写到盘的是"选过那一档"，非法值在 settings 那一格当场抛。

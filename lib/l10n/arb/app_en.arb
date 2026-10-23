@@ -1761,6 +1761,12 @@
     }
   },
   "fnthinkPairingExpireNote": "The server decides expiry and whether it was used; this phone only puts it out there",
+  "fnthinkPairingLifecycleActive": "This code still looks valid: the other device can pair with it now",
+  "fnthinkPairingLifecycleConsumed": "This code has been used: it paired successfully once and will not be accepted again",
+  "fnthinkPairingLifecycleExpired": "This code looks expired: generate a new one",
+  "fnthinkPairingLifecycleNotPublished": "This code is invalid: the server never received it, so pairing will fail",
+  "fnthinkPairingLifecycleUnknown": "Lifecycle readings are incomplete (age or server acknowledgement is unknown)",
+  "fnthinkPairingRegenerate": "Generate new",
   "fnthinkIdentityKey": "Identity key",
   "fnthinkKeystoreOn": "Held by the system keystore",
   "fnthinkKeystoreOff": "Stored in app files only (no keystore on this device)",
