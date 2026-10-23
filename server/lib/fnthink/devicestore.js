@@ -329,6 +329,26 @@ function grantPairLegs(contract, devices, confirmerCode, requesterCode, level, i
   return { forward, reverse, reverseSkipped: null };
 }
 
+/// A 改一份已经存在的授权（T174，`pairGrantUpdate` 的唯一写入路径）。
+///
+/// 与 `approvePeer` 共用同一个写入咽喉，**唯一的区别是"不创建关系"**：
+/// 那条关系必须已经在本机（签名者）的 `grantsBy` 里；不存在时返回 null，由路由回
+/// `updated:false`。放开这一条就等于让一次旧签名把早已划掉的对端请回来 —— 而屏幕上
+/// 没人点过任何一下「同意」。撤销后再要恢复，唯一的路是重新配对。
+///
+/// ⚠ 写入走 `approvePeer` 而不是在这里另拼一个对象：`revision` 自增、档位/清单校验、
+///   唯一写入者的注释都只该有一处。这里只负责"先看有没有那一段"。
+function updatePeerGrant(contract, devices, addressCode, peerCode, level, items, now) {
+  const record = devices[keyOf(contract, addressCode)];
+  if (!record) throw new Error('设备未登记（改授权不能挂在没有记录的设备上）');
+  const peerKey = keyOf(contract, peerCode);
+  if (peerKey === null || !isValidAddressCode(contract, peerKey)) {
+    throw new Error('对方地址码不合法（改授权不能指向一个不像地址码的东西）');
+  }
+  if (!peerGrant(contract, record, peerCode)) return null;
+  return approvePeer(contract, devices, addressCode, peerCode, level, items, now);
+}
+
 /// 反向那一段的三条契约旋钮（T130 片2）。只认本实现会执行的取值，缺键就抛 —— 不补默认值：
 /// "这一次确认到底创建几段"这件事一旦由实现挑，挑错的那一侧要么是两个都以为配好了却发不出去，
 /// 要么是多出一段谁都没点头的授权，而两种在界面上都长得像"配对成功"。
@@ -1054,6 +1074,7 @@ module.exports = {
   DEVICE_CAP_CODE,
   DEVICE_KEY_SWAP_CODE,
   approvePeer,
+  updatePeerGrant,
   grantPairLegs,
   reverseGrantEnabled,
   revokePeer,

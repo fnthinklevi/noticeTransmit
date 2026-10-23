@@ -84,6 +84,13 @@ void main() {
     FnthinkIdentitySigner? signerOverride,
     FnthinkServiceFactory? serviceFactory,
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
+    Future<bool> Function(
+      String peerAddress, {
+      required String level,
+      required List<String> items,
+      int? revision,
+    })?
+    updateGrant,
     Future<bool> Function(String peerAddress)? removePeer,
     Future<void> Function({required bool keepAwake, int? afterSeconds})?
     presenceNotice,
@@ -103,6 +110,7 @@ void main() {
     signer: signerOverride ?? signer(true),
     persist: persist,
     recordPeer: recordPeer,
+    updateGrant: updateGrant,
     removePeer: removePeer,
     presenceNotice: presenceNotice,
     recordSent: recordSent,
@@ -877,6 +885,131 @@ void main() {
       expect(asked, isEmpty);
       expect(result.ok, isFalse);
       expect(result.reason, isNotNull);
+    });
+  });
+
+  group('配对后改权限 updatePeerGrant（T174）', () {
+    const peer = FnthinkPeer(
+      peerAddress: '8KMNPQRSTVWX999777',
+      publicKey: 'AAAA',
+      level: 'L2',
+      grantedAt: 1780000000000,
+      items: ['alert:ring'],
+    );
+
+    FnthinkServiceFactory grantFactory({
+      required List<http.Request> sink,
+      String body =
+          '{"updated":true,"level":"L2","items":["alert:ring"],"revision":2,'
+          '"serverTime":1800000000000}',
+      int status = 200,
+    }) =>
+        (spec) => FnthinkReceiverService(
+          contract: spec.contract,
+          baseUri: spec.baseUri,
+          signer: spec.signer,
+          addressCode: spec.addressCode,
+          client: MockClient((req) async {
+            sink.add(req);
+            return http.Response(body, status);
+          }),
+        );
+
+    test('服务端认下之后，本机按**服务端回的那份**写（不是本机发出去的那份）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final asked = <http.Request>[];
+      List<String>? writtenItems;
+      String? writtenLevel;
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: grantFactory(sink: asked),
+        updateGrant:
+            (address, {required level, required items, int? revision}) async {
+              writtenItems = items;
+              writtenLevel = level;
+              return true;
+            },
+      );
+      final change = await c.updatePeerGrant(
+        peer,
+        items: const ['alert:ring', 'notification'],
+      );
+      expect(change.ok, isTrue);
+      expect(change.wrote, isTrue);
+      final fields = jsonDecode(asked.single.body)['fields']! as Map;
+      expect(fields['target'], peer.peerAddress);
+      expect(asked.single.url.path, contract.apiPath('pairGrantUpdate'));
+      expect(writtenLevel, 'L2');
+      expect(writtenItems, [
+        'alert:ring',
+      ], reason: '服务端哪天收紧/去重时本机要跟着它走，否则屏幕显示一份它并不认的清单');
+    });
+
+    test('updated:false ⇒ 本机一个字都不写（关系不在服务端了）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      var wrote = false;
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: grantFactory(
+          sink: <http.Request>[],
+          body: '{"updated":false,"serverTime":1800000000000}',
+        ),
+        updateGrant:
+            (address, {required level, required items, int? revision}) async {
+              wrote = true;
+              return true;
+            },
+      );
+      final change = await c.updatePeerGrant(peer, items: const []);
+      expect(change.ok, isFalse);
+      expect(change.reason, 'pair-grant-update-not-found');
+      expect(wrote, isFalse, reason: '服务端没认，本机写下去就是两份互相矛盾的授权');
+    });
+
+    test('词表外的项在签名之前就拦下，一个字节都不发', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: grantFactory(sink: asked),
+        updateGrant: (
+          address, {
+          required level,
+          required items,
+          int? revision,
+        }) async => true,
+      );
+      final change = await c.updatePeerGrant(
+        peer,
+        items: const ['not-an-item'],
+      );
+      expect(change.ok, isFalse);
+      expect(change.reason, 'unknown-item:not-an-item');
+      expect(asked, isEmpty);
+    });
+
+    test('服务端认了而本机没写成 ⇒ 说破（skipped=writeFailed），不冒充成功', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: grantFactory(sink: <http.Request>[]),
+        updateGrant:
+            (address, {required level, required items, int? revision}) async {
+              throw StateError('disk full');
+            },
+      );
+      final change = await c.updatePeerGrant(peer, items: const ['alert:ring']);
+      expect(change.result.ok, isTrue);
+      expect(change.ok, isFalse);
+      expect(change.skipped, FnthinkPeerSkip.writeFailed);
     });
   });
 

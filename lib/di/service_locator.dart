@@ -165,6 +165,10 @@ void setupLocator() {
       // 而这一台的名单是空的 —— 下一片那个"取消配对"的入口就没有东西可取消。
       // 这条漏接全场测试仍然绿，守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
       recordPeer: DatabaseHelper().upsertFnthinkPeer,
+      // 配对后改权限的本机写入者（T174）。漏接时的表现：服务端已经按新清单执行，
+      // 而这一台仍按旧清单（或反过来）—— 屏幕上那份清单与实际判据各说一段。
+      // 守卫与上面几条同一处（`test/architecture/fnthink_receive_wiring_test.dart`）。
+      updateGrant: FnthinkPeerService().updateGrant,
       // 名单那一行的删除者（T31 B 片第二片）。⚠ 走**服务层**而不是直连表：`remove` 今天有
       // 调用方（就是这一行），所以它不是空抽象；而绕过读咽喉去摸表，名单就有两本账。
       // 缺这一行的后果与上面那行同族：撤销在服务端生效了、对面从此推不进来，而这一台的名单

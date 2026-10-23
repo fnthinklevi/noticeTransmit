@@ -410,6 +410,7 @@
       "pair",
       "pairConfirm",
       "pairRevoke",
+      "pairGrantUpdate",
       "endpointCreate",
       "endpointList",
       "endpointRevoke",
@@ -1035,6 +1036,30 @@
         "endpointSecret"
       ]
     },
+    "pairGrantUpdate": {
+      "messageType": "pairGrantUpdate",
+      "verifyAgainst": "device-table-public-key",
+      "mustContainCounterpartAddress": true,
+      "fields": [
+        "peerAddress",
+        "level",
+        "items"
+      ],
+      "itemsVocabularyFrom": [
+        "capabilities.l2.actions",
+        "capabilities.l3.settings"
+      ],
+      "unknownItemStatus": "badRequest",
+      "_unknownItemStatusWhy": "与 pairConfirm 同一句理由、同一个状态：清单是本机自己拼的，词表外的取值能自己修（400）；把它压成 403 只会让用户看到与「没配对」同形的一句。",
+      "levelCeilingFrom": "pairing.maxRequestableLevelFromPairing",
+      "_why": "T174：配对完成后，用这一发改「对方可以在这台设备上做哪些事」。它与 pairConfirm 写的是同一行（签名者自己记录里的 grantsBy[对端]），区别只有一处：**它不创建关系** —— 服务端上那条关系不存在时回 updated=false，让客户端重新配对，而不是凭一个签名凭空造出一段谁都没点过头的授权。签名里的 target 仍然是对端（与 pairRevoke 同一类），载荷里的 peerAddress 必须逐字等于它。",
+      "_notCreatingWhy": "从配对链的语义看，pairConfirm 是「第一次点头」，这一发是「改一次勾选」。让它能创建关系，一台持有旧签名的设备就能把早已划掉的对端请回来，而屏幕上没有第二个人点过任何东西。",
+      "_itemsWhy": "清单与 pairConfirm 共用同一份取值域与同一套参数级语法（itemsVocabularyFrom 指向那两张表），服务端复用同一条 normalize 判据：词表外、要参数却给裸名字、参数不成形一律 400。",
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
+    },
     "endpointCreate": {
       "messageType": "endpointCreate",
       "verifyAgainst": "device-table-public-key",
@@ -1172,6 +1197,7 @@
       "pair": "/api/fnthink/pair",
       "pairConfirm": "/api/fnthink/pair-confirm",
       "pairRevoke": "/api/fnthink/pair-revoke",
+      "pairGrantUpdate": "/api/fnthink/pair-grant-update",
       "endpointCreate": "/api/fnthink/endpoint-create",
       "endpointList": "/api/fnthink/endpoint-list",
       "endpointRevoke": "/api/fnthink/endpoint-revoke",

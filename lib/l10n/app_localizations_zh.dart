@@ -3951,6 +3951,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeerRenameGone => '这一行已经不在名单里了';
 
   @override
+  String get fnthinkPeerDetailTitle => '设备详情';
+
+  @override
+  String get fnthinkPeerPermissions => '权限';
+
+  @override
+  String get fnthinkPeerPermissionsShort => '允许对方在这台设备上做什么；改完点保存。';
+
+  @override
+  String get fnthinkPeerPermissionsHelp =>
+      '这一页只改「对方 → 这台」这一向的授权：保存后服务端立即按新清单判定，这台本机也同时按新清单放行或拒绝。你希望在它那台能做什么，要由它自己改。服务器版本旧时会直接说没有改权限的入口。';
+
+  @override
+  String get fnthinkPeerGrantImpact => '允许后，对方可以在这台设备上执行这一项。';
+
+  @override
+  String get fnthinkPeerGrantAdvanced => '高级项（默认收起）';
+
+  @override
+  String fnthinkPeerGrantLevelNote(String level) {
+    return '档位仍是 $level；这一页只改逐项清单。';
+  }
+
+  @override
+  String get fnthinkPeerGrantSave => '保存权限';
+
+  @override
+  String get fnthinkPeerGrantNoChange => '没有改动';
+
+  @override
+  String get fnthinkPeerGrantSaved => '权限已保存；服务端与这台设备都已按新清单执行。';
+
+  @override
+  String fnthinkPeerGrantFailed(String reason) {
+    return '没保存：$reason';
+  }
+
+  @override
+  String get fnthinkPeerGrantMissingRoute => '服务器版本旧，没有改权限的入口。先升级服务端，或重新配对。';
+
+  @override
+  String get fnthinkPeerGrantNoRelationship => '服务器上已经没有这条配对关系，请重新配对。';
+
+  @override
+  String get fnthinkPeerGrantLocalNotWritten =>
+      '服务器已按新清单执行，但这台本机的名单没写成；请重新打开这一页确认。';
+
+  @override
   String get fnthinkPairPeer => '配对另一台设备';
 
   @override

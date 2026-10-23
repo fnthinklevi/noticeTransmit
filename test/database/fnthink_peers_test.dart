@@ -290,6 +290,54 @@ void main() {
       expect(after.grantedAt, 1700000000000);
     });
 
+    // ── T174：配对后改一份授权（只动授权那几格） ──────────────────────────
+    test('改授权只动 level/items/revision：别名、名字、转发勾选与时刻一个都不碰', () async {
+      await freshDb();
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'pk-original',
+          level: 'L2',
+          grantedAt: 1700000000000,
+          items: ['alert:ring'],
+          forwards: true,
+          peerName: '它自己说的名字',
+        ),
+      );
+      await helper.setFnthinkPeerAlias('8K3FJ6QPTM9WZ4VHNS', '客厅那台');
+      expect(
+        await helper.updateFnthinkPeerGrant(
+          '8K3FJ6QPTM9WZ4VHNS',
+          level: 'L1',
+          items: const ['notification'],
+          revision: 3,
+        ),
+        isTrue,
+      );
+      final after = (await helper.loadFnthinkPeers()).single;
+      expect(after.level, 'L1');
+      expect(after.items, ['notification']);
+      expect(after.revision, 3);
+      expect(after.alias, '客厅那台');
+      expect(after.peerName, '它自己说的名字');
+      expect(after.forwards, isTrue);
+      expect(after.grantedAt, 1700000000000);
+      expect(after.publicKey, 'pk-original');
+    });
+
+    test('名单里没有这一行 ⇒ false，且不凭空建出一行', () async {
+      await freshDb();
+      expect(
+        await helper.updateFnthinkPeerGrant(
+          '8K3FJ6QPTM9WZ4VHNS',
+          level: 'L1',
+          items: const [],
+        ),
+        isFalse,
+      );
+      expect(await helper.loadFnthinkPeers(), isEmpty);
+    });
+
     test('重新授权**不许抹掉**已经读到的名字（空读数 = 这一发没带读数）', () async {
       // 与 alias 那一条同一条理由，但来路不同：老服务端不带这一格、或对面还没登记过名字，
       // 都会给出一个空串。把它照写就等于"配了一次对，屏幕上那台改回只剩地址码"，

@@ -18,7 +18,9 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 // 各站只读自己那份。默认 global（今天唯一在跑的那台，行为不变）。
 const UPDATE_REGION = (process.env.UPDATE_REGION || 'global').trim().toLowerCase();
 if (UPDATE_REGION !== 'cn' && UPDATE_REGION !== 'global') {
-  throw new Error('UPDATE_REGION 只能是 cn 或 global（不猜：写错站点会让下载链接指向另一站的 CDN）');
+  throw new Error(
+    'UPDATE_REGION 只能是 cn 或 global（不猜：写错站点会让下载链接指向另一站的 CDN）',
+  );
 }
 const VERSION_FILE = path.join(
   DATA_DIR,

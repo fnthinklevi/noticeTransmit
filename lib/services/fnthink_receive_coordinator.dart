@@ -58,6 +58,26 @@ class FnthinkPairAnswer {
   String? get reason => result.reason;
 }
 
+/// 改一份授权的完整结论：服务端那一头 + 本机名单这一行（T174）。
+class FnthinkPeerGrantChange {
+  const FnthinkPeerGrantChange({
+    required this.result,
+    this.wrote,
+    this.skipped,
+  });
+
+  final FnthinkPairGrantUpdateResult result;
+
+  /// 本机那一行改成了没有。null = 没走到写库那一步（服务端没认）。
+  final bool? wrote;
+
+  /// 服务端认了但本机没写成的原因（与 [wrote] 互斥）。
+  final FnthinkPeerSkip? skipped;
+
+  bool get ok => result.ok && wrote == true;
+  String? get reason => result.reason;
+}
+
 /// 服务端**认了**这次撤销，但**本机名单那一行没删掉**的两种原因。
 /// 与 [FnthinkPeerSkip] 同一族：这两件事各自会失败，折叠成一个 bool 就说不清"现在到底什么样"。
 enum FnthinkPeerRemoveSkip {
@@ -243,6 +263,7 @@ class FnthinkReceiveCoordinator {
     this.recordDelivery,
     this.onCommand,
     this.recordPeer,
+    this.updateGrant,
     this.removePeer,
     this.storePairRequest,
     this.loadPairRequests,
@@ -298,6 +319,20 @@ class FnthinkReceiveCoordinator {
   /// 但没有作者时它只是一张空表）。装配点漏接的表现为"点了同意、名单里没有"，
   /// 而全场测试仍然绿 —— 所以守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
   final Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer;
+
+  /// 服务端**认下**一次改权限之后，把本机名单那一行的档位/清单改成服务端回的那份（T174）。
+  /// 返回"有没有这一行"。null = 这台没装配改授权链路 ⇒ 结论里带
+  /// [FnthinkPeerSkip.storeUnavailable]，而不是让屏幕继续显示旧清单。
+  ///
+  /// ⚠ 顺序与 [revokePeer] 同一条：**先服务端、后本机**。反过来的话，服务端那一发失败时
+  /// 屏幕显示新清单而服务端还认旧的 —— 对面发来的每一条都会被静默拒绝，两端各说一段。
+  final Future<bool> Function(
+    String peerAddress, {
+    required String level,
+    required List<String> items,
+    int? revision,
+  })?
+  updateGrant;
 
   /// 服务端**撤了**一条授权之后，把本机名单里那一行删掉（`fnthink_peers`）。
   /// 返回"这一行本来在不在"。null = 这台设备没装配删行链路 ⇒ 结论里带
@@ -1174,6 +1209,84 @@ class FnthinkReceiveCoordinator {
       // 服务端那边已经结了，这不是"配对失败"：报成失败会让人再点一次同意，而那一下会被拒。
       debugPrint('[fnthink] 配对名单落库失败（服务端已认，本机没记）: ${request.requester} $e');
       return FnthinkPairAnswer(
+        result: result,
+        skipped: FnthinkPeerSkip.writeFailed,
+      );
+    }
+  }
+
+  /// 改一份已配对授权（T174）：先让服务端认，再把本机那一行改成**服务端回的那份**。
+  ///
+  /// 档位不在这里放开：页面只改逐项清单，档位原样带上（`peer.level`）。契约
+  /// `pairGrantUpdate.levelCeilingFrom` 与 pairConfirm 是同一个引用，L3 仍进不来。
+  ///
+  /// ⚠ 清单先在本机用 `grantItemProblem` 过一遍（与同意屏同一枚判据）：词表外、要参数却
+  /// 裸名字、参数不成形都会换回 400，而界面上那一下看起来会像"按了没反应"。
+  Future<FnthinkPeerGrantChange> updatePeerGrant(
+    FnthinkPeer peer, {
+    required List<String> items,
+  }) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkPeerGrantChange(
+        result: FnthinkPairGrantUpdateResult(
+          status: FnthinkPollStatus.failed,
+          reason: resolved.reason,
+          signedWhileUncalibrated: false,
+        ),
+      );
+    }
+    final spec = resolved.spec!;
+    final contract = spec.contract;
+    for (final item in items) {
+      final problem = grantItemProblem(contract, item);
+      if (problem != null) {
+        return FnthinkPeerGrantChange(
+          result: FnthinkPairGrantUpdateResult(
+            status: FnthinkPollStatus.failed,
+            reason: problem,
+            signedWhileUncalibrated: false,
+          ),
+        );
+      }
+    }
+    final service = _serviceFactory(spec);
+    final FnthinkPairGrantUpdateResult result;
+    try {
+      result = await service.pairGrantUpdate(
+        peer: peer.peerAddress,
+        level: peer.level,
+        items: items,
+      );
+    } finally {
+      service.dispose();
+    }
+    if (!result.ok) {
+      // 服务端没认 ⇒ 本机一个字都不改。屏幕上那份清单就是此刻服务端仍在执行的那份。
+      return FnthinkPeerGrantChange(result: result);
+    }
+    final write = updateGrant;
+    if (write == null) {
+      // 服务端已认、本机没装配写库：必须说破，否则用户以为改成了而本机判定仍按旧清单。
+      return FnthinkPeerGrantChange(
+        result: result,
+        skipped: FnthinkPeerSkip.storeUnavailable,
+      );
+    }
+    try {
+      final wrote = await write(
+        peer.peerAddress,
+        level: result.level!,
+        items: result.items!,
+        revision: result.revision,
+      );
+      return FnthinkPeerGrantChange(
+        result: result,
+        wrote: wrote,
+        skipped: wrote ? null : FnthinkPeerSkip.writeFailed,
+      );
+    } catch (_) {
+      return FnthinkPeerGrantChange(
         result: result,
         skipped: FnthinkPeerSkip.writeFailed,
       );

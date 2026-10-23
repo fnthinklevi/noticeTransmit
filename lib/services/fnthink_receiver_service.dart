@@ -49,6 +49,9 @@ class FnthinkReceiverService {
       'pair',
       'pairConfirm',
       'pairRevoke',
+      // 配对后改权限（T174）：装配期确认这条路存在 —— 缺它时页面上的「保存权限」
+      // 才第一次现形，而那一发会被归成"网络不通"。
+      'pairGrantUpdate',
       'endpointCreate',
       'endpointList',
       // 对端在场读口（T156 片2）：装配期就确认这条路存在，而不是等页面打开
@@ -356,6 +359,26 @@ class FnthinkReceiverService {
       );
     }
     return kernel.pairRevoke(peer: peer);
+  }
+
+  /// 改一份已配对的授权（`/pair-grant-update`，T174）。
+  ///
+  /// 与 [pairRevoke] 共用那两道闸（签不出来就不发、URL 从契约反查）。`peer` 同时是
+  /// 签名的 `target` 与载荷里的地址 —— 服务端判两者必须逐字相等，本机只有一个入参
+  /// 就写不出不一致的第二种形状。
+  Future<FnthinkPairGrantUpdateResult> pairGrantUpdate({
+    required String peer,
+    required String level,
+    required List<String> items,
+  }) async {
+    if (!await _canSign()) {
+      return FnthinkPairGrantUpdateResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.pairGrantUpdate(peer: peer, level: level, items: items);
   }
 
   /// 给自己建一条接入端点（`/endpoint-create`，T42 第七片）。

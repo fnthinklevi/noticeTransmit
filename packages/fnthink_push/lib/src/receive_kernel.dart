@@ -1029,6 +1029,140 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 pairGrantUpdate 的签名字段（T174：配对后按设备改权限）。
+  ///
+  /// `target` 与载荷里的 `peerAddress` 合成一个入参 —— 与服务端那条「两者必须逐字相等」
+  /// 同一个做法：让不一致在本机就写不出来，比事后换一句同形 403 便宜。
+  /// 档位仍走 pairConfirm 那道封顶（`levelCeilingFrom` 是同一个契约引用），
+  /// 清单只校验形状（词表/参数由协调者用同一个 `grantItemProblem` 判，服务端再判一次）。
+  Map<String, Object?> pairGrantUpdateFields({
+    required String peer,
+    required String level,
+    required List<String> items,
+    required String nonce,
+    String? ts,
+  }) {
+    final declared = contract.pairGrantUpdateFields;
+    const requiredKeys = <String>{'peerAddress', 'level', 'items'};
+    if (declared.length != requiredKeys.length ||
+        !requiredKeys.every(declared.contains)) {
+      throw StateError(
+        'pairGrantUpdate 的载荷键必须恰好是 $requiredKeys（契约 fields=$declared）：'
+        '这一发把签名 target 与 peerAddress 合成一个入参，靠的就是名单里有那一个键',
+      );
+    }
+    if (!contract.capabilityLevels.contains(level)) {
+      throw ArgumentError(
+        'level「$level」不在契约 capabilities.levels ${contract.capabilityLevels} 里：档位词表两端同源',
+      );
+    }
+    final ceiling = contract.pairConfirmLevelCeiling;
+    if (contract.levelRank(level) > contract.levelRank(ceiling)) {
+      throw ArgumentError(
+        'level「$level」高于配对可授的封顶「$ceiling」：L3 要在接收端本地确认，'
+        '服务端看不到那把凭据',
+      );
+    }
+    // 清单的形状（词表外 / 要参数却裸名字 / 参数不成形）由调用方用 `grantItemProblem`
+    // 在签名之前判一次，服务端再用同一份词表判一次；内核不在这里另立第三份判据。
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('pairGrantUpdate'),
+      'target': peer,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode({'peerAddress': peer, 'level': level, 'items': items}),
+    };
+  }
+
+  /// 改一份已配对的授权。失败不抛，状态→后果仍只有 [interpret] 一份。
+  ///
+  /// `updated == false` **不是成功**：它说的是"服务端没有这条关系"（可能对面撤销了、
+  /// 或这一台重建过身份）。把它当成功而写本机名单，本机就会显示一份服务端并不认的授权，
+  /// 而对面发来的每一条都会被静默拒绝 —— 所以 [FnthinkPairGrantUpdateResult.ok]
+  /// 要求 `updated == true` 且回了一份能用的 level/items。
+  Future<FnthinkPairGrantUpdateResult> pairGrantUpdate({
+    required String peer,
+    required String level,
+    required List<String> items,
+  }) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: pairGrantUpdateFields(
+        peer: peer,
+        level: level,
+        items: items,
+        nonce: nonce,
+      ),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkPairGrantUpdateResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkPairGrantUpdateResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'pair-grant-update-http:${reply.status}',
+      );
+    }
+    final updated = reply.body['updated'];
+    if (updated is! bool) {
+      _lastReason = 'pair-grant-update-unparsable-ack';
+      return FnthinkPairGrantUpdateResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    if (!updated) {
+      _lastReason = 'pair-grant-update-not-found';
+      return FnthinkPairGrantUpdateResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final levelOut = reply.body['level'];
+    final itemsOut = reply.body['items'];
+    if (levelOut is! String || itemsOut is! List) {
+      _lastReason = 'pair-grant-update-unparsable-ack';
+      return FnthinkPairGrantUpdateResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final revision = reply.body['revision'];
+    _lastReason = null;
+    return FnthinkPairGrantUpdateResult(
+      status: FnthinkPollStatus.ok,
+      updated: true,
+      level: levelOut,
+      items: itemsOut.whereType<String>().toList(),
+      revision: revision is int ? revision : null,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   /// 组 endpointCreate 的签名字段（给自己建一条接入端点，T42 第七片）。
   ///
   /// self-only：`target` 就是本机地址码（与 pairArm 同一类）。契约的载荷名单里**没有** `secret`
@@ -2249,6 +2383,38 @@ class FnthinkPairRevokeResult {
   final String? reason;
 
   bool get ok => status == FnthinkPollStatus.ok && revoked != null;
+}
+
+/// 改一份已配对授权的结论（T174）。
+class FnthinkPairGrantUpdateResult {
+  const FnthinkPairGrantUpdateResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.updated,
+    this.level,
+    this.items,
+    this.revision,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+
+  /// 服务端上那条关系还在不在（`updated:false` ⇒ 不在：要么被对面撤了、要么这台重建过身份）。
+  final bool? updated;
+
+  /// 服务端实际记下的档位与清单。⚠ 以这一份为准，不用本机发出去的那一份：
+  /// 服务端哪天收紧（封顶、去重、排序）时，本机跟着它走才不会显示一份它并不认的授权。
+  final String? level;
+  final List<String>? items;
+  final int? revision;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok =>
+      status == FnthinkPollStatus.ok &&
+      updated == true &&
+      level != null &&
+      items != null;
 }
 
 /// 建一条接入端点的结论（T42 第七片）。

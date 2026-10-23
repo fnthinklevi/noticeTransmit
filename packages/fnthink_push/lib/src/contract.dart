@@ -1276,6 +1276,13 @@ class FnthinkContract {
   /// （`type` 词表、`pairingCode`、`decision`），每一次的表现都是同一句同形的 403。
   List<String> get pairRevokeFields => clientEventFields('pairRevoke');
 
+  /// pairGrantUpdate 载荷的字段名单（T174，今日 = `["peerAddress","level","items"]`）。
+  ///
+  /// 与 pairConfirm 的 `level`/`items` 同形，但**没有** `requestId`/`decision`：
+  /// 这一发改的是一段已经存在的关系，不是答复一条请求。键名仍从契约读，内核不写死。
+  List<String> get pairGrantUpdateFields =>
+      clientEventFields('pairGrantUpdate');
+
   /// endpointCreate 载荷的字段名单（今日 = `["name"]`）。
   ///
   /// 名单里**没有也不该有** `secret`：口令由服务端生成，设备自带等于把"选一把多强的口令"
@@ -3338,11 +3345,17 @@ class FnthinkContract {
           'clientEvents.$kind 的 fields 里有 items 却没有 itemsVocabularyFrom：'
           '勾选表没有取值域，服务端就只能在"收下并忽略"与"自己发明一份词表"之间挑一个',
         );
-        need(
-          entry.value['itemsMustBeEmptyOnDeny'] == true,
-          'clientEvents.$kind 带 items 就必须声明 itemsMustBeEmptyOnDeny: true：'
-          '拒绝时带清单 = 一边说不、一边把授权递过去',
-        );
+        // 「拒绝时带清单」只对**有答复词的事件**成立：pairConfirm 的两个 decision
+        // 里一个是拒绝；而 T174 的 pairGrantUpdate 没有"拒绝"这一支，它改的是一段
+        // 已经存在的关系。对没有 decisions 的事件强要这一枚键，只会逼契约写下一句
+        // 没人执行的规则（而"声明了没人执行的规则"本身就是本仓在拦的形状）。
+        if (entry.value['decisions'] is List) {
+          need(
+            entry.value['itemsMustBeEmptyOnDeny'] == true,
+            'clientEvents.$kind 带 items 且声明了 decisions，就必须声明 '
+            'itemsMustBeEmptyOnDeny: true：拒绝时带清单 = 一边说不、一边把授权递过去',
+          );
+        }
         for (final path in vocabPaths) {
           final table = at(path.split('.'));
           // 两张既有名单的**形状本来就不同**：L2 那张是值列表，L3 那张按设置项键控。

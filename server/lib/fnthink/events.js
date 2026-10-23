@@ -572,6 +572,84 @@ function authorizePairRevoke(contract, state, input) {
 }
 
 /**
+ * A 改一份「B 可以在我这儿做什么」的授权（T174，契约 `clientEvents.pairGrantUpdate`）。
+ *
+ * 与 pairConfirm 写**同一行**（`devices[A].grantsBy[B]`），三条口径与它对齐：
+ *  ① 档位上限同样取 `levelCeilingFrom`（服务端看不见本机认证，L3 不许从这里进来）；
+ *  ② 清单走同一条 `normalizeConfirmItems`（词表外 / 要参数却给裸名字 / 参数不成形 ⇒ 400），
+ *     状态码取这一发自己的 `unknownItemStatus` —— 与 pairConfirm 读同一个契约键值；
+ *  ③ **不创建关系**：目标行不存在时让路由回 `updated:false`，由客户端引导重新配对。
+ *     这一发能创建关系的话，一次旧的签名就能把早已划掉的对端请回来，而屏幕上没人点过头。
+ *
+ * 载荷里的 `peerAddress` 必须逐字等于签名里的 `target`（同一件事两个来源，签名算数）。
+ */
+function authorizePairGrantUpdate(contract, state, input) {
+  const spec = (contract.clientEvents || {}).pairGrantUpdate;
+  if (!spec) {
+    throw new Error(
+      '契约没有 clientEvents.pairGrantUpdate（不补默认值：补了等于在代码里发明一种事件）',
+    );
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'pairGrantUpdate');
+  if (read.reason) return fail(read.reason);
+  const alphabet = alphabetFromContract(contract);
+  const target = normalize(alphabet, String(fields.target === undefined ? '' : fields.target));
+  const peer = normalize(
+    alphabet,
+    String(read.payload.peerAddress === undefined ? '' : read.payload.peerAddress),
+  );
+  if (peer === null || peer !== target) return fail('peer-target-mismatch');
+
+  const level = String(read.payload.level === undefined ? '' : read.payload.level);
+  const levels = (contract.capabilities || {}).levels || [];
+  if (!levels.includes(level)) return fail(`level:${level}`);
+  const ceiling = resolvePath(contract, spec.levelCeilingFrom);
+  if (!levels.includes(ceiling)) {
+    throw new Error(
+      `clientEvents.pairGrantUpdate.levelCeilingFrom=${JSON.stringify(spec.levelCeilingFrom)} ` +
+        `取到的「${ceiling}」不是 capabilities.levels 里的一档`,
+    );
+  }
+  if (levelRank(levels, level) > levelRank(levels, ceiling)) {
+    return fail(`level-too-high:${level}>${ceiling}`);
+  }
+
+  const picked = normalizeConfirmItems(contract, read.payload.items);
+  if (picked.reason) {
+    return deniedWith(
+      contract,
+      state,
+      input,
+      statusCode(contract, spec.unknownItemStatus),
+      picked.reason,
+    );
+  }
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return {
+    ok: true,
+    kind: 'pairGrantUpdate',
+    addressCode: id.sender,
+    peerCode: target,
+    level,
+    items: picked.items,
+  };
+}
+
+/**
  * 接收端给自己建一个接入端点（契约 `clientEvents.endpointCreate`，T42 那一格的服务端那一半）。
  *
  * 判序与 pairArm 同一条（禁带字段 → 验身份 → 事件种类 → self-only → 载荷键名 → 时间/重放），
@@ -812,6 +890,7 @@ module.exports = {
   authorizePair,
   authorizePairConfirm,
   authorizePairRevoke,
+  authorizePairGrantUpdate,
   authorizeEndpointCreate,
   authorizeEndpointList,
   authorizePeerPresence,

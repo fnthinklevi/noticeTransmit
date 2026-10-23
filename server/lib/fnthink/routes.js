@@ -48,6 +48,7 @@ const {
   authorizePair,
   authorizePairConfirm,
   authorizePairRevoke,
+  authorizePairGrantUpdate,
   authorizeEndpointCreate,
   authorizeEndpointList,
   authorizePeerPresence,
@@ -72,6 +73,7 @@ const {
   relationshipField,
   revokeEndpoint,
   revokePeer,
+  updatePeerGrant,
   rotateEndpoint,
   saveNonces,
   touchDevice,
@@ -707,6 +709,48 @@ router.post(
     const revoked = revokePeer(contract, state.devices, auth.addressCode, auth.peerCode, now);
     res.status(200).json({
       revoked: revoked.removed,
+      serverTime: now,
+    });
+  }),
+);
+
+// ── POST /pair-grant-update：A 改一份「B 能在我这儿做什么」的授权（T174）──────
+// 与 /pair-confirm 写同一行、与 /pair-revoke 同属「关于别人」的签名。三条口径：
+//  ① **只改已有关系**：目标那一段不在签名者的 grantsBy 里 ⇒ `updated:false`。
+//     这一发不许创建关系 —— 一次旧签名不能把早已划掉的对端请回来（撤销后要恢复只能重新配对）。
+//  ② 档位上限与清单形状都在事件层判（与 pairConfirm 同一道 ceiling / normalize），
+//     非法值不会走到这里；本文件只串顺序，不做第二份校验。
+//  ③ 幂等：同一次改动重发只会把 revision +1、内容相同；客户端以服务端回的 items 为准。
+router.post(
+  '/pair-grant-update',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.pairGrantUpdate).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizePairGrantUpdate(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'pairGrantUpdate', auth.addressCode)) return;
+    const updated = updatePeerGrant(
+      contract,
+      state.devices,
+      auth.addressCode,
+      auth.peerCode,
+      auth.level,
+      auth.items,
+      now,
+    );
+    res.status(200).json({
+      updated: updated !== null,
+      ...(updated
+        ? { level: updated.maxLevel, items: updated.items, revision: updated.revision }
+        : {}),
       serverTime: now,
     });
   }),

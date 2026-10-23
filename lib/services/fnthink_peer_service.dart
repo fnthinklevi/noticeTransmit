@@ -79,6 +79,20 @@ class FnthinkPeerService {
     return loader.load();
   }
 
+  /// 改一条已配对授权的档位/清单（T174）。**只在本机服务端已认下之后调用**：
+  /// 先改本机再发服务端的话，那一发失败时屏幕会显示一份服务端并不认的授权。
+  Future<bool> updateGrant(
+    String peerAddress, {
+    required String level,
+    required List<String> items,
+    int? revision,
+  }) => _db.updateFnthinkPeerGrant(
+    peerAddress,
+    level: level,
+    items: items,
+    revision: revision,
+  );
+
   /// 划掉本机记得的那一行，回"这一行本来在不在"。⚠ 它**只该在服务端已经认下撤销之后**被调用
   /// （那个先后写在协调者里）：`false` 不是撤销失败，而是"本来就没有"——幂等的那一半。
   /// 反过来，"撤失败却把行删了"才是事故：本机从此看不见这个来源，而服务端还留着授权，

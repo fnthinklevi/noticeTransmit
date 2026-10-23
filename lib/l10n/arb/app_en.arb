@@ -2111,6 +2111,34 @@
   },
   "fnthinkPeerRenameCleared": "Name cleared",
   "fnthinkPeerRenameGone": "This peer is no longer in the list",
+  "fnthinkPeerDetailTitle": "Device details",
+  "fnthinkPeerPermissions": "Permissions",
+  "fnthinkPeerPermissionsShort": "What this peer may do on this device. Save to apply.",
+  "fnthinkPeerPermissionsHelp": "This page changes only the peer → this device direction. After saving, the server enforces the new list immediately and this device allows or rejects by the same list. What you may do on the other device is the other device's to change. An older server will say there is no permission entry.",
+  "fnthinkPeerGrantImpact": "If allowed, this peer may perform this item on this device.",
+  "fnthinkPeerGrantAdvanced": "Advanced (collapsed by default)",
+  "fnthinkPeerGrantLevelNote": "The level stays {level}; this page changes individual items only.",
+  "@fnthinkPeerGrantLevelNote": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerGrantSave": "Save permissions",
+  "fnthinkPeerGrantNoChange": "No changes",
+  "fnthinkPeerGrantSaved": "Permissions saved; both the server and this device now use the new list.",
+  "fnthinkPeerGrantFailed": "Not saved: {reason}",
+  "@fnthinkPeerGrantFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerGrantMissingRoute": "This server is too old to change permissions. Upgrade the server first, or pair again.",
+  "fnthinkPeerGrantNoRelationship": "That pairing relationship no longer exists on the server. Pair again.",
+  "fnthinkPeerGrantLocalNotWritten": "The server now uses the new list, but this device could not write its local copy. Reopen this page to confirm.",
   "fnthinkPairPeer": "Pair with another device",
   "fnthinkPairPeerTitle": "Start pairing with that device",
   "fnthinkPairPeerTargetHint": "Counterpart address code (the one shown on that device)",

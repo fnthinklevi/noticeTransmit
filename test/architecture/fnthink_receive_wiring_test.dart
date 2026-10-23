@@ -58,7 +58,7 @@ void main() {
       expect(getIt.isRegistered<DeviceL3Executor>(), isTrue);
     });
 
-    test('DI 起来的 coordinator 五条副作用都在（recordPeer/removePeer/recordDelivery 被漏掉时全场仍绿，所以只能靠这条）', () {
+    test('DI 起来的 coordinator 六条副作用都在（recordPeer/updateGrant/removePeer/recordDelivery 被漏掉时全场仍绿，所以只能靠这条）', () {
       setupLocator();
       final c = getIt<FnthinkReceiveCoordinator>();
       expect(c.persist, isNotNull);
@@ -88,6 +88,13 @@ void main() {
         reason:
             '`fnthink_peers` 在生产代码里**只有这一个写入者**。漏接时同意照样成功、'
             '服务端照样投得进来，而本机名单一直是空的',
+      );
+      expect(
+        c.updateGrant,
+        isNotNull,
+        reason:
+            'T174 改权限在服务端认下之后要靠它改本机那一行的清单/档位。漏接时的表现是'
+            '服务端按新清单执行、而这一台仍按旧清单放行或拒绝 —— 屏幕与实际判据各说一段',
       );
       expect(
         c.removePeer,
@@ -583,6 +590,22 @@ void main() {
         read('lib/services/fnthink_receive_coordinator.dart'),
         contains('removePeer'),
         reason: '协调者不再经咽喉删行 ⇒ 上面那条"删只有一处"就只是在数空跑',
+      );
+      // T174：改授权的本机写入也必须走同一个服务层咽喉（别在页面里直连数据库）。
+      expect(
+        service,
+        contains('.updateFnthinkPeerGrant'),
+        reason: '改授权的咽喉被搬走了？它必须仍在 FnthinkPeerService，别在页面另开一份写库',
+      );
+      expect(
+        read('lib/di/service_locator.dart'),
+        contains('updateGrant: FnthinkPeerService().updateGrant'),
+        reason: 'DI 漏接这一钩 ⇒ 服务端已按新清单执行而本机名单停在旧清单，全场测试仍绿',
+      );
+      expect(
+        read('lib/services/fnthink_receive_coordinator.dart'),
+        contains('updateGrant'),
+        reason: '协调者不再经咽喉改授权 ⇒ 上面那条"只走服务层"就只是在数空跑',
       );
 
       final page = stripComments(

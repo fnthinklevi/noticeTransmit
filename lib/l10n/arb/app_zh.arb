@@ -2132,6 +2132,34 @@
   },
   "fnthinkPeerRenameCleared": "已抹掉这个名字",
   "fnthinkPeerRenameGone": "这一行已经不在名单里了",
+  "fnthinkPeerDetailTitle": "设备详情",
+  "fnthinkPeerPermissions": "权限",
+  "fnthinkPeerPermissionsShort": "允许对方在这台设备上做什么；改完点保存。",
+  "fnthinkPeerPermissionsHelp": "这一页只改「对方 → 这台」这一向的授权：保存后服务端立即按新清单判定，这台本机也同时按新清单放行或拒绝。你希望在它那台能做什么，要由它自己改。服务器版本旧时会直接说没有改权限的入口。",
+  "fnthinkPeerGrantImpact": "允许后，对方可以在这台设备上执行这一项。",
+  "fnthinkPeerGrantAdvanced": "高级项（默认收起）",
+  "fnthinkPeerGrantLevelNote": "档位仍是 {level}；这一页只改逐项清单。",
+  "@fnthinkPeerGrantLevelNote": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerGrantSave": "保存权限",
+  "fnthinkPeerGrantNoChange": "没有改动",
+  "fnthinkPeerGrantSaved": "权限已保存；服务端与这台设备都已按新清单执行。",
+  "fnthinkPeerGrantFailed": "没保存：{reason}",
+  "@fnthinkPeerGrantFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeerGrantMissingRoute": "服务器版本旧，没有改权限的入口。先升级服务端，或重新配对。",
+  "fnthinkPeerGrantNoRelationship": "服务器上已经没有这条配对关系，请重新配对。",
+  "fnthinkPeerGrantLocalNotWritten": "服务器已按新清单执行，但这台本机的名单没写成；请重新打开这一页确认。",
   "fnthinkPairPeer": "配对另一台设备",
   "fnthinkPairPeerTitle": "向那台设备发起配对",
   "fnthinkPairPeerTargetHint": "对端地址码（那台设备上显示的那一串）",

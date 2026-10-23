@@ -73,6 +73,13 @@ const List<String> kFnthinkRemoteCategoryOrder = [
 String fnthinkRemoteActionCategory(String action) =>
     kFnthinkRemoteActionCategories[action] ?? '';
 
+/// 逐项授权编辑器里**默认收起**的那几组（T174）。
+///
+/// `search` 那组读的是本机隐私最重的数据（短信/通话/联系人），`system` 那组要到系统里
+/// 逐项开权限 —— 它们不是"配对时随手勾一下"的东西。收起是**展示**上的默认值：
+/// 已经勾上的项在组头上仍以 `n/m` 显示，不会被藏成"没有这一项"。
+const Set<String> kFnthinkGrantCollapsedGroups = {'search', 'system'};
+
 /// 一组的标题。
 String fnthinkRemoteCategoryTitle(AppLocalizations l10n, String slug) {
   final title = kFnthinkRemoteCategoryTitles[slug];

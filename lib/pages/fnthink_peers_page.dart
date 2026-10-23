@@ -8,19 +8,13 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
 import '../models/fnthink_channel.dart';
-import '../services/channel_display.dart';
 import '../services/fnthink_channel_service.dart';
 import '../services/fnthink_contract_loader.dart';
-import '../services/fnthink_grant_items.dart';
-import '../services/fnthink_l2_actions.dart';
-import '../services/fnthink_pair_items.dart';
 import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_pairing_lifecycle.dart';
 import '../services/fnthink_peer_presence_display.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
-import '../services/fnthink_remote_action_categories.dart';
-import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../services/fnthink_sender_display.dart';
 import '../theme/app_colors.dart';
@@ -34,6 +28,7 @@ import '../widgets/fnthink_pair_dialog.dart';
 import 'fnthink_consent_gate.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
+import 'fnthink_peer_detail_page.dart';
 import 'fnthink_send_page.dart';
 
 /// 这一页要碰的三样依赖。
@@ -170,27 +165,6 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
   /// 这里只留一个布尔：那句文案是**同一句**（不分辨哪一种不对），原因留在 outcome 里不进界面。
   bool _pairLinkRejected = false;
 
-  /// 逐条勾选那张表要画的行（T134 片4：契约那两张表的**全量**，每行带着"要哪种参数"）。
-  ///
-  /// ⚠ 类型里带 kind 而不是只有一串名字：勾选项的 id 就是线上的整串，而整串要先有参数 ——
-  /// 界面要知道这一格该画输入框、该画两枚档，还是什么都不用画。
-  List<FnthinkGrantItemRow> _pairRows = const <FnthinkGrantItemRow>[];
-
-  /// 每条请求上、每一个"要参数的项"当场填出来的参数（键 = `<requestId>:<名字>`）。
-  ///
-  /// ⚠ 按 (请求, 项) 双键：一屏可以同时挂着几条请求，共用一份参数会把"我给 B 填的那个应用"
-  ///   跟着落到 C 那条的答复上 —— 与下面 `_pairChecked` 同一个理由。
-  final Map<String, _PairArgumentDraft> _pairArgs = {};
-
-  /// 契约的取值域与本机的两张词表**不一致**（派生出的项落在取值域外）。
-  /// 这时候那张表一幅都不画，但要说一句"这一屏逐条给不了"——
-  /// 静默退化成"只能给档位"，用户会以为自己已经勾过了。
-  bool _pairItemsBroken = false;
-
-  /// **这一条请求**上勾了哪些项。按 requestId 分键：一屏可以同时挂着几条，
-  /// 共用一个 Set 会把"我给 B 勾的那两项"跟着落到 C 那条的答复上 —— 而答复是按条签出去的。
-  final Map<String, Set<String>> _pairChecked = {};
-
   /// T172：收件里发送人怎么显示（备注优先 / 设备名 / 两者）。
   FnthinkSenderDisplayMode _senderMode = FnthinkSenderDisplayMode.aliasFirst;
 
@@ -214,9 +188,6 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       return;
     }
     if (!mounted) return;
-    // 候选集在契约到手这一刻算一次，界面不自己算：派生这件事有两个写法的时候，
-    // "只从契约读名单"那条守卫会跟着一个写法红，另一个写法照样上线。
-    _derivePairItems(contract);
     setState(() => _contract = contract);
     // 进这一页先看一眼本机那一份配对账（T116）。为什么不等下一轮 poll：这一页正是用户
     // "去看看有没有回音"的那一屏，慢一轮的表现是"他打开的是空的，而结论其实早就落了"。
@@ -230,33 +201,6 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     await FnthinkSenderDisplaySettings(mode).setMode(mode);
     if (mounted) setState(() => _senderMode = mode);
   }
-
-  /// 派生失败（契约取值域与两张词表不一致、或某项在两处说法相反）时**不画那张表**并记下原因，
-  /// 而不是让这一页在 build 里抛：抛出来的表现是整页白屏，而"逐条给不了、只能给档位"是可以说清的。
-  void _derivePairItems(FnthinkContract contract) {
-    try {
-      _pairRows = pairItemRows(contract);
-      _pairItemsBroken = false;
-    } on StateError {
-      _pairRows = const <FnthinkGrantItemRow>[];
-      _pairItemsBroken = true;
-    }
-  }
-
-  @override
-  void dispose() {
-    // 那些输入框的 controller 是这一页 new 出来的（不是 widget 传进来的），不 dispose 就是
-    // 每次离开这一页漏一叠；`_pairArgs` 按 requestId 增长，页面销毁时它们全在。
-    for (final draft in _pairArgs.values) {
-      draft.dispose();
-    }
-    _pairArgs.clear();
-    super.dispose();
-  }
-
-  /// 这一格现在对应的那份参数草稿（没有就建一份）。
-  _PairArgumentDraft _draftFor(String requestId, String base) =>
-      _pairArgs.putIfAbsent('$requestId:$base', _PairArgumentDraft.new);
 
   /// 勾上 / 取消勾选「这一台可以当幻念通道的目标」（T94）。
   ///
@@ -667,7 +611,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           keyName: 'fnthink-pair-unknown-level-${request.requestId}',
           text: l10n.fnthinkPairUnknownLevel(request.level),
         ),
-      ..._pairItemRows(l10n, request, grantable),
+      // T174：配对这一屏只回答「同不同意」，不再逐项勾选 —— 默认最小授权（清单为空）。
+      // 要放开哪些项，去「已配对设备 → 设备详情 → 权限」改；那里有分组、影响说明与
+      // 「允许 / 不允许」两档，比在同意屏上把 18 项一次铺开好读得多。
       Align(
         alignment: Alignment.centerLeft,
         child: Row(
@@ -719,257 +665,6 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
         text: l10n.fnthinkPairApproveOutboundDesc,
       ),
     ];
-  }
-
-  /// 逐条勾选那一小段（T134 片3 的表 + 片4 的参数级粒度）。
-  ///
-  /// 行集来自 `pairItemRows`（契约那两张表现取，每行带一个"要哪种参数"），**这一屏不自己写名单** ——
-  /// 名单抄进界面的下场是"契约加了一项而这里没加"，而那一格的缺席长得和"用户没兴趣"一模一样。
-  ///
-  /// 三种"一幅都不画"：这一档用不上逐条清单（L1，见 `pairItemsApplyAtLevel`）、
-  /// 派生不出行、档位词本机不认识（上面那条 `unknown-level` 已经在说了）。
-  /// 前两种**不补一句"没有可勾选项"**：那几种来路在界面上会读成同一句话，而其中有的
-  /// 是"这一档不需要"、有的是"契约读歪了"，把它们塌成一句就等于替后者撒谎。
-  List<Widget> _pairItemRows(
-    AppLocalizations l10n,
-    FnthinkPairRequest request,
-    String? grantable,
-  ) {
-    if (_pairItemsBroken) {
-      // ⚠ 这一格**今天从合法契约不可达**：派生失败那三条来路（取值域为空、两处说法相反、
-      // 派生出的项在取值域外）都被 `FnthinkContract.validate()` 在装载那一关挡住，
-      // 而装载失败走的是页面最上面那条 contract-error。所以它是纵深防御，不是可观察判据 ——
-      // 页面级用例覆盖不到它（造不出既合法又派生失败的契约），反证时它也不算独立判据。
-      // 形状仍按 T149 的口径走：页面上只留那半句状态，诊断那半句在问号里。
-      return [
-        HelpNoteRow(
-          noteKey: 'fnthink-pair-items-broken-${request.requestId}',
-          helpKey: 'fnthink-pair-items-broken-${request.requestId}-help',
-          text: l10n.fnthinkPairItemsBrokenShort,
-          helpTitle: l10n.fnthinkPairAskTitle,
-          helpBody: l10n.fnthinkPairItemsBroken,
-        ),
-      ];
-    }
-    final contract = _contract;
-    if (contract == null ||
-        grantable == null ||
-        !pairItemsApplyAtLevel(contract, grantable)) {
-      return const <Widget>[];
-    }
-    final checked = _pairChecked[request.requestId] ?? const <String>{};
-    return [
-      FnthinkNote(
-        keyName: 'fnthink-pair-items-title-${request.requestId}',
-        text: l10n.fnthinkPairItemsTitle,
-      ),
-      // T146 片2 格④（裁定 5「当前过于杂乱」的最后一格）：18 行一维平铺按主题分栏。
-      // ⚠ 分栏只改"画在哪一栏底下"：勾逐项的 key 仍是 `fnthink-pair-item-<reqId>-<契约名>`，
-      //   那批按 key 勾／断言的用例与闸门的路线一个字都不动。归组与排序走那张表的
-      //   唯一作者（`fnthinkRemoteItemGroups`），页面不自己排第二把序。
-      for (final group in fnthinkRemoteItemGroups(
-        _pairRows,
-        (row) => row.base,
-      )) ...[
-        FnthinkRowLabel(
-          keyName:
-              'fnthink-pair-items-group-${request.requestId}-${group.slug.isEmpty ? 'uncategorized' : group.slug}',
-          label: fnthinkRemoteCategoryTitle(l10n, group.slug),
-        ),
-        for (final row in group.items)
-          ..._pairOneRow(l10n, contract, request, row, checked),
-      ],
-      HelpNoteRow(
-        noteKey: 'fnthink-pair-items-note-${request.requestId}',
-        helpKey: 'fnthink-pair-items-note-${request.requestId}-help',
-        text: l10n.fnthinkPairItemsNoteShort,
-        helpTitle: l10n.fnthinkPairItemsTitle,
-        // 「勾的是那一串（哪个应用、搜什么词、哪条通道设成哪一档），不是那个动作名」——
-        // 这一句决定用户敢不敢勾，摊在表底下就成了三行小字；整段进问号，正文一字没删。
-        helpBody: l10n.fnthinkPairItemsNote,
-      ),
-    ];
-  }
-
-  /// 一张勾逐项：那一行的名字 +（要参数就当场收）+ 那一格勾。
-  ///
-  /// ⚠ 「先选参数才能勾」这一条**只由 [grantItemProblem] 判**，界面不自己凑一份"填全了没有"：
-  /// 凑的那份与判据那份迟早不一样，而表现是"明明能勾却勾了没用"或反过来。
-  /// 参数一改就把这一项已经打上的勾擦掉 —— 勾的是**那一串**，串变了，那个勾说的就不是
-  /// 屏幕上现在这个东西了（留着它，答复里出去的是旧串）。
-  List<Widget> _pairOneRow(
-    AppLocalizations l10n,
-    FnthinkContract contract,
-    FnthinkPairRequest request,
-    FnthinkGrantItemRow row,
-    Set<String> checked,
-  ) {
-    final draft = _draftFor(request.requestId, row.base);
-    final item = contract.grantItemWire(
-      base: row.base,
-      argument: draft.argumentFor(contract, row.kind),
-    );
-    final problem = grantItemProblem(contract, item);
-    return [
-      Row(
-        children: [
-          Expanded(
-            child: Text(
-              // 那一行**说什么**只有 `kFnthinkRemoteActionLabels` 一个作者（发送页也用它）；
-              // 这里不另拼"允许 xxx"那种前缀，前缀是这句话的第二个来源。
-              fnthinkRemoteActionLabel(l10n, row.base),
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.secondaryLabel(context),
-              ),
-            ),
-          ),
-          Checkbox(
-            key: ValueKey('fnthink-pair-item-${request.requestId}-${row.base}'),
-            value: checked.contains(item),
-            // `_busy` 期间锁：答复已经在飞，这时改勾选改的是**已经签出去的那一份**之外的东西，
-            // 屏幕上会留下一张与刚发出去的答案不一致的表。
-            // ⚠ `problem != null` 也锁：那一格变灰，而它灰的原因就在上面那排控件里。
-            onChanged: (_busy || problem != null)
-                ? null
-                : (v) => setState(() {
-                    final next = Set<String>.of(checked);
-                    if (v == true) {
-                      next.add(item);
-                    } else {
-                      next.remove(item);
-                    }
-                    _pairChecked[request.requestId] = next;
-                  }),
-          ),
-        ],
-      ),
-      if (row.needsArgument)
-        ..._argumentControls(l10n, contract, request, row, draft),
-    ];
-  }
-
-  /// 那一行的参数控件（族／通道号／档／条数／词 —— 按契约声明的那种形状画）。
-  ///
-  /// ⚠ 这里**不拼串**：拼串的作者只有一个（`grantItemWire` 与那两个 build*），
-  /// 界面只交出"用户选了哪一族、填了哪个号、要哪一档"。
-  List<Widget> _argumentControls(
-    AppLocalizations l10n,
-    FnthinkContract contract,
-    FnthinkPairRequest request,
-    FnthinkGrantItemRow row,
-    _PairArgumentDraft draft,
-  ) {
-    final rowKey = '${request.requestId}-${row.base}';
-    void edit(void Function() change) => setState(() {
-      change();
-      final checked = _pairChecked[request.requestId];
-      if (checked != null) {
-        checked.removeWhere((i) => contract.grantItemBase(i) == row.base);
-      }
-    });
-    return switch (row.kind) {
-      FnthinkGrantArgumentKind.none => const <Widget>[],
-      FnthinkGrantArgumentKind.count || FnthinkGrantArgumentKind.keyword => [
-        SizedBox(
-          height: 34,
-          child: CupertinoTextField(
-            key: ValueKey('fnthink-pair-arg-$rowKey'),
-            controller: draft.text,
-            keyboardType: row.kind == FnthinkGrantArgumentKind.count
-                ? TextInputType.number
-                : TextInputType.text,
-            placeholder: _argumentHint(contract, row),
-            autocorrect: false,
-            onChanged: (_) => edit(() {}),
-          ),
-        ),
-      ],
-      FnthinkGrantArgumentKind.toggle => [
-        _wantChips(
-          l10n,
-          'fnthink-pair-arg-$rowKey',
-          contract.l3ItemTargetWords,
-          draft,
-          edit,
-        ),
-      ],
-      FnthinkGrantArgumentKind.channelTarget => [
-        FnthinkNote(
-          keyName: 'fnthink-pair-arg-$rowKey-family-label',
-          text: l10n.remoteSendFamilyLabel,
-        ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final family in contract.l2ChannelTargetFamilies)
-              FnthinkChoiceChip(
-                keyName: 'fnthink-pair-arg-$rowKey-family-$family',
-                label: channelFamilyName(family),
-                selected: draft.family == family,
-                onTap: _busy ? null : () => edit(() => draft.family = family),
-              ),
-          ],
-        ),
-        SizedBox(
-          height: 34,
-          child: CupertinoTextField(
-            key: ValueKey('fnthink-pair-arg-$rowKey-id'),
-            controller: draft.text,
-            placeholder: l10n.fnthinkPairChannelIdLabel,
-            autocorrect: false,
-            onChanged: (_) => edit(() {}),
-          ),
-        ),
-        _wantChips(
-          l10n,
-          'fnthink-pair-arg-$rowKey',
-          contract.l2ChannelTargetWords,
-          draft,
-          edit,
-        ),
-      ],
-    };
-  }
-
-  /// 「设成开着／设成关掉」那一排（L3 那两枚 toggle 与 `channel:toggle` 的第三段共用）。
-  ///
-  /// 两枚而不是一枚"翻"：投递是 at-least-once，重投一次翻两次就回到原状
-  /// （理由见 [buildL3Item] 顶上那段）。这里交出去的是一个**布尔**，
-  /// 哪一个词代表"开"由契约那两个词的顺序说（`grantItemWire` 那一层去取），界面不写 on/off。
-  Widget _wantChips(
-    AppLocalizations l10n,
-    String keyNamePrefix,
-    List<String> words,
-    _PairArgumentDraft draft,
-    void Function(void Function()) edit,
-  ) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        // 键名后缀直接取契约那两个词：界面里不出现 `'on'` / `'off'` 这两个字面量，
-        // 而"哪一个是开"只有一个出处（位置，`contract.validate()` 钉着）。
-        for (var i = 0; i < words.length; i++)
-          FnthinkChoiceChip(
-            keyName: '$keyNamePrefix-${words[i]}',
-            label: i == 0 ? l10n.remoteSendWantOn : l10n.remoteSendWantOff,
-            selected: draft.want == (i == 0),
-            onTap: _busy ? null : () => edit(() => draft.want = i == 0),
-          ),
-      ],
-    );
-  }
-
-  /// 那一格的占位读数（上下界从契约现取，界面不抄一份数字）。
-  String _argumentHint(FnthinkContract contract, FnthinkGrantItemRow row) {
-    if (row.kind == FnthinkGrantArgumentKind.count) {
-      return '${contract.l2ReportMinItems(row.base) ?? 1}–'
-          '${contract.l2ReportMaxItems(row.base) ?? 1}';
-    }
-    return '${contract.l2ReportMinChars(row.base) ?? 1}–'
-        '${contract.l2ReportMaxChars(row.base) ?? 1}';
   }
 
   /// 名单那一格：每一行是一台对端，能发一条、能撤销。
@@ -1030,11 +725,11 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
               ),
             ),
           for (final peer in rows) ...[
-            // T152 片B／阶段3：一台设备＝一行。这一行今天**没有详情页**，所以 `onTap` 传 null
-            // （整行点不动、也不画 chevron），能点的只有行尾那枚「⋯」；「发一条」是主操作，
-            // 按方案留在行内当文字动作。⚠ key 逐字搬：`fnthink-peer-<地址码>` 现在落在主文案
-            // 那枚 `Text` 上（六处 `tester.widget<Text>(find.byKey(...)).data` 认的就是宿主）。
+            // T174：这一行现在有详情页（身份 + 权限），整行可点。「发一条」仍是主操作，
+            // 留在行内当文字动作。⚠ key 逐字搬：`fnthink-peer-<地址码>` 落在主文案那枚
+            // `Text` 上（六处 `tester.widget<Text>(find.byKey(...)).data` 认的就是宿主）。
             FnthinkPeerRow(
+              onTap: _busy ? null : () => _openPeerDetail(peer),
               keyName: 'fnthink-peer-${peer.peerAddress}',
               icon: Icons.phone_android,
               iconColor: AppColors.blue,
@@ -1170,6 +865,26 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     );
   }
 
+  /// 打开一台设备的详情页（T174）。契约没到手时不进 —— 权限表整张要从契约现取，
+  /// 没有它进去只会看到一张空表或一条装载错误，而用户会读成"这台没有任何权限"。
+  Future<void> _openPeerDetail(FnthinkPeer peer) async {
+    final contract = _contract;
+    if (contract == null) return;
+    await Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => FnthinkPeerDetailPage(
+          contract: contract,
+          peer: peer,
+          coordinator: _coordinator,
+          // 详情页保存成功后让上一层重读名单：那一行的 `items` 已经变了，
+          // 不重读的话退回来看到的还是旧清单（而服务端已经按新的执行）。
+          onSaved: _loadPeers,
+        ),
+      ),
+    );
+    if (mounted) await _loadPeers();
+  }
+
   Future<void> _showPeerActions(AppLocalizations l10n, FnthinkPeer peer) async {
     // ⚠ 动作由 `CardActionSheet` 在**弹层完全下场之后**才执行（那条时序不变量钉在组件里）：
     //   撤销那一发紧接着要弹二次确认，两层模态交叉退场会在真机上留下一片吞手势的屏障。
@@ -1178,6 +893,13 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       context,
       title: peer.whoLabel,
       actions: [
+        CardAction(
+          icon: Icons.verified_user_outlined,
+          label: l10n.fnthinkPeerPermissions,
+          // 与整行点击同一个去处（T174）。留着它是因为行尾有「⋯」时组件不画 chevron，
+          // 整行可点这件事在屏上没有第二个提示。
+          onTap: () => _openPeerDetail(peer),
+        ),
         CardAction(
           icon: Icons.edit,
           label: l10n.fnthinkPeerRename,
@@ -1234,10 +956,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     final answer = await _coordinator.confirmPairing(
       request: request,
       approve: approve,
-      // 勾选表上勾了什么就交什么（顺序由界面上的那张表给，去重与排序由服务层/服务端负责）。
-      // 拒绝那一支**不**带清单 —— 协调者会把它收成空，这里传的是"用户在这一条上勾过的东西"，
-      // 不是"我打算授出去的清单"（两件事两个名字，见 confirmPairing 里那段）。
-      items: (_pairChecked[request.requestId] ?? const <String>[]).toList(),
+      // T174：配对这一屏只给档位、**不给逐项**（默认最小授权）。放开哪些项由配对完成后的
+      // 设备详情 → 权限页改；拒绝那一支本来也不许带清单（契约 itemsMustBeEmptyOnDeny）。
+      items: const <String>[],
     );
     // T171：成功同意一次 ⇒ 本机刚挂出的那枚口令已经用掉了。标记在**答复成功之后**写，
     // 失败/拒绝都不算「用过」（那两件事之后那枚码仍可被重试）。
@@ -1248,17 +969,6 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     setState(() {
       _busy = false;
       _pairAnswer = (request: request, approve: approve, answer: answer);
-      // 这一条已经有结论了：那份勾选留在表里，下一次同 id 的请求（不可能有）或
-      // 页面上另一条请求都会读到它。答复落定就擦掉。
-      _pairChecked.remove(request.requestId);
-      // 参数草稿跟着擦（片4 新加的那一份状态）：答复已经签出去了，留着它下一屏读到的是
-      // 上一次填的东西 —— 而那些 TextEditingController 也就再没人 dispose 了。
-      for (final key
-          in _pairArgs.keys
-              .where((k) => k.startsWith('${request.requestId}:'))
-              .toList()) {
-        _pairArgs.remove(key)!.dispose();
-      }
     });
     // 名单是这一发的**后果**：不重读一次，用户点完同意，下面那格还是旧的（而它的存在意义
     // 正是"我同意过谁"）。重读走的是同一个读咽喉，不是页面自己数一遍。
@@ -1527,51 +1237,4 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     }
     await _pairWithPeer(prefill: link.request);
   }
-}
-
-/// 同意屏上「这一格要的那个参数」填到哪儿了（页面私有的草稿，**不是一枚协议类型**）。
-///
-/// 三种形状合成一份草稿是刻意的：`count` / `keyword` 要的是一格文本、`toggle` 与
-/// `channelTarget` 要的是"哪一档"，而 `channelTarget` 多要的那一格（族）有默认值 ——
-/// 四种都读得到同一句"这一格现在拼得出整串吗"（那句由 `grantItemProblem` 判）。
-///
-/// ⚠ 这里**不拼带分隔符的整串**：拼串的作者只有 `grantItemWire`（加上 `buildChannelArgument`
-/// 与 `buildL3Item` 那两处各自形状的拼法）。界面交出的是"用户选了哪一族、填了哪个号、
-/// 要哪一档"，而不是一个已经带上斜杠的字符串 —— 斜杠写进界面的那一刻起，它就是一个
-/// 没有人核对过的第二份形状。
-class _PairArgumentDraft {
-  /// 数字／关键词／通道号那一格（三种形状各用一次，同一行只可能用到其中一种）。
-  final TextEditingController text = TextEditingController();
-
-  /// 通道目标的第一段（`null` = 还没选；拼的时候退到契约族表的第一项，与发送页同一做法）。
-  String? family;
-
-  /// 目标档：`null` = 还没选（那一格因此勾不上）。
-  bool? want;
-
-  String argumentFor(FnthinkContract contract, FnthinkGrantArgumentKind kind) =>
-      switch (kind) {
-        FnthinkGrantArgumentKind.none => '',
-        FnthinkGrantArgumentKind.count ||
-        FnthinkGrantArgumentKind.keyword => text.text.trim(),
-        FnthinkGrantArgumentKind.toggle =>
-          want == null ? '' : targetWord(contract, want!),
-        FnthinkGrantArgumentKind.channelTarget =>
-          want == null
-              ? ''
-              : buildChannelArgument(
-                  contract,
-                  family: family ?? contract.l2ChannelTargetFamilies.first,
-                  id: text.text.trim(),
-                  enabled: want!,
-                ),
-      };
-
-  /// 契约那两个词按位置取档（第一个是「开着」那一个 —— 那一条由 `contract.validate()` 钉住）。
-  static String targetWord(FnthinkContract contract, bool wanted) {
-    final words = contract.l3ItemTargetWords;
-    return wanted ? words.first : words[1];
-  }
-
-  void dispose() => text.dispose();
 }

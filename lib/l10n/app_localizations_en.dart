@@ -4147,6 +4147,59 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPeerRenameGone => 'This peer is no longer in the list';
 
   @override
+  String get fnthinkPeerDetailTitle => 'Device details';
+
+  @override
+  String get fnthinkPeerPermissions => 'Permissions';
+
+  @override
+  String get fnthinkPeerPermissionsShort =>
+      'What this peer may do on this device. Save to apply.';
+
+  @override
+  String get fnthinkPeerPermissionsHelp =>
+      'This page changes only the peer → this device direction. After saving, the server enforces the new list immediately and this device allows or rejects by the same list. What you may do on the other device is the other device\'s to change. An older server will say there is no permission entry.';
+
+  @override
+  String get fnthinkPeerGrantImpact =>
+      'If allowed, this peer may perform this item on this device.';
+
+  @override
+  String get fnthinkPeerGrantAdvanced => 'Advanced (collapsed by default)';
+
+  @override
+  String fnthinkPeerGrantLevelNote(String level) {
+    return 'The level stays $level; this page changes individual items only.';
+  }
+
+  @override
+  String get fnthinkPeerGrantSave => 'Save permissions';
+
+  @override
+  String get fnthinkPeerGrantNoChange => 'No changes';
+
+  @override
+  String get fnthinkPeerGrantSaved =>
+      'Permissions saved; both the server and this device now use the new list.';
+
+  @override
+  String fnthinkPeerGrantFailed(String reason) {
+    return 'Not saved: $reason';
+  }
+
+  @override
+  String get fnthinkPeerGrantMissingRoute =>
+      'This server is too old to change permissions. Upgrade the server first, or pair again.';
+
+  @override
+  String get fnthinkPeerGrantNoRelationship =>
+      'That pairing relationship no longer exists on the server. Pair again.';
+
+  @override
+  String get fnthinkPeerGrantLocalNotWritten =>
+      'The server now uses the new list, but this device could not write its local copy. Reopen this page to confirm.';
+
+  @override
   String get fnthinkPairPeer => 'Pair with another device';
 
   @override

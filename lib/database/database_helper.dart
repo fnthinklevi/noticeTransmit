@@ -1759,6 +1759,28 @@ class DatabaseHelper
     });
   }
 
+  /// 改一条已配对授权的档位/清单（T174）。**只改授权那三格**，不碰别名、名字与转发勾选：
+  /// 那几格各有各的作者，授权路径顺手写它们就是第四个作者。
+  ///
+  /// 返回"有没有这一行"：没有这一行时一个字段都不写（地址码是主键，授权不能凭空生出一行）。
+  Future<bool> updateFnthinkPeerGrant(
+    String peerAddress, {
+    required String level,
+    required List<String> items,
+    int? revision,
+  }) async {
+    final db = await database;
+    final values = <String, Object?>{'level': level, 'items': items.join('\n')};
+    if (revision != null) values['revision'] = revision;
+    final n = await db.update(
+      FnthinkPeer.table,
+      values,
+      where: 'peer_address = ?',
+      whereArgs: [peerAddress],
+    );
+    return n > 0;
+  }
+
   /// 给名单里那一行起（或抹）一个本机名字（T128 片1）。
   ///
   /// 返回的是"有没有这一行"，不是"名字变了没有"：给不存在的对端改名必须回 false ——

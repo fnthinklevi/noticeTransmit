@@ -581,7 +581,9 @@ describe('源码守卫', () => {
         .filter(([, c]) => c.includes(`function ${fn}(`) || new RegExp(`\\b${fn}\\(`).test(c))
         .map(([name, c]) => [name, (c.match(new RegExp(`\\b${fn}\\(`, 'g')) || []).length])
         .sort();
-    expect(callSites('approvePeer')).toEqual([['fnthink/devicestore.js', 3]]);
+    // T174：第三处调用同在本文件 —— `updatePeerGrant` 改已有关系时复用同一个写入咽喉
+    // （它只多做一件事：先确认关系存在；不存在就不写）。调用点仍全在 devicestore。
+    expect(callSites('approvePeer')).toEqual([['fnthink/devicestore.js', 4]]);
     expect(callSites('grantPairLegs')).toEqual([
       ['fnthink/devicestore.js', 1],
       ['fnthink/pairstore.js', 1],
@@ -1383,6 +1385,165 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
       const forged = await request(app).post('/api/fnthink/pair-revoke').send(badSig);
       expect(unknown.status).toBe(forged.status);
       expect(unknown.body).toEqual(forged.body);
+    });
+  });
+
+  // ── T174：配对之后改一份已存在的授权 ───────────────────────────────
+  describe('POST /api/fnthink/pair-grant-update：改「B 能在我这儿做什么」', () => {
+    const APPROVE = contract.clientEvents.pairConfirm.approveDecision;
+    // 一次性口令一枚只够一次配对：这个 describe 里每条用例各用一枚。
+    const C1 = 'PQRSTVWX234567890ABC';
+    const C3 = 'RSTVWX234567890ABCDE';
+    const C4 = 'STVWX234567890ABCDEF';
+    const C5 = 'TVWX234567890ABCDEFG';
+    const C6 = 'VWX234567890ABCDEFGH';
+
+    /// 摆回「A 已把 B 写成 L2 + alert:ring」。
+    async function pairAtoBWithAlert(code) {
+      const requestId = await pairUp(code, bobKey, BOB, 'L2');
+      await request(app)
+        .post('/api/fnthink/pair-confirm')
+        .send(
+          evBody('pairConfirm', aliceKey, ALICE, BOB, {
+            requestId,
+            decision: APPROVE,
+            level: 'L2',
+            items: ['alert:ring'],
+          }),
+        )
+        .expect(200);
+    }
+
+    function grantBody(kp, from, target, payload) {
+      return evBody('pairGrantUpdate', kp, from, target, {
+        peerAddress: payload.peerAddress,
+        level: payload.level,
+        items: payload.items,
+      });
+    }
+
+    test('A 把清单清空 ⇒ B 的动作立刻 403；再加回来 ⇒ 立刻恢复（服务端按新清单执行）', async () => {
+      await pairAtoBWithAlert(C1);
+      await request(app)
+        .post('/api/fnthink/message')
+        .send(actionBody(bobKey, BOB, ALICE, 'alert:ring'))
+        .expect(statusCode(contract, 'queued'));
+
+      const cleared = await request(app)
+        .post('/api/fnthink/pair-grant-update')
+        .send(grantBody(aliceKey, ALICE, BOB, { peerAddress: BOB, level: 'L2', items: [] }))
+        .expect(200);
+      expect(cleared.body.updated).toBe(true);
+      expect(cleared.body.items).toEqual([]);
+      expect(cleared.body.level).toBe('L2');
+      expect(cleared.body.revision).toBeGreaterThan(0);
+
+      const denied = await request(app)
+        .post('/api/fnthink/message')
+        .send(actionBody(bobKey, BOB, ALICE, 'alert:ring'));
+      expect(denied.status).toBe(statusCode(contract, 'forbidden'));
+      expect(denied.body).toEqual({ receipt: 'rejected_capability' });
+
+      const restored = await request(app)
+        .post('/api/fnthink/pair-grant-update')
+        .send(
+          grantBody(aliceKey, ALICE, BOB, {
+            peerAddress: BOB,
+            level: 'L2',
+            items: ['alert:ring'],
+          }),
+        )
+        .expect(200);
+      expect(restored.body.updated).toBe(true);
+      expect(restored.body.items).toEqual(['alert:ring']);
+      await request(app)
+        .post('/api/fnthink/message')
+        .send(actionBody(bobKey, BOB, ALICE, 'alert:ring'))
+        .expect(statusCode(contract, 'queued'));
+    });
+
+    test('关系不存在 ⇒ updated:false，且不凭空造出一段授权（撤销之后只能重新配对）', async () => {
+      const before = JSON.stringify(devicestore.loadDevices()[MALLORY].grantsBy);
+      const res = await request(app)
+        .post('/api/fnthink/pair-grant-update')
+        .send(
+          grantBody(malloryKey, MALLORY, BOB, {
+            peerAddress: BOB,
+            level: 'L2',
+            items: ['alert:ring'],
+          }),
+        )
+        .expect(200);
+      expect(res.body.updated).toBe(false);
+      expect(res.body.items).toBeUndefined();
+      expect(JSON.stringify(devicestore.loadDevices()[MALLORY].grantsBy)).toBe(before);
+      expect(devicestore.loadDevices()[MALLORY].grantsBy[BOB]).toBeUndefined();
+    });
+
+    test('撤销之后改授权 ⇒ updated:false，不把已划掉的对端请回来', async () => {
+      await pairAtoBWithAlert(C3);
+      await request(app)
+        .post('/api/fnthink/pair-revoke')
+        .send(evBody('pairRevoke', aliceKey, ALICE, BOB, { peerAddress: BOB }))
+        .expect(200);
+      const res = await request(app)
+        .post('/api/fnthink/pair-grant-update')
+        .send(
+          grantBody(aliceKey, ALICE, BOB, {
+            peerAddress: BOB,
+            level: 'L2',
+            items: ['alert:ring'],
+          }),
+        )
+        .expect(200);
+      expect(res.body.updated).toBe(false);
+      expect(devicestore.loadDevices()[ALICE].grantsBy[BOB]).toBeUndefined();
+      const blocked = await request(app)
+        .post('/api/fnthink/message')
+        .send(msgBody(bobKey, BOB, ALICE, '撤销后那条'));
+      expect(blocked.status).toBe(statusCode(contract, 'forbidden'));
+    });
+
+    test('载荷地址与签名 target 不一致 ⇒ 403，名单分毫不动', async () => {
+      await pairAtoBWithAlert(C4);
+      const before = JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy);
+      const res = await request(app)
+        .post('/api/fnthink/pair-grant-update')
+        .send(
+          grantBody(aliceKey, ALICE, BOB, {
+            peerAddress: MALLORY,
+            level: 'L2',
+            items: [],
+          }),
+        );
+      expect(res.status).toBe(statusCode(contract, 'forbidden'));
+      expect(res.body).toEqual({ receipt: 'rejected_capability' });
+      expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy)).toBe(before);
+    });
+
+    test('词表外的清单 ⇒ 400（与本机拼错时可自己修的那一类同形）', async () => {
+      await pairAtoBWithAlert(C5);
+      const before = JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy);
+      const res = await request(app)
+        .post('/api/fnthink/pair-grant-update')
+        .send(
+          grantBody(aliceKey, ALICE, BOB, {
+            peerAddress: BOB,
+            level: 'L2',
+            items: ['not-an-item'],
+          }),
+        );
+      expect(res.status).toBe(statusCode(contract, 'badRequest'));
+      expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy)).toBe(before);
+    });
+
+    test('L3 不许从这一发进来（服务端看不到本机认证）', async () => {
+      await pairAtoBWithAlert(C6);
+      const res = await request(app)
+        .post('/api/fnthink/pair-grant-update')
+        .send(grantBody(aliceKey, ALICE, BOB, { peerAddress: BOB, level: 'L3', items: [] }));
+      expect(res.status).toBe(statusCode(contract, 'forbidden'));
+      expect(res.body).toEqual({ receipt: 'rejected_capability' });
     });
   });
 });

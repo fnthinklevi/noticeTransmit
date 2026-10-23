@@ -1470,6 +1470,105 @@ void main() {
     });
   });
 
+  group('配对后改权限 pairGrantUpdate（T174）', () {
+    Map<String, Object?> sentFields(_Harness harness) =>
+        harness.sent.single['fields']! as Map<String, Object?>;
+
+    Future<FnthinkPairGrantUpdateResult> update(
+      _Harness harness, {
+      String level = 'L2',
+      List<String> items = const ['alert:ring'],
+    }) => harness.kernel().pairGrantUpdate(
+      peer: _peer,
+      level: level,
+      items: items,
+    );
+
+    test('target 与载荷里的地址是同一台；键集逐字等于契约名单', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'updated': true,
+          'level': 'L2',
+          'items': ['alert:ring'],
+          'revision': 2,
+          'serverTime': 1800000000000,
+        },
+      );
+      final result = await update(harness);
+      expect(result.ok, isTrue);
+      expect(result.items, ['alert:ring']);
+      final fields = sentFields(harness);
+      expect(fields['target'], _peer);
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(
+        body.keys.toList()..sort(),
+        contract.pairGrantUpdateFields..sort(),
+      );
+      expect(body['peerAddress'], _peer);
+      expect(body['level'], 'L2');
+      expect(body['items'], ['alert:ring']);
+    });
+
+    test('updated:false ⇒ 不算成功（服务端没有这条关系，本机不许写新清单）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'updated': false, 'serverTime': 1800000000000},
+      );
+      final result = await update(harness);
+      expect(result.ok, isFalse);
+      expect(result.reason, 'pair-grant-update-not-found');
+    });
+
+    test('200 但读不出 level/items ⇒ 不算保存成功', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'updated': true, 'serverTime': 1800000000000},
+      );
+      final result = await update(harness);
+      expect(result.ok, isFalse);
+      expect(result.reason, 'pair-grant-update-unparsable-ack');
+    });
+
+    test('L3 高高过配对封顶 ⇒ 签之前就抛（服务端也拦，但本机不该先签出去）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      await expectLater(
+        update(harness, level: 'L3', items: const []),
+        throwsArgumentError,
+      );
+      expect(harness.sent, isEmpty);
+    });
+
+    test('契约名单多出第二个键 ⇒ 当场抛，不猜哪个算数', () async {
+      final events = contract.raw['clientEvents'] as Map<String, Object?>;
+      final spec = events['pairGrantUpdate'] as Map<String, Object?>;
+      final widened = FnthinkContract({
+        ...contract.raw,
+        'clientEvents': {
+          ...events,
+          'pairGrantUpdate': {
+            ...spec,
+            'fields': ['peerAddress', 'level', 'items', 'note'],
+          },
+        },
+      });
+      final harness = _Harness(widened, 1_800_000_000_000);
+      expect(
+        () => harness.kernel().pairGrantUpdateFields(
+          peer: _peer,
+          level: 'L2',
+          items: const [],
+          nonce: 'n1',
+        ),
+        throwsStateError,
+      );
+      expect(harness.sent, isEmpty);
+    });
+  });
+
   group('建一条接入端点 endpointCreate（T42 第七片）', () {
     Future<FnthinkEndpointCreateResult> create(_Harness harness) =>
         harness.kernel().endpointCreate(name: '自家 NAS');
