@@ -274,6 +274,9 @@
   "historyGroupMerge": "聚合推送",
   "historyGroupDelay": "延迟推送",
   "historyGroupBadge": "组",
+  "historyGroupMembersTitle": "这一组的成员",
+  "historyGroupMembersEmpty": "这一组没有可显示记录",
+  "historyGroupMembersNote": "组本身不是一条记录，不能整组重推；要重发请点开成员那条。",
   "historyGroupTally": "扇出 {n} · 失败 {failed}",
   "@historyGroupTally": {
     "placeholders": {

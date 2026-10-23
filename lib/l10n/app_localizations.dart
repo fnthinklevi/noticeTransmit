@@ -1076,6 +1076,24 @@ abstract class AppLocalizations {
   /// **'组'**
   String get historyGroupBadge;
 
+  /// No description provided for @historyGroupMembersTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一组的成员'**
+  String get historyGroupMembersTitle;
+
+  /// No description provided for @historyGroupMembersEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一组没有可显示记录'**
+  String get historyGroupMembersEmpty;
+
+  /// No description provided for @historyGroupMembersNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'组本身不是一条记录，不能整组重推；要重发请点开成员那条。'**
+  String get historyGroupMembersNote;
+
   /// No description provided for @historyGroupTally.
   ///
   /// In zh, this message translates to:

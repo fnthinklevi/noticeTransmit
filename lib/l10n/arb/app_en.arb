@@ -274,6 +274,9 @@
   "historyGroupMerge": "Merged push",
   "historyGroupDelay": "Delayed push",
   "historyGroupBadge": "Group",
+  "historyGroupMembersTitle": "Members of this group",
+  "historyGroupMembersEmpty": "No displayable records in this group",
+  "historyGroupMembersNote": "A group is not a record and cannot be repushed as a whole; open a member to resend it.",
   "historyGroupTally": "Fan-out {n} · failed {failed}",
   "@historyGroupTally": {
     "placeholders": {

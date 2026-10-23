@@ -53,6 +53,8 @@ void main() {
     WidgetTester tester, {
     required List<NotificationRecord> records,
     required List<HistoryGroup> groups,
+    Future<List<NotificationRecord>> Function(List<String> ids)?
+    groupMembersLoader,
   }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -69,8 +71,10 @@ void main() {
           onClearToday: () async => 0,
           onClearLastN: (_) async => 0,
           historyGroupsLoader: () async => groups,
-          groupMembersLoader: (ids) async =>
-              records.where((r) => ids.contains(r.id)).toList(),
+          groupMembersLoader:
+              groupMembersLoader ??
+              (ids) async => records.where((r) => ids.contains(r.id)).toList(),
+          deliveryLogsLoader: (_) async => const <Map<String, dynamic>>[],
         ),
       ),
     );
@@ -184,5 +188,88 @@ void main() {
     final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
     expect(find.text(l10n.historyGroupDelay), findsOneWidget);
     expect(find.text(l10n.historyGroupTally(2, 0)), findsOneWidget);
+  });
+
+  testWidgets('T179 点组行：列出成员，组本身没有「重推」', (tester) async {
+    final records = [record('n1'), record('n2', status: 'failed')];
+    await pump(tester, records: records, groups: [group()]);
+
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+    await tester.tap(
+      find.byKey(const ValueKey('history-group-com.a:merge:1500')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('history-group-members-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.historyGroupMembersTitle), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('history-group-member-n1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('history-group-member-n2')),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.historyGroupMembersNote), findsOneWidget);
+    expect(
+      find.text(l10n.historyChannelRepushAll),
+      findsNothing,
+      reason: '组不是记录：子页里出现「全部重推」就等于把组当成一条可重发的记录',
+    );
+    expect(
+      find.text(l10n.historyChannelRepush),
+      findsNothing,
+      reason: '组子页只读，逐通道重推只能在成员详情里',
+    );
+  });
+
+  testWidgets('T179 成员在打开子页前被裁掉 ⇒ 说没有可显示记录', (tester) async {
+    var sheetReturnsEmpty = false;
+    final records = [record('n1'), record('n2')];
+    await pump(
+      tester,
+      records: records,
+      groups: [group()],
+      groupMembersLoader: (ids) async {
+        if (sheetReturnsEmpty) return const <NotificationRecord>[];
+        return records.where((r) => ids.contains(r.id)).toList();
+      },
+    );
+
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+    sheetReturnsEmpty = true;
+    await tester.tap(
+      find.byKey(const ValueKey('history-group-com.a:merge:1500')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('history-group-members-empty')),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.historyGroupMembersEmpty), findsOneWidget);
+  });
+
+  testWidgets('T179 点成员：关掉组子页并打开那一条的详情', (tester) async {
+    final records = [record('n1'), record('n2')];
+    await pump(tester, records: records, groups: [group()]);
+
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+    await tester.tap(
+      find.byKey(const ValueKey('history-group-com.a:merge:1500')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('history-group-member-n1')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('history-group-members-sheet')),
+      findsNothing,
+      reason: '成员详情叠在组子页上时，返回会先关掉详情，用户以为退回了组',
+    );
+    expect(find.text(l10n.detailInfo), findsOneWidget);
   });
 }

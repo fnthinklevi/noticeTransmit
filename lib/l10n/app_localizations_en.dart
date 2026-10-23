@@ -578,6 +578,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyGroupBadge => 'Group';
 
   @override
+  String get historyGroupMembersTitle => 'Members of this group';
+
+  @override
+  String get historyGroupMembersEmpty => 'No displayable records in this group';
+
+  @override
+  String get historyGroupMembersNote =>
+      'A group is not a record and cannot be repushed as a whole; open a member to resend it.';
+
+  @override
   String historyGroupTally(int n, int failed) {
     return 'Fan-out $n · failed $failed';
   }

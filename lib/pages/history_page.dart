@@ -2886,6 +2886,9 @@ class _HistoryPageState extends State<HistoryPage> {
       source: group.appName.isEmpty ? null : group.appName,
       badges: [_tagBadge(context, l10n.historyGroupBadge, AppColors.blue)],
       statusMessage: l10n.historyGroupTally(view.total, view.failed),
+      // T179：组行不是记录，但"这一组扇出了什么"必须看得见。点开只读子页列出成员；
+      // 组本身仍不可重推（那一枚不在子页里，也不在组行上）。
+      onTap: () => _showGroupMembers(view),
       corner: index == 0
           ? (index == total - 1
                 ? HistoryRowCorner.only
@@ -2893,6 +2896,151 @@ class _HistoryPageState extends State<HistoryPage> {
           : (index == total - 1
                 ? HistoryRowCorner.last
                 : HistoryRowCorner.middle),
+    );
+  }
+
+  /// 组行的只读成员子页（T179）。
+  ///
+  /// 成员按组里记下的顺序排（`memberIds` 是有序的），不按回表的数据库顺序：
+  /// 那一串顺序是扇出当时的顺序，换一种排法会让同一组在两次打开之间自己跳。
+  /// 组本身**没有**「再发一次」：它不是一条记录，重推哪一条由成员那一行说了算。
+  Future<void> _showGroupMembers(_HistoryGroupView view) async {
+    final l10n = AppLocalizations.of(context);
+    final loader = widget.groupMembersLoader ?? _loadGroupMembers;
+    List<NotificationRecord> ordered;
+    try {
+      final rows = await loader(view.group.memberIds);
+      final byId = {for (final row in rows) row.id: row};
+      ordered = [
+        for (final id in view.group.memberIds)
+          if (byId[id] != null) byId[id]!,
+      ];
+    } catch (e) {
+      debugPrint('历史组成员读取失败: $e');
+      ordered = const <NotificationRecord>[];
+    }
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Container(
+          key: const ValueKey('history-group-members-sheet'),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                child: Text(
+                  l10n.historyGroupMembersTitle,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  l10n.historyGroupTally(view.total, view.failed),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(sheetContext),
+                  ),
+                ),
+              ),
+              if (ordered.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Text(
+                    l10n.historyGroupMembersEmpty,
+                    key: const ValueKey('history-group-members-empty'),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(sheetContext),
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < ordered.length; i++)
+                          _groupMemberRow(
+                            sheetContext,
+                            ordered[i],
+                            i,
+                            ordered.length,
+                            l10n,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                child: Text(
+                  l10n.historyGroupMembersNote,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.tertiaryLabel(sheetContext),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _groupMemberRow(
+    BuildContext sheetContext,
+    NotificationRecord record,
+    int index,
+    int total,
+    AppLocalizations l10n,
+  ) {
+    final tally = tallyDelivery(record.deliveryStatus);
+    return HistoryRowTile(
+      key: ValueKey('history-group-member-${record.id}'),
+      keyNamespace: 'history-group-member',
+      identity: record.id,
+      title: record.title.isEmpty ? l10n.noTitle : record.title,
+      time: historyRowTime(record.postTime),
+      subtitle: record.content.isEmpty ? null : record.content,
+      source: record.appName.isEmpty ? null : record.appName,
+      statusMessage: [
+        l10n.historyTallyTotal(tally.total),
+        if (tally.done > 0) l10n.historyTallyDone(tally.done),
+        if (tally.failed > 0) l10n.historyTallyFailed(tally.failed),
+        if (tally.inFlight > 0) l10n.historyTallyInFlight(tally.inFlight),
+      ].join(' · '),
+      corner: index == 0
+          ? (index == total - 1
+                ? HistoryRowCorner.only
+                : HistoryRowCorner.first)
+          : (index == total - 1
+                ? HistoryRowCorner.last
+                : HistoryRowCorner.middle),
+      // 先关成员子页再开详情：详情自己也是一个底部弹层，叠着开会把「返回」变成
+      // 关掉最上面那一层，而用户以为退回了组。
+      onTap: () {
+        Navigator.of(sheetContext).pop();
+        unawaited(_showRecordDetail(record));
+      },
     );
   }
 

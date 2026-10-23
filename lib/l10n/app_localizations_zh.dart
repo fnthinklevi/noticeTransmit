@@ -549,6 +549,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historyGroupBadge => '组';
 
   @override
+  String get historyGroupMembersTitle => '这一组的成员';
+
+  @override
+  String get historyGroupMembersEmpty => '这一组没有可显示记录';
+
+  @override
+  String get historyGroupMembersNote => '组本身不是一条记录，不能整组重推；要重发请点开成员那条。';
+
+  @override
   String historyGroupTally(int n, int failed) {
     return '扇出 $n · 失败 $failed';
   }
