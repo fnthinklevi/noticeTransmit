@@ -63,6 +63,11 @@ class FnthinkPresenceScheduler {
     }
     await _channel.invokeMethod<void>('scheduleFnthinkPresence', {
       'seconds': seconds,
+      // T180：退避是**一次性**参数，与常态 cadence 分两格落到原生。正常排程显式传 0，
+      // 把上一次的退避标记清掉。
+      'backoffSeconds': (afterSeconds != null && afterSeconds > 0)
+          ? afterSeconds
+          : 0,
     });
   }
 
@@ -82,6 +87,8 @@ class FnthinkPresenceScheduler {
     return FnthinkPresenceStatus(
       nextRoundAt: (raw?['nextRoundAt'] as num?)?.toInt() ?? 0,
       cadenceSeconds: (raw?['cadenceSeconds'] as num?)?.toInt() ?? 0,
+      // 旧原生没有这一格 ⇒ 0（按常态节奏处理，不凭空造一个退避）。
+      backoffSeconds: (raw?['backoffSeconds'] as num?)?.toInt() ?? 0,
       everArmedAt: (raw?['everArmedAt'] as num?)?.toInt() ?? 0,
       // T176：两条 WorkManager 链与待发条数。旧原生没有这三格 ⇒ 空串 / 0，
       // 页面据此说"读不到"，不编一个 `none`。
@@ -132,6 +139,7 @@ class FnthinkPresenceStatus {
   const FnthinkPresenceStatus({
     required this.nextRoundAt,
     required this.cadenceSeconds,
+    this.backoffSeconds = 0,
     this.everArmedAt = 0,
     this.presenceWork = '',
     this.fanoutWork = '',
@@ -141,8 +149,15 @@ class FnthinkPresenceStatus {
   /// 下一轮被排在什么时候（毫秒）。0 = 没排。
   final int nextRoundAt;
 
-  /// Dart 上次交下来的那一档间隔（秒）。0 = 没交过（或被撤时一起清了）。
+  /// Dart 上次交下来的**常态**间隔（秒）。0 = 没交过（或被撤时一起清了）。
+  ///
+  /// ⚠ T180：一次性退避不再写进这一格（原生另一个 `backoff_seconds`），否则页面会把
+  /// "服务端让我等 700 秒"读成"这台常态每 700 秒问一次货"。
   final int cadenceSeconds;
+
+  /// 上一颗闹钟是**一次性退避**多少秒（0 = 常态节奏）。退避期间「立即收取」要禁用，
+  /// 且页面要把它与常设间隔分两行说。
+  final int backoffSeconds;
 
   /// 这台**第一次真的排上**闹钟的时刻（毫秒）。0 = 从没排上过。见原生 `KEY_EVER_ARMED_AT`。
   final int everArmedAt;

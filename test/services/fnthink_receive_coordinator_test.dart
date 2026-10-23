@@ -2640,6 +2640,87 @@ void main() {
       );
       expect(registered.last, 'other.example.com');
     });
+
+    test('冷启动读到落盘标记 ⇒ 不再重发 register（T180：日额度不是被开机烧掉的）', () async {
+      enable();
+      var first = 0;
+      final c1 = coordinator(
+        recorder: _LoopRecorder(),
+        registerDevice: (_) async {
+          first++;
+          return okRegister();
+        },
+      );
+      await c1.startIfEnabled();
+      expect(first, 1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString(kFnthinkRegisterMarkerKey),
+        isNotNull,
+        reason: '登记成功之后必须落盘：只记在进程里的话，下一次冷启动又重登一遍',
+      );
+
+      var second = 0;
+      final c2 = coordinator(
+        recorder: _LoopRecorder(),
+        registerDevice: (_) async {
+          second++;
+          return okRegister();
+        },
+      );
+      await c2.startIfEnabled();
+      expect(second, 0, reason: '同一服务器 + 同一地址码 + 同一把钥匙 = 已登记，冷启动不再敲那扇门');
+    });
+
+    test('被拒（403）⇒ 落盘标记作废，下一次会重登（服务端可能重建过身份）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+        kFnthinkRegisterMarkerKey: 'stale-marker',
+      });
+      var calls = 0;
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        registerDevice: (_) async {
+          calls++;
+          return const FnthinkRegisterResult(
+            status: FnthinkPollStatus.rejectedUnsigned,
+            reason: 'rejected-unsigned',
+            signedWhileUncalibrated: false,
+          );
+        },
+      );
+      await c.startIfEnabled();
+      expect(calls, 1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString(kFnthinkRegisterMarkerKey),
+        isNull,
+        reason: '403 之后还留着"已登记"标记 ⇒ 这台永远停在本地以为登记过了',
+      );
+    });
+
+    test('日档 ⇒ 原因带 rate-limited-day，不再给分钟倒计时（T180）', () async {
+      enable();
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        registerDevice: (_) async => const FnthinkRegisterResult(
+          status: FnthinkPollStatus.rateLimited,
+          reason: 'rate-limited:73447',
+          retryAfterSeconds: 73447,
+          quotaWindow: 'day',
+          signedWhileUncalibrated: false,
+        ),
+      );
+      final result = await c.startIfEnabled();
+      expect(result.started, isFalse);
+      expect(result.reason, 'register-failed: rate-limited-day:73447');
+      expect(
+        fnthinkRegisterRateLimitedWait(result.reason),
+        isNull,
+        reason: '日档不许被认成分钟档 —— 否则页面又把 12 小时抄成倒计时',
+      );
+    });
   });
 
   group('同意门（T56：没同意 ⇒ 一个字节都不许离机）', () {

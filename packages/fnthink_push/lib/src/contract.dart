@@ -1269,6 +1269,21 @@ class FnthinkContract {
   /// 合成一个 getter 就会有一边照抄另一边的名单 —— 服务端整条拒，而拒信与"口令错"同形。
   List<String> get pairFields => clientEventFields('pair');
 
+  /// 429 上"哪一档额度"的响应头名（T180，今日 = `x-fnthink-quota-window`）。
+  ///
+  /// 值只有 `minute` / `day` 两种；设备据此把"今日额度用完"与"这一分钟再来"分开说。
+  /// 头名只从契约读 —— 服务端与设备各写一份字面量时，改一处不会报错，只会让另一方读不到。
+  String get quotaWindowHeader {
+    final value = str(const ['limits', 'quotaWindowHeader']);
+    if (value == null || value.isEmpty) {
+      throw StateError(
+        '契约缺 limits.quotaWindowHeader：设备分不清分钟档与日档，'
+        '只能把日额度抄成十几小时倒计时',
+      );
+    }
+    return value.toLowerCase();
+  }
+
   /// pairRevoke 载荷的字段名单（今日 = `["peerAddress"]`）。
   ///
   /// 这一发就一个键，但键名仍只从契约读：内核拿这份名单当**唯一**的载荷形状，

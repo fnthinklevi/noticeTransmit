@@ -795,6 +795,35 @@ void main() {
       expect(rec.requests, isEmpty);
     });
 
+    test('429 的两档由契约声明的响应头分开：day 不会被抄成分钟倒计时（T180）', () async {
+      final rec = _Recorder(
+        status: contract.statusCodes['rateLimited']!,
+        headers: {
+          'content-type': 'application/json',
+          'retry-after': '73447',
+          contract.quotaWindowHeader: 'day',
+        },
+        scripts: ['{}'],
+      );
+      final result = await build(contract, rec, _Signer()).register(name: 'n');
+      expect(result.status, FnthinkPollStatus.rateLimited);
+      expect(result.retryAfterSeconds, 73447);
+      expect(
+        result.quotaWindow,
+        'day',
+        reason: '这一位丢了，页面就只能把"今日额度"说成 12 小时倒计时',
+      );
+
+      // 对照：头是 minute 时照分钟档处理（不是所有 429 都当日档）。
+      rec.headers = {
+        'content-type': 'application/json',
+        'retry-after': '17',
+        contract.quotaWindowHeader: 'minute',
+      };
+      final minute = await build(contract, rec, _Signer()).register(name: 'n');
+      expect(minute.quotaWindow, 'minute');
+    });
+
     test('契约缺 register 那条路径 ⇒ 装配期就抛（不退回一个猜出来的 URL）', () {
       final mutated = FnthinkContract({
         ...contract.raw,

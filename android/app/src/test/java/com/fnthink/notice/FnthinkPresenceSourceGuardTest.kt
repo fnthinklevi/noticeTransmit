@@ -46,6 +46,11 @@ class FnthinkPresenceSourceGuardTest {
         )
     }
     private val manifest: String by lazy { File(MANIFEST).readText() }
+    private val handler: String by lazy {
+        stripComments(
+            File(SRC + "channels/FnthinkChannelHandler.kt").readText(),
+        )
+    }
 
     @Test
     fun alarmUsesAFreshRequestCodeAndKeepsTheExistingOnesAlone() {
@@ -105,6 +110,27 @@ class FnthinkPresenceSourceGuardTest {
         assertTrue(
             "cadence 必须由闹钟这一层持久化，receiver 只是读回来",
             alarm.contains("fun cadenceSeconds()") && receiver.contains("cadenceSeconds()"),
+        )
+    }
+
+    @Test
+    fun oneOffBackoffIsStoredApartFromTheNormalCadence() {
+        assertTrue(
+            "退避要有自己的一格：写进 cadence 会让界面把「服务端让我等 700 秒」" +
+                "读成「这台常态每 700 秒问一次货」（T180）",
+            alarm.contains("KEY_BACKOFF") && alarm.contains("backoffSeconds"),
+        )
+        assertTrue(
+            "正常排程必须把退避格清回 0：留着上一次的值，界面会在退避早就结束后还在说退避",
+            alarm.contains("putLong(KEY_BACKOFF, 0L)"),
+        )
+        assertTrue(
+            "Dart 交下来的两个数必须分开传：合成一个参数就等于在原生侧又合并了一次",
+            handler.contains("\"backoffSeconds\"") && handler.contains("schedule(seconds, backoff)"),
+        )
+        assertTrue(
+            "状态读口要把退避那格交回给 Dart：界面分两行说靠的就是它",
+            handler.contains("\"backoffSeconds\" to alarm.backoffSeconds()"),
         )
     }
 

@@ -2321,6 +2321,8 @@ void main() {
         status: code('rateLimited'),
         body: const {'receipt': 'rate_limited'},
         retryAfterSeconds: 2208,
+        // T180：服务端用这枚头说明是哪一档；设备据此说"分钟档"还是"今日额度"。
+        quotaWindow: 'day',
       );
       final rateLimited = await harness.kernel().register(
         publicKey: publicKey,
@@ -2331,6 +2333,11 @@ void main() {
         rateLimited.retryAfterSeconds,
         2208,
         reason: '"什么时候能再来登记"只有服务端说得起这句话 —— 退避按它排',
+      );
+      expect(
+        rateLimited.quotaWindow,
+        'day',
+        reason: '日档与分钟档说的是两件事：丢了这一位，页面只能把 12 小时抄成倒计时',
       );
 
       // 对照：非限流的失败没有 Retry-After 可言（它的 nextDelay 是轮询节奏，

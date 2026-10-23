@@ -189,12 +189,18 @@ class FnthinkReceiverService {
     final retryAfter = int.tryParse(
       response.headers['retry-after']?.trim() ?? '',
     );
+    // T180：服务端用这枚头说明是 minute 还是 day 那一档。旧服务端没有它 ⇒ null，
+    // 客户端按"分钟档"的老说法处理，不猜一个更坏的结论。
+    final quotaWindow = response.headers[contract.quotaWindowHeader]?.trim();
     return FnthinkReply(
       status: response.statusCode,
       body: body,
       // 只在真给了的时候带上：内核的缺省是"按常规节奏重来"，编一个 0 会变成疯狂重试。
       retryAfterSeconds: retryAfter != null && retryAfter > 0
           ? retryAfter
+          : null,
+      quotaWindow: quotaWindow == 'day' || quotaWindow == 'minute'
+          ? quotaWindow
           : null,
     );
   }

@@ -101,7 +101,26 @@ app.use('/api/echo', require('./routes/echo').createEchoRouter());
 try {
   // 限流器挂在路由之前：协议面上的洪水应该先被闸门挡住，再谈验签（验签比计数贵得多）。
   const { createFnthinkRateLimiter } = require('./fnthink/ratelimit');
-  const fnthinkLimiter = createFnthinkRateLimiter(store.RATE_LIMIT_FNTHINK_MAX);
+  const fnthinkStore = require('./fnthink/devicestore');
+  // T180：同一地址码 + 同一把公钥的重复 register 是冷启动重放，不该吃日额度。
+  // ⚠ 这一判只读请求体与设备表，**不证明任何身份**：它只决定"这一次记不记日档"，
+  //   签名仍由路由验；谎报一台已登记的设备只会让它自己继续受分钟档管。
+  const isIdempotentRegister = (req) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const fields = body.fields && typeof body.fields === 'object' ? body.fields : {};
+      const address = String(fields.target || '');
+      const publicKey = String(body.publicKey || '');
+      if (address === '' || publicKey === '') return false;
+      const record = fnthinkStore.loadDevices()[address];
+      return !!record && record.publicKey === publicKey;
+    } catch (_) {
+      return false;
+    }
+  };
+  const fnthinkLimiter = createFnthinkRateLimiter(store.RATE_LIMIT_FNTHINK_MAX, undefined, {
+    isIdempotentRegister,
+  });
   app.use('/api/fnthink', fnthinkLimiter);
   const fnthink = require('./fnthink/routes');
   app.use('/api/fnthink', fnthink.router);

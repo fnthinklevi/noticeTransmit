@@ -197,7 +197,11 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                 val seconds = call.argument<Number>("seconds")?.toLong()
                     ?: call.argument<String>("seconds")?.toLongOrNull()
                     ?: 0L
-                FnthinkPresenceAlarm(context).schedule(seconds)
+                // T180：退避是一次性参数，与常态节奏分开传；缺省 0 = 这一次是常态排程。
+                val backoff = call.argument<Number>("backoffSeconds")?.toLong()
+                    ?: call.argument<String>("backoffSeconds")?.toLongOrNull()
+                    ?: 0L
+                FnthinkPresenceAlarm(context).schedule(seconds, backoff)
                 result.success(true)
             }
             "cancelFnthinkPresence" -> {
@@ -228,6 +232,7 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                         mapOf(
                             "nextRoundAt" to alarm.nextRoundAt(),
                             "cadenceSeconds" to alarm.cadenceSeconds(),
+                            "backoffSeconds" to alarm.backoffSeconds(),
                             // T140 层2：界面要分得开"链死了"与"还没排上第一轮"，而 cancel 之后
                             // nextRoundAt 与 cadenceSeconds 双双归 0、两者长得一样 —— 这一枚就是那段历史。
                             "everArmedAt" to alarm.everArmedAt(),

@@ -524,6 +524,9 @@ class FnthinkReceiveKernel {
         retryAfterSeconds: verdict.status == FnthinkPollStatus.rateLimited
             ? verdict.nextDelay.inSeconds
             : null,
+        quotaWindow: verdict.status == FnthinkPollStatus.rateLimited
+            ? reply.quotaWindow
+            : null,
       );
     }
     // 200 但没回地址码 = 服务端没有认下这一台（回的是空对象或半个对象）。
@@ -1781,12 +1784,16 @@ class FnthinkReply {
     required this.status,
     this.body = const <String, Object?>{},
     this.retryAfterSeconds,
+    this.quotaWindow,
   });
 
   /// 数字必须来自契约 `statusCodes` 那一份，不是本类的默认值。
   final int status;
   final Map<String, Object?> body;
   final int? retryAfterSeconds;
+
+  /// 429 时服务端说明是 `minute` 还是 `day` 那一档（T180）。null = 老服务端没这枚头。
+  final String? quotaWindow;
 }
 
 typedef FnthinkSigner = Future<String> Function(List<int> canonicalBytes);
@@ -2006,6 +2013,7 @@ class FnthinkRegisterResult {
     this.peersGrantingMe = 0,
     this.reason,
     this.retryAfterSeconds,
+    this.quotaWindow,
   });
 
   final FnthinkPollStatus status;
@@ -2027,6 +2035,10 @@ class FnthinkRegisterResult {
   /// 能再来登记"的唯一出处（T139 ①），别的失败带的是轮询节奏，不是这句话。
   /// 退避的重试按它排，不许调用方自己拍一个常量。
   final int? retryAfterSeconds;
+
+  /// 限流是哪一档：`minute` / `day`（T180）。null = 老服务端没给这枚头。
+  /// ⚠ 日档的正确说法是"今日额度用完，明日恢复"，不是 `Retry-After` 那个十几小时倒计时。
+  final String? quotaWindow;
 
   bool get ok => status == FnthinkPollStatus.ok;
 }

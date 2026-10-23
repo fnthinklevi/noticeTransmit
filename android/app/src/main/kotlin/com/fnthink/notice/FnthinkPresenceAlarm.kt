@@ -32,6 +32,15 @@ class FnthinkPresenceAlarm(private val context: Context) {
         private const val KEY_CADENCE = "cadence_seconds"
 
         /**
+         * 上一次排的是**一次性退避**多少秒（T180）。0 = 那一颗是常态节奏。
+         *
+         * 与 [KEY_CADENCE] 分两格：退避值写进 cadence 会让界面把"服务端让我等 700 秒"
+         * 读成"这台常态每 700 秒问一次货"。退避那一颗**不改** cadence（常态值保留），
+         * 到点之后 Dart 下一次正常排程会把这一格清回 0。
+         */
+        private const val KEY_BACKOFF = "backoff_seconds"
+
+        /**
          * 「这台**曾经真的排上过**」的那一枚戳（T140 层2 察）。
          *
          * 为什么要有它：界面要能区分"链死了"与"还没排上第一轮"，而手上那两个读数分不开——
@@ -57,6 +66,9 @@ class FnthinkPresenceAlarm(private val context: Context) {
      */
     fun cadenceSeconds(): Long = prefs.getLong(KEY_CADENCE, 0L)
 
+    /** 上一次排的是不是一次性退避、退避多少秒（T180）。0 = 常态节奏。 */
+    fun backoffSeconds(): Long = prefs.getLong(KEY_BACKOFF, 0L)
+
     /** 这台第一次真的排上闹钟的时刻（毫秒）。0 = 从没排上过。见 [KEY_EVER_ARMED_AT]。 */
     fun everArmedAt(): Long = prefs.getLong(KEY_EVER_ARMED_AT, 0L)
 
@@ -76,7 +88,7 @@ class FnthinkPresenceAlarm(private val context: Context) {
      * 调用方给 0 通常意味着"这一路不该再醒了"（关掉了接收、或配置不全），
      * 把它翻译成"立刻再来一次"会让取消永远取消不掉。
      */
-    fun schedule(delaySeconds: Long) {
+    fun schedule(delaySeconds: Long, backoffSeconds: Long = 0L) {
         if (delaySeconds <= 0L) {
             cancel()
             return
@@ -88,7 +100,16 @@ class FnthinkPresenceAlarm(private val context: Context) {
         val fireAt = System.currentTimeMillis() + delaySeconds * 1000L
         try {
             val pi = pendingIntent()
-            prefs.edit().putLong(KEY_CADENCE, delaySeconds).apply()
+            // T180：退避**不改常态节奏**（cadence 留着上一次正常值），只单独标出"这一颗是退避"；
+            // 正常排程把退避格清掉。合成一格会让界面把一次 429 读成这台的常设间隔。
+            if (backoffSeconds > 0L) {
+                prefs.edit().putLong(KEY_BACKOFF, backoffSeconds).apply()
+            } else {
+                prefs.edit()
+                    .putLong(KEY_CADENCE, delaySeconds)
+                    .putLong(KEY_BACKOFF, 0L)
+                    .apply()
+            }
             // 与延迟推送同一条降级：未授权时退到 setAndAllowWhileIdle（Doze 下分钟级偏晚），
             // 而不是抛出去 —— "收货晚一点"与"收货从此停掉"是两个后果，前者用户可以接受。
             // 判定本身只有一个作者 [ExactAlarmPolicy]（T140 走 (c)：这里不读 App 内开关）。
@@ -119,7 +140,11 @@ class FnthinkPresenceAlarm(private val context: Context) {
         }
         // ⚠ 只清"下一颗在哪儿"与"那一档节奏"，**不清 `KEY_EVER_ARMED_AT`**：
         // 被撤掉这件事本身就是要留给界面看的那条证据（撤过一次＝这台曾经醒过，现在不醒了）。
-        prefs.edit().putLong(KEY_NEXT_AT, 0L).putLong(KEY_CADENCE, 0L).apply()
+        prefs.edit()
+            .putLong(KEY_NEXT_AT, 0L)
+            .putLong(KEY_CADENCE, 0L)
+            .putLong(KEY_BACKOFF, 0L)
+            .apply()
     }
 
     private fun pendingIntent(): PendingIntent {

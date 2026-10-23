@@ -77,31 +77,84 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
     const win = windowsFor(contract);
     win.controlWindow = { perMinute: 100, perDay: 3 };
     const limiter = createFnthinkRateLimiter(100000, win);
-    const run = (p) =>
+    const run = (p, body) =>
       new Promise((resolve) => {
+        const headers = {};
         limiter(
-          { path: p, headers: { 'x-forwarded-for': '198.51.100.88' } },
           {
-            set() {
+            path: p,
+            body: body || {},
+            headers: { 'x-forwarded-for': '198.51.100.88' },
+          },
+          {
+            set(name, value) {
+              headers[name] = value;
               return this;
             },
             status(code) {
               this.code = code;
               return this;
             },
-            json(body) {
-              resolve({ status: this.code, body });
+            json(bodyOut) {
+              resolve({ status: this.code, body: bodyOut, headers });
             },
           },
-          () => resolve({ status: 0 }),
+          () => resolve({ status: 0, headers }),
         );
       });
     const day = [];
     for (let i = 0; i < 5; i++) day.push(await run('/api/fnthink/register'));
     expect(day.filter((h) => h.status === RATE_LIMITED).length).toBe(2);
+    // T180：日档要说清是哪一档 —— 设备据此说"今日额度用完"，而不是抄十几小时倒计时。
+    const deniedDay = day.find((h) => h.status === RATE_LIMITED);
+    expect(deniedDay.headers[contract.limits.quotaWindowHeader]).toBe('day');
     const polls = [];
     for (let i = 0; i < 5; i++) polls.push(await run('/api/fnthink/poll'));
     expect(polls.every((h) => h.status === 0)).toBe(true);
+  });
+
+  test('同一地址码 + 同一公钥的重复 register 不占日额度（T180）', async () => {
+    const win = windowsFor(contract);
+    win.controlWindow = { perMinute: 100, perDay: 2 };
+    const limiter = createFnthinkRateLimiter(100000, win, {
+      isIdempotentRegister: (req) => req.body && req.body.idempotent === true,
+    });
+    const run = (body) =>
+      new Promise((resolve) => {
+        const headers = {};
+        limiter(
+          {
+            path: '/api/fnthink/register',
+            body,
+            headers: { 'x-forwarded-for': '198.51.100.89' },
+          },
+          {
+            set(name, value) {
+              headers[name] = value;
+              return this;
+            },
+            status(code) {
+              this.code = code;
+              return this;
+            },
+            json(bodyOut) {
+              resolve({ status: this.code, body: bodyOut, headers });
+            },
+          },
+          () => resolve({ status: 0, headers }),
+        );
+      });
+    const repeats = [];
+    for (let i = 0; i < 8; i++) repeats.push(await run({ idempotent: true }));
+    // 同一身份重放不该吃日额度，否则冷启动几次就把这一台锁到明天。
+    expect(repeats.every((h) => h.status === 0)).toBe(true);
+    // 对照：新身份照旧计数 —— 日档不是被整个关掉了。
+    const fresh = [];
+    for (let i = 0; i < 3; i++) fresh.push(await run({ idempotent: false }));
+    expect(fresh.filter((h) => h.status === RATE_LIMITED).length).toBe(1);
+    expect(
+      fresh.find((h) => h.status === RATE_LIMITED).headers[contract.limits.quotaWindowHeader],
+    ).toBe('day');
   });
 
   test('/message 不受专项档（按发送方计是 A2 的活；现在卡它会连坐整栋楼）', async () => {
@@ -268,5 +321,11 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
     expect(src).not.toMatch(/perDay\s*[:=]\s*\d+/);
     expect(src).toContain("['limits', 'unauthenticatedPerMinute']");
     expect(src).toContain("['presence', 'burstWhenPending', 'intervalSeconds']");
+    // T180：日档要说清"哪一档"，且重复登记不吃日额度。
+    expect(src).toContain("['limits', 'quotaWindowHeader']");
+    expect(src).toContain('isIdempotentRegister');
+    const appSrc = fs.readFileSync(path.join(__dirname, '../lib/app.js'), 'utf8');
+    // app.js 必须把那枚"重复登记"判据接进限流器；只在 ratelimit.js 里声明等于没人用。
+    expect(appSrc).toContain('isIdempotentRegister');
   });
 });

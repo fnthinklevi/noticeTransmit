@@ -4383,6 +4383,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String fnthinkPresenceBackoff(int minutes, int seconds) {
+    return '限流退避中：约 $minutes 分 $seconds 秒后自动重试（这是一次性退避，不是常态间隔）';
+  }
+
+  @override
   String get fnthinkPresenceAsleep => '当前没在醒着（开关关着，或还没同意）';
 
   @override
@@ -4479,6 +4484,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String fnthinkRegisterRateLimited(int minutes, int seconds) {
     return '注册被限流，还要等 $minutes 分 $seconds 秒，到点自动重试';
   }
+
+  @override
+  String get fnthinkRegisterDayQuota => '今日注册额度已用完，明日恢复；这台会自动重试（不用你手动点）';
 
   @override
   String fnthinkPollIntervalChosen(int seconds) {

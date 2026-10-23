@@ -4668,6 +4668,45 @@ void main() {
       );
     });
 
+    testWidgets('退避中 ⇒ 不把退避当常态间隔；单起一行，且「立即收取」禁用（T180）', (tester) async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      stubChannels(
+        presenceStatus: () => {
+          'nextRoundAt': now + 10 * 60 * 1000,
+          'cadenceSeconds': 20,
+          'backoffSeconds': 600,
+          'everArmedAt': now,
+        },
+      );
+      final h = harness();
+      await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('fnthink-presence-next'));
+      await revealTo(tester, row);
+      expect(
+        find.textContaining('间隔未知'),
+        findsOneWidget,
+        reason: '退避那一颗不是常设节奏：这一行不许写"每 600 秒"',
+      );
+      final backoff = find.byKey(const ValueKey('fnthink-presence-backoff'));
+      await revealTo(tester, backoff);
+      expect(backoff, findsOneWidget);
+      expect(
+        tester.widget<Text>(backoff).data,
+        contains('一次性退避'),
+        reason: '退避与常设间隔要分两行说，否则用户以为这台常态每 10 分钟才收一次',
+      );
+      expect(find.textContaining('每 600 秒'), findsNothing);
+      final button = find.byKey(const ValueKey('fnthink-receive-now'));
+      await revealTo(tester, button);
+      expect(
+        tester.widget<PrimaryActionButton>(button).onPressed,
+        isNull,
+        reason: '退避期间点它只会再吃一次 429，屏上已有那行说清为什么',
+      );
+    });
+
     testWidgets('开关开关各一下，那一行每次都跟着变（不是读一次就停在那儿）', (tester) async {
       // ⚠ 这条用例第一版是**假绿**：只翻一次开关时，"翻开那一支"自己的重读就足以让断言通过，
       //    于是"关掉那一支忘了重读"这个缺陷测不出来（反证 P1 抓出来的）。

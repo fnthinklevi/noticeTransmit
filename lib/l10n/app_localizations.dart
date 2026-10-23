@@ -7945,6 +7945,12 @@ abstract class AppLocalizations {
   /// **'下一次自己醒：{time}（间隔未知）'**
   String fnthinkPresenceNextNoCadence(String time);
 
+  /// No description provided for @fnthinkPresenceBackoff.
+  ///
+  /// In zh, this message translates to:
+  /// **'限流退避中：约 {minutes} 分 {seconds} 秒后自动重试（这是一次性退避，不是常态间隔）'**
+  String fnthinkPresenceBackoff(int minutes, int seconds);
+
   /// No description provided for @fnthinkPresenceAsleep.
   ///
   /// In zh, this message translates to:
@@ -8112,6 +8118,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'注册被限流，还要等 {minutes} 分 {seconds} 秒，到点自动重试'**
   String fnthinkRegisterRateLimited(int minutes, int seconds);
+
+  /// No description provided for @fnthinkRegisterDayQuota.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日注册额度已用完，明日恢复；这台会自动重试（不用你手动点）'**
+  String get fnthinkRegisterDayQuota;
 
   /// No description provided for @fnthinkPollIntervalChosen.
   ///

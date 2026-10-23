@@ -16,6 +16,7 @@ import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_relay_consent.dart';
 import '../services/fnthink_settings.dart';
+import '../services/fnthink_start_failure_display.dart';
 import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_info_note_box.dart';
@@ -144,6 +145,10 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   FnthinkInboxChannelState? _inboxChannelState;
   String? _inboxCheckNote;
   bool _checkingInbox = false;
+
+  /// T180：读到这一份排程时的"此刻"（毫秒）。退避剩余时间按它算：
+  /// 每次 `_readPresence` 刷新，不在 `build` 里另读一次墙钟（同一屏的几行来自同一时刻）。
+  int _backoffNow = 0;
 
   bool _busy = false;
 
@@ -283,7 +288,26 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
       _exactAlarmGranted = exactAlarm;
       _batteryOptimizationIgnored = batteryIgnored;
       _inboxChannelState = inboxState;
+      _backoffNow = DateTime.now().millisecondsSinceEpoch;
     });
+  }
+
+  bool get _backoffActive {
+    final status = _presence;
+    if (status == null || status.backoffSeconds <= 0) return false;
+    final now = _backoffNow > 0
+        ? _backoffNow
+        : DateTime.now().millisecondsSinceEpoch;
+    return status.nextRoundAt > now;
+  }
+
+  String _backoffText(AppLocalizations l10n) {
+    final status = _presence!;
+    final now = _backoffNow > 0
+        ? _backoffNow
+        : DateTime.now().millisecondsSinceEpoch;
+    final total = ((status.nextRoundAt - now) / 1000).ceil().clamp(0, 1 << 30);
+    return l10n.fnthinkPresenceBackoff(total ~/ 60, total % 60);
   }
 
   Future<void> _refreshInboxCheck() async {
@@ -388,6 +412,8 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
         return l10n.fnthinkPresenceAsleep;
       case FnthinkPresenceLiveness.armed:
         final clock = _presenceClock(status.nextRoundAt);
+        // T180：退避那一颗**不是常设节奏** —— 这一行不写"每 N 秒"，退避另起一行说。
+        if (_backoffActive) return l10n.fnthinkPresenceNextNoCadence(clock);
         return status.cadenceSeconds > 0
             ? l10n.fnthinkPresenceNext(clock, status.cadenceSeconds)
             : l10n.fnthinkPresenceNextNoCadence(clock);
@@ -448,15 +474,10 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
     setState(() => _serverHealth = health);
   }
 
-  /// 起不来那句的原话（T139 ①）：限流那一档换成人话（等几分钟、会自动重试），
-  /// 其余理由**原样展示** —— 那些机器码是排查的入口，翻译丢了就没法搜。
-  /// 认限流的判据只有一位作者（`fnthinkRegisterRateLimitedWait`），不在这里另抄正则。
-  String _describeStartFailure(String reason, AppLocalizations l10n) {
-    final wait = fnthinkRegisterRateLimitedWait(reason);
-    if (wait == null) return reason;
-    // 生成器把两个占位符落成了**位置参数**（见 app_localizations.dart 的签名）
-    return l10n.fnthinkRegisterRateLimited(wait.minutes, wait.seconds);
-  }
+  /// 起不来那句（T139 ① / T180）。换人话的判据只有一位作者
+  /// （`fnthinkStartFailureText`），这一页不另抄正则。
+  String _describeStartFailure(String reason, AppLocalizations l10n) =>
+      fnthinkStartFailureText(l10n, reason);
 
   String _serverHealthText(AppLocalizations l10n) {
     final health = _serverHealth;
@@ -859,6 +880,12 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
             keyName: 'fnthink-presence-next',
             text: _presenceText(l10n),
           ),
+        // T180：一次性退避单独一行，与上面的常设节奏分开说；倒计时由一秒一跳的计时器刷新。
+        if (_backoffActive)
+          FnthinkNote(
+            keyName: 'fnthink-presence-backoff',
+            text: _backoffText(l10n),
+          ),
         // T176 自检：上次成功收取 / 两条 WorkManager 链 / 待发条数。
         // 这三行与上面那一行是同一个问题的四份读数；只给"下一次"会让人以为链一定在跑。
         if (_presence != null)
@@ -933,7 +960,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
         PrimaryActionButton(
           key: const ValueKey('fnthink-receive-now'),
           label: l10n.fnthinkReceiveNow,
-          onPressed: _enabled && !_busy ? _receiveNow : null,
+          // T180：退避期间点它只会再吃一次 429（那一发 register 仍是同一个身份但分钟档照记）。
+          // 禁用而不是藏掉，旁边的退避行已经说清为什么。
+          onPressed: _enabled && !_busy && !_backoffActive ? _receiveNow : null,
         ),
       ],
     );

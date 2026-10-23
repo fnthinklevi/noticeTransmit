@@ -191,6 +191,18 @@ function registerDevice(contract, devices, input, now) {
     err.code = DEVICE_KEY_SWAP_CODE;
     throw err;
   }
+  // T180：同一地址码 + 同一把公钥 + 同一个名字 = 一次冷启动重放，返回旧行**不落盘**。
+  // 内容本来就不变；每次重写一遍设备表会让"一次开机"变成一次磁盘写，而调用方
+  // 收到的东西与真写了逐字节相同。owner 只在管理面显式设置时出现，带它就不走这条。
+  const normalizedName = clampPeerName(contract, input.name);
+  if (
+    existing &&
+    existing.publicKey === publicKey &&
+    existing.name === normalizedName &&
+    input.owner === undefined
+  ) {
+    return existing;
+  }
   const record = existing || {
     createdAt: now,
     // 新登记的记录落在"允许投递"那一档，与解冻是同一个来源（以前这里写死一个字符串，
@@ -202,7 +214,7 @@ function registerDevice(contract, devices, input, now) {
   // 关系那一列**只由契约命名**（下面那一段），这里不许写一遍列名当种子：
   // 写了就是第二份真值，列名换了会多出一个谁都不读的空调用，而正确的那一列照样能建起来 —— 没人报错。
   record.publicKey = publicKey;
-  record.name = clampPeerName(contract, input.name);
+  record.name = normalizedName;
   if (
     !record[relationshipField(contract)] ||
     typeof record[relationshipField(contract)] !== 'object'

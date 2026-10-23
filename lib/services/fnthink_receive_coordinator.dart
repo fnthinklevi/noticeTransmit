@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:fnthink_push/fnthink_push.dart';
@@ -22,6 +23,23 @@ typedef FnthinkStartResult = ({bool started, String reason});
 
 /// 最近一次**成功**收取的时刻（T176 自检）。键名不带 `flutter.`：这是 Dart 自己写的。
 const String kFnthinkLastRoundAtKey = 'fnthink_last_round_at';
+
+/// 「这台已经在这台服务器上登记过」的持久标记（T180）。
+///
+/// 值 = `baseUri|地址码|公钥指纹`：换服务器、换地址码、换钥匙都会得到不同的值 ⇒ 自然重登；
+/// 冷启动与后台 isolate 读到同一个值 ⇒ **不再发那一发 register**。
+/// 旧实现只在进程内记（`_registeredFor`），于是每次开机都重登一次，日额度被同一台设备烧穿。
+const String kFnthinkRegisterMarkerKey = 'fnthink_register_marker_v1';
+
+/// 公钥指纹（FNV-1a 64 位）。只用于"这把钥匙变没变"的本地比较，不是安全摘要。
+String fnthinkPublicKeyFingerprint(String publicKey) {
+  var hash = 0xcbf29ce484222325;
+  for (final unit in utf8.encode(publicKey)) {
+    hash ^= unit;
+    hash = (hash * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF;
+  }
+  return hash.toUnsigned(64).toRadixString(16).padLeft(16, '0');
+}
 
 /// 服务器认了这条授权，但**本机名单那一行没写成**的三种原因。各对应一种用户动作，
 /// 所以不用一个 `bool` 折叠（"没写成"与"写成了但没落盘"在用户那里是完全不同的两句）。
@@ -655,6 +673,16 @@ class FnthinkReceiveCoordinator {
   }
 
   void _noteRound(FnthinkLoopReport report) {
+    if (report.status == FnthinkPollStatus.rejectedUnsigned) {
+      // 运行中的循环收到 403：服务端已经不认这台（重建过身份 / 设备表被清）。
+      // 立刻把"已登记"标记作废 —— 下一次 start 会重登一次，而不是靠用户猜。
+      _registeredFor = null;
+      unawaited(
+        SharedPreferences.getInstance().then(
+          (prefs) => prefs.remove(kFnthinkRegisterMarkerKey),
+        ),
+      );
+    }
     if (report.status == FnthinkPollStatus.ok) {
       _pairRequests.value = _withoutAnswered(report.pairRequests);
       // 另一面（T110）同一条纪律：失败的那一轮不产生判断，所以不清空这一份 —— 一次抖动之后
@@ -875,8 +903,20 @@ class FnthinkReceiveCoordinator {
     // 没装配（钩子留空）：本进程不做这一步。生产装配由守卫看着 —— 这一行不能自己
     // 变成"静默跳过"，所以守卫钉的是 DI 里那一行在不在。
     if (hook == null) return null;
-    final key = '${spec.baseUri}|${spec.addressCode}';
+    // T180：标记里带上公钥指纹 —— 换钥匙必须重登（服务端按表里那把验签），
+    // 而换服务器/换地址码本来就会换 key。读不到公钥时指纹退化成空串，
+    // 仍能把"换了地址码/服务器"分开；真实身份由签名那一发证明。
+    final publicKey = await spec.signer.publicKey();
+    final key =
+        '${spec.baseUri}|${spec.addressCode}|'
+        '${fnthinkPublicKeyFingerprint(publicKey ?? '')}';
     if (_registeredFor == key) return null;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(kFnthinkRegisterMarkerKey) == key) {
+      // 冷启动 / 后台 isolate：上一进程已经登记过，这一发不发。
+      _registeredFor = key;
+      return null;
+    }
 
     final FnthinkRegisterResult result;
     try {
@@ -891,6 +931,13 @@ class FnthinkReceiveCoordinator {
     }
     if (result.ok) {
       _registeredFor = key;
+      // 落盘标记：下一次冷启动/后台 isolate 不再重登。写失败不是功能失败 ——
+      // 最坏是下一次又登一遍（与旧行为一致），不为此拦住收货。
+      try {
+        await prefs.setString(kFnthinkRegisterMarkerKey, key);
+      } catch (e) {
+        debugPrint('[fnthink] 登记标记写入失败（下次会重登一次）: $e');
+      }
       return null;
     }
     const blocking = {
@@ -898,8 +945,21 @@ class FnthinkReceiveCoordinator {
       FnthinkPollStatus.rateLimited,
     };
     if (!blocking.contains(result.status)) return null;
+    if (result.status == FnthinkPollStatus.rejectedUnsigned) {
+      // 服务端不认这台 ⇒ 标记不可信（它可能重建过身份、或设备表被清）。清掉，
+      // 下一次 start 会重新登记；不清的话这一台会永远停在"本地以为登记过了"。
+      _registeredFor = null;
+      try {
+        await prefs.remove(kFnthinkRegisterMarkerKey);
+      } catch (_) {}
+    }
+    // 日档与分钟档说不同的话：日档不该把十几小时抄成倒计时（T180）。
+    final baseReason = result.reason ?? result.status.name;
+    final reason = result.quotaWindow == 'day'
+        ? 'rate-limited-day:${result.retryAfterSeconds ?? 0}'
+        : baseReason;
     return (
-      reason: 'register-failed: ${result.reason ?? result.status.name}',
+      reason: 'register-failed: $reason',
       retryAfterSeconds: result.retryAfterSeconds,
     );
   }

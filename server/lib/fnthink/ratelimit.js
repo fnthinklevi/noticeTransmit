@@ -72,6 +72,18 @@ function pickAt(src, path) {
   );
 }
 
+/// 429 上那枚"哪一档额度"的响应头名（T180）。两端读同一格，名字不许在实现里再写一遍。
+function quotaWindowHeaderName(src) {
+  const name = pickAt(src, ['limits', 'quotaWindowHeader']);
+  if (typeof name !== 'string' || name === '' || name !== name.toLowerCase()) {
+    throw shapeError(
+      `limits.quotaWindowHeader 必须是非空小写头名（实际 ${JSON.stringify(name)}）：` +
+        '这枚头让设备分清「分钟档重来」与「今日没了」，两端各写一个名字就会一方永远读不到',
+    );
+  }
+  return name;
+}
+
 /// 从契约推导各档窗口。**取不到正数就抛**，不许缺省成"不限"：一份读不出数字的契约表，
 /// 正确行为是启动失败，不是悄悄把所有端点放进无限档。
 function windowsFor(src) {
@@ -170,13 +182,21 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows, options = {}) {
   // 第二份窗口只给测试注入用（日档 500 次不可能在单测里真打满）。
   // ⚠ 缺省仍然是**契约推导的那一份**：留一个"测试专用"的入口不等于生产能绕过它。
   const windows = overrideWindows || contractWindows;
+  // T180：同一地址码 + 同一把公钥的重复 register 是幂等重放，不该吃日额度。
+  // 这一判**只读请求体与设备表**，不替验签 —— 它只决定"这一次要不要记日档"，
+  // 真正的身份仍由路由里的签名证明；谎称一台已登记设备只会让它自己按分钟档受限。
+  const idempotentRegister = options.isIdempotentRegister || (() => false);
+  const quotaWindowHeader = quotaWindowHeaderName(contract);
   /** key → { count, windowStart, expiresAt }；过期判定按**窗口结束**，不按固定 WINDOW_MS ——
    *  日档的窗口长度是 DAY_MS，用 2×分钟去扫会把日计数器在两分钟后当垃圾清掉。 */
   const counters = new Map();
   const warned = new Set();
 
-  function deny(res, now, entry, spanMs, note) {
+  function deny(res, now, entry, spanMs, note, windowName) {
     res.set('Retry-After', String(Math.ceil((spanMs - (now - entry.windowStart)) / 1000)));
+    // T180：再把"哪一档"说出来。日档与分钟档的 Retry-After 都合法，但设备对前者的
+    // 正确回答是"今日额度用完，明日恢复"，不是把 12 小时抄成倒计时。
+    if (windowName) res.set(quotaWindowHeader, windowName);
     if (note && !warned.has(note)) {
       warned.add(note);
       // 没登记进任何名单的端点：按控制类（最紧的那把）量，并**留痕点名**，不静默。
@@ -230,7 +250,7 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows, options = {}) {
         denied: overFace,
         at: now,
       });
-      if (overFace) return deny(res, now, face, WINDOW_MS);
+      if (overFace) return deny(res, now, face, WINDOW_MS, null, 'minute');
     }
 
     // 已证明身份的端点（poll / ack / 配对三步 / message）一律**不在这层按 IP 记**：
@@ -261,9 +281,12 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows, options = {}) {
         denied: overMinute,
         at: now,
       });
-      if (overMinute) return deny(res, now, minute, WINDOW_MS, note);
+      if (overMinute) return deny(res, now, minute, WINDOW_MS, note, 'minute');
     }
-    if (isControl) {
+    // 同一地址码 + 同一把公钥的重复登记：内容幂等，**不占日额度**（T180）。
+    // 分钟档照记（上面那一段）：这条判据只看请求体自称的身份，不能被用来无限敲门。
+    const repeatRegister = kind === 'register' && idempotentRegister(req);
+    if (isControl && !repeatRegister) {
       // 日档把日期编进键里，换日自然换新计数器（旧键由过期清扫回收）。
       const dayKey = `${ip}:${kind}:d:${Math.floor(now / DAY_MS)}`;
       const day = windowEntry(dayKey, now, DAY_MS);
@@ -280,7 +303,7 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows, options = {}) {
           denied: overDay,
           at: now,
         });
-        if (overDay) return deny(res, now, day, DAY_MS);
+        if (overDay) return deny(res, now, day, DAY_MS, null, 'day');
       }
     }
     next();

@@ -2513,6 +2513,17 @@
       }
     }
   },
+  "fnthinkPresenceBackoff": "限流退避中：约 {minutes} 分 {seconds} 秒后自动重试（这是一次性退避，不是常态间隔）",
+  "@fnthinkPresenceBackoff": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkPresenceAsleep": "当前没在醒着（开关关着，或还没同意）",
   "fnthinkPresenceDead": "复起链已断：这台不再会自己醒（开关与同意都还在）",
   "fnthinkPresencePendingFirstRound": "还没排上第一轮（刚开起来，跑完第一轮会自己排上）",
@@ -2541,6 +2552,7 @@
   "fnthinkPollIntervalTitle": "收取间隔",
   "fnthinkPollIntervalUsingDefault": "现在每 {seconds} 秒问一次（协议默认那一档）",
   "fnthinkRegisterRateLimited": "注册被限流，还要等 {minutes} 分 {seconds} 秒，到点自动重试",
+  "fnthinkRegisterDayQuota": "今日注册额度已用完，明日恢复；这台会自动重试（不用你手动点）",
   "fnthinkPollIntervalChosen": "现在每 {seconds} 秒问一次（你选的）",
   "@fnthinkPollIntervalUsingDefault": {
     "placeholders": {

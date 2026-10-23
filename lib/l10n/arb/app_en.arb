@@ -2492,6 +2492,17 @@
       }
     }
   },
+  "fnthinkPresenceBackoff": "Rate-limit backoff: retrying automatically in about {minutes} min {seconds} s (a one-off backoff, not the normal interval)",
+  "@fnthinkPresenceBackoff": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkPresenceAsleep": "Not waking on its own right now (switch off, or consent not given)",
   "fnthinkPresenceDead": "Wake-up chain is broken: this device will no longer wake on its own (switch and consent are both still on)",
   "fnthinkPresencePendingFirstRound": "First round not scheduled yet (just turned on; it arms itself after the first round)",
@@ -2520,6 +2531,7 @@
   "fnthinkPollIntervalTitle": "Poll interval",
   "fnthinkPollIntervalUsingDefault": "Asks every {seconds}s (the protocol default)",
   "fnthinkRegisterRateLimited": "Registration is rate-limited; retrying automatically in {minutes} min {seconds} s",
+  "fnthinkRegisterDayQuota": "Today's registration quota is used up; it resets tomorrow. This device retries automatically.",
   "fnthinkPollIntervalChosen": "Asks every {seconds}s (your choice)",
   "@fnthinkPollIntervalUsingDefault": {
     "placeholders": {

@@ -4608,6 +4608,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String fnthinkPresenceBackoff(int minutes, int seconds) {
+    return 'Rate-limit backoff: retrying automatically in about $minutes min $seconds s (a one-off backoff, not the normal interval)';
+  }
+
+  @override
   String get fnthinkPresenceAsleep =>
       'Not waking on its own right now (switch off, or consent not given)';
 
@@ -4714,6 +4719,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkRegisterRateLimited(int minutes, int seconds) {
     return 'Registration is rate-limited; retrying automatically in $minutes min $seconds s';
   }
+
+  @override
+  String get fnthinkRegisterDayQuota =>
+      'Today\'s registration quota is used up; it resets tomorrow. This device retries automatically.';
 
   @override
   String fnthinkPollIntervalChosen(int seconds) {
