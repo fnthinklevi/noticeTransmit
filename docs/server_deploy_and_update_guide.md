@@ -23,7 +23,7 @@
 | 项 | 状态 |
 | --- | --- |
 | 更新服务 | **已上线**：`notice.fnthink.top`。⚠ 2026-10-06 起 App 侧**不再是编译期常量**：两档地址（`notice.fnthink.com` / `notice.fnthink.top`）住在 `lib/services/update_server_regions.dart`，应用内「更多 → 更新服务器」可选（T95） |
-| 幻念推送公网面 | **代码就绪（2026-10-22 现读 18 条）**：`/api/fnthink/*` = 14 条协议路由 + 4 条 `/p/…` 接入入口；含 `probe`、`peer-presence`（T156）、`pair-revoke`、端点管理与 `/api/echo`（T09）。三层限流 + 体积闸（#129/#130/#131）；**两个推送域名都已上线**（`.top` 见 8.9 第十一轮、`.com` 见 8.9 第十三轮；2026-09-29 外网实测的是**当时的七条**：403 `rejected_unsigned` / 暴露 404 / 大 body 413+`{}`。此后新增的路由需按新总表复跑） |
+| 幻念推送公网面 | **代码就绪（2026-10-23 现读 19 条）**：`/api/fnthink/*` = 15 条协议路由 + 4 条 `/p/…` 接入入口；含 `probe`、`peer-presence`（T156）、`pair-revoke`、端点管理与 `/api/echo`（T09）。三层限流 + 体积闸（#129/#130/#131）；**两个推送域名都已上线**（`.top` 见 8.9 第十一轮、`.com` 见 8.9 第十三轮；2026-09-29 外网实测的是**当时的七条**：403 `rejected_unsigned` / 暴露 404 / 大 body 413+`{}`。此后新增的路由需按新总表复跑） |
 | ⚠ 两域名在**两个不同的 CDN** 后面 | `.top` → Cloudflare；`.com` → 腾讯云 EdgeOne（`*.eo.dnse1.com`）。 ⇒ #140「真实客户端 IP」**不是一次修完两处**：两边的回源头不一样，要各配一次、各验一遍（验收命令见 8.9 第十三轮末尾） |
 | 设备侧 fnthink 客户端 | **已做**：App 内已有幻念身份/配对/收发/远程执行/端点管理等完整客户端（T71–T156）。公网面需要两台设备完成配对后才有真实推送流量；单机只有探针流量 |
 | 契约 | `protocol/fnthink-v1.json`（**不在 `server/` 里**，每次它变了必须重传） |
@@ -824,7 +824,7 @@ curl -sS --ssl-no-revoke -o /dev/null -w '%{http_code}\n' -X POST https://push.f
 rsync -av ./protocol/fnthink-v1.json user@host:$ROOT/../protocol/
 # ② 或放任意位置 + .env 里显式指定
 #   FNTHINK_CONTRACT=/绝对路径/fnthink-v1.json
-pm2 restart update-server && pm2 logs update-server --lines 40   # 横幅应列出全部 18 条公网路由（逐条限流档位）+ 请求体上限 65536
+pm2 restart update-server && pm2 logs update-server --lines 40   # 横幅应列出全部 19 条公网路由（逐条限流档位）+ 请求体上限 65536
 ```
 改完再跑验收：`poll` 应回 **403 + `{"receipt":"rejected_unsigned"}`**。
 

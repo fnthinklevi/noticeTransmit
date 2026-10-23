@@ -53,7 +53,7 @@
 
 **第三条线：远程控制。** 由已配对的另一台设备下发指令，按 L2（应用动作）/ L3（系统设置）分档逐条授权：L2 四项动作、L3 六项设置，每项单独开关、每次执行前有可撤销的延时窗口、执行结果两段回执。
 
-全应用中英双语国际化（1593 词条 × 2 语言）。Apache License 2.0 开源，免费无广告。
+全应用中英双语国际化（1649 词条 × 2 语言）。Apache License 2.0 开源，免费无广告。
 
 ---
 
@@ -106,7 +106,7 @@
 - 📱 **桌面小组件升级** —— 布局与视觉全面美化（状态圆环 / 提示胶囊 / 当日计数），系统添加弹窗带预览与说明，不支持一键添加的桌面自动弹出分品牌分步引导；短信监听设置中心（监听开关 / 验证码开关 / 监听卡选择）
 - 🖼️ **桌面图标切换** —— 内置 17 款图标 × 中英双语标签 = 34 个 launcher 图标别名，应用内一键切换
 - 🌙 **深色模式** —— 浅色 / 深色 / 跟随系统三种
-- 🌐 **多语言国际化** —— 中英双语（`app_zh.arb` / `app_en.arb` 各 1593 词条，gen-l10n 生成，CI 锁定两侧键集合一致），设置页自由切换；语言标签同步下发原生侧，常驻通知与推送文案随之切换
+- 🌐 **多语言国际化** —— 中英双语（`app_zh.arb` / `app_en.arb` 各 1649 词条，gen-l10n 生成，CI 锁定两侧键集合一致），设置页自由切换；语言标签同步下发原生侧，常驻通知与推送文案随之切换
 - 📄 **文本选择菜单多机型适配** —— 全部 36 处文本组件的选择菜单按钮文案（复制/剪切/粘贴/全选/分享）统一为应用内词条，消除厂商 ROM 上按钮显示英文或空白的问题
 - 📊 **推送统计统一** —— 首页 / 更多页 / 状态栏三处统计共用同一数据源，当日计数实时同步
 - ⏸️ **一键暂停推送** —— 常驻通知 Action 按钮暂停/恢复（监听继续，仅停止发送），状态持久化；暂停期间的消息在历史中标为"用户暂停推送"，可一键"现在推送"补推
@@ -134,7 +134,7 @@
 - 🎭 **混淆规则就绪** —— 已配置 ProGuard/R8 规则（`proguard-rules.pro`），release 启用代码混淆与资源压缩
 - 📡 **Token 安全传输** —— 仅接受 Header 传递，禁止 URL 参数
 - 🎲 **安全随机数** —— 使用 `crypto.randomUUID()` 生成会话 ID
-- 🗄️ **SQLite 加密** —— 通知记录、通道配置与送达日志（schema v26，12 张表）全部经 SQLCipher AES-256 加密，密钥由 flutter_secure_storage 托管于 AndroidKeyStore
+- 🗄️ **SQLite 加密** —— 通知记录、通道配置与送达日志（schema v27，12 张表）全部经 SQLCipher AES-256 加密，密钥由 flutter_secure_storage 托管于 AndroidKeyStore
 - 🔑 **Webhook 密钥安全** —— Webhook URL（含钉钉/企微/飞书认证 key）使用 AndroidKeyStore 加密存储
 - 🔐 **SSL 证书固定** —— 双端 HTTP 客户端（Dart `PinnedHttpClient` + Kotlin `NetworkClient` 的 OkHttp `CertificatePinner`）均已就位，**默认未启用**（须注入 `CERT_PINS` / `ENABLE_CERT_PINNING`，Debug 构建恒关闭），当前通过 CDN 间接保护；轮换与启用流程见 [docs/cert_rotation_runbook.md](docs/cert_rotation_runbook.md)
 - 🧩 **小部件广播防护** —— 桌面小部件的启停广播受签名级自定义权限 `com.fnthink.notice.permission.WIDGET_CONTROL` 保护，第三方应用因签名不匹配无法伪造 `TOGGLE_PUSH`
@@ -226,7 +226,7 @@
 |------|------|
 | 前端 | Flutter 3.47.7（Dart 3.13.5） |
 | 状态管理 / 依赖注入 | get_it (^9.3.0) + Service 类 |
-| 本地数据库 | sqflite_sqlcipher (^3.4.1) · SQLCipher AES-256 · schema v26 / 12 张表 |
+| 本地数据库 | sqflite_sqlcipher (^3.4.1) · SQLCipher AES-256 · schema v27 / 12 张表 |
 | 键值存储 | shared_preferences (^2.5.6) · flutter_secure_storage (^10.3.1，自带 vendored 加密实现) · 原生 SecurePrefs 走 androidx.security 1.1.0 |
 | 原生服务 | Kotlin 2.4.21（Android），主源码 89 个 Kotlin 文件 |
 | 网络请求 | http（Dart） / OkHttp 5.5.0（Kotlin） |
@@ -235,11 +235,11 @@
 | 后台保活 | Foreground Service + WakeLock (PARTIAL_WAKE_LOCK) |
 | 后台任务 | workmanager ^0.10.10（每日归档 + 兜底唤醒） |
 | 协程 | kotlinx.coroutines（SupervisorJob + Dispatchers.IO） |
-| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（122 个方法 · 7 个原生 handler + 2 个 Worker） |
+| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（125 个方法 · 7 个原生 handler + 2 个 Worker） |
 | **协议契约** | `protocol/fnthink-v1.json`（单一真值）＋ `protocol/fnthink-vectors-v1.json`（跨端向量表） |
 | **共享协议包** | `packages/fnthink_push`（29 个 Dart 文件，两端与 CLI 共读同一份契约与向量） |
 | **身份与签名** | Ed25519（AndroidKeyStore 硬件背书，API 33+；30–32 走 KeyStore 包裹软件密钥） |
-| 国际化 | gen-l10n + ARB（zh / en 各 1593 词条） |
+| 国际化 | gen-l10n + ARB（zh / en 各 1649 词条） |
 | 崩溃统计 | 腾讯 Bugly 4.1.9.3（默认关闭） |
 | 服务端 | Node.js 24 LTS（`engines: >=24`）+ Express 5.x（Token 鉴权 + 二步验证 + 幻念协议面）/ GitHub Pages 静态部署 |
 | 服务端依赖 | bcryptjs · cors · dotenv · express · otplib · qrcode |
@@ -247,7 +247,7 @@
 | 数据加密 | Node.js crypto（AES-256-GCM）/ AndroidKeyStore + flutter_secure_storage |
 | 构建工具 | Gradle 9.8.2 + AGP 9.4.1 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 · Kotlin 由 AGP 内置编译（Kotlin 2.4.21 走 classpath 钉版） |
 | 代码质量 | flutter_lints ^6.0.0 · dart format · ktlint 1.8.0 · prettier 3.9.8 · Android lint（含 baseline） |
-| 测试 | flutter test（Dart 3308 例）· JUnit（Kotlin JVM 619 例）· jest + supertest（服务端 801 例）· integration_test |
+| 测试 | flutter test（Dart 3389 例）· JUnit（Kotlin JVM 626 例）· jest + supertest（服务端 814 例）· integration_test |
 | CI/CD | GitHub Actions（analyze / build-apk / integration_test / deploy-pages） |
 | APK 签名 | Gradle signingConfig：V1+V2+V3 全开，密钥仅由环境变量或 `android/key.properties` 注入 |
 
@@ -288,9 +288,9 @@ noticeTransmit/
 ├── lib/                                  # Flutter 端（201 个 Dart 文件）
 │   ├── main.dart                         # 主入口（初始化顺序 + WorkManager 注册）
 │   ├── update_manager.dart               # 应用内更新（多源回退 + sha256 校验）
-│   ├── database/database_helper.dart     # SQLCipher schema v26（12 张表）
+│   ├── database/database_helper.dart     # SQLCipher schema v27（12 张表）
 │   ├── di/service_locator.dart           # get_it 服务注册
-│   ├── l10n/arb/                         # app_zh.arb · app_en.arb（各 1593 词条 + 生成代码）
+│   ├── l10n/arb/                         # app_zh.arb · app_en.arb（各 1649 词条 + 生成代码）
 │   ├── models/                           # 数据模型（12 个文件）
 │   ├── pages/                            # 页面（47 个文件）
 │   │   ├── main_page*.dart               # 首页（actions / dialogs / update 同前缀拆分）
@@ -331,17 +331,17 @@ noticeTransmit/
 │   │   ├── RetryQueue.kt · DelayedPushManager.kt · MergePushManager.kt
 │   │   ├── ConfigManager.kt · SecurePrefs.kt · NetworkClient.kt
 │   │   └── channels/                     # 7 个 handler（配置 34 / 权限 29 / 设备 17 / 文件 12
-│   │                                     #   / 幻念 15 / 统计 8 / 远程执行 5 ＝ 120 个方法；+2 个 Worker 各 1 ＝ 122）
-│   ├── test/                             # Kotlin JVM 单测（75 个测试类 / 619 用例）
+│   │                                     #   / 幻念 18 / 统计 8 / 远程执行 5 ＝ 123 个方法；+2 个 Worker 各 1 ＝ 125）
+│   ├── test/                             # Kotlin JVM 单测（77 个测试类 / 626 用例）
 │   └── androidTest/                      # 仪器测试（7 个文件）
 ├── server/                               # 服务端（更新服务 + TOTP 后台 + 幻念协议面）
 │   ├── server.js · lib/                  # 入口 + 模块化分层（32 个 JS：server.js + lib/ 31）
 │   ├── lib/fnthink/                     # 幻念协议面（配对 / 投递 / 能力 / 端点 / 运维 …）
-│   ├── test/                            # jest + supertest 契约测试（44 个文件 / 801 例）
+│   ├── test/                            # jest + supertest 契约测试（45 个文件 / 814 例）
 │   ├── public/                          # 官网与 GitHub Pages 静态站点
 │   ├── data/version.json                # 版本信息（版本/构建号/sha256/多架构下载地址）
 │   └── README.md · GITHUB_PAGES.md       # 部署文档（中英各一份）
-├── test/                                # Dart 测试（291 个文件 / 3308 用例）
+├── test/                                # Dart 测试（300 个文件 / 3389 用例）
 ├── integration_test/                    # 设备侧冒烟（5 个文件，含发版闸门）
 ├── docs/                                # server_deploy_and_update_guide.md · cert_rotation_runbook.md（路线图等内部流水不入库）
 ├── .github/                             # workflows/（CI）与 scripts/（格式、版本一致性、本地发版）
@@ -388,19 +388,19 @@ flutter build apk --release --target-platform android-arm64
 ### 运行测试与质量校验
 
 ```bash
-# Dart 单元测试（291 个文件 / 3308 用例）
+# Dart 单元测试（300 个文件 / 3389 用例）
 flutter test
 
 # 嵌套协议包单测（在包目录里跑）
 cd packages/fnthink_push && dart test && cd ../..
 
-# Kotlin JVM 单元测试（75 个测试类 / 619 用例）
+# Kotlin JVM 单元测试（77 个测试类 / 626 用例）
 cd android && ./gradlew :app:testDebugUnitTest
 
 # Android lint（error 即失败，已知误报由 android/app/lint-baseline.xml 兜住）
 cd android && ./gradlew :app:lintDebug
 
-# 服务端契约测试（801 例，需 Node.js 24 LTS）
+# 服务端契约测试（814 例，需 Node.js 24 LTS）
 cd server && npm ci && npm test
 
 # 三路格式校验（dart format + ktlint 1.8.0 + prettier 3.9.8；加 --fix 就地格式化）
@@ -428,10 +428,10 @@ flutter test integration_test/smoke_test.dart
 
 **测试规模**（均为可执行用例；除设备侧测试外，其余全部纳入 CI 门禁强制执行）：
 
-- **Dart 单元测试** —— 291 个测试文件 / 3308 用例（`test/`）：架构契约（启动顺序、launcher manifest、跨端通道方法齐平、幻念镜像键名守卫）、数据库 schema 与迁移、备份/送达/过滤黄金用例、页面 widget 测试
+- **Dart 单元测试** —— 300 个测试文件 / 3389 用例（`test/`）：架构契约（启动顺序、launcher manifest、跨端通道方法齐平、幻念镜像键名守卫）、数据库 schema 与迁移、备份/送达/过滤黄金用例、页面 widget 测试
 - **共享协议包测试** —— `packages/fnthink_push`：契约校验与向量断言，两端各跑一遍
-- **Kotlin JVM 单元测试** —— 75 个测试类 / 619 用例（`android/app/src/test/`）：双端规则匹配一致性由 `rule_engine_golden.json` 51 条黄金用例锁定，通道行为由 `channel_behavior_golden.json` 逐字节快照锁定
-- **服务端契约测试** —— 801 例（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面 18 条路由（14 条协议路由 + 4 条接入入口）
+- **Kotlin JVM 单元测试** —— 77 个测试类 / 626 用例（`android/app/src/test/`）：双端规则匹配一致性由 `rule_engine_golden.json` 51 条黄金用例锁定，通道行为由 `channel_behavior_golden.json` 逐字节快照锁定
+- **服务端契约测试** —— 814 例（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面 18 条路由（14 条协议路由 + 4 条接入入口）
 - **设备侧测试** —— `integration_test/smoke_test.dart` 主链路冒烟（启动 → 注入 → 通知页 → 送达状态 → 历史 → 服务启停 → 导出），加 `android/app/src/androidTest` 仪器测试，由 `integration_test.yml` 在 API 34 / x86_64 / Pixel 6 模拟器上触发
 
 **CI 工作流**（`.github/workflows/`，均运行于 `ubuntu-24.04`）：

@@ -295,7 +295,7 @@ PORT=8080 npm start
 | `GET`  | `/api/version/region` | 公开（豁免 IP 封锁） | 地理回读 `{country,source,edge}`：报**边缘**看到的国家码，**选哪台由客户端判**；⚠ 该头是否可信要部署声明（`FNTHINK_GEO_TRUST`），没声明就回 `country:null` |
 | `GET`  | `/health` | 公开（豁免 IP 封锁） | 健康检查：`status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch`（`null` = 还没收到过带版本的请求） |
 | `POST` | `/api/echo` | `ECHO_TOKEN`（未配置则 404） | 通用收件回声口（T09；generic 盖章用） |
-| `POST/GET` | `/api/fnthink/*` | 按路由（验签 / 口令 / 限流） | 幻念协议面 **18 条**：14 条协议路由 + 4 条 `/p/…` 接入入口；完整表见下文「公网路由总表」 |
+| `POST/GET` | `/api/fnthink/*` | 按路由（验签 / 口令 / 限流） | 幻念协议面 **19 条**：15 条协议路由 + 4 条 `/p/…` 接入入口；完整表见下文「公网路由总表」 |
 | `POST` | `/api/admin/login` | Token（+ OTP / 恢复码） | 登录，成功返回 `sessionId` |
 | `POST` | `/api/admin/logout` | 会话/Token | 吊销当前会话 |
 | `GET`  | `/api/admin/totp/setup` | 会话/Token | 未启用时生成 secret + 二维码；已启用时只回状态（不再泄露 secret） |
@@ -701,9 +701,9 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
 （`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`）。改档位名要连同契约一起改，
 实现里没有一份"看不见的缺省"。
 
-### 公网路由总表（2026-10-22 现读，18 条）
+### 公网路由总表（2026-10-23 现读，19 条）
 
-`server/lib/fnthink/routes.js` 当前注册 **14 条协议路由 + 4 条 `/p/…` 接入入口**；启动横幅从 `router.stack` 取这份清单，不另抄一遍：
+`server/lib/fnthink/routes.js` 当前注册 **15 条协议路由 + 4 条 `/p/…` 接入入口**；启动横幅从 `router.stack` 取这份清单，不另抄一遍：
 
 | 路由（均在 `/api/fnthink` 下） | 用途 |
 |---|---|
@@ -713,6 +713,7 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
 | `POST /probe` | 非浸入探针（不投递，只回 `PROBE_READY_FIELD` 与服务端时间） |
 | `POST /register` | 设备登记（按 IP 限流） |
 | `POST /pair-arm` / `POST /pair` / `POST /pair-confirm` / `POST /pair-revoke` | 配对三步与撤销 |
+| `POST /pair-grant-update` | 配对后按设备改逐项权限（T174；只能改已存在的授权，不新建关系） |
 | `POST /endpoint-create` / `POST /endpoint-list` / `POST /endpoint-revoke` / `POST /endpoint-rotate` | 本机端点管理（T38–T41 / T120） |
 | `POST /peer-presence` | 对端「上次收取 X 秒前」读口（T156；载荷恒空，不能点名查某一台） |
 | `POST /p/:endpointId/probe` | 接入端点探针 |
