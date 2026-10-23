@@ -10,6 +10,7 @@ import 'channel_display.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_helper.dart';
+import '../models/delivery_status.dart';
 import '../models/notification_record.dart';
 import 'history_group_store.dart';
 import 'platform_channel.dart';
@@ -74,6 +75,59 @@ class NotificationService {
 
     // 补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
     await drainPendingDeliveries();
+
+    // T175 ②：启动时清扫超过 30 分钟仍没有终态的格子。后台被杀、worker 没跑，
+    // 那些记录不会有人再来写回执 —— 不清扫就会永远停在「发送中」。
+    await sweepStaleDeliveries();
+  }
+
+  /// T175 ②：把超过 [olderThan] 仍是 `pending`/`queued` 的送达格改成
+  /// `failed(no-receipt)`。返回改动了几条记录。
+  ///
+  /// 这是**观察时**的清扫（启动 / 回前台），不是服务端超时：本机没有后台定时器去
+  /// 为一条历史记录续命，而用户能看到它的时候一定已经回到了前台。清扫前落库、
+  /// 清扫后把内存里那一条一并换掉 —— 否则同一进程里还会读到旧值。
+  Future<int> sweepStaleDeliveries({
+    Duration olderThan = const Duration(minutes: 30),
+    int limit = 500,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final cutoff = now - olderThan.inMilliseconds;
+    List<Map<String, dynamic>> rows;
+    try {
+      rows = await DatabaseHelper().getNotificationsWithUnsettledDelivery(
+        beforeMs: cutoff,
+        limit: limit,
+      );
+    } catch (e) {
+      debugPrint('送达超时清扫读库失败: $e');
+      return 0;
+    }
+    var changed = 0;
+    for (final row in rows) {
+      try {
+        final record = NotificationRecord.fromMap(row);
+        final next = sweepStaleDelivery(
+          record.deliveryStatus,
+          postTimeMs: record.postTime,
+          nowMs: now,
+          olderThan: olderThan,
+        );
+        if (next == null) continue;
+        await DatabaseHelper().updateNotificationDelivery(record.id, next);
+        final idx = _records.indexWhere((r) => r.id == record.id);
+        if (idx >= 0) {
+          _records[idx] = _records[idx].copyWith(deliveryStatus: next);
+        }
+        changed++;
+      } catch (e) {
+        debugPrint('送达超时清扫单条失败 id=${row['id'] ?? ''}: $e');
+      }
+    }
+    if (changed > 0) {
+      debugPrint('[delivery] 超时清扫：$changed 条记录的未终态格子已标为 no-receipt');
+    }
+    return changed;
   }
 
   /// 存量修复（T133 量级① 改为 DB 驱动）：早期版本把拦截结果写到独立的拦截键下、
@@ -462,9 +516,11 @@ class NotificationService {
     final idx = _records.indexWhere((r) => r.id == notificationId);
     // N9-诊断：idx<0 时此前静默跳过（只写送达日志、不更新状态）——
     // 合并成员卡「发送中」这类问题因此不可观测。此处记录被跳过的 id 供排查。
-    // SUCCESS → 成功；PAUSED（用户暂停推送，未实际发送）→ paused；其余 → failed
+    // SUCCESS → 成功；QUEUED（已入本机待发队列）→ queued；
+    // PAUSED（用户暂停推送，未实际发送）→ paused；其余 → failed
     final normalized = switch (status) {
       'SUCCESS' => 'success',
+      'QUEUED' => 'queued',
       'PAUSED' => 'paused',
       _ => 'failed',
     };

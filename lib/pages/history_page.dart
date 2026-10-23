@@ -1000,9 +1000,13 @@ class _HistoryPageState extends State<HistoryPage> {
   ///   不回退 ⇒ 子页顶上一句「共 1 条通道」而下面一格都不画 —— 自己跟自己打架，
   ///   且「全部重推」会拿到一个空范围却仍显示成可按。
   List<String> _channelRowsOf(NotificationRecord record) {
-    return record.channels.isNotEmpty
-        ? record.channels
-        : record.deliveryStatus.keys.toList();
+    // T175 ③：快照与送达表取并集。旧写法二选一（有快照就只看快照），于是快照里有、
+    // 送达表里没有的那一格**一行都不画** —— 用户读到的是"这条只发过一个通道"。
+    final rows = <String>[...record.channels];
+    for (final key in record.deliveryStatus.keys) {
+      if (!rows.contains(key)) rows.add(key);
+    }
+    return rows;
   }
 
   /// 送达详情子页（T154 片2）：这一条到底推给了谁、每一格现在是什么。
@@ -1173,7 +1177,10 @@ class _HistoryPageState extends State<HistoryPage> {
     return _buildChannelChip(
       channel,
       _getChannelColor(channel),
-      statusInfo is Map ? (statusInfo['status']?.toString() ?? '') : '',
+      statusInfo is Map
+          ? (statusInfo['status']?.toString() ?? '')
+          // T175 ③：快照有这一族、送达表没有这一格 ⇒ 说「未入账」，不静默省掉。
+          : notAccountedStatus,
       statusInfo is Map ? (statusInfo['message']?.toString() ?? '') : '',
       l10n,
       viaBackup: statusInfo is Map && statusInfo['viaBackup'] == true,

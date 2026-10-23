@@ -152,6 +152,11 @@ class FnthinkFanoutQueue(private val context: Context) {
                 val droppedJson = mergeIntoArray(arr, item, MAX_PENDING)
                 // 队列与丢弃项来自同一次数组操作：分两次写会出现"队列写成功、丢弃项对不上"
                 p.edit().putString(KEY_PENDING, arr.toString()).apply()
+                DiagLog.w(
+                    TAG,
+                    "enqueue id=${info.id} channelKey=chan:fnthink " +
+                        "targets=${targets.size} queue=${arr.length()}",
+                )
                 if (droppedJson.isNotEmpty()) {
                     Log.w(TAG, "待发队列已满，丢弃最旧 ${droppedJson.size} 条")
                 }

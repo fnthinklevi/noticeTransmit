@@ -2085,6 +2085,25 @@ class DatabaseHelper
     return rows;
   }
 
+  /// 读那些**还可能有在途格子**的旧记录（T175 ② 超时清扫的候选）。
+  ///
+  /// SQL 只做一次粗筛（JSON 文本里出现 pending/queued），真正的裁决在
+  /// `sweepStaleDelivery`：粗筛宽一点没关系，清扫会逐格认状态；粗筛窄了才会漏。
+  /// 按 `post_time` 倒序取，limit 只防一次扫全库 —— 剩下的下一轮再扫。
+  Future<List<Map<String, dynamic>>> getNotificationsWithUnsettledDelivery({
+    required int beforeMs,
+    int limit = 500,
+  }) async {
+    final db = await database;
+    return db.query(
+      'notifications',
+      where: 'post_time < ? AND (delivery_info LIKE ? OR delivery_info LIKE ?)',
+      whereArgs: [beforeMs, '%"status":"pending"%', '%"status":"queued"%'],
+      orderBy: 'post_time DESC',
+      limit: limit,
+    );
+  }
+
   Future<void> updateNotificationDelivery(
     String id,
     Map<String, dynamic> delivery,

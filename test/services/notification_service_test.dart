@@ -82,6 +82,19 @@ void main() {
       expect(delivery['message'], 'ok');
     });
 
+    test('幻念入队：QUEUED 回传 → queued（不是 failed，也不是 pending）', () async {
+      service.addRecord(smsRecord());
+      await service.updateDelivery(
+        'sms_1700000000000_12345',
+        'fnthink',
+        'QUEUED',
+        'queued: 1 target(s)',
+      );
+      final delivery = service.records.first.deliveryStatus['chan:fnthink'];
+      expect(delivery, isNotNull);
+      expect(delivery['status'], 'queued');
+    });
+
     test('短信送达失败：HTTP_FAIL 回传 → 钉钉通道状态更新为 failed', () async {
       service.addRecord(smsRecord());
 

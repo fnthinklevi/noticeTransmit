@@ -1962,6 +1962,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Queued on server · waiting for the target to come online';
 
   @override
+  String get deliveryNotAccounted => 'Not accounted';
+
+  @override
   String get deliveryUnknown => 'Status unknown';
 
   @override

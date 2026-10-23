@@ -153,6 +153,10 @@ Future<void> fnthinkDefaultRecordFanoutOutcome(
   }
 
   final key = channelDeliveryKey(kFnthinkChannelSlug);
+  debugPrint(
+    '[fnthink] fanout-receipt record=$recordId channelKey=$key '
+    'status=${outcome.status} sent=${outcome.sent} failed=${outcome.failed}',
+  );
   final previous = info[key];
   // T154 端到端：这一轮还在发的时候，对端可能已经取走了前一台目标的那条
   // （收货循环是另一个 author，与本轮并行）⇒ 后到的转发结局不许把「已送达」
@@ -222,6 +226,10 @@ Future<FnthinkFanoutOutcome> sendAndReportFanoutItem(
 }) async {
   var itemSent = 0;
   var itemFailed = 0;
+  debugPrint(
+    '[fnthink] fanout-send record=${item.id} '
+    'channelKey=${channelDeliveryKey(kFnthinkChannelSlug)} targets=${item.targets.length}',
+  );
   for (final target in item.targets) {
     try {
       final result = await sendToTarget(target);

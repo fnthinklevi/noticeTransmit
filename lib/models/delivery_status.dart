@@ -46,6 +46,57 @@ const List<String> notDeliveredStatuses = <String>[
   'paused',
 ];
 
+/// 还没有终态的几档（T175 超时清扫只动这几档）。
+const List<String> unsettledStatuses = <String>['pending', 'queued'];
+
+/// 超时清扫写下的原因（历史详情会原样显示）。
+const String deliveryNoReceiptReason = 'no-receipt';
+
+/// 历史详情里的**补行**档（T175 ③）：记录快照里有这一族，送达表里却没有这一格。
+///
+/// 它只用于显示，不落库、不进桶值：真正的问题是"这一格从来没被谁写过"，
+/// 补一个假状态进库会让下一次真回执对不上。（判据见 `_channelRowsOf`。）
+const String notAccountedStatus = 'not_accounted';
+
+/// 一条记录的**超时清扫**（T175 ②）：超过 [olderThan] 仍是 `pending`/`queued` 的格子
+/// 改成 `failed(no-receipt)`。返回 null = 这一条没有要改的格子。
+///
+/// 为什么只动这两档：`success`/`delivered` 是终态；`failed`/`paused`/`intercepted`
+/// 也是终态。只有"还在路上"会永远停在发送中 —— 而它缺的是一次真实的回执，
+/// 不是再来一轮发送。
+///
+/// 判据放在这里而不是页面：历史页、启动清扫、回前台清扫要读同一份规则。
+Map<String, dynamic>? sweepStaleDelivery(
+  Map<String, dynamic> delivery, {
+  required int postTimeMs,
+  required int nowMs,
+  required Duration olderThan,
+  String reason = deliveryNoReceiptReason,
+}) {
+  if (postTimeMs <= 0 || nowMs - postTimeMs < olderThan.inMilliseconds) {
+    return null;
+  }
+  var changed = false;
+  final next = <String, dynamic>{};
+  for (final entry in delivery.entries) {
+    final info = entry.value;
+    if (info is Map) {
+      final status = info['status']?.toString() ?? '';
+      if (unsettledStatuses.contains(status)) {
+        next[entry.key] = <String, dynamic>{
+          ...Map<String, dynamic>.from(info),
+          'status': 'failed',
+          'message': reason,
+        };
+        changed = true;
+        continue;
+      }
+    }
+    next[entry.key] = info;
+  }
+  return changed ? next : null;
+}
+
 /// 送达状态筛选档的 id（跨层字符串：筛选面板 → service → DB 的 `deliveryFilter` 参数）。
 ///
 /// 名字必须与"这一档回答哪个问题"一致：原先叫 `failed` 而那一档认两种状态，

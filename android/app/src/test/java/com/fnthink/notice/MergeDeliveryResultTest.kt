@@ -164,7 +164,9 @@ class MergeDeliveryResultTest {
     @Test
     fun pausedIsLessSevereThanEveryRealFailure() {
         val realFailures = allStatuses.filter {
-            it != DeliveryStatus.SUCCESS && it != DeliveryStatus.PAUSED
+            it != DeliveryStatus.SUCCESS &&
+                it != DeliveryStatus.PAUSED &&
+                it != DeliveryStatus.QUEUED
         }
         assertTrue("真实失败状态集不应为空", realFailures.isNotEmpty())
         for (failure in realFailures) {
@@ -217,11 +219,14 @@ class MergeDeliveryResultTest {
     /** 镜像 WebhookSender.severity */
     private fun severity(status: DeliveryStatus): Int = when (status) {
         DeliveryStatus.SUCCESS -> 0
-        DeliveryStatus.PAUSED -> 1
-        DeliveryStatus.BIZ_FAIL -> 2
-        DeliveryStatus.HTTP_FAIL -> 3
-        DeliveryStatus.RATE_LIMITED -> 4
-        DeliveryStatus.NETWORK_FAIL -> 5
+        // T175：QUEUED 是"已入本机待发队列"，与 PAUSED 同属"不算失败"那一侧，
+        // 但两者各占一个不同档位（下面 `everyStatusHasDistinctSeverity` 钉着）。
+        DeliveryStatus.QUEUED -> 1
+        DeliveryStatus.PAUSED -> 2
+        DeliveryStatus.BIZ_FAIL -> 3
+        DeliveryStatus.HTTP_FAIL -> 4
+        DeliveryStatus.RATE_LIMITED -> 5
+        DeliveryStatus.NETWORK_FAIL -> 6
     }
 
     /** 镜像 WebhookSender 的「最差优先」汇总 */

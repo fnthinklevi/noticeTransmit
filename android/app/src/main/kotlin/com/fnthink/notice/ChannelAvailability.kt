@@ -171,7 +171,13 @@ object ChannelAvailability {
         status: WebhookResponseParser.DeliveryStatus,
     ) {
         if (id.isEmpty()) return
-        if (status == WebhookResponseParser.DeliveryStatus.PAUSED) return
+        // QUEUED 与 PAUSED 同一档：前者是"已交给本机待发队列"，既不是成功也不是失败 ——
+        // 拿它当失败会让幻念设备档的排队把主通道记成坏掉。
+        if (status == WebhookResponseParser.DeliveryStatus.PAUSED ||
+            status == WebhookResponseParser.DeliveryStatus.QUEUED
+        ) {
+            return
+        }
         val success = status == WebhookResponseParser.DeliveryStatus.SUCCESS
         val key = FAILS_KEY_PREFIX + keyOf(family, id)
         val prefs = failsPrefs(context)

@@ -1617,6 +1617,27 @@ class NotificationMonitorService : NotificationListenerService() {
             if (devices.isNotEmpty()) {
                 val queue = FnthinkFanoutQueue(this)
                 val result = queue.enqueue(info, devices, viaBackup)
+                // T175 ①：入队即回 `queued`，不等后台那一轮的回执。旧形状下这一格
+                // 要等引擎起起来、跑完发送才有人写；锁屏/被杀时那一轮可能一直不跑，
+                // 历史就停在「发送中」。`queued` 说的是本机已经交出去了，球在服务端/队列。
+                if (result.dropped.none { it.id == info.id }) {
+                    DeliveryNotifier.notify(
+                        this,
+                        info.id,
+                        "fnthink",
+                        WebhookResponseParser.ParseResult(
+                            WebhookResponseParser.DeliveryStatus.QUEUED,
+                            0,
+                            "queued: ${devices.size} target(s)",
+                            false,
+                        ),
+                    )
+                    DiagLog.w(
+                        TAG,
+                        "fnthink-queued id=${info.id} channelKey=chan:fnthink " +
+                            "targets=${devices.size} queue=${queue.pendingCount()}",
+                    )
+                }
                 // T147③：待发队列丢的是**真丢**（与延迟队列"挤出=补推"不同），
                 // 被挤掉那几条的通知已经在历史里，必须逐条回传送达说法，否则永远停在「发送中」。
                 for (dropped in result.dropped) {

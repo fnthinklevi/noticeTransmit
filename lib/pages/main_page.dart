@@ -414,6 +414,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       );
       // 回到前台时补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
       unawaited(_notificationService.drainPendingDeliveries());
+      // T175 ②：锁屏/后台期间没有任何人写回执的记录，回前台时清扫成 no-receipt。
+      // 与上面那一发同一个时机：两件事都在补"后台期间没发生的那一次回执"。
+      unawaited(_notificationService.sweepStaleDeliveries());
       // 收件未读数也在这里重取：收货循环在后台跑，它落库的那几条不会往 UI 推事件。
       // 不接实时事件总闸的理由是这一格的时效要求是"回到前台就该对"，而不是"秒级跳变"。
       unawaited(_refreshFnthinkInboxUnread());

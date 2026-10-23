@@ -311,6 +311,40 @@ void main() {
   // ⚠ 正面对照不在这两条里，而在 `history_row_tile_adoption_test`：非批量档点行出详情、
   //   长按出动作菜单。那两条绿着，这里的"点行没开详情、长按没弹菜单"才读作**禁用了**
   //   而不是**这两格从来就不通**。
+  testWidgets('T175 ③ 快照有幻念、送达表缺格 ⇒ 子页补一行「未入账」', (tester) async {
+    final mixed = NotificationRecord.fromMap({
+      'id': 'n-mixed',
+      'title': '双通道那条',
+      'content': '正文',
+      'appName': '驿站',
+      'packageName': 'com.example.station',
+      'postTime': 1758768000000,
+      'time': '2026-10-10 10:00',
+      'type': 'normal',
+      'deviceName': '测试机',
+      // 快照里两族都在，送达表只有 webhook 一格 —— 旧 `_channelRowsOf` 二选一，
+      // 幻念那一行会被整行吞掉。
+      'channels': ['chan:email', 'chan:fnthink'],
+      'deliveryStatus': {
+        'chan:email': {'status': 'success', 'message': ''},
+      },
+    });
+    await pumpHistory(tester, [mixed]);
+
+    final l10n = AppLocalizations.of(tester.element(find.byType(HistoryPage)));
+    await tester.tap(
+      find.byKey(const ValueKey('history-delivery-detail-n-mixed')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(l10n.deliverySuccess), findsOneWidget);
+    expect(
+      find.text(l10n.deliveryNotAccounted),
+      findsOneWidget,
+      reason: '快照有这一族、送达表没有这一格时不许静默少一行',
+    );
+  });
+
   testWidgets('批量档里点行 = 切换选中，不打开详情', (tester) async {
     await pumpHistory(tester, [
       row('n-failed', '取件码', {

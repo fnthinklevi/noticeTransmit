@@ -17,8 +17,9 @@ void main() {
 
   group('送达状态那一格只有一个作者', () {
     // T154 片1：五档 → **六档**（加 `queued`，幻念设备档转发的回执档）；
-    // T154 端到端：六档 → **七档**（加 `delivered`，对端取走后的回执档）。
-    test('七个认得的状态各有一句，且互不相同', () {
+    // T154 端到端：六档 → **七档**（加 `delivered`，对端取走后的回执档）；
+    // T175 ③：七档 → **八档**（加 `notAccounted`，快照有这一族而送达表缺这一格）。
+    test('八个认得的状态各有一句，且互不相同', () {
       final said = <String, String>{
         for (final s in const [
           'success',
@@ -28,10 +29,11 @@ void main() {
           'paused',
           'pending',
           'queued',
+          'not_accounted',
         ])
           s: deliveryStatusText(zh, s),
       };
-      expect(said.values.toSet(), hasLength(7), reason: '两档共用一句话 = 这一档白分');
+      expect(said.values.toSet(), hasLength(8), reason: '两档共用一句话 = 这一档白分');
       expect(said['success'], zh.deliverySuccess);
       expect(said['delivered'], zh.deliveryPeerDelivered);
       expect(said['failed'], zh.deliveryFailed);
@@ -45,6 +47,11 @@ void main() {
       expect(said['queued'], zh.deliveryQueued);
       expect(said['queued'], isNot(said['pending']));
       expect(said['queued'], isNot(said['success']));
+      // T175 ③：缺格那一档要说「未入账」，不许与「状态未知」同句 ——
+      // 后者是"读到了认不出的状态"，前者是"这一格根本没被写过"。
+      expect(said['not_accounted'], zh.deliveryNotAccounted);
+      expect(said['not_accounted'], isNot(zh.deliveryUnknown));
+      expect(said['not_accounted'], isNot(said['pending']));
       // T154 端到端：`delivered` 是服务端按 messageId 交回来的「对端取走了」。
       // 它与 queued 必须是两句话 —— 前者是终点，后者还在等。
       expect(said['delivered'], isNot(said['queued']));
@@ -110,6 +117,7 @@ void main() {
       // 因为"本机还在发"与"本机发完了、球在对面"要用户做的事完全不同。
       expect(deliveryStatusColor(ctx, 'queued'), AppColors.teal);
       expect(deliveryStatusColor(ctx, 'queued'), isNot(AppColors.blue));
+      expect(deliveryStatusColor(ctx, 'not_accounted'), AppColors.orange);
       expect(deliveryStatusColor(ctx, 'success'), AppColors.green);
       // T154 端到端：对端取走了与"本机推成功"同属终点 ⇒ 同一个绿点；
       // 但文案仍是两句（一个是"推成功"、一个是"对方真的收到了"）。

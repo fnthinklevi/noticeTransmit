@@ -3602,6 +3602,12 @@ abstract class AppLocalizations {
   /// **'已推送到服务器 · 待目标设备上线'**
   String get deliveryQueued;
 
+  /// No description provided for @deliveryNotAccounted.
+  ///
+  /// In zh, this message translates to:
+  /// **'未入账'**
+  String get deliveryNotAccounted;
+
   /// No description provided for @deliveryUnknown.
   ///
   /// In zh, this message translates to:

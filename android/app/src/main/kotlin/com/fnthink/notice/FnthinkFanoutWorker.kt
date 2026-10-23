@@ -51,6 +51,7 @@ class FnthinkFanoutWorker(appContext: Context, params: WorkerParameters) :
         // isolate 用现成的 SharedPreferences 读到手，而"读 + 清"必须由同一侧连着做完
         // （本工程的 `DartExecutor.DartCallback` 只有三个构造参数，也没有入口参数位可交）。
         val pending = FnthinkFanoutQueue(applicationContext).pendingCount()
+        DiagLog.w(TAG, "fanout-round-start queue=$pending")
         if (pending == 0) {
             // 队列已被上一轮排空：这一次是被合并掉的重复触发，不是失败。
             Log.i(TAG, "fanout-round-skipped:empty-queue")

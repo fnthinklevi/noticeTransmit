@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/delivery_status.dart';
 import '../theme/app_colors.dart';
 
 /// 送达状态那一格的**词表→人话**唯一作者（T150 片1）。
@@ -44,6 +45,10 @@ String deliveryStatusText(AppLocalizations l10n, String status) {
       // 不说成「已送达」：202 只是入队，对面可能一直不上线；
       // 也不说成「发送中」：本机这一侧确实已经没有在途的东西了。
       return l10n.deliveryQueued;
+    case notAccountedStatus:
+      // T175 ③：快照有这一族、送达表没有这一格。旧界面直接不画那一行，
+      // 用户读到的就是"这条只发过一个通道"——而事实是这一格从来没被写过。
+      return l10n.deliveryNotAccounted;
     default:
       return l10n.deliveryUnknown;
   }
@@ -65,6 +70,7 @@ Color deliveryStatusColor(BuildContext context, String status) {
     // 蓝点那句"正在发"是给 `pending` 的，而这一档要说的是"本机已经交出去了、
     // 球在服务器那边"。两档都画蓝会让"哪一段没做完"这件事在屏上分不出来。
     'queued' => AppColors.teal,
+    notAccountedStatus => AppColors.orange,
     _ => AppColors.systemGray(context),
   };
 }

@@ -172,11 +172,15 @@ class WebhookSender(private val context: Context) {
     private fun severity(status: WebhookResponseParser.DeliveryStatus): Int =
         when (status) {
             WebhookResponseParser.DeliveryStatus.SUCCESS -> 0
-            WebhookResponseParser.DeliveryStatus.PAUSED -> 1
-            WebhookResponseParser.DeliveryStatus.BIZ_FAIL -> 2
-            WebhookResponseParser.DeliveryStatus.HTTP_FAIL -> 3
-            WebhookResponseParser.DeliveryStatus.RATE_LIMITED -> 4
-            WebhookResponseParser.DeliveryStatus.NETWORK_FAIL -> 5
+            // QUEUED 是"还在路上"（幻念设备档已入本机待发队列），不是失败；
+            // 与 PAUSED 同属"不算失败"那一侧，但两者仍需各自一个档位
+            // （`MergeDeliveryResultTest` 钉着每个状态一个不同严重度）。
+            WebhookResponseParser.DeliveryStatus.QUEUED -> 1
+            WebhookResponseParser.DeliveryStatus.PAUSED -> 2
+            WebhookResponseParser.DeliveryStatus.BIZ_FAIL -> 3
+            WebhookResponseParser.DeliveryStatus.HTTP_FAIL -> 4
+            WebhookResponseParser.DeliveryStatus.RATE_LIMITED -> 5
+            WebhookResponseParser.DeliveryStatus.NETWORK_FAIL -> 6
         }
 
     /**

@@ -1885,6 +1885,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deliveryQueued => '已推送到服务器 · 待目标设备上线';
 
   @override
+  String get deliveryNotAccounted => '未入账';
+
+  @override
   String get deliveryUnknown => '状态未知';
 
   @override
