@@ -186,14 +186,12 @@ class _FnthinkGrantEditorState extends State<FnthinkGrantEditor> {
             ),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(
-                advanced
+              child: FnthinkRowLabel(
+                keyName:
+                    'fnthink-grant-group-title-${group.slug.isEmpty ? 'uncategorized' : group.slug}',
+                label: advanced
                     ? '${fnthinkRemoteCategoryTitle(l10n, group.slug)} · ${l10n.fnthinkPeerGrantAdvanced}'
                     : fnthinkRemoteCategoryTitle(l10n, group.slug),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
               ),
             ),
             Text(

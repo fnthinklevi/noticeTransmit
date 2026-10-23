@@ -65,6 +65,7 @@ import 'package:notice_transmit/services/update_service.dart';
 import 'package:notice_transmit/update_manager.dart' show VersionCheckResult;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+
 import 'support/native_payload_stubs.dart';
 
 /// ㊻ 发版硬闸门：**所有**用户可达页面各点一遍 + 每条 CRUD 各走一次 +
@@ -2075,9 +2076,9 @@ void main() {
         _mark('7.2 备份文件已落盘，开始验容器外层字段');
         // 只验容器**外层**字段。ciphertext 是 base64 密文不是 JSON ——
         // 上一版在这里 jsonDecode 它，抛的 FormatException 是闸门自己的错，不是产品的。
-        final container =
-            jsonDecode(File(backupPath).readAsStringSync())
-                as Map<String, dynamic>;
+        final container = jsonDecode(
+          File(backupPath).readAsStringSync(),
+        ) as Map<String, dynamic>;
         expect(
           container['format'],
           'notice-backup',

@@ -36,9 +36,9 @@ void main() {
     File('${projectRoot()}/lib/pages/fnthink_send_page.dart')
         .readAsStringSync(),
   );
-  // 同意屏那一格（名单页）：T146 片2 的最后一格 —— 18 行一维平铺到这一页才收口。
+  // 逐项授权编辑器的归组（T174 从配对页搬进独立控件；口径不变）。
   String peersPage() => stripComments(
-    File('${projectRoot()}/lib/pages/fnthink_peers_page.dart')
+    File('${projectRoot()}/lib/widgets/fnthink_grant_editor.dart')
         .readAsStringSync(),
   );
   String table() => stripComments(
@@ -272,9 +272,9 @@ void main() {
     test('分栏一个字都没动定位串', () {
       expect(
         peersPage(),
-        contains(r"'fnthink-pair-item-${request.requestId}-${row.base}'"),
+        contains(r"'fnthink-grant-item-${row.base}'"),
         reason:
-            '勾逐项的 key 仍由契约动作名拼出 —— 那批"按 key 勾／断言"的用例钉的是行为，'
+            '逐项授权的 key 仍由契约动作名拼出 —— 那批"按 key 勾／断言"的用例钉的是行为，'
             'key 形状一改就全红成"页面坏了"，看不出是分类',
       );
     });

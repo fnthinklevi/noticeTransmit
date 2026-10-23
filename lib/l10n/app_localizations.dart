@@ -6733,29 +6733,11 @@ abstract class AppLocalizations {
   /// **'勾上＝本机这两段当场办掉：那一列勾上 ＋ 一条目标=它的通道。'**
   String get fnthinkPairApproveOutboundDesc;
 
-  /// No description provided for @fnthinkPairItemsTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'也可以只给这一档里的这几项（一幅都不勾＝只给档位）：'**
-  String get fnthinkPairItemsTitle;
-
-  /// No description provided for @fnthinkPairItemsNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'带参数的那几项要先定参数才勾得上：勾的是那一条（哪个应用、搜什么词、哪条通道设成哪一档），不是那个动作名。'**
-  String get fnthinkPairItemsNote;
-
   /// No description provided for @fnthinkPairChannelIdLabel.
   ///
   /// In zh, this message translates to:
   /// **'本机哪一条通道（号）'**
   String get fnthinkPairChannelIdLabel;
-
-  /// No description provided for @fnthinkPairItemsBroken.
-  ///
-  /// In zh, this message translates to:
-  /// **'本机算不出可勾的项（契约声明的取值域与那两张词表不一致）⇒ 这一条只能给档位，逐条授权给不了。'**
-  String get fnthinkPairItemsBroken;
 
   /// No description provided for @fnthinkPairApprovedOneWay.
   ///
@@ -9900,18 +9882,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'两边能互发了，逐条项还要对面自己勾'**
   String get fnthinkPairApprovedOneWayShort;
-
-  /// No description provided for @fnthinkPairItemsBrokenShort.
-  ///
-  /// In zh, this message translates to:
-  /// **'这一条只能给档位，逐条授权给不了'**
-  String get fnthinkPairItemsBrokenShort;
-
-  /// No description provided for @fnthinkPairItemsNoteShort.
-  ///
-  /// In zh, this message translates to:
-  /// **'带参数的项要先定参数才勾得上'**
-  String get fnthinkPairItemsNoteShort;
 
   /// No description provided for @fnthinkPairLinkRejectedShort.
   ///

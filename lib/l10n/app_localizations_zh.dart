@@ -3647,18 +3647,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '勾上＝本机这两段当场办掉：那一列勾上 ＋ 一条目标=它的通道。';
 
   @override
-  String get fnthinkPairItemsTitle => '也可以只给这一档里的这几项（一幅都不勾＝只给档位）：';
-
-  @override
-  String get fnthinkPairItemsNote =>
-      '带参数的那几项要先定参数才勾得上：勾的是那一条（哪个应用、搜什么词、哪条通道设成哪一档），不是那个动作名。';
-
-  @override
   String get fnthinkPairChannelIdLabel => '本机哪一条通道（号）';
-
-  @override
-  String get fnthinkPairItemsBroken =>
-      '本机算不出可勾的项（契约声明的取值域与那两张词表不一致）⇒ 这一条只能给档位，逐条授权给不了。';
 
   @override
   String get fnthinkPairApprovedOneWay =>
@@ -5516,12 +5505,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPairApprovedOneWayShort => '两边能互发了，逐条项还要对面自己勾';
-
-  @override
-  String get fnthinkPairItemsBrokenShort => '这一条只能给档位，逐条授权给不了';
-
-  @override
-  String get fnthinkPairItemsNoteShort => '带参数的项要先定参数才勾得上';
 
   @override
   String get fnthinkPairLinkRejectedShort => '这条链接这台设备用不上';

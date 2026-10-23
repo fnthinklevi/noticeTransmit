@@ -109,9 +109,10 @@ void main() {
       reason: '锚点：库不在，上一条断言就是空转',
     );
     final version = await DatabaseHelper().database;
-    final stamped = (await version.rawQuery(
-      'PRAGMA user_version',
-    )).single.values.first;
+    final stamped = (await version.rawQuery('PRAGMA user_version'))
+        .single
+        .values
+        .first;
     expect(stamped, DatabaseHelper.dbVersion, reason: '库没被贴上当前版本号 = 迁移链没跑完');
   }, timeout: const Timeout(Duration(minutes: 5)));
 }

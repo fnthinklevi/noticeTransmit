@@ -17,8 +17,9 @@ void main() {
   final root = projectRoot();
   // `librarySource` 要的是"从仓库根算起的路径"，而 `libCodeByRel` 给的键是 `lib/` 之后的那段。
   // 两个名字分开写，是因为把它们合成一个的时候，守卫会去读一个不存在的路径（然后以"没找到"通过）。
-  const pagePath = 'lib/pages/fnthink_peers_page.dart';
-  const pageKey = 'pages/fnthink_peers_page.dart';
+  // T174：逐项授权编辑器从配对页搬进独立控件；派生名单的页面读者随之搬家。
+  const pagePath = 'lib/widgets/fnthink_grant_editor.dart';
+  const pageKey = 'widgets/fnthink_grant_editor.dart';
   const rowsKey = 'services/fnthink_grant_items.dart';
   const levelKey = 'services/fnthink_pair_items.dart';
   final contract = FnthinkContract.readFile();
@@ -97,20 +98,22 @@ void main() {
     );
   });
 
-  test('协调者交出去的是变量，不是又写死的空清单', () {
+  test('协调者改授权时交出去的是用户勾的那份变量，不是又写死的空清单', () {
     final code = stripComments(
       librarySource(root, 'lib/services/fnthink_receive_coordinator.dart'),
     );
+    // T174：pairConfirm 改成「配对只给档位」是刻意的（清单为空）；逐项授权搬到
+    // pairGrantUpdate —— 那一发必须把编辑器递进来的 `items` 原样交出去。
     expect(
       code,
-      isNot(contains('items: const <String>[]')),
-      reason:
-          '片1 的占位写法。留着它，那张表勾什么都到不了载荷，'
-          '而屏幕上那句"已同意"是真的 —— 最难查的那种静默',
+      contains('items: items,'),
+      reason: '改授权那一发若交的是空清单，编辑器上勾什么都到不了载荷',
     );
-    final passed = RegExp(r'items:\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,)]')
-        .firstMatch(code);
-    expect(passed, isNotNull, reason: 'pairConfirm 那一发现在交的是字面量（或根本没交）');
+    expect(
+      RegExp(r'pairGrantUpdate\(\s*peer:').hasMatch(code),
+      isTrue,
+      reason: '改授权那一发必须还在（名字漂了这条守卫就失去观察对象）',
+    );
   });
 
   test('两份派生文件都不许反过来依赖界面', () {

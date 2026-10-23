@@ -3820,19 +3820,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Checked = both local legs happen right now: the roster tick plus a channel targeting it.';
 
   @override
-  String get fnthinkPairItemsTitle =>
-      'Or grant only some items of this level (nothing checked = the level alone):';
-
-  @override
-  String get fnthinkPairItemsNote =>
-      'Items that take an argument can only be checked once that argument is set: you grant that one target (which app, what to search, which channel and to which state), not the action name.';
-
-  @override
   String get fnthinkPairChannelIdLabel => 'Which channel on this device (id)';
-
-  @override
-  String get fnthinkPairItemsBroken =>
-      'This device could not work out the grantable items (the contract\'s value domain disagrees with its two tables) ⇒ this request can get the level, not per-item grants.';
 
   @override
   String get fnthinkPairApprovedOneWay =>
@@ -5838,14 +5826,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkPairApprovedOneWayShort =>
       'Both sides can push now; the per-item side is theirs to tick';
-
-  @override
-  String get fnthinkPairItemsBrokenShort =>
-      'This request can get the level, not the per-item grants';
-
-  @override
-  String get fnthinkPairItemsNoteShort =>
-      'Items with an argument can only be checked once that argument is set';
 
   @override
   String get fnthinkPairLinkRejectedShort => 'This device cannot use that link';

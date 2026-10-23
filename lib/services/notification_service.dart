@@ -88,7 +88,7 @@ class NotificationService {
   /// 为一条历史记录续命，而用户能看到它的时候一定已经回到了前台。清扫前落库、
   /// 清扫后把内存里那一条一并换掉 —— 否则同一进程里还会读到旧值。
   Future<int> sweepStaleDeliveries({
-    Duration olderThan = const Duration(minutes: 30),
+    Duration olderThan = kDeliveryNoReceiptAfter,
     int limit = 500,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;

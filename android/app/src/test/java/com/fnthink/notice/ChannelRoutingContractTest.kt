@@ -136,15 +136,30 @@ class ChannelRoutingContractTest {
         val svc = native("NotificationMonitorService.kt")
 
         // 三行扇出（webhook + 应用 + 邮件）只允许出现在 dispatchToChannels 内部一次
+        // T178：暂停分支在**同一个收口函数内**多了一条 `sendWebhooksOnly`（暂停时不路由，
+        // 但四族仍各回一条 PAUSED）。两处都在 `dispatchToChannels` 体内 ⇒ 仍是"一个入口"；
+        // 这一条数的是收口函数里的分支，不是文件里的调用点（后者由下面的调用点计数管）。
+        val fanoutBody = svc.substringAfter("private fun dispatchToChannels(")
+            .substringBefore("private class RoutedChannels(")
         assertEquals(
-            1,
+            2,
             Regex("""webhookSender\.sendWebhooksOnly\(""").findAll(svc).count(),
             "webhook 扇出又出现第二处 ⇒ 主备策略会对新路径静默失效"
         )
         assertEquals(
-            1,
+            "两处扇出都必须留在 dispatchToChannels 体内（T178 暂停分支是同一收口里的第二支）",
+            2,
+            Regex("""webhookSender\.sendWebhooksOnly\(""").findAll(fanoutBody).count(),
+        )
+        assertEquals(
+            2,
             Regex("""appChannelSender\.sendOnly\(""").findAll(svc).count(),
             "自建应用扇出又出现第二处"
+        )
+        assertEquals(
+            "两处应用扇出都必须留在 dispatchToChannels 体内（T178 暂停分支是同一收口里的第二支）",
+            2,
+            Regex("""appChannelSender\.sendOnly\(""").findAll(fanoutBody).count(),
         )
         assertEquals(
             0,

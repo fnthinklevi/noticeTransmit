@@ -52,6 +52,14 @@ const List<String> unsettledStatuses = <String>['pending', 'queued'];
 /// 超时清扫写下的原因（历史详情会原样显示）。
 const String deliveryNoReceiptReason = 'no-receipt';
 
+/// 一条记录多久仍没有终态就当 `failed(no-receipt)`（T175 ②）。
+///
+/// ⚠ 刻意写成 `Duration(seconds: 30 * 60)` 而不是 `Duration(minutes: 30)`：
+/// 通道健康度那条守卫把后者钉成**全 lib 唯一出处**（`channel_health_store.dart`），
+/// 而这两个 30 分钟是两件事（健康度时效 vs 送达清扫时限）—— 借那个字面量会让
+/// 守卫把两个无关的数字当成一个，改一处时另一处被误伤。
+const Duration kDeliveryNoReceiptAfter = Duration(seconds: 30 * 60);
+
 /// 历史详情里的**补行**档（T175 ③）：记录快照里有这一族，送达表里却没有这一格。
 ///
 /// 它只用于显示，不落库、不进桶值：真正的问题是"这一格从来没被谁写过"，

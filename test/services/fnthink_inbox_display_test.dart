@@ -61,6 +61,8 @@ void main() {
       expect(args.keys.toSet(), {
         'messageId',
         'sender',
+        // T172：应用名（来源应用），通知栏标题那一行由它承担。
+        'appName',
         'title',
         'body',
         // T55 ③ 角标那个数。⚠ 它是**后来加的第五个键** —— 加它时这条断言当场红了
@@ -87,6 +89,8 @@ void main() {
     expect(args.keys.toSet(), {
       'messageId',
       'sender',
+      // T172：应用名与标题/正文同一次下发。
+      'appName',
       'title',
       'body',
       'unreadCount',

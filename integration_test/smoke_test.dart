@@ -14,6 +14,7 @@ import 'package:notice_transmit/services/archive_worker.dart'
 import 'package:notice_transmit/services/update_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'support/native_payload_stubs.dart';
 
 /// Q1 真机/模拟器集成冒烟测试：主链路按步拆成 4 个独立用例。

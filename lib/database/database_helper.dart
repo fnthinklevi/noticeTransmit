@@ -2135,8 +2135,10 @@ class DatabaseHelper
     final db = await database;
     return db.query(
       'notifications',
-      where: 'post_time < ? AND (delivery_info LIKE ? OR delivery_info LIKE ?)',
-      whereArgs: [beforeMs, '%"status":"pending"%', '%"status":"queued"%'],
+      // T133 走 (c)：SQL 只按**存好的桶值**粗筛（pending/queued 落 `none`），
+      // 不再对 `delivery_info` 做 JSON 文本 LIKE —— 那是第二份判据。
+      where: 'post_time < ? AND delivery_bucket = ?',
+      whereArgs: [beforeMs, deliveryBucketNone],
       orderBy: 'post_time DESC',
       limit: limit,
     );

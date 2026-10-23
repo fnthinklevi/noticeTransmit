@@ -160,8 +160,11 @@ void main() {
 
   test('设备名长度的作者只有一位：登记那一发读契约那枚数', () {
     final js = compact(devicestoreJs);
+    // T180：同一身份重放要先比较截断后的名字，于是先算 normalizedName 再赋给 record；
+    // 判据仍是"截断那一下读契约"，不钉赋值语句的拼法。
     expect(
-      js.contains('record.name=clampPeerName(contract,input.name);'),
+      js.contains('clampPeerName(contract,input.name)') &&
+          js.contains('record.name=normalizedName;'),
       isTrue,
       reason: '登记那一发截的长度必须读契约，否则设备侧与服务端各夹一个数',
     );

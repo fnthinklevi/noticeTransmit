@@ -165,6 +165,8 @@ void main() {
           find.byKey(const ValueKey('fnthink-peer-presence-failed')),
         )
         .data;
-    expect(note, contains('404'));
+    // T177：404 翻成「服务器没有对端状态读口」，不再把裸状态码摊给用户。
+    expect(note, contains('服务器没有对端状态读口'));
+    expect(note, isNot(contains('404')));
   });
 }

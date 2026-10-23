@@ -214,21 +214,37 @@ object FnthinkInboxDisplay {
         val enabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
         val manager = context.getSystemService(NotificationManager::class.java)
         val id = currentChannelId(context)
-        val channel = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            manager?.getNotificationChannel(id)
-        } else {
-            null
+        var exists = false
+        var importance = 0
+        var highImportance = false
+        var sound = ""
+        var vibration = false
+        var lockscreenVisibility = -1
+        var showBadge = false
+        // API 26 以下的机器没有渠道这一层；所有 getter 都必须在同一个 SDK 判据里读，
+        // 否则 Lint 会按 minSdk=24 报 NewApi（真机上也不会执行到，但闸门必须说得清）。
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = manager?.getNotificationChannel(id)
+            if (channel != null) {
+                exists = true
+                importance = channel.importance
+                highImportance = channel.importance == NotificationManager.IMPORTANCE_HIGH
+                sound = channel.sound?.toString() ?: ""
+                vibration = channel.shouldVibrate()
+                lockscreenVisibility = channel.lockscreenVisibility
+                showBadge = channel.canShowBadge()
+            }
         }
         return mapOf(
             "channelId" to id,
-            "channelExists" to (channel != null),
+            "channelExists" to exists,
             "notificationsEnabled" to enabled,
-            "importance" to (channel?.importance ?: 0),
-            "highImportance" to (channel?.importance == NotificationManager.IMPORTANCE_HIGH),
-            "sound" to (channel?.sound?.toString() ?: ""),
-            "vibration" to (channel?.shouldVibrate() ?: false),
-            "lockscreenVisibility" to (channel?.lockscreenVisibility ?: -1),
-            "showBadge" to (channel?.canShowBadge() ?: false),
+            "importance" to importance,
+            "highImportance" to highImportance,
+            "sound" to sound,
+            "vibration" to vibration,
+            "lockscreenVisibility" to lockscreenVisibility,
+            "showBadge" to showBadge,
         )
     }
 
@@ -287,6 +303,7 @@ object FnthinkInboxDisplay {
         }
     }
 
+    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.O)
     private fun createHighChannel(manager: NotificationManager, channelId: String) {
         manager.createNotificationChannel(
             NotificationChannel(
