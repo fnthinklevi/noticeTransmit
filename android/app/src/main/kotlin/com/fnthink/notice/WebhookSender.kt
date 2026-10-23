@@ -125,7 +125,7 @@ class WebhookSender(private val context: Context) {
                 // 否则"手动能通"会掩盖"实际一直在失败"。
                 ChannelAvailability.noteResult(
                     context, "webhook", cfg.id,
-                    success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                    status = result.status,
                 )
                 val done = synchronized(lock) {
                     results.add(result)

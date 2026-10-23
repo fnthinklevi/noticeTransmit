@@ -155,9 +155,24 @@ object ChannelAvailability {
     fun failsOf(context: Context, family: String, id: String): Int =
         failsPrefs(context).getInt(FAILS_KEY_PREFIX + keyOf(family, id), 0)
 
-    /** 每个通道的发送结果都过这里一次：成功清零、失败累加 */
-    fun noteResult(context: Context, family: String, id: String, success: Boolean) {
+    /**
+     * 每个通道的发送结果都过这里一次：成功清零、失败累加。
+     *
+     * T178：`PAUSED` **不记账**。它是"用户按了暂停"，不是通道坏了；旧签名只有一个
+     * `success: Boolean`，于是暂停被算成一次失败 —— 暂停期间连来三条通知，主通道就被
+     * 判成"连续失败 3 次"，下一轮路由直接切备用并锁存。用户只是暂停了推送，却把
+     * 主备关系永久改了。改收状态枚举而不是加一个 `paused: Boolean`：后者要求每个
+     * 调用点都记得传，漏一处就回到同一个缺陷。
+     */
+    fun noteResult(
+        context: Context,
+        family: String,
+        id: String,
+        status: WebhookResponseParser.DeliveryStatus,
+    ) {
         if (id.isEmpty()) return
+        if (status == WebhookResponseParser.DeliveryStatus.PAUSED) return
+        val success = status == WebhookResponseParser.DeliveryStatus.SUCCESS
         val key = FAILS_KEY_PREFIX + keyOf(family, id)
         val prefs = failsPrefs(context)
         val next = if (success) 0 else prefs.getInt(key, 0) + 1

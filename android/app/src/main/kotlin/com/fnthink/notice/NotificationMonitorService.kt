@@ -1404,6 +1404,40 @@ class NotificationMonitorService : NotificationListenerService() {
         onlySlugs: List<String>? = null,
         onWebhooksComplete: ((WebhookResponseParser.ParseResult, Boolean) -> Unit)? = null,
     ) {
+        // T178：暂停不是一次"发送失败"，也不该参与主备裁决。
+        // 旧顺序是先 routeChannels（其输入含连续失败计数，且可能 applyDecision 锁存
+        // backup_engaged）再让每个通道各自回 PAUSED —— 用户暂停几次推送，主备关系就被
+        // 永久改了，而界面上只会说"已暂停"。这里先分流：暂停时**不路由**，四族照配置
+        // 各回一条 PAUSED，让历史每一格都有终态。
+        if (!force && !PushToggleManager.isPushActive()) {
+            if (alsoBroadcastRecord) webhookSender.sendBroadcast(info)
+            webhookSender.sendWebhooksOnly(
+                info,
+                force = false,
+                onAllComplete = null,
+                configs = configManager.getWebhookChannelConfigs(),
+                viaBackup = false,
+            )
+            appChannelSender.sendOnly(
+                info,
+                force = false,
+                configs = configManager.getAppChannelConfigs(),
+                viaBackup = false,
+            )
+            dispatchEmail(
+                info,
+                force = false,
+                configs = EmailManager.getEnabledConfigs(this),
+                viaBackup = false,
+            )
+            dispatchFnthink(
+                info,
+                force = false,
+                configs = configManager.getFnthinkChannelConfigs(),
+                viaBackup = false,
+            )
+            return
+        }
         val routed = routeChannels(onlySlugs)
         // 「当日已推送」这一句的**唯一**累加点（T131）。原先它长在五个调用点上，每个都是
         // `dispatchToChannels(info); pushCount++` —— 于是"暂停闸把这一发拦住了"与"这一发
@@ -1650,7 +1684,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     Log.d(TAG, "Delivery(fnthink hook ${cfg.id}) ${NetworkClient.sanitizeUrlHost(cfg.target)} → status=${result.status}")
                     ChannelAvailability.noteResult(
                         this, "fnthink", cfg.id,
-                        success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                        status = result.status,
                     )
                     // 送达键用族 slug（`chan:fnthink`，T60 已占）：`channelKey` 会在第一个
                     // 冒号处截断，带通道 id 的写法会读成"未知通道"回退成 generic。

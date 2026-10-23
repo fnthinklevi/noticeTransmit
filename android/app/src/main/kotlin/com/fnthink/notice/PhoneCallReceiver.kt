@@ -255,7 +255,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
                 // 可用性记账（T132）：以前这条链不记失败 ⇒ 判据里"主通道全不可用"永不成立
                 ChannelAvailability.noteResult(
                     context, "webhook", channelConfig.id,
-                    success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                    status = result.status,
                 )
                 DeliveryNotifier.notify(
                     context,

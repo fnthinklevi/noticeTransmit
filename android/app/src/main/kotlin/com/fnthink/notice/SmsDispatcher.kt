@@ -309,7 +309,7 @@ object SmsDispatcher {
                 // 判据"主全不可用才切备"对短信永远不会成立。现在与转发链写同一张表。
                 ChannelAvailability.noteResult(
                     context, "webhook", channelConfig.id,
-                    success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                    status = result.status,
                 )
                 DeliveryNotifier.notify(
                     context,

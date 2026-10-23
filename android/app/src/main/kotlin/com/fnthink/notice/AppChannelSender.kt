@@ -87,7 +87,7 @@ class AppChannelSender(private val context: Context) {
                 // 可用性记账（T12）；此前这里恒传 null = 结果就地丢弃
                 ChannelAvailability.noteResult(
                     context, "app", cfg.id,
-                    success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                    status = result.status,
                 )
             }
         } catch (e: Exception) {
