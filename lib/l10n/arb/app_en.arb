@@ -2052,6 +2052,12 @@
   "fnthinkPeerPresenceNotShared": "Peer does not share presence",
   "fnthinkPeerPresenceLoading": "Reading peer presence…",
   "fnthinkPeerPresenceFailed": "Could not read peer presence ({reason})",
+  "fnthinkPeerPresenceMissingRoute": "The server has no peer-presence route (older server build); deploy the new server/ and contract.",
+  "fnthinkSelfCheck": "Self-check",
+  "fnthinkSelfChecking": "Checking…",
+  "fnthinkSelfCheckPresenceOk": "Peer-presence route is healthy",
+  "fnthinkSelfCheckHealth": "Server reachable; contract version: {verdict}",
+  "fnthinkSelfCheckHealthUnknown": "Server reachable; contract version unavailable",
   "@fnthinkPeerPresenceFailed": {
     "placeholders": {
       "reason": {

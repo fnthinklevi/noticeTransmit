@@ -7093,6 +7093,42 @@ abstract class AppLocalizations {
   /// **'这次没拿到对端状态（{reason}）'**
   String fnthinkPeerPresenceFailed(String reason);
 
+  /// No description provided for @fnthinkPeerPresenceMissingRoute.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器没有对端状态读口（服务端版本较旧）；需要部署新版 server/ 与契约。'**
+  String get fnthinkPeerPresenceMissingRoute;
+
+  /// No description provided for @fnthinkSelfCheck.
+  ///
+  /// In zh, this message translates to:
+  /// **'自检'**
+  String get fnthinkSelfCheck;
+
+  /// No description provided for @fnthinkSelfChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'自检中…'**
+  String get fnthinkSelfChecking;
+
+  /// No description provided for @fnthinkSelfCheckPresenceOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'对端状态读口正常'**
+  String get fnthinkSelfCheckPresenceOk;
+
+  /// No description provided for @fnthinkSelfCheckHealth.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务可达；契约版本：{verdict}'**
+  String fnthinkSelfCheckHealth(Object verdict);
+
+  /// No description provided for @fnthinkSelfCheckHealthUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务可达；契约版本读不到'**
+  String get fnthinkSelfCheckHealthUnknown;
+
   /// No description provided for @fnthinkPeerForwardHint.
   ///
   /// In zh, this message translates to:

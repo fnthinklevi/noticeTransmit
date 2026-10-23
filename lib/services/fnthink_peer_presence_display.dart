@@ -53,9 +53,21 @@ enum FnthinkPeerPresenceKind {
 String fnthinkPeerPresenceLoadingLine(AppLocalizations l10n) =>
     l10n.fnthinkPeerPresenceLoading;
 
+/// T177：把内核给的机器理由翻成用户能照着办的话。
+///
+/// `peer-presence-http:404` 不是网络故障，是**服务器没有这条读口**（部署版本旧）。
+/// 原样摊给用户只会得到一句「HTTP 404」，而下一步该做的是重传新版 `server/`。
+/// 其余理由仍原样带出：它们是传输/签名/限流各自的机器码，翻成一句通用话会丢掉线索。
+String fnthinkPeerPresenceReasonText(AppLocalizations l10n, String reason) {
+  if (reason.contains('peer-presence-http:404')) {
+    return l10n.fnthinkPeerPresenceMissingRoute;
+  }
+  return reason;
+}
+
 /// 「这次没拿到」那一句的唯一作者。原因原话来自内核，界面不另编一个。
 String fnthinkPeerPresenceFailedLine(AppLocalizations l10n, String reason) =>
-    l10n.fnthinkPeerPresenceFailed(reason);
+    l10n.fnthinkPeerPresenceFailed(fnthinkPeerPresenceReasonText(l10n, reason));
 
 /// 离线那一档下面那句：**离线不等于发不出去**（T176）。
 ///

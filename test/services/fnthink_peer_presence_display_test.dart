@@ -96,13 +96,19 @@ void main() {
       signedWhileUncalibrated: false,
     );
     expect(fnthinkPeerPresenceLine(zh, view(result: failed)), isNull);
+    // T177：404 是"服务器没有这条读口"，界面要说下一步（重传 server/），
+    // 而不是把 HTTP 404 原样摊给用户。其余理由仍原样带出（线索不许丢）。
     expect(
       fnthinkPeerPresenceFailedLine(zh, 'peer-presence-http:404'),
-      contains('404'),
+      contains(zh.fnthinkPeerPresenceMissingRoute),
     );
     expect(
       fnthinkPeerPresenceFailedLine(en, 'peer-presence-http:404'),
-      contains('404'),
+      contains(en.fnthinkPeerPresenceMissingRoute),
+    );
+    expect(
+      fnthinkPeerPresenceFailedLine(zh, 'transport-error'),
+      contains('transport-error'),
     );
   });
 
@@ -128,6 +134,25 @@ void main() {
       ),
     );
     expect(line, 'Online · last fetch 12s ago');
+  });
+
+  test('T177 404 翻成「服务器没有读口」，其余理由原样带出', () {
+    expect(
+      fnthinkPeerPresenceReasonText(zh, 'peer-presence-http:404'),
+      zh.fnthinkPeerPresenceMissingRoute,
+    );
+    expect(
+      fnthinkPeerPresenceFailedLine(zh, 'peer-presence-http:404'),
+      isNot(contains('404')),
+      reason: '把 HTTP 404 原样摊给用户，下一步该重传 server/ 这件事就没说',
+    );
+    for (final raw in const [
+      'transport-error',
+      'pairing-http:403',
+      'peer-presence-http:500',
+    ]) {
+      expect(fnthinkPeerPresenceReasonText(zh, raw), raw);
+    }
   });
 
   test('T176 离线补一句「排队等上线」，其余档不说', () {

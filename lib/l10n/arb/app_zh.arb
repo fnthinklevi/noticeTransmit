@@ -2073,6 +2073,12 @@
   "fnthinkPeerPresenceNotShared": "对方没有共享在线状态",
   "fnthinkPeerPresenceLoading": "正在读取对端状态…",
   "fnthinkPeerPresenceFailed": "这次没拿到对端状态（{reason}）",
+  "fnthinkPeerPresenceMissingRoute": "服务器没有对端状态读口（服务端版本较旧）；需要部署新版 server/ 与契约。",
+  "fnthinkSelfCheck": "自检",
+  "fnthinkSelfChecking": "自检中…",
+  "fnthinkSelfCheckPresenceOk": "对端状态读口正常",
+  "fnthinkSelfCheckHealth": "服务可达；契约版本：{verdict}",
+  "fnthinkSelfCheckHealthUnknown": "服务可达；契约版本读不到",
   "@fnthinkPeerPresenceFailed": {
     "placeholders": {
       "reason": {

@@ -14,6 +14,7 @@ import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_endpoint_probe.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_pairing_ack.dart';
+import '../services/fnthink_peer_presence_display.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../services/fnthink_relay_consent.dart';
@@ -205,6 +206,10 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
   /// （改地址码／撤销口令／重置地址），把它借给一次只读探测会让按钮在**别的**操作
   /// 进行中显示「正在测延迟…」—— 那是一句屏幕上正在撒的谎。
   bool _probingHost = false;
+
+  /// T177 一键自检：对端状态读口 + `/health` 契约版本，一句话给结论。
+  bool _selfChecking = false;
+  String? _selfCheckNote;
 
   @override
   void initState() {
@@ -512,6 +517,34 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
   /// ⚠ 地址为空（只可能出现在契约那一格没读出来的路上，那时整页已被错误卡顶掉）时，
   ///   把**空列表**交给 `_probeDeclaredHosts` —— "什么都不做"那一支仍然只有那一个作者，
   ///   这里不再自己判一遍、也不多一条没被测到的 return。
+  /// T177：一键自检 —— `peerPresence` 读口 + 当前 host 的 `/health` 契约版本。
+  ///
+  /// ⚠ 先探 `/health` 再问读口：`/health` 只证明"机器在答 HTTP"，读口那一发才证明
+  /// "这份部署有没有这条路由"。两者都过才叫正常；404 那一档要翻成"服务器版本旧"，
+  /// 而不是把 `peer-presence-http:404` 原样摊给用户。
+  Future<void> _runSelfCheck() async {
+    if (_selfChecking) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() {
+      _selfChecking = true;
+      _selfCheckNote = null;
+    });
+    await _probeCurrentHost();
+    final presence = await _deps.coordinator.peerPresence();
+    if (!mounted) return;
+    final presenceLine = presence.status == FnthinkPollStatus.ok
+        ? l10n.fnthinkSelfCheckPresenceOk
+        : fnthinkPeerPresenceFailedLine(l10n, presence.reason ?? 'no-reason');
+    final verdict = _hostVerdicts[_host];
+    final healthLine = verdict == null
+        ? l10n.fnthinkSelfCheckHealthUnknown
+        : l10n.fnthinkSelfCheckHealth(verdict);
+    setState(() {
+      _selfChecking = false;
+      _selfCheckNote = '$presenceLine · $healthLine';
+    });
+  }
+
   Future<void> _probeCurrentHost() async {
     if (_probingHost) return;
     setState(() => _probingHost = true);
@@ -1003,7 +1036,17 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
               tone: FnthinkActionTone.neutral,
               onPressed: _probingHost ? null : _probeCurrentHost,
             ),
-            if (_probingHost) ...[
+            const SizedBox(width: 8),
+            FnthinkInlineAction(
+              key: const ValueKey('fnthink-host-selfcheck'),
+              label: _selfChecking
+                  ? l10n.fnthinkSelfChecking
+                  : l10n.fnthinkSelfCheck,
+              // 中性档：只读、不改任何配置。
+              tone: FnthinkActionTone.neutral,
+              onPressed: (_probingHost || _selfChecking) ? null : _runSelfCheck,
+            ),
+            if (_probingHost || _selfChecking) ...[
               const SizedBox(width: 8),
               const SizedBox(
                 width: 16,
@@ -1013,6 +1056,11 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
             ],
           ],
         ),
+        if (_selfCheckNote != null)
+          FnthinkNote(
+            keyName: 'fnthink-selfcheck-result',
+            text: _selfCheckNote!,
+          ),
         // T157：这一格拆成两行 —— **服务可达**只读 `/health` 探针写的那一族；
         // **协议面**只读协议请求写的那一族。两者不共用一份记录：一次 `/health` 200
         // 不许把协议面的失败盖成"有应答"（那正是"界面在线、功能全废"的来源）。

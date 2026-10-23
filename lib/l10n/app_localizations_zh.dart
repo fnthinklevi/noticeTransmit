@@ -3857,6 +3857,27 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPeerPresenceMissingRoute =>
+      '服务器没有对端状态读口（服务端版本较旧）；需要部署新版 server/ 与契约。';
+
+  @override
+  String get fnthinkSelfCheck => '自检';
+
+  @override
+  String get fnthinkSelfChecking => '自检中…';
+
+  @override
+  String get fnthinkSelfCheckPresenceOk => '对端状态读口正常';
+
+  @override
+  String fnthinkSelfCheckHealth(Object verdict) {
+    return '服务可达；契约版本：$verdict';
+  }
+
+  @override
+  String get fnthinkSelfCheckHealthUnknown => '服务可达；契约版本读不到';
+
+  @override
   String get fnthinkPeerForwardHint => '勾上它，这台设备收到的通知才会往它那边转。';
 
   @override

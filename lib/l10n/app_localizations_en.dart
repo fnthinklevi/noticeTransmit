@@ -4045,6 +4045,28 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPeerPresenceMissingRoute =>
+      'The server has no peer-presence route (older server build); deploy the new server/ and contract.';
+
+  @override
+  String get fnthinkSelfCheck => 'Self-check';
+
+  @override
+  String get fnthinkSelfChecking => 'Checking…';
+
+  @override
+  String get fnthinkSelfCheckPresenceOk => 'Peer-presence route is healthy';
+
+  @override
+  String fnthinkSelfCheckHealth(Object verdict) {
+    return 'Server reachable; contract version: $verdict';
+  }
+
+  @override
+  String get fnthinkSelfCheckHealthUnknown =>
+      'Server reachable; contract version unavailable';
+
+  @override
   String get fnthinkPeerForwardHint =>
       'Check it so notifications this device receives are forwarded to it.';
 
