@@ -12,7 +12,27 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-const VERSION_FILE = path.join(DATA_DIR, 'version.json');
+
+// T170：两站共用一份 version.json 时，.com 站会把用户送去 .top 的 CDN。
+// 裁决＝**按站点分文件**：部署方用 UPDATE_REGION=cn|global 指明这一台是谁，
+// 各站只读自己那份。默认 global（今天唯一在跑的那台，行为不变）。
+const UPDATE_REGION = (process.env.UPDATE_REGION || 'global').trim().toLowerCase();
+if (UPDATE_REGION !== 'cn' && UPDATE_REGION !== 'global') {
+  throw new Error('UPDATE_REGION 只能是 cn 或 global（不猜：写错站点会让下载链接指向另一站的 CDN）');
+}
+const VERSION_FILE = path.join(
+  DATA_DIR,
+  UPDATE_REGION === 'cn' ? 'version.cn.json' : 'version.global.json',
+);
+// 升级前的旧文件：没来得及按站拆分时仍读它（只读；下一次保存会写到按站文件）。
+const LEGACY_VERSION_FILE = path.join(DATA_DIR, 'version.json');
+
+/// 读哪一份：按站文件存在就用它；否则退回旧文件；都没有则回按站路径（写入会建它）。
+function versionFile() {
+  if (fs.existsSync(VERSION_FILE)) return VERSION_FILE;
+  if (fs.existsSync(LEGACY_VERSION_FILE)) return LEGACY_VERSION_FILE;
+  return VERSION_FILE;
+}
 const TOTP_FILE = path.join(DATA_DIR, 'totp.json');
 const BLOCK_FILE = path.join(DATA_DIR, 'blocked_ips.json');
 const FAILED_ATTEMPTS_FILE = path.join(DATA_DIR, 'failed_attempts.json');
@@ -571,6 +591,8 @@ module.exports = {
   IP_BLOCK_EXEMPT_PREFIXES,
   ipBlockExempt,
   VERSION_FILE,
+  VERSION_REGION: UPDATE_REGION,
+  versionFile,
   TOTP_FILE,
   BLOCK_FILE,
   FAILED_ATTEMPTS_FILE,

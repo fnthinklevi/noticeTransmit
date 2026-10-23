@@ -218,6 +218,20 @@ class UpdateServerSettings {
   }
 }
 
+/// T170：这一台实际下发的安装包主机与它所在档声明的 CDN 是否一致。
+///
+/// 返回 null = 一致或没读到（**不猜**：没读到不等于不一致）；否则返回那个不一致的主机名，
+/// 由界面显式说一句。两站共用一份 `version.json` 时，.com 站会把用户送去 .top 的 CDN ——
+/// 那条正是这一格要当场说出来的事。
+String? updateDownloadHostMismatch(
+  UpdateServerRegion region,
+  String? downloadHost,
+) {
+  final actual = downloadHost?.trim().toLowerCase() ?? '';
+  if (actual.isEmpty) return null;
+  return actual == region.cdnHost.toLowerCase() ? null : actual;
+}
+
 /// 纯函数：给定方式与记住的两档，该用哪一台。
 ///
 /// 手动但钉不住（偏好缺键 / 存了个认不出来的值）时回 [fallback] 而不是回自动档：

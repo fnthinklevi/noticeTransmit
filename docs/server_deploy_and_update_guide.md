@@ -327,6 +327,29 @@ curl -sS -H 'cf-ipcountry: US' https://notice.fnthink.com/api/version/region
 `.top` → `FNTHINK_EDGE=cloudflare`、`.com` → `FNTHINK_EDGE=edgeone`（只用于展示与"哪一层在替你回答"那句话，客户端的判据不读它）。
 
 
+### 4.4 两站各一份 version.json（T170）
+
+`/api/version/check` 的 `downloads` 是运维在管理后台里填的。两站共用一份 `data/version.json` 时，
+在 `.com` 站发布的那一版会把下载地址指向 `.top` 的 CDN —— 用户被送去另一站，慢且证书/域名对不上。
+裁决＝**按站点分文件**，每台只读自己那份：
+
+| 这台是谁 | `.env` | 读的文件 | `downloads` 应落在 |
+| --- | --- | --- | --- |
+| 大陆站（`.com`） | `UPDATE_REGION=cn` | `$ROOT/data/version.cn.json` | `cdn.fnthink.com` |
+| 海外站（`.top`） | `UPDATE_REGION=global`（或**不设**） | `$ROOT/data/version.global.json` | `cdn2.fnthink.top` |
+
+- 默认 `global`：与拆分前"只有一台在跑"的行为一致。写成 `cn`/`global` 以外的值，进程**启动即报错退出** ——
+  站点写错会让下载链接指向另一站的 CDN，这比起不来更难被发现，所以不猜。
+- **升级前的旧文件仍可读**：按站文件不存在、而 `$ROOT/data/version.json` 存在时，读旧文件；
+  下一次在后台保存版本会写到按站文件（旧文件留在原地，不删）。这两份只是**模板**，真实版本内容以运维后台为准。
+- ⚠ `data/` 是运行数据，日常 `rsync --exclude 'data/'` 不会把这两份文件带上去 ⇒ 新装机要手工放一份，
+  或首次在后台保存时让服务端自动建。回滚时同上：`data/` 不动，换代码与 `UPDATE_REGION` 即可。
+- 回归：两台各发一次
+  `curl -s https://<站点>/api/version/check | grep -o 'https://cdn[^"]*'` ——
+  `.com` 应全是 `cdn.fnthink.com`，`.top` 应全是 `cdn2.fnthink.top`。
+- 客户端侧：更新服务器选择页会拿**实际探测到的下载主机**与当前档位的 CDN 比对，不一致时显式给橙色提示
+  （`updateServerCdnMismatch`），不会替你改档位 —— 看到提示先查这一台的 `UPDATE_REGION` 与后台里填的版本。
+
 ---
 
 ## 5. 日常更新（每次改动上线）

@@ -341,6 +341,46 @@ void main() {
     expect(find.text(l10n.updateServerHelpTitle), findsOneWidget);
   });
 
+  testWidgets('T170 大陆站下发 .top 的 CDN ⇒ 那一行当场说主机不一致', (tester) async {
+    final l10n = await open(
+      tester,
+      answers: {
+        UpdateServerRegion.mainland: reached(
+          UpdateServerRegion.mainland,
+          ms: 50,
+          version: '1.9.9',
+          cdn: 'cdn2.fnthink.top',
+        ),
+        UpdateServerRegion.international: reached(
+          UpdateServerRegion.international,
+          ms: 400,
+          version: '1.9.9',
+          cdn: 'cdn2.fnthink.top',
+        ),
+      },
+    );
+    expect(
+      find.descendant(
+        of: row(UpdateServerRegion.mainland),
+        matching: find.byKey(
+          const ValueKey('update-server-cdn-mismatch-mainland'),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        l10n.updateServerCdnMismatch('cdn2.fnthink.top', 'cdn.fnthink.com'),
+      ),
+      findsOneWidget,
+    );
+    // 海外那一档本来就该是 cdn2，不许跟着报。
+    expect(
+      find.byKey(const ValueKey('update-server-cdn-mismatch-international')),
+      findsNothing,
+    );
+  });
+
   testWidgets('T169 紧凑行：主机与状态同一行，重探挪到列表之前', (tester) async {
     await open(
       tester,

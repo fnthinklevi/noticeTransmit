@@ -2657,6 +2657,7 @@
     }
   },
   "updateServerCdnLine": "安装包来自 {host}",
+  "updateServerCdnMismatch": "注意：安装包来自 {actual}，与这一档约定的 {expected} 不一致",
   "@updateServerCdnLine": {
     "placeholders": {
       "host": {

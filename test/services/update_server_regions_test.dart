@@ -260,4 +260,44 @@ void main() {
       );
     });
   });
+
+  group('T170 下载主机与档位是否一致', () {
+    test('一致 / 没读到 ⇒ null（没读到不等于不一致）', () {
+      expect(
+        updateDownloadHostMismatch(
+          UpdateServerRegion.mainland,
+          'cdn.fnthink.com',
+        ),
+        isNull,
+      );
+      expect(
+        updateDownloadHostMismatch(UpdateServerRegion.mainland, null),
+        isNull,
+      );
+      expect(
+        updateDownloadHostMismatch(UpdateServerRegion.mainland, ''),
+        isNull,
+      );
+    });
+
+    test('大陆站下发 .top 的 CDN ⇒ 报出实际主机', () {
+      expect(
+        updateDownloadHostMismatch(
+          UpdateServerRegion.mainland,
+          'cdn2.fnthink.top',
+        ),
+        'cdn2.fnthink.top',
+      );
+    });
+
+    test('大小写与空白不影响判定', () {
+      expect(
+        updateDownloadHostMismatch(
+          UpdateServerRegion.international,
+          ' CDN2.FNTHINK.TOP ',
+        ),
+        isNull,
+      );
+    });
+  });
 }

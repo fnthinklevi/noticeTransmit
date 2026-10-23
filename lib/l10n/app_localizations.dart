@@ -8407,6 +8407,12 @@ abstract class AppLocalizations {
   /// **'安装包来自 {host}'**
   String updateServerCdnLine(String host);
 
+  /// No description provided for @updateServerCdnMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'注意：安装包来自 {actual}，与这一档约定的 {expected} 不一致'**
+  String updateServerCdnMismatch(Object actual, Object expected);
+
   /// No description provided for @updateServerAnswerEmpty.
   ///
   /// In zh, this message translates to:

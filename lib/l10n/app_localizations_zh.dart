@@ -4644,6 +4644,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String updateServerCdnMismatch(Object actual, Object expected) {
+    return '注意：安装包来自 $actual，与这一档约定的 $expected 不一致';
+  }
+
+  @override
   String get updateServerAnswerEmpty => '通了，但这一台没报出版本信息';
 
   @override

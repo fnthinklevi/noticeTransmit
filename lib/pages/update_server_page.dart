@@ -271,6 +271,11 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
     final title = region == UpdateServerRegion.mainland
         ? l10n.updateRegionMainland
         : l10n.updateRegionInternational;
+    // T170：两站共用一份 version.json 时，这一档可能把用户送去另一站的 CDN。
+    // 实际读到的主机与档位声明不一致 ⇒ 当场说，不静默把 .com 的包指向 .top。
+    final mismatch = probe == null
+        ? null
+        : updateDownloadHostMismatch(region, probe.downloadHost);
     return Padding(
       key: ValueKey('update-server-row-${region.name}'),
       padding: const EdgeInsets.only(bottom: 6),
@@ -332,6 +337,15 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
                 ),
               ],
             ),
+            if (mismatch != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  l10n.updateServerCdnMismatch(mismatch, region.cdnHost),
+                  key: ValueKey('update-server-cdn-mismatch-${region.name}'),
+                  style: const TextStyle(fontSize: 11, color: AppColors.orange),
+                ),
+              ),
           ],
         ),
       ),

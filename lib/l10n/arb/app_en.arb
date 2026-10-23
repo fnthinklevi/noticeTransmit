@@ -2636,6 +2636,7 @@
     }
   },
   "updateServerCdnLine": "Packages from {host}",
+  "updateServerCdnMismatch": "Note: the installer comes from {actual}, not the expected {expected} for this region",
   "@updateServerCdnLine": {
     "placeholders": {
       "host": {

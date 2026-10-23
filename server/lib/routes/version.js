@@ -5,7 +5,8 @@
  * - GET /api/version/check 为公开接口（不受 IP 封锁与认证限制）
  * - GET /api/version/region 同样公开：只回边缘看到的国家码，裁决在客户端（T96）
  * - GET|POST /api/admin/version 需认证（authMiddleware）
- * - 版本配置保存链路：POST 校验并写入 version.json，GET 读取返回（前后端契约）
+ * - 版本配置保存链路：POST 校验并写入**本档位那一份** version 文件（T170：
+ *   `version.cn.json` / `version.global.json`），GET 读取返回（前后端契约）
  */
 
 const express = require('express');
@@ -195,7 +196,7 @@ function compareVersions(v1, v2) {
 router.get('/api/version/check', (req, res) => {
   try {
     const { version, build, platform = 'android' } = req.query;
-    const versionData = store.readJsonFile(store.VERSION_FILE, {
+    const versionData = store.readJsonFile(store.versionFile(), {
       latestVersion: '1.0.0',
       latestBuild: 1,
       forceUpdate: false,
@@ -401,7 +402,7 @@ router.get('/api/version/region', (req, res) => {
 // 管理：读取版本配置（需认证）
 router.get('/api/admin/version', authMiddleware, (req, res) => {
   try {
-    const data = store.readJsonFile(store.VERSION_FILE, {});
+    const data = store.readJsonFile(store.versionFile(), {});
     res.json({
       code: 0,
       message: 'success',
@@ -413,7 +414,9 @@ router.get('/api/admin/version', authMiddleware, (req, res) => {
   }
 });
 
-// 管理：保存版本配置（需认证）——保存链路核心，校验后原子写入 version.json
+// 管理：保存版本配置（需认证）——保存链路核心，校验后原子写入本档位那份文件。
+// 读可以退回旧 `version.json`（见 store.versionFile），**写只写按站文件**：
+// 这样旧文件留在原地当存档，下一次读就从按站文件取，站点不会再串。
 router.post('/api/admin/version', authMiddleware, (req, res) => {
   try {
     const body = req.body;
@@ -438,7 +441,7 @@ router.post('/api/admin/version', authMiddleware, (req, res) => {
     // N3：admin.html 的 saveVersion 不含 sha256 字段——直接覆盖会丢掉发版时写入的
     // 传输层校验值。body 未提供 sha256 时沿用既有配置（显式提交的 sha256 仍可覆盖）。
     if (safe.sha256 === undefined) {
-      const existing = store.readJsonFile(store.VERSION_FILE, {});
+      const existing = store.readJsonFile(store.versionFile(), {});
       if (isPlainObject(existing) && existing.sha256 !== undefined) {
         safe.sha256 = existing.sha256;
       }

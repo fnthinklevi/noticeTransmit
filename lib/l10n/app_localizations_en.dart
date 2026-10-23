@@ -4887,6 +4887,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String updateServerCdnMismatch(Object actual, Object expected) {
+    return 'Note: the installer comes from $actual, not the expected $expected for this region';
+  }
+
+  @override
   String get updateServerAnswerEmpty =>
       'Reached it, but it reported no version info';
 
