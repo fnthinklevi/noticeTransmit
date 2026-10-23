@@ -19,8 +19,8 @@ import com.fnthink.notice.LocationFix
 import com.fnthink.notice.SmsSearch
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 /**
  * 幻念推送域（T26 B 半 + T48 前置）：设备身份公钥、规范化字节签名，以及"把一条收件显示成通知"。

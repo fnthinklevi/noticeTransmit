@@ -42,7 +42,10 @@ void main() {
   test('删除本机口令不调用任何服务端撤销路由（本轮决定不做 revoke）', () {
     final settings = read('lib/pages/fnthink_settings_page.dart');
     final clearAt = settings.indexOf('Future<void> _clearPairingCode(');
-    final clear = settings.substring(clearAt, settings.indexOf('Future<void> _editHost('));
+    final clear = settings.substring(
+      clearAt,
+      settings.indexOf('Future<void> _editHost('),
+    );
     expect(clear, isNot(contains('pairRevoke')));
     expect(clear, isNot(contains('revokePairing')));
     expect(clear, contains('credentials.clearPairingCode()'));
