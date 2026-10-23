@@ -1625,6 +1625,15 @@ class FnthinkContract {
     return value;
   }
 
+  /// 信封里"来源应用名"那个键的名字（`appNameKey`，T172）。
+  String get deviceAppNameKey {
+    final value = str(const ['deviceSend', 'titleEnvelope', 'appNameKey']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 deviceSend.titleEnvelope.appNameKey（不补默认值）');
+    }
+    return value;
+  }
+
   /// 这一路要发到的路径（设备面投递面，`transport.apiPaths.message`）。
   String get deviceSendMessagePath => apiPath('message');
 
@@ -1772,12 +1781,20 @@ class FnthinkContract {
         str(const ['deviceSend', 'titleEnvelope', 'titleKey']) ?? '';
     final bodyKeyValue =
         str(const ['deviceSend', 'titleEnvelope', 'bodyKey']) ?? '';
+    final appNameKeyValue =
+        str(const ['deviceSend', 'titleEnvelope', 'appNameKey']) ?? '';
     need(
       titleKey.isNotEmpty &&
           bodyKeyValue.isNotEmpty &&
-          titleKey != bodyKeyValue,
-      'deviceSend.titleEnvelope 的 titleKey / bodyKey 必须非空且互不相同：'
-      '同名时编码写得进去、拆不出来，标题与正文会互相覆盖',
+          appNameKeyValue.isNotEmpty,
+      'deviceSend.titleEnvelope 的 titleKey / bodyKey / appNameKey 都必须非空',
+    );
+    need(
+      titleKey != bodyKeyValue &&
+          titleKey != appNameKeyValue &&
+          bodyKeyValue != appNameKeyValue,
+      'deviceSend.titleEnvelope 的三个键名必须互不相同：同名时编码写得进去、拆不出来，'
+      '标题/正文/应用名会互相覆盖',
     );
     // 交叉检查：信封挂在**已签的 body** 上。哪天 body 不在签名字节里，这一路发的标题
     // 就悄悄变成了未签内容 —— 而那条正是本协议反复拒的事，必须在这里红，不许靠人记得。

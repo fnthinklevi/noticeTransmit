@@ -91,6 +91,24 @@ class FnthinkInboxDisplayTest {
     }
 
     @Test
+    fun `T172 有应用名时标题是应用名、正文是消息标题加正文`() {
+        val s = FnthinkInboxDisplay.specFor(
+            messageId = "m_app",
+            sender = "8K3FJ6QPTM9WZ4VHNS",
+            title = "取件码",
+            body = "1-2-3456",
+            appName = "驿站",
+        )
+        assertEquals("驿站", s.title)
+        assertEquals("取件码\n1-2-3456", s.text)
+
+        // 没有应用名（手动发送/旧发送端）退回旧形状，一个字节都不改。
+        val plain = spec(title = "取件码", body = "1-2-3456")
+        assertEquals("取件码", plain.title)
+        assertEquals("1-2-3456", plain.text)
+    }
+
+    @Test
     fun `空标题退回正文第一行，两个都空才是空`() {
         assertEquals("温度 63 度", spec(title = "  ", body = "温度 63 度").title)
         assertEquals(

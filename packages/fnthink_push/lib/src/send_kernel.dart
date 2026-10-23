@@ -158,6 +158,7 @@ class FnthinkSendKernel {
     required String type,
     required String title,
     required String text,
+    String appName = '',
   }) async {
     if (!contract.messageTypeLevels.containsKey(type)) {
       throw ArgumentError(
@@ -166,7 +167,11 @@ class FnthinkSendKernel {
       );
     }
     final separator = contract.signatureSeparator;
-    for (final entry in {'title': title, 'text': text}.entries) {
+    for (final entry in {
+      'title': title,
+      'text': text,
+      'appName': appName,
+    }.entries) {
       if (entry.value.contains(separator)) {
         throw ArgumentError(
           '${entry.key} 含签名字段分隔符：分隔符能出现在被签字段的值里，'
@@ -183,6 +188,7 @@ class FnthinkSendKernel {
       contract,
       title: title,
       body: text,
+      appName: appName,
     );
     final fields = messageFields(
       type: type,

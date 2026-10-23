@@ -8,10 +8,14 @@ class FnthinkTitleContent {
     required this.title,
     required this.body,
     required this.split,
+    this.appName = '',
   });
 
   final String title;
   final String body;
+
+  /// 转发通知的来源应用名（T172）。空串 = 这条没有应用名（手动发送、旧发送端）。
+  final String appName;
 
   /// 这一次**真的**拆开了吗。false = 整段就是正文（没有前缀，或前缀后面不是合法信封）。
   ///
@@ -40,11 +44,14 @@ class FnthinkTitleEnvelope {
     FnthinkContract contract, {
     required String title,
     required String body,
+    String appName = '',
   }) {
-    if (title.isEmpty) return body;
+    if (title.isEmpty && appName.isEmpty) return body;
     final payload = <String, String>{
       contract.deviceTitleKey: title,
       contract.deviceBodyKey: body,
+      // T172：应用名放进同一个已签信封；空串不写键（旧收件端也不会读到空值）。
+      if (appName.isNotEmpty) contract.deviceAppNameKey: appName,
     };
     return contract.deviceTitlePrefix + jsonEncode(payload);
   }
@@ -61,6 +68,7 @@ class FnthinkTitleEnvelope {
     }
     final titleKey = contract.deviceTitleKey;
     final bodyKey = contract.deviceBodyKey;
+    final appNameKey = contract.deviceAppNameKey;
     final Object? parsed;
     try {
       parsed = jsonDecode(wire.substring(prefix.length));
@@ -75,7 +83,15 @@ class FnthinkTitleEnvelope {
     if (title is! String || body is! String) {
       return FnthinkTitleContent(title: '', body: wire, split: false);
     }
-    return FnthinkTitleContent(title: title, body: body, split: true);
+    // 应用名是**可选**的：缺失或类型不对只让它空着，不让整条信封判为拆不出来 ——
+    // 那会把一条正常的标题/正文降级成"整段当正文"。
+    final appName = parsed[appNameKey];
+    return FnthinkTitleContent(
+      title: title,
+      body: body,
+      split: true,
+      appName: appName is String ? appName : '',
+    );
   }
 
   /// 收件端那一刀：**只有已签的标题为空时**才用信封（契约

@@ -84,10 +84,24 @@ object FnthinkInboxDisplay {
         sender: String,
         title: String,
         body: String,
+        appName: String = "",
         unreadCount: Int = 0,
     ): Spec {
         val trimmedTitle = title.trim()
+        val trimmedApp = appName.trim()
         val fallback = body.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+        // T172：通知栏标题 = 来源应用名（转发通知）；正文 = 消息标题 + 正文。
+        // 没有应用名（手动发送/旧发送端）时退回旧形状：标题取消息标题，正文原样。
+        val displayTitle = if (trimmedApp.isNotEmpty()) {
+            trimmedApp
+        } else {
+            trimmedTitle.ifEmpty { fallback }
+        }
+        val displayText = if (trimmedApp.isNotEmpty() && trimmedTitle.isNotEmpty()) {
+            "$trimmedTitle\n$body"
+        } else {
+            body
+        }
         return Spec(
             messageId = messageId,
             tag = messageId,
@@ -95,8 +109,8 @@ object FnthinkInboxDisplay {
             channel = CHANNEL_ID,
             // 按发送方归组：一台 NAS 推十条会收成一组，而不是把通知栏刷满。
             groupKey = "fnthink:$sender",
-            title = trimmedTitle.ifEmpty { fallback },
-            text = body,
+            title = displayTitle,
+            text = displayText,
             sender = sender,
             unreadCount = unreadCount.coerceAtLeast(0),
         )

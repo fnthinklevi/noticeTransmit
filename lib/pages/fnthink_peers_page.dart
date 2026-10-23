@@ -21,6 +21,7 @@ import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_remote_action_categories.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_out_record.dart';
+import '../services/fnthink_sender_display.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
@@ -189,6 +190,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
   /// 共用一个 Set 会把"我给 B 勾的那两项"跟着落到 C 那条的答复上 —— 而答复是按条签出去的。
   final Map<String, Set<String>> _pairChecked = {};
 
+  /// T172：收件里发送人怎么显示（备注优先 / 设备名 / 两者）。
+  FnthinkSenderDisplayMode _senderMode = FnthinkSenderDisplayMode.aliasFirst;
+
   @override
   void initState() {
     super.initState();
@@ -216,7 +220,14 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     // 进这一页先看一眼本机那一份配对账（T116）。为什么不等下一轮 poll：这一页正是用户
     // "去看看有没有回音"的那一屏，慢一轮的表现是"他打开的是空的，而结论其实早就落了"。
     await _coordinator.reloadPairLedger();
+    final senderSettings = await FnthinkSenderDisplaySettings.load();
+    if (mounted) setState(() => _senderMode = senderSettings.mode);
     await _loadPeers();
+  }
+
+  Future<void> _setSenderMode(FnthinkSenderDisplayMode mode) async {
+    await FnthinkSenderDisplaySettings(mode).setMode(mode);
+    if (mounted) setState(() => _senderMode = mode);
   }
 
   /// 派生失败（契约取值域与两张词表不一致、或某项在两处说法相反）时**不画那张表**并记下原因，
@@ -967,6 +978,31 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     return FnthinkCard(
       title: l10n.fnthinkPeersTitle,
       children: [
+        // T172：收件里发送人怎么显示。三档至少保留一项 —— 三档都会回落到地址码。
+        FnthinkRowLabel(
+          label: l10n.fnthinkSenderDisplayLabel,
+          keyName: 'fnthink-sender-display',
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final mode in FnthinkSenderDisplayMode.values)
+              FnthinkChoiceChip(
+                keyName: 'fnthink-sender-display-${mode.name}',
+                label: switch (mode) {
+                  FnthinkSenderDisplayMode.aliasFirst =>
+                    l10n.fnthinkSenderDisplayAliasFirst,
+                  FnthinkSenderDisplayMode.deviceName =>
+                    l10n.fnthinkSenderDisplayDeviceName,
+                  FnthinkSenderDisplayMode.both =>
+                    l10n.fnthinkSenderDisplayBoth,
+                },
+                selected: _senderMode == mode,
+                onTap: _busy ? null : () => _setSenderMode(mode),
+              ),
+          ],
+        ),
         if (rows == null)
           FnthinkNote(
             keyName: 'fnthink-peers-error',

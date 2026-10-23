@@ -3687,6 +3687,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeersTitle => '设备配对';
 
   @override
+  String get fnthinkSenderDisplayLabel => '收件里发送人怎么显示';
+
+  @override
+  String get fnthinkSenderDisplayAliasFirst => '备注优先';
+
+  @override
+  String get fnthinkSenderDisplayDeviceName => '设备名';
+
+  @override
+  String get fnthinkSenderDisplayBoth => '两者都给';
+
+  @override
   String get fnthinkHubTitle => '幻念推送';
 
   @override

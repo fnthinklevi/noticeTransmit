@@ -1398,6 +1398,7 @@ class FnthinkReceiveCoordinator {
     required String peer,
     required String title,
     required String text,
+    String appName = '',
     bool viaBackup = false,
   }) async {
     final resolved = await _resolveSpec(requireEnabled: false);
@@ -1411,7 +1412,12 @@ class FnthinkReceiveCoordinator {
     final FnthinkSendResult result;
     final watch = Stopwatch()..start();
     try {
-      result = await service.sendNotice(peer: peer, title: title, text: text);
+      result = await service.sendNotice(
+        peer: peer,
+        title: title,
+        text: text,
+        appName: appName,
+      );
     } finally {
       service.dispose();
     }

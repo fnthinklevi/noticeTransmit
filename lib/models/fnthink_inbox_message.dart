@@ -22,6 +22,8 @@ class FnthinkInboxMessage {
     required this.title,
     required this.body,
     required this.receivedAt,
+    // T172：来源应用名（转发通知才有；空串 = 手动发送/旧发送端）。
+    this.appName = '',
     // T105 片②：服务端受理这一刻。0＝不知道（旧服务端/旧行）。
     this.sentAt = 0,
     this.read = false,
@@ -52,6 +54,9 @@ class FnthinkInboxMessage {
 
   final String title;
   final String body;
+
+  /// 转发通知的来源应用名（T172）。空串 = 这一条没有应用名。
+  final String appName;
 
   /// **本机**收到的时刻（毫秒）。不用服务端的 `queuedAt`：这一列的用途是"我的收件箱按
   /// 时间排序"，而跨设备的时间戳要靠服务端 `serverTime` 校正后才可比（内核已经在算偏移，
@@ -100,6 +105,7 @@ class FnthinkInboxMessage {
     'item',
     'title',
     'body',
+    'app_name',
     'received_at',
     'sent_at',
     'read',
@@ -116,6 +122,7 @@ class FnthinkInboxMessage {
     'item': item,
     'title': title,
     'body': body,
+    'app_name': appName,
     'received_at': receivedAt,
     'sent_at': sentAt,
     // bool 落 0/1：SQLite 没有布尔列语义，而 `read == true` 在 Dart 侧是 bool、
@@ -150,6 +157,8 @@ class FnthinkInboxMessage {
       item: '${row['item'] ?? ''}',
       title: '${row['title'] ?? ''}',
       body: '${row['body'] ?? ''}',
+      // 缺列（v27 之前的旧行）当空串：那是"没有应用名"，不是"应用名读坏了"。
+      appName: '${row['app_name'] ?? ''}',
       receivedAt: (row['received_at'] as num?)?.toInt() ?? 0,
       // 缺列（升级中间态）也当 0：不知道就是不知道，别猜一个时刻出来。
       sentAt: (row['sent_at'] as num?)?.toInt() ?? 0,

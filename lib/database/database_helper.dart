@@ -87,7 +87,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 26;
+  static const int dbVersion = 27;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -530,7 +530,9 @@ class DatabaseHelper
         -- 「升级之后把历史里每一条都说成走了备用」—— 那是静默改写既有行的含义。
         via_backup INTEGER NOT NULL DEFAULT 0,
         -- T105 片②：服务端受理这一刻（0＝不知道：旧行与旧服务端都是这个值）
-        sent_at INTEGER NOT NULL DEFAULT 0
+        sent_at INTEGER NOT NULL DEFAULT 0,
+        -- T172：来源应用名（转发通知才有）。旧行/手动发送一律空串。
+        app_name TEXT NOT NULL DEFAULT ''
       )
     ''');
     // 收件列表按时间倒序翻页；未读数是首页那张入口卡每次都要算的。
@@ -952,6 +954,20 @@ class DatabaseHelper
         'peer_name',
         "TEXT NOT NULL DEFAULT ''",
       );
+    }
+
+    if (oldVersion < 27) {
+      // v27 / T172：收件表补「来源应用名」。只加列、DEFAULT 空串 ——
+      // 存量行没有应用名可读（发送端当时根本没把这一格放进信封），
+      // 替它们猜一个应用名就是把一条旧消息挂到某个应用名下。
+      if (await _tableExists(db, FnthinkInboxMessage.table)) {
+        await _addColumnIfMissing(
+          db,
+          FnthinkInboxMessage.table,
+          'app_name',
+          "TEXT NOT NULL DEFAULT ''",
+        );
+      }
     }
 
     if (oldVersion < 26) {

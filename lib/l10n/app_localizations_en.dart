@@ -3859,6 +3859,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPeersTitle => 'Device pairing';
 
   @override
+  String get fnthinkSenderDisplayLabel => 'Sender name in inbox';
+
+  @override
+  String get fnthinkSenderDisplayAliasFirst => 'Alias first';
+
+  @override
+  String get fnthinkSenderDisplayDeviceName => 'Device name';
+
+  @override
+  String get fnthinkSenderDisplayBoth => 'Show both';
+
+  @override
   String get fnthinkHubTitle => 'Fnthink Push';
 
   @override

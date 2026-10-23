@@ -344,6 +344,7 @@ class FnthinkReceiveLoop {
         item: message.item,
         title: message.title,
         body: message.body,
+        appName: message.appName,
         receivedAt: at,
         // 服务端给了才有；不给就是 0（界面上不出现那一句）。
         sentAt: message.sentAt,

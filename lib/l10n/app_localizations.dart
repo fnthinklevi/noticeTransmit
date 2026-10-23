@@ -6787,6 +6787,30 @@ abstract class AppLocalizations {
   /// **'设备配对'**
   String get fnthinkPeersTitle;
 
+  /// No description provided for @fnthinkSenderDisplayLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'收件里发送人怎么显示'**
+  String get fnthinkSenderDisplayLabel;
+
+  /// No description provided for @fnthinkSenderDisplayAliasFirst.
+  ///
+  /// In zh, this message translates to:
+  /// **'备注优先'**
+  String get fnthinkSenderDisplayAliasFirst;
+
+  /// No description provided for @fnthinkSenderDisplayDeviceName.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备名'**
+  String get fnthinkSenderDisplayDeviceName;
+
+  /// No description provided for @fnthinkSenderDisplayBoth.
+  ///
+  /// In zh, this message translates to:
+  /// **'两者都给'**
+  String get fnthinkSenderDisplayBoth;
+
   /// No description provided for @fnthinkHubTitle.
   ///
   /// In zh, this message translates to:

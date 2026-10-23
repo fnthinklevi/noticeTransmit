@@ -497,6 +497,7 @@ class FnthinkReceiverService {
     required String peer,
     required String title,
     required String text,
+    String appName = '',
   }) async {
     if (!await _canSign()) {
       return FnthinkSendResult(
@@ -518,6 +519,7 @@ class FnthinkReceiverService {
         type: type,
         title: title,
         text: text,
+        appName: appName,
       );
     } on ArgumentError catch (e) {
       return FnthinkSendResult(

@@ -39,6 +39,8 @@ class FnthinkInboxDisplay {
       final shown = await _channel.invokeMethod<bool>('showFnthinkInbox', {
         'messageId': message.messageId,
         'sender': message.sender,
+        // T172：通知栏标题用来源应用名；标题/正文仍在下面两格。
+        'appName': message.appName,
         'title': message.title,
         'body': displayBody ?? message.body,
         'unreadCount': unreadCount < 0 ? 0 : unreadCount,

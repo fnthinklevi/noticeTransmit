@@ -97,6 +97,39 @@ void main() {
     );
   });
 
+  test('T172 应用名进同一信封；旧信封缺 a 时为空但标题正文照常', () {
+    final wire = FnthinkTitleEnvelope.encode(
+      contract,
+      title: '标题',
+      body: '正文',
+      appName: '微信',
+    );
+    final decoded = FnthinkTitleEnvelope.decode(contract, wire);
+    expect(decoded.split, isTrue);
+    expect(decoded.title, '标题');
+    expect(decoded.body, '正文');
+    expect(decoded.appName, '微信');
+
+    // 旧发送端没有 a：标题/正文仍要拆开，应用名只是空 —— 不能让整条降级成"整段当正文"。
+    final legacy = '${contract.deviceTitlePrefix}{"t":"旧标题","b":"旧正文"}';
+    final old = FnthinkTitleEnvelope.decode(contract, legacy);
+    expect(old.split, isTrue);
+    expect(old.title, '旧标题');
+    expect(old.body, '旧正文');
+    expect(old.appName, '');
+
+    final delivered = FnthinkDelivered.tryFrom(contract, {
+      'messageId': 'm_app',
+      'type': 'notice',
+      'title': '',
+      'body': wire,
+      'sender': '8K3FJ6QPTM9WZ4VHNS',
+    });
+    expect(delivered, isNotNull);
+    expect(delivered!.appName, '微信');
+    expect(delivered.title, '标题');
+  });
+
   test('收件内核那一刀真的接上了：tryFrom 用的是拆出来的标题与正文，不是服务端那两列', () {
     // 这一条是"编解码对了"与"收件端看得见"之间的那一段：拆开算对了、
     // 而 `FnthinkDelivered` 还按 raw 里那两列原样装，症状就是通知栏与收件详情显示一串带前缀的 JSON。
@@ -204,10 +237,15 @@ void main() {
       ).validate(),
       contains(contains('prefix 含 signature.separator')),
     );
-    // ② 两个键名同名 ⇒ 写得进去拆不出来，标题与正文互相覆盖。
+    // ② 键名同名 ⇒ 写得进去拆不出来，标题/正文/应用名互相覆盖。
     expect(
       FnthinkContract(withEnvelope((e) => e['bodyKey'] = 't')).validate(),
-      contains(contains('titleKey / bodyKey')),
+      contains(contains('三个键名必须互不相同')),
+    );
+    // ②b T172：应用名那一格与标题同名，同样是静默覆盖。
+    expect(
+      FnthinkContract(withEnvelope((e) => e['appNameKey'] = 't')).validate(),
+      contains(contains('三个键名必须互不相同')),
     );
     // ③ 声明成"服务端拆" ⇒ 与本包实现不符（两份实现各拆一半）。
     expect(

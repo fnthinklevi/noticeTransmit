@@ -197,6 +197,8 @@ Future<void> fnthinkBackgroundFanoutRound(String batchJson) async {
         peer: target,
         title: item.title.trim().isEmpty ? item.appName : item.title,
         text: item.text.trim().isEmpty ? item.title : item.text,
+        // T172：来源应用名进已签信封；收件端拿它当通知标题。
+        appName: item.appName,
         // 逐条传而不是每轮一次：同一批里可能既有主通道选中的也有降级选中的
         // （轮询到不同通道的结果不同），按轮传就会把其中一半标错。
         viaBackup: item.viaBackup,

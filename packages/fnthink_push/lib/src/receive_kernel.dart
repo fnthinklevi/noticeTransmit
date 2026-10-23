@@ -1682,6 +1682,8 @@ class FnthinkDelivered {
     // 缺值／旧服务端不回它 ⇒ 0（未知），界面上那一句就不出现 ——
     // 拿本机时钀去填这个位置是假的：它答不了「对方什么时候发的」。
     this.sentAt = 0,
+    // T172：来源应用名（已签信封里的可选键）。空串 = 旧发送端/手动发送。
+    this.appName = '',
   });
 
   final String messageId;
@@ -1689,6 +1691,9 @@ class FnthinkDelivered {
   final String item;
   final String title;
   final String body;
+
+  /// 转发通知的来源应用名（T172）。空串 = 这条没有应用名。
+  final String appName;
 
   /// 谁发的（配对设备是它的地址码，端点是 `endpoint:<id>`）。
   /// 收件表那一行要有归属，界面要显示「是谁发的」，都只读这一列。
@@ -1724,6 +1729,7 @@ class FnthinkDelivered {
       item: raw['item'] is String ? raw['item'] as String : '',
       title: content.title,
       body: content.body,
+      appName: content.appName,
       sender: raw['sender'] is String ? raw['sender'] as String : '',
       // 容错到底：不是整数/缺失都当 0（不知道），不因它丢这一条。
       sentAt: raw['sentAt'] is int ? raw['sentAt'] as int : 0,

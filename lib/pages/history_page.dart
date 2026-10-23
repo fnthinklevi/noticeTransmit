@@ -16,6 +16,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_inbox_service.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_sender_display.dart';
 import '../services/notification_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
@@ -2018,6 +2019,22 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 只在装载收件行时刷新；读失败保持旧值/空 —— 界面上那格不画，不编话。
   Map<String, FnthinkRemoteExecutionRecord> _commandRecords = const {};
 
+  /// T172：发送人显示档位 + 名单（收件行与详情共用同一份解析）。
+  FnthinkSenderDisplayMode _senderMode = FnthinkSenderDisplayMode.aliasFirst;
+  Map<String, FnthinkPeer> _rosterByAddress = const {};
+
+  /// 一个地址码在屏上叫什么。地址码永远在最后兜底；名字只是让人少查一次。
+  String _senderText(String address) {
+    if (address.isEmpty) return '';
+    final peer = _rosterByAddress[address];
+    return fnthinkSenderLabel(
+      mode: _senderMode,
+      address: address,
+      alias: peer?.alias ?? '',
+      peerName: peer?.peerName ?? '',
+    );
+  }
+
   Future<void> _loadInbox() async {
     final direction = _inboxDirection;
     // 两条路都从**注入优先、生产走服务层**那一份取（页面不直连表：这是守卫钉住的那条线）。
@@ -2036,6 +2053,25 @@ class _HistoryPageState extends State<HistoryPage> {
               ));
     final rows = await load();
 
+    // T172：把这一屏要用的名单与显示档一次读齐。名单读失败只让名字回落到地址码，
+    // 不能让整页收件打不开 —— 地址码本来就是唯一能被核对的那一项。
+    var mode = FnthinkSenderDisplayMode.aliasFirst;
+    final byAddress = <String, FnthinkPeer>{};
+    try {
+      mode = (await FnthinkSenderDisplaySettings.load()).mode;
+      final addresses = rows
+          .map((m) => m.sender)
+          .where((s) => s.isNotEmpty)
+          .toSet();
+      final findPeer = widget.inboxFindPeer ?? _findPeerInRoster;
+      for (final address in addresses) {
+        final peer = await findPeer(address);
+        if (peer != null) byAddress[address] = peer;
+      }
+    } catch (e) {
+      debugPrint('[fnthink] 收件发送人显示资料读失败（回落地址码）：$e');
+    }
+
     if (!mounted) return;
     // 期间用户可能又切了档：只把结果交给它属于的那一档。否则"读回来的是发出、画在收件档上"
     // —— 那正是两本账混起来的形状，而它看起来就像一条真的收件。
@@ -2043,6 +2079,8 @@ class _HistoryPageState extends State<HistoryPage> {
     setState(() {
       _inbox = rows;
       _inboxLoaded = true;
+      _senderMode = mode;
+      _rosterByAddress = byAddress;
     });
     // 发出档没有指令行：传空把上一档的账清掉，免得切档后旧状态还挂在同号消息上。
     unawaited(
@@ -2201,7 +2239,7 @@ class _HistoryPageState extends State<HistoryPage> {
     required int index,
     required int total,
   }) {
-    final peer = m.sender.isEmpty ? l10n.unknown : m.sender;
+    final peer = m.sender.isEmpty ? l10n.unknown : _senderText(m.sender);
     // T141①：指令行不再把信封原文当标题画出来（维护者 2026-10-17 拍板：界面要显示）。
     // 「是不是指令」只有一个作者 = 包侧信封的 decode（lib/ 不出现前缀字面量，守卫钉着）；
     // 状态/原因读的是判定层落的执行记录（按消息号关联）。读不到就只换标题、不画状态、
@@ -2572,14 +2610,14 @@ class _HistoryPageState extends State<HistoryPage> {
                   Text(
                     outgoing
                         ? '${l10n.fnthinkRecipient}：'
-                              '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
+                              '${message.sender.isEmpty ? l10n.unknown : _senderText(message.sender)} · '
                               '${l10n.fnthinkSentAt}：${_formatTime(message.receivedAt)}'
                               // T105 片③：对面收下那一刻（服务端回执带回来的）。
                               // 0＝还不知道（对面还没 ack／旧服务端）—— 那时这一句不出现。
                               '${message.ackedAt > 0 ? ' · ${l10n.fnthinkPeerAckedAt}：${_formatTime(message.ackedAt)}' : ''}'
                               '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}'
                         : '${l10n.fnthinkSender}：'
-                              '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
+                              '${message.sender.isEmpty ? l10n.unknown : _senderText(message.sender)} · '
                               '${l10n.fnthinkReceivedAt}：${_formatTime(message.receivedAt)}'
                               // T105 片②：服务端给过受理时刻才出这一句
                               // （旧行与旧服务端是 0 ⇒ 不出现，而不是画一个 1970 年的时刻）。

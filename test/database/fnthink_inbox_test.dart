@@ -136,7 +136,7 @@ void main() {
     });
 
     test('v13 老库升上来：最终列与模型声明逐字一致', () async {
-      // "v13 形状" = 全量 schema 减掉本表，再走 13→14 那条分支。
+      // "v13 形状" = 全量 schema 减掉本表，再走到当前版本（含 v27 的 app_name）。
       // 新建库那一侧由上一条用例钉住与模型一致，这里比的是**升级路径**拿到的列。
       SharedPreferences.setMockInitialValues({});
       if (await databaseFactory.databaseExists(dbPath)) {
@@ -150,7 +150,7 @@ void main() {
       await helper.createSchemaForTest(old);
       await old.execute('DROP TABLE ${FnthinkInboxMessage.table}');
       expect(await columnsOf(old), isEmpty, reason: '锚点：表没建成，本用例就是空转');
-      await helper.upgradeSchemaForTest(old, 13, 14);
+      await helper.upgradeSchemaForTest(old, 13, DatabaseHelper.dbVersion);
       expect(await columnsOf(old), FnthinkInboxMessage.columns.toSet());
     });
 
