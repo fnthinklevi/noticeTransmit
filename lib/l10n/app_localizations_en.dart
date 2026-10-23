@@ -4027,6 +4027,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPeerPresenceOfflineQueued =>
+      'Offline only delays delivery: messages to it wait on the server until it comes online.';
+
+  @override
   String get fnthinkPeerPresenceUnknown => 'Unknown · never seen online';
 
   @override
@@ -4507,6 +4511,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPresenceRecover => 'Recover';
+
+  @override
+  String fnthinkLastRoundAt(Object time) {
+    return 'Last successful fetch: $time';
+  }
+
+  @override
+  String get fnthinkLastRoundNever => 'Last successful fetch: no record yet';
+
+  @override
+  String fnthinkWorkChain(
+    Object fanoutWork,
+    Object presenceWork,
+    Object queue,
+  ) {
+    return 'Background tasks: fetch $presenceWork · fanout $fanoutWork · $queue queued';
+  }
+
+  @override
+  String get fnthinkExactAlarmMissing =>
+      'Exact alarms not granted: background fetches may be late.';
+
+  @override
+  String get fnthinkBatteryOptMissing =>
+      'Battery optimization not ignored: the system may limit background fetches.';
+
+  @override
+  String get fnthinkGrantNow => 'Grant';
 
   @override
   String get fnthinkPollIntervalTitle => 'Poll interval';

@@ -31,7 +31,7 @@ class FnthinkPresenceReceiver : BroadcastReceiver() {
         Log.d(TAG, "幻念收货闹钟到点，cadence=$cadence")
         try {
             WorkManager.getInstance(context).enqueueUniqueWork(
-                WORK_NAME,
+                FnthinkPresenceWorker.UNIQUE_WORK,
                 ExistingWorkPolicy.REPLACE,
                 OneTimeWorkRequestBuilder<FnthinkPresenceWorker>().build(),
             )
@@ -44,6 +44,5 @@ class FnthinkPresenceReceiver : BroadcastReceiver() {
 
     private companion object {
         const val TAG = "FnthinkPresenceReceiver"
-        const val WORK_NAME = "fnthink-presence-round"
     }
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
@@ -18,6 +19,9 @@ import 'fnthink_settings.dart';
 /// 一次启动请求的结论。**reason 总是有值**：started 之外每一种都要能被界面原样说给用户 ——
 /// "为什么没在收货"是这类后台功能最常被问的一句，而答案是"不知道"就等于没做。
 typedef FnthinkStartResult = ({bool started, String reason});
+
+/// 最近一次**成功**收取的时刻（T176 自检）。键名不带 `flutter.`：这是 Dart 自己写的。
+const String kFnthinkLastRoundAtKey = 'fnthink_last_round_at';
 
 /// 服务器认了这条授权，但**本机名单那一行没写成**的三种原因。各对应一种用户动作，
 /// 所以不用一个 `bool` 折叠（"没写成"与"写成了但没落盘"在用户那里是完全不同的两句）。
@@ -589,6 +593,32 @@ class FnthinkReceiveCoordinator {
   /// 一轮的账 → 本机状态。**唯一的一处实现**：后台循环走 `onRound`，页面上"立即收取"那一下
   /// 走 [receiveOnce]（它调的是 `runOnce`，不经过 `_tick`，所以不会自己响）。两条路共用这一个
   /// 函数，是因为"待确认列表什么时候变"这件事只能有一个口径。
+  Future<void> _markLastRound() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+        kFnthinkLastRoundAtKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } catch (e) {
+      debugPrint('[fnthink] 记录上次收取时刻失败：$e');
+    }
+  }
+
+  /// 最近一次成功收取的时刻（毫秒）。0 = 从没成功过（新装/一直失败）。
+  ///
+  /// 读失败也回 0：这一格是自检读数，不是判据 —— 把它抛出去会让整页的
+  /// 「下一次自己醒」跟着不画。
+  Future<int> lastRoundAt() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(kFnthinkLastRoundAtKey) ?? 0;
+    } catch (e) {
+      debugPrint('[fnthink] 读上次收取时刻失败：$e');
+      return 0;
+    }
+  }
+
   void _noteRound(FnthinkLoopReport report) {
     if (report.status == FnthinkPollStatus.ok) {
       _pairRequests.value = _withoutAnswered(report.pairRequests);
@@ -598,6 +628,9 @@ class FnthinkReceiveCoordinator {
       // 同一轮的账顺手落库（T116）：终态**只在这一刻**才既看得见又留得住 ——
       // 服务端下一次建新请求时就把过了 TTL 的终态记录剪了。
       _storeRound(report);
+      // T176：最近一次成功收取的时刻。失败不覆盖它 —— 自检要回答的是
+      // "上一次真的拿到货是什么时候"，不是"上一次尝试是什么时候"。
+      unawaited(_markLastRound());
     }
     // 失败的那一轮同样要续排：transportError / 429 说明"这一路还活着，只是这次没取到"，
     // 停在这儿等于"一次网络抖动就把这台永久叫醒的机会弄没了"。

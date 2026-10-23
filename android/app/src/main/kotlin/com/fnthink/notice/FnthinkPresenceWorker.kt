@@ -156,10 +156,17 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
         }
     }
 
-    private companion object {
+    companion object {
         const val TAG = "FnthinkPresenceWorker"
         const val APP_CHANNEL = "com.fnthink.notice/notification"
         const val PRESENCE_CHANNEL = "com.fnthink.notice/presence"
+
+        /**
+         * 收货那一轮的唯一工作名（T176：自检读口要按它查 WorkManager 状态）。
+         * 以前这份字符串住在 `FnthinkPresenceReceiver` 的私有 companion 里，读口要查同一份
+         * 状态就只能再抄一遍 —— 抄的那份改名之后，自检会永远回 `none`。
+         */
+        const val UNIQUE_WORK = "fnthink-presence-round"
 
         /** shared_preferences 写出来的键都带这个前缀（原生侧读时同样是这个形状）。 */
         const val KEY_HANDLE = "flutter.fnthink_presence_handle"

@@ -34,6 +34,7 @@ class FnthinkReceiveDeps {
     required this.presence,
     required this.loadPeers,
     this.healthOf,
+    this.permission,
   });
 
   factory FnthinkReceiveDeps.fromLocator() => FnthinkReceiveDeps(
@@ -41,6 +42,8 @@ class FnthinkReceiveDeps {
     coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
     // 「下一次自己醒」那一行只**读**这一个源（§4-9 片1d）：页面既不自己算间隔、也不自己排闹钟。
     presence: GetIt.instance<FnthinkPresenceScheduler>(),
+    // T176：后台自检要读「精确闹钟 / 忽略电池优化」两项授权。测试构造时不传 ⇒ 那两行不画。
+    permission: GetIt.instance<PermissionService>(),
     // 远程指令的「发一条」要挑收件人，而名单只能从协调者那一个读咽喉取。
     // 它不是「接收设置需要名单」，而是「这一格要推的那个页需要」——
     // 另开一条读库的路就会有两个排序口径。
@@ -58,6 +61,9 @@ class FnthinkReceiveDeps {
 
   /// 读某台服务器的健康度（null = 这台没装配健康度链路 ⇒ 那一行"从没发过"）。
   final ChannelHealth? Function(String host)? healthOf;
+
+  /// 权限读数（T176）。null = 测试没注入 ⇒ 自检那两行不画。
+  final PermissionService? permission;
 }
 
 /// 接收设置（T44 的② + T56 同意门 + T88 间隔 + §4-9 保活那一行）与远程执行（T94 片2）。
@@ -76,7 +82,8 @@ class FnthinkReceivePage extends StatefulWidget {
   State<FnthinkReceivePage> createState() => _FnthinkReceivePageState();
 }
 
-class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
+class _FnthinkReceivePageState extends State<FnthinkReceivePage>
+    with WidgetsBindingObserver {
   late final FnthinkReceiveDeps _deps;
   late final FnthinkReceiveCoordinator _coordinator;
 
@@ -119,14 +126,35 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
   /// ⚠ null 与 `armed == false` 是**两件事**：前者是"不知道"，后者是"确实没排"。
   FnthinkPresenceStatus? _presence;
 
+  /// T176 自检：上一次**成功**收取的时刻（0 = 从没成功过）。
+  int _lastRoundAt = 0;
+
+  /// T176 自检：两项后台授权（null = 还没读到 / 测试没注入权限服务）。
+  bool? _exactAlarmGranted;
+  bool? _batteryOptimizationIgnored;
+
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _deps = widget.deps ?? FnthinkReceiveDeps.fromLocator();
     _coordinator = _deps.coordinator;
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 从系统权限页回来 / 从后台回来：读数都可能在后台变了。只重读，不主动跑一轮
+    // （回前台补收那一发在根页面，整个 App 共用一次）。
+    if (state == AppLifecycleState.resumed) unawaited(_readPresence());
   }
 
   Future<void> _load() async {
@@ -205,15 +233,51 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
   }
 
   /// 「下一次自己醒」那一行（§4-9 片1d）—— 读的是**原生那份排程**，不是本机自己算的。
+  ///
+  /// T176：同一发把自检要的另外三份读数一起取回来（上次收取 / 两条 WorkManager 链 /
+  /// 精确闹钟与电池优化授权）。它们回答的是同一个问题："锁屏之后还有没有人去收货"，
+  /// 分成几次读会让屏幕上的四行来自四个时刻。
   Future<void> _readPresence() async {
+    FnthinkPresenceStatus? status;
+    int lastRoundAt = 0;
+    bool? exactAlarm;
+    bool? batteryIgnored;
     try {
-      final status = await _deps.presence.status();
-      if (!mounted) return;
-      setState(() => _presence = status);
+      status = await _deps.presence.status();
     } catch (_) {
       // 读口抛 ⇒ 这一行**不画**（"还没读到"与"确实没排"是两句不同的话，见字段注释）。
-      if (mounted) setState(() => _presence = null);
+      status = null;
     }
+    try {
+      lastRoundAt = await _coordinator.lastRoundAt();
+    } catch (_) {}
+    final permission = _deps.permission;
+    if (permission != null) {
+      try {
+        await permission.checkAllPermissions();
+        exactAlarm = await permission.canScheduleExactAlarms();
+        batteryIgnored = permission.batteryOptimizationIgnored;
+      } catch (e) {
+        debugPrint('[fnthink] 读后台授权失败：$e');
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _presence = status;
+      _lastRoundAt = lastRoundAt;
+      _exactAlarmGranted = exactAlarm;
+      _batteryOptimizationIgnored = batteryIgnored;
+    });
+  }
+
+  Future<void> _requestExactAlarm() async {
+    await _deps.permission?.requestExactAlarmPermission();
+    await _readPresence();
+  }
+
+  Future<void> _requestIgnoreBatteryOptimization() async {
+    await _deps.permission?.requestBatteryOptimization();
+    await _readPresence();
   }
 
   /// 「下一次自己醒」那句话的时刻部分。本机不自己算时钟（那是一份第二的计时账），
@@ -666,6 +730,57 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
             keyName: 'fnthink-presence-next',
             text: _presenceText(l10n),
           ),
+        // T176 自检：上次成功收取 / 两条 WorkManager 链 / 待发条数。
+        // 这三行与上面那一行是同一个问题的四份读数；只给"下一次"会让人以为链一定在跑。
+        if (_presence != null)
+          FnthinkNote(
+            keyName: 'fnthink-last-round-at',
+            text: _lastRoundAt > 0
+                ? l10n.fnthinkLastRoundAt(_presenceClock(_lastRoundAt))
+                : l10n.fnthinkLastRoundNever,
+          ),
+        if (_presence != null &&
+            (_presence!.presenceWork.isNotEmpty ||
+                _presence!.fanoutWork.isNotEmpty))
+          FnthinkNote(
+            keyName: 'fnthink-work-chain',
+            text: l10n.fnthinkWorkChain(
+              _presence!.presenceWork.isEmpty ? '—' : _presence!.presenceWork,
+              _presence!.fanoutWork.isEmpty ? '—' : _presence!.fanoutWork,
+              _presence!.fanoutQueue,
+            ),
+          ),
+        // 缺授权时给路径，不替用户调：这两项都要跳系统页，回来由生命周期重读。
+        if (_exactAlarmGranted == false) ...[
+          FnthinkNote(
+            keyName: 'fnthink-exact-alarm-missing',
+            text: l10n.fnthinkExactAlarmMissing,
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FnthinkInlineAction(
+              key: const ValueKey('fnthink-grant-exact-alarm'),
+              label: l10n.fnthinkGrantNow,
+              tone: FnthinkActionTone.neutral,
+              onPressed: _busy ? null : _requestExactAlarm,
+            ),
+          ),
+        ],
+        if (_batteryOptimizationIgnored == false) ...[
+          FnthinkNote(
+            keyName: 'fnthink-battery-opt-missing',
+            text: l10n.fnthinkBatteryOptMissing,
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FnthinkInlineAction(
+              key: const ValueKey('fnthink-grant-battery-opt'),
+              label: l10n.fnthinkGrantNow,
+              tone: FnthinkActionTone.neutral,
+              onPressed: _busy ? null : _requestIgnoreBatteryOptimization,
+            ),
+          ),
+        ],
         // 只有链死那一档给按钮：其余三档按了也不会有任何变化，而界面不许摆一枚不做事的按钮。
         if (_presence != null &&
             _presenceLiveness() == FnthinkPresenceLiveness.dead)

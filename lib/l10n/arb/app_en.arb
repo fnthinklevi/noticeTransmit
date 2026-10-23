@@ -2040,6 +2040,7 @@
     }
   },
   "fnthinkPeerPresenceOffline": "Offline · last fetch {ago}",
+  "fnthinkPeerPresenceOfflineQueued": "Offline only delays delivery: messages to it wait on the server until it comes online.",
   "@fnthinkPeerPresenceOffline": {
     "placeholders": {
       "ago": {
@@ -2451,6 +2452,12 @@
   "fnthinkPresenceDead": "Wake-up chain is broken: this device will no longer wake on its own (switch and consent are both still on)",
   "fnthinkPresencePendingFirstRound": "First round not scheduled yet (just turned on; it arms itself after the first round)",
   "fnthinkPresenceRecover": "Recover",
+  "fnthinkLastRoundAt": "Last successful fetch: {time}",
+  "fnthinkLastRoundNever": "Last successful fetch: no record yet",
+  "fnthinkWorkChain": "Background tasks: fetch {presenceWork} · fanout {fanoutWork} · {queue} queued",
+  "fnthinkExactAlarmMissing": "Exact alarms not granted: background fetches may be late.",
+  "fnthinkBatteryOptMissing": "Battery optimization not ignored: the system may limit background fetches.",
+  "fnthinkGrantNow": "Grant",
   "fnthinkPollIntervalTitle": "Poll interval",
   "fnthinkPollIntervalUsingDefault": "Asks every {seconds}s (the protocol default)",
   "fnthinkRegisterRateLimited": "Registration is rate-limited; retrying automatically in {minutes} min {seconds} s",

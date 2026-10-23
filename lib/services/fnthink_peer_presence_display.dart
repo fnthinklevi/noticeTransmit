@@ -57,6 +57,18 @@ String fnthinkPeerPresenceLoadingLine(AppLocalizations l10n) =>
 String fnthinkPeerPresenceFailedLine(AppLocalizations l10n, String reason) =>
     l10n.fnthinkPeerPresenceFailed(reason);
 
+/// 离线那一档下面那句：**离线不等于发不出去**（T176）。
+///
+/// 服务端把 `offline` 判成"超过阈值没 poll"，而收单会照收并排队等它上线。
+/// 旧界面只写「离线」，用户读成"现在发不了"；这一句把"到达时间会晚"与"发不出去"
+/// 分开说。其余五档回 null：在线不需要这句，unknown/notShared 说"排队"是替人家作保。
+String? fnthinkPeerPresenceDeliveryNote(
+  AppLocalizations l10n,
+  FnthinkPeerPresenceKind kind,
+) => kind == FnthinkPeerPresenceKind.offline
+    ? l10n.fnthinkPeerPresenceOfflineQueued
+    : null;
+
 /// 一台对端那一行的状态句（null = 不画；失败那句在卡片级，由
 /// [fnthinkPeerPresenceFailedLine] 负责）。
 String? fnthinkPeerPresenceLine(

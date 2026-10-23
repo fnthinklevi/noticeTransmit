@@ -3839,6 +3839,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPeerPresenceOfflineQueued =>
+      '离线只影响到达时间：发给它的消息会排在服务器，等它上线再投。';
+
+  @override
   String get fnthinkPeerPresenceUnknown => '未知 · 还没上过线';
 
   @override
@@ -4290,6 +4294,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPresenceRecover => '立即恢复';
+
+  @override
+  String fnthinkLastRoundAt(Object time) {
+    return '上次成功收取：$time';
+  }
+
+  @override
+  String get fnthinkLastRoundNever => '上次成功收取：还没有记录';
+
+  @override
+  String fnthinkWorkChain(
+    Object fanoutWork,
+    Object presenceWork,
+    Object queue,
+  ) {
+    return '后台任务：收货 $presenceWork · 转发 $fanoutWork · 待发 $queue 条';
+  }
+
+  @override
+  String get fnthinkExactAlarmMissing => '精确闹钟未授权：后台收取可能晚到。';
+
+  @override
+  String get fnthinkBatteryOptMissing => '未忽略电池优化：系统可能限制后台收取。';
+
+  @override
+  String get fnthinkGrantNow => '去授权';
 
   @override
   String get fnthinkPollIntervalTitle => '收取间隔';

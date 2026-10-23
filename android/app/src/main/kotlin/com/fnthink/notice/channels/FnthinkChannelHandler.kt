@@ -1,20 +1,25 @@
 package com.fnthink.notice.channels
 
 import android.content.Context
+import androidx.work.WorkManager
 import com.fnthink.notice.AppLaunch
 import com.fnthink.notice.CallLogSearch
 import com.fnthink.notice.CameraSnap
 import com.fnthink.notice.ContactSearch
 import com.fnthink.notice.FnthinkAlertDisplay
+import com.fnthink.notice.FnthinkFanoutQueue
+import com.fnthink.notice.FnthinkFanoutWorker
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
 import com.fnthink.notice.FnthinkOpenTarget
 import com.fnthink.notice.FnthinkPairLink
 import com.fnthink.notice.FnthinkPresenceAlarm
+import com.fnthink.notice.FnthinkPresenceWorker
 import com.fnthink.notice.LocationFix
 import com.fnthink.notice.SmsSearch
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.launch
 
 /**
@@ -191,16 +196,36 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             "fnthinkPresenceStatus" -> {
                 // 界面/日志要能问出"到底还有没有人醒"：只有排上了 / 没排上两个状态是不够的，
                 // 还得说得出下一轮在什么时候、那一档间隔是多少（后者是 Dart 上次交下来的那一份）。
+                //
+                // T176：自检还要看得见**两条 WorkManager 链**（收货那一轮 / 转发队列）与待发条数。
+                // 这几件事都在系统侧，只能由原生读；Dart 再抄一份"以为链在跑"就是第二本账。
                 val alarm = FnthinkPresenceAlarm(context)
-                result.success(
-                    mapOf(
-                        "nextRoundAt" to alarm.nextRoundAt(),
-                        "cadenceSeconds" to alarm.cadenceSeconds(),
-                        // T140 层2：界面要分得开"链死了"与"还没排上第一轮"，而 cancel 之后
-                        // nextRoundAt 与 cadenceSeconds 双双归 0、两者长得一样 —— 这一枚就是那段历史。
-                        "everArmedAt" to alarm.everArmedAt(),
-                    ),
-                )
+                ioScope.launch {
+                    fun workState(name: String): String = try {
+                        WorkManager.getInstance(context)
+                            .getWorkInfosForUniqueWork(name)
+                            .get(2, TimeUnit.SECONDS)
+                            .lastOrNull()
+                            ?.state
+                            ?.name ?: "none"
+                    } catch (e: Exception) {
+                        "unknown"
+                    }
+
+                    postSuccess(
+                        result,
+                        mapOf(
+                            "nextRoundAt" to alarm.nextRoundAt(),
+                            "cadenceSeconds" to alarm.cadenceSeconds(),
+                            // T140 层2：界面要分得开"链死了"与"还没排上第一轮"，而 cancel 之后
+                            // nextRoundAt 与 cadenceSeconds 双双归 0、两者长得一样 —— 这一枚就是那段历史。
+                            "everArmedAt" to alarm.everArmedAt(),
+                            "presenceWork" to workState(FnthinkPresenceWorker.UNIQUE_WORK),
+                            "fanoutWork" to workState(FnthinkFanoutWorker.UNIQUE_WORK),
+                            "fanoutQueue" to FnthinkFanoutQueue(context).pendingCount(),
+                        ),
+                    )
+                }
             }
             else -> return false
         }

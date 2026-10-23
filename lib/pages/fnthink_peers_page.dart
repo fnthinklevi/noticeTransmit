@@ -354,21 +354,27 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
   List<Widget> _presenceNote(AppLocalizations l10n, FnthinkPeer peer) {
     final contract = _contract;
     if (contract == null || _presenceLoading) return const <Widget>[];
-    final line = fnthinkPeerPresenceLine(
-      l10n,
-      fnthinkPeerPresenceView(
-        contract: contract,
-        result: _presence,
-        loading: false,
-        peerAddress: peer.peerAddress,
-      ),
+    final view = fnthinkPeerPresenceView(
+      contract: contract,
+      result: _presence,
+      loading: false,
+      peerAddress: peer.peerAddress,
     );
+    final line = fnthinkPeerPresenceLine(l10n, view);
     if (line == null) return const <Widget>[];
+    final deliveryNote = fnthinkPeerPresenceDeliveryNote(l10n, view.kind);
     return [
       FnthinkNote(
         keyName: 'fnthink-peer-presence-${peer.peerAddress}',
         text: line,
       ),
+      // T176：离线 ≠ 发不出去。服务端照收并排队，等它上线再投 —— 这一句与上面
+      // 「离线 · 上次收取…」是两件事，合成一句会让用户以为现在发不了。
+      if (deliveryNote != null)
+        FnthinkNote(
+          keyName: 'fnthink-peer-presence-queued-${peer.peerAddress}',
+          text: deliveryNote,
+        ),
     ];
   }
 

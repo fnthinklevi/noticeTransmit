@@ -131,6 +131,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final FnthinkInboxService _fnthinkInbox =
       GetIt.instance<FnthinkInboxService>();
 
+  /// T176 ④：回前台补一轮的入口。生产装配里一定有；测试容器可能没装它 ⇒ 用可空字段，
+  /// 不因为"这一页被单独挂起来测"就抛。
+  FnthinkReceiveCoordinator? _fnthinkReceiveCoordinator;
+
   /// 首页「当前推送通道」：条目、健康态与显示格式都来自 [collectActiveChannels]（第 6 步单点），
   /// 与历史记录入库时的送达键快照同源。这里只做显示形状。
   /// status 四态（ok / error / stale / unknown）来自健康单点 `channel_health_*`：
@@ -243,6 +247,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    if (GetIt.instance.isRegistered<FnthinkReceiveCoordinator>()) {
+      _fnthinkReceiveCoordinator = GetIt.instance<FnthinkReceiveCoordinator>();
+    }
     WidgetsBinding.instance.addObserver(this);
     _setupMethodChannel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -414,6 +421,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       );
       // 回到前台时补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
       unawaited(_notificationService.drainPendingDeliveries());
+      // T176 ④：后台那一轮可能整轮没跑（ROM 杀了闹钟/worker），回前台立刻补一轮。
+      // `runOnce` 自带单飞：循环正在跑时它整轮跳过，不会与前台循环抢同一轮。
+      final coordinator = _fnthinkReceiveCoordinator;
+      if (coordinator != null) unawaited(coordinator.receiveOnce());
       // T175 ②：锁屏/后台期间没有任何人写回执的记录，回前台时清扫成 no-receipt。
       // 与上面那一发同一个时机：两件事都在补"后台期间没发生的那一次回执"。
       unawaited(_notificationService.sweepStaleDeliveries());

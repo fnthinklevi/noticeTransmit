@@ -83,6 +83,11 @@ class FnthinkPresenceScheduler {
       nextRoundAt: (raw?['nextRoundAt'] as num?)?.toInt() ?? 0,
       cadenceSeconds: (raw?['cadenceSeconds'] as num?)?.toInt() ?? 0,
       everArmedAt: (raw?['everArmedAt'] as num?)?.toInt() ?? 0,
+      // T176：两条 WorkManager 链与待发条数。旧原生没有这三格 ⇒ 空串 / 0，
+      // 页面据此说"读不到"，不编一个 `none`。
+      presenceWork: '${raw?['presenceWork'] ?? ''}',
+      fanoutWork: '${raw?['fanoutWork'] ?? ''}',
+      fanoutQueue: (raw?['fanoutQueue'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -128,6 +133,9 @@ class FnthinkPresenceStatus {
     required this.nextRoundAt,
     required this.cadenceSeconds,
     this.everArmedAt = 0,
+    this.presenceWork = '',
+    this.fanoutWork = '',
+    this.fanoutQueue = 0,
   });
 
   /// 下一轮被排在什么时候（毫秒）。0 = 没排。
@@ -138,6 +146,15 @@ class FnthinkPresenceStatus {
 
   /// 这台**第一次真的排上**闹钟的时刻（毫秒）。0 = 从没排上过。见原生 `KEY_EVER_ARMED_AT`。
   final int everArmedAt;
+
+  /// 收货那一轮 WorkManager 的状态（`ENQUEUED`/`RUNNING`/…；空串 = 旧原生没这一格）。
+  final String presenceWork;
+
+  /// 幻念转发队列 worker 的状态（同上）。
+  final String fanoutWork;
+
+  /// 转发待发队列里还有几条（T175 的队列）。
+  final int fanoutQueue;
 
   bool get armed => nextRoundAt > 0;
 }

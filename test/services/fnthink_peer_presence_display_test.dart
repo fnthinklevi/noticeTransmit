@@ -129,4 +129,47 @@ void main() {
     );
     expect(line, 'Online · last fetch 12s ago');
   });
+
+  test('T176 离线补一句「排队等上线」，其余档不说', () {
+    final offline = view(
+      result: ok(const [
+        FnthinkPeerPresence(
+          addressCode: peer,
+          presence: 'offline',
+          lastSeenAt: 1,
+          ageSeconds: 90,
+        ),
+      ]),
+    );
+    expect(
+      fnthinkPeerPresenceDeliveryNote(zh, offline.kind),
+      zh.fnthinkPeerPresenceOfflineQueued,
+    );
+    expect(
+      fnthinkPeerPresenceDeliveryNote(en, offline.kind),
+      en.fnthinkPeerPresenceOfflineQueued,
+    );
+
+    for (final presence in const ['online', 'unknown']) {
+      final v = view(
+        result: ok([
+          FnthinkPeerPresence(
+            addressCode: peer,
+            presence: presence,
+            lastSeenAt: 1,
+            ageSeconds: 12,
+          ),
+        ]),
+      );
+      expect(
+        fnthinkPeerPresenceDeliveryNote(zh, v.kind),
+        isNull,
+        reason: '$presence 说「排队」是替一台还在线的设备编一个目的地',
+      );
+    }
+    expect(
+      fnthinkPeerPresenceDeliveryNote(zh, FnthinkPeerPresenceKind.notShared),
+      isNull,
+    );
+  });
 }
