@@ -4586,6 +4586,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String fnthinkPresenceLive(int seconds) {
+    return 'Persistent background polling (every ${seconds}s)';
+  }
+
+  @override
+  String fnthinkPresenceLiveNoLock(int seconds) {
+    return 'Persistent background polling (every ${seconds}s, but the system denied the wake lock)';
+  }
+
+  @override
   String fnthinkPresenceNext(String time, int seconds) {
     return 'Next wake-up: $time (every ${seconds}s)';
   }

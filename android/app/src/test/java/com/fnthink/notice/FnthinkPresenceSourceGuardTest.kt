@@ -225,6 +225,36 @@ class FnthinkPresenceSourceGuardTest {
         )
     }
 
+    @Test
+    fun livePollingKeepsItsWakeLockOnlyWhileTheServiceLives() {
+        val service = stripComments(File(SRC + "NotificationMonitorService.kt").readText())
+        val live = stripComments(File(SRC + "FnthinkLiveMode.kt").readText())
+        assertTrue(
+            "T181 B：常驻轮询的持锁状态必须由服务重建时恢复 —— 少了这一行，" +
+                "START_STICKY 拉起服务之后那把锁没人拿，锁屏久了 CPU 照样睡，Dart 的 5 秒 Timer 被冻住，" +
+                "表现与没做这一片逐字节相同（界面上还写着「常驻收取中」）",
+            service.contains("FnthinkLiveMode.restore(this)"),
+        )
+        assertTrue(
+            "服务销毁必须放锁：START_STICKY 重建时由 onCreate 的 restore 重新拿，不留一把永不过期的锁",
+            service.contains("FnthinkLiveMode.release()"),
+        )
+        assertTrue(
+            "常驻档要挡的是 CPU 休眠（Dart Timer 被冻住），只能是 PARTIAL_WAKE_LOCK",
+            live.contains("PARTIAL_WAKE_LOCK"),
+        )
+        assertTrue(
+            "重复 acquire 只许续期、不许叠引用计数，否则每 5 秒一轮就把引用计数堆到永远放不掉",
+            live.contains("setReferenceCounted(false)"),
+        )
+        assertTrue(
+            "startFnthinkLive 的分支必须真的把档打开并持锁；只回 true 不落状态时，" +
+                "Dart 会以为常驻已开，而原生那边一动不动 —— 界面与事实相反",
+            handler.contains("FnthinkLiveMode.setEnabled(context, true") &&
+                handler.contains("FnthinkLiveMode.setEnabled(context, false"),
+        )
+    }
+
     private fun count(src: String, needle: String): Int = src.split(needle).size - 1
 
     private companion object {

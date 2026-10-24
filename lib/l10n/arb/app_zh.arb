@@ -2491,6 +2491,22 @@
       }
     }
   },
+  "fnthinkPresenceLive": "常驻后台收取中（每 {seconds} 秒）",
+  "@fnthinkPresenceLive": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkPresenceLiveNoLock": "常驻后台收取中（每 {seconds} 秒，但系统没给唤醒锁）",
+  "@fnthinkPresenceLiveNoLock": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkPresenceNext": "下一次自己醒：{time}（每 {seconds} 秒）",
   "@fnthinkPresenceNext": {
     "placeholders": {

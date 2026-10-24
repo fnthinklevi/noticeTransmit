@@ -13,6 +13,7 @@ import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_contract_loader.dart';
 import 'fnthink_credential_store.dart';
 import 'fnthink_grant_items.dart';
+import 'fnthink_presence_scheduler.dart';
 import 'fnthink_receive_loop.dart';
 import 'fnthink_receiver_service.dart';
 import 'fnthink_settings.dart';
@@ -221,6 +222,8 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
     display: spec.display,
     recordAck: spec.recordAck,
     recordDelivery: spec.recordDelivery,
+    // T181 B：常驻轮询档把 kernel 给的 20 秒压到契约的 5 秒；关掉时原样返回。
+    clampDelay: fnthinkLiveClampDelay,
     // ⚠ 这一格漏接时的症状不是崩溃：远程指令照常进收件表、照常按通知弹出来，而没有任何
     //   东西动手，且远程执行历史一行都不写（判定与留痕都在这一格后面）。守卫按
     //   `FnthinkLoopSpec` 里声明的钩子逐格数转发，见 fnthink_receive_wiring_test。
@@ -766,6 +769,9 @@ class FnthinkReceiveCoordinator {
     final loop = _loopFactory(resolved.spec!);
     _loop = loop;
     loop.start();
+    // T181 B：循环一开就把常驻轮询档打开，不要等第一轮跑完（否则第一颗
+    // 20 秒的 Timer 还是按旧节奏排的）。
+    _presence(keepAwake: true);
     debugPrint('[fnthink] 收货循环已启动 → ${resolved.spec!.baseUri}');
     return (started: true, reason: 'started');
   }

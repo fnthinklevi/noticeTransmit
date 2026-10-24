@@ -34,6 +34,10 @@ class FnthinkPresenceScheduler {
   final FnthinkContractLoader contracts;
   final MethodChannel _channel;
 
+  /// T181 B：兜底闹钟下一次大致到点的时刻（毫秒）。只用来回答"该不该再排一次"，
+  /// 真值仍在原生（`nextRoundAt`）。
+  int _backstopArmedForMs = 0;
+
   /// 还要不要继续醒着。
   ///
   /// `keepAwake == true` 时先补一次 handle 再排：handle 是"这台引擎该进哪个 Dart 函数"的
@@ -51,24 +55,87 @@ class FnthinkPresenceScheduler {
   /// 若把退避值喂回节奏，等于让"服务端一句限流"变成这台的常设间隔。
   Future<void> notice({required bool keepAwake, int? afterSeconds}) async {
     if (!keepAwake) {
+      _clearLiveGlobals();
+      _backstopArmedForMs = 0;
+      await _stopLive();
       await _channel.invokeMethod<void>('cancelFnthinkPresence');
       return;
     }
-    final seconds = (afterSeconds != null && afterSeconds > 0)
-        ? afterSeconds
-        : await _cadenceSeconds();
+    final backoff = afterSeconds != null && afterSeconds > 0;
+    // 退避那一档要在**第一个 await 之前**就把常驻档关掉：循环排下一轮时读的是这颗全局，
+    // 晚一步清，Retry-After 就会被 clamp 压回高频 —— 正是 T181 B 最容易踩的那一脚。
+    if (backoff) {
+      _clearLiveGlobals();
+      await _stopLive();
+    } else {
+      final liveSeconds = await _liveSeconds();
+      _setLiveGlobals(liveSeconds);
+      var live = false;
+      try {
+        live =
+            await _channel.invokeMethod<bool>('startFnthinkLive', {
+              'seconds': liveSeconds,
+            }) ??
+            false;
+      } catch (e) {
+        debugPrint('[fnthink] 常驻轮询档没打开（退回闹钟链）：$e');
+      }
+      if (!live) _clearLiveGlobals();
+    }
+
     if (!await publishEntryHandle()) {
       debugPrint('[fnthink] 拿不到后台入口 handle ⇒ 这次不排闹钟（排了也起不了引擎，白耗一次唤醒）');
       return;
     }
+    // 常驻档活着时，闹钟只当"进程被杀"的兜底：退到契约允许的**最慢**那一档，
+    // 循环还在跑时它不会真的响；循环一停，最迟那一档之后由 worker 接手。
+    final alarmSeconds = backoff
+        ? afterSeconds
+        : (fnthinkLiveModeActive
+              ? await _backstopSeconds()
+              : await _cadenceSeconds());
+    if (backoff) {
+      _backstopArmedForMs = 0;
+    } else if (fnthinkLiveModeActive) {
+      // 兜底闹钟只需要"在被响之前往前推"，不必每轮都打扰 AlarmManager：
+      // 常驻档 5 秒一轮，每轮都重排就是一分钟 12 次精确闹钟 —— 系统本来就会限流，
+      // 被限流的那些还会把"推进"变成"没推进"。留一半余量再推一次。
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (_backstopArmedForMs - now > _kBackstopRearmWindowMs) return;
+      _backstopArmedForMs = now + alarmSeconds * 1000;
+    } else {
+      _backstopArmedForMs = 0;
+    }
     await _channel.invokeMethod<void>('scheduleFnthinkPresence', {
-      'seconds': seconds,
+      'seconds': alarmSeconds,
       // T180：退避是**一次性**参数，与常态 cadence 分两格落到原生。正常排程显式传 0，
       // 把上一次的退避标记清掉。
-      'backoffSeconds': (afterSeconds != null && afterSeconds > 0)
-          ? afterSeconds
-          : 0,
+      'backoffSeconds': backoff ? afterSeconds : 0,
     });
+  }
+
+  /// 撤常驻档。**失败不外抛**：它排在撤闹钟那一发之前，抛出去会让"关掉接收"
+  /// 只关了一半（锁撤了、闹钟还挂着），而那正是这一片要消灭的静默不一致。
+  Future<void> _stopLive() async {
+    try {
+      await _channel.invokeMethod<void>('stopFnthinkLive');
+    } catch (e) {
+      debugPrint('[fnthink] 常驻轮询档没撤掉（闹钟照常撤）：$e');
+    }
+  }
+
+  /// 常驻轮询档的间隔：契约 `presence.burstWhenPending.intervalSeconds`。
+  /// 不在这里写那个数 —— 那是第二份节奏，改契约时不会有任何东西报错。
+  Future<int> _liveSeconds() async {
+    final contract = await contracts.load();
+    return contract.burstWhenPending.intervalSeconds;
+  }
+
+  /// 常驻档活着时闹钟的兜底间隔：契约允许的最慢一档（`presence.pollIntervalSeconds.max`）。
+  /// 它只是"进程被杀之后多久由 worker 接手"，不是收货节奏 —— 收货节奏的唯一作者仍是契约。
+  Future<int> _backstopSeconds() async {
+    final contract = await contracts.load();
+    return contract.pollIntervalRange.max;
   }
 
   /// 下一轮的间隔：**只从"契约 + 本机那一档设置"读**（T88 之后仍然只有一个作者）。
@@ -95,6 +162,9 @@ class FnthinkPresenceScheduler {
       presenceWork: '${raw?['presenceWork'] ?? ''}',
       fanoutWork: '${raw?['fanoutWork'] ?? ''}',
       fanoutQueue: (raw?['fanoutQueue'] as num?)?.toInt() ?? 0,
+      liveMode: raw?['liveMode'] == true,
+      liveSeconds: (raw?['liveSeconds'] as num?)?.toInt() ?? 0,
+      wakeLock: raw?['wakeLock'] == true,
     );
   }
 }
@@ -144,6 +214,9 @@ class FnthinkPresenceStatus {
     this.presenceWork = '',
     this.fanoutWork = '',
     this.fanoutQueue = 0,
+    this.liveMode = false,
+    this.liveSeconds = 0,
+    this.wakeLock = false,
   });
 
   /// 下一轮被排在什么时候（毫秒）。0 = 没排。
@@ -162,6 +235,16 @@ class FnthinkPresenceStatus {
   /// 这台**第一次真的排上**闹钟的时刻（毫秒）。0 = 从没排上过。见原生 `KEY_EVER_ARMED_AT`。
   final int everArmedAt;
 
+  /// T181 B：常驻前台轮询档是否开着（与闹钟链是两条腿，可以同时为真）。
+  final bool liveMode;
+
+  /// 常驻档的间隔（秒）；0 = 没开。
+  final int liveSeconds;
+
+  /// 原生是否真的持着那把 PARTIAL_WAKE_LOCK。`liveMode=true` 而它为 false，
+  /// 说明锁没拿上（ROM 拒绝/异常），页面必须如实说，不许只报"已开启"。
+  final bool wakeLock;
+
   /// 收货那一轮 WorkManager 的状态（`ENQUEUED`/`RUNNING`/…；空串 = 旧原生没这一格）。
   final String presenceWork;
 
@@ -177,6 +260,35 @@ class FnthinkPresenceStatus {
 /// 后台入口的 handle 在 prefs 里的键（**不带** `flutter.` 前缀：那是 shared_preferences
 /// 落盘时加的，原生读的是 `flutter.fnthink_presence_handle` —— 这一对关系由守卫钉住）。
 const String kFnthinkPresenceHandleKey = 'fnthink_presence_handle';
+
+/// 常驻档下兜底闹钟"再往前推一次"的余量：比它更近就不重排，免得每轮都去敲 AlarmManager。
+const int _kBackstopRearmWindowMs = 30000;
+
+/// 当前这颗 isolate 是否处在常驻轮询档。循环排下一轮时用 [fnthinkLiveClampDelay] 压间隔。
+///
+/// 只活在本 isolate：前台 UI 与后台 worker 各有一份，互不冒充。
+/// 落盘那一份归原生（`FnthinkLiveMode`）：这里不再写 prefs，否则同一组键就有两个作者。
+bool fnthinkLiveModeActive = false;
+int fnthinkLiveSecondsActive = 0;
+
+void _setLiveGlobals(int cadence) {
+  fnthinkLiveSecondsActive = cadence;
+  fnthinkLiveModeActive = cadence > 0;
+}
+
+void _clearLiveGlobals() {
+  fnthinkLiveSecondsActive = 0;
+  fnthinkLiveModeActive = false;
+}
+
+/// 常驻档的间隔上限：契约 `burstWhenPending.intervalSeconds`。
+///
+/// ⚠ 只在常驻档生效；关掉时原样返回 kernel 给的 delay，不改常态节奏。
+Duration fnthinkLiveClampDelay(Duration delay) {
+  if (!fnthinkLiveModeActive || fnthinkLiveSecondsActive <= 0) return delay;
+  final cap = Duration(seconds: fnthinkLiveSecondsActive);
+  return delay > cap ? cap : delay;
+}
 
 /// 与原生 worker 那条回报通道同名（`FnthinkPresenceWorker.PRESENCE_CHANNEL`）。
 const String kFnthinkPresenceChannel = 'com.fnthink.notice/presence';

@@ -4362,6 +4362,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String fnthinkPresenceLive(int seconds) {
+    return '常驻后台收取中（每 $seconds 秒）';
+  }
+
+  @override
+  String fnthinkPresenceLiveNoLock(int seconds) {
+    return '常驻后台收取中（每 $seconds 秒，但系统没给唤醒锁）';
+  }
+
+  @override
   String fnthinkPresenceNext(String time, int seconds) {
     return '下一次自己醒：$time（每 $seconds 秒）';
   }

@@ -7915,6 +7915,18 @@ abstract class AppLocalizations {
   /// **'口令没换成（{reason}）'**
   String fnthinkEndpointRotateFailed(String reason);
 
+  /// No description provided for @fnthinkPresenceLive.
+  ///
+  /// In zh, this message translates to:
+  /// **'常驻后台收取中（每 {seconds} 秒）'**
+  String fnthinkPresenceLive(int seconds);
+
+  /// No description provided for @fnthinkPresenceLiveNoLock.
+  ///
+  /// In zh, this message translates to:
+  /// **'常驻后台收取中（每 {seconds} 秒，但系统没给唤醒锁）'**
+  String fnthinkPresenceLiveNoLock(int seconds);
+
   /// No description provided for @fnthinkPresenceNext.
   ///
   /// In zh, this message translates to:

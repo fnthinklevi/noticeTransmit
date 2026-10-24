@@ -2470,6 +2470,22 @@
       }
     }
   },
+  "fnthinkPresenceLive": "Persistent background polling (every {seconds}s)",
+  "@fnthinkPresenceLive": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkPresenceLiveNoLock": "Persistent background polling (every {seconds}s, but the system denied the wake lock)",
+  "@fnthinkPresenceLiveNoLock": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkPresenceNext": "Next wake-up: {time} (every {seconds}s)",
   "@fnthinkPresenceNext": {
     "placeholders": {

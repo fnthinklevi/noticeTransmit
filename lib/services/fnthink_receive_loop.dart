@@ -42,6 +42,7 @@ class FnthinkReceiveLoop {
     this.onCommand,
     int Function()? nowMs,
     Timer Function(Duration delay, void Function() callback)? schedule,
+    this.clampDelay,
     this.onRound,
   }) : nowMs = nowMs ?? _systemNowMs,
        schedule = schedule ?? _defaultSchedule;
@@ -101,6 +102,12 @@ class FnthinkReceiveLoop {
   final int Function() nowMs;
   final Timer Function(Duration delay, void Function() callback) schedule;
 
+  /// T181 B：常驻轮询档的间隔上限（null = 不改）。**只压常态节奏、不压服务端的退避**：
+  /// kernel 说 20 秒时压到常驻档；而 429 的 `Retry-After`（poll 或 ack）原样放行 ——
+  /// 把闸门给的时间压回高频，等于拿一台设备的积压去撞服务端的限流。判据在注入方，
+  /// 本类不读 prefs、不认"现在是不是后台"。
+  final Duration Function(Duration delay)? clampDelay;
+
   /// 每轮结束后的一句账（页面/日志读它；**不含任何标题与正文**）。
   ///
   /// 它也是"有人请求配对你"那一栏的唯一进水口：后台那几轮不经过任何调用方，
@@ -133,7 +140,14 @@ class FnthinkReceiveLoop {
       runOnce()
           .then((report) {
             if (!_wantRunning) return;
-            _timer = schedule(report.nextDelay, _tick);
+            // 服务端给的退避（poll 429 或 ack 全被 429 挡住）原样放行，常驻档只压常态节奏。
+            final serverBackoff =
+                report.status == FnthinkPollStatus.rateLimited ||
+                report.ackSkipped > 0;
+            final next = serverBackoff
+                ? report.nextDelay
+                : (clampDelay?.call(report.nextDelay) ?? report.nextDelay);
+            _timer = schedule(next, _tick);
             onRound?.call(report);
           })
           .catchError((Object e) {

@@ -129,10 +129,12 @@ void main() {
     // 122 → 125（T173）：收件渠道自检三发 —— `fnthinkInboxChannelState` /
     // `fnthinkInboxChannelRebuild` / `fnthinkInboxShowTest`。读状态、换新 ID 重建、
     // 发一条测试通知；三枚都只在自检卡上被调用，漏登记就会在真机上才现形。
-    test('原生方法总数 == 125（防止分支被静默删除/新增未登记）', () {
+    // 125 → 127（T181 B）：`startFnthinkLive` / `stopFnthinkLive` —— 常驻轮询档的开关
+    // 与持锁。Dart 侧每轮续一次、关接收时撤一次；原生那一头对应 `FnthinkLiveMode`。
+    test('原生方法总数 == 127（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        125,
+        127,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -160,7 +162,8 @@ void main() {
         // 片C-2 起 13（`getFnthinkLocation`）；片C-3 起 14（`snapFnthinkPhoto`）；
         // 片C-4 起 15（`searchFnthinkContacts`）。
         // T173 起 18：收件渠道自检三发（状态／重建／测试通知）。
-        'FnthinkChannelHandler': 18,
+        // T181 B 起 20：常驻轮询档两发（`startFnthinkLive` / `stopFnthinkLive`）。
+        'FnthinkChannelHandler': 20,
         // 远程执行（片3c-5）：状态栏通知的显示/清理 + "被原生记下撤销"的读口。
         // ⚠ 前四发是**撤销入口其二**那条路径的唯一通道 —— 用户在通知栏按下的那一下
         //   落在原生（Dart 当时不一定在跑），到点动手前由 Dart 回来问一句。

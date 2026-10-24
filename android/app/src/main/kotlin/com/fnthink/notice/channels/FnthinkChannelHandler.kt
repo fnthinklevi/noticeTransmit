@@ -11,6 +11,7 @@ import com.fnthink.notice.FnthinkFanoutQueue
 import com.fnthink.notice.FnthinkFanoutWorker
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
+import com.fnthink.notice.FnthinkLiveMode
 import com.fnthink.notice.FnthinkOpenTarget
 import com.fnthink.notice.FnthinkPairLink
 import com.fnthink.notice.FnthinkPresenceAlarm
@@ -208,6 +209,23 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                 FnthinkPresenceAlarm(context).cancel()
                 result.success(true)
             }
+            // T181 B：常驻前台服务里的高频轮询档。Dart 侧每轮都会续一次，
+            // 这里只落开关 + 持锁；真正的轮询仍是 Dart 那条唯一收货链。
+            "startFnthinkLive" -> {
+                val seconds = call.argument<Number>("seconds")?.toInt()
+                    ?: call.argument<String>("seconds")?.toIntOrNull()
+                    ?: 0
+                if (seconds > 0) {
+                    FnthinkLiveMode.setEnabled(context, true, seconds)
+                    result.success(true)
+                } else {
+                    result.error("bad_argument", "seconds 必须为正整数", null)
+                }
+            }
+            "stopFnthinkLive" -> {
+                FnthinkLiveMode.setEnabled(context, false, 0)
+                result.success(true)
+            }
             "fnthinkPresenceStatus" -> {
                 // 界面/日志要能问出"到底还有没有人醒"：只有排上了 / 没排上两个状态是不够的，
                 // 还得说得出下一轮在什么时候、那一档间隔是多少（后者是 Dart 上次交下来的那一份）。
@@ -236,6 +254,10 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                             // T140 层2：界面要分得开"链死了"与"还没排上第一轮"，而 cancel 之后
                             // nextRoundAt 与 cadenceSeconds 双双归 0、两者长得一样 —— 这一枚就是那段历史。
                             "everArmedAt" to alarm.everArmedAt(),
+                            // T181 B：界面要能说清"现在是常驻轮询，不是闹钟"。
+                            "liveMode" to FnthinkLiveMode.isEnabled(context),
+                            "liveSeconds" to FnthinkLiveMode.seconds(context),
+                            "wakeLock" to FnthinkLiveMode.isHolding(),
                             "presenceWork" to workState(FnthinkPresenceWorker.UNIQUE_WORK),
                             "fanoutWork" to workState(FnthinkFanoutWorker.UNIQUE_WORK),
                             "fanoutQueue" to FnthinkFanoutQueue(context).pendingCount(),

@@ -116,6 +116,8 @@ class NotificationMonitorService : NotificationListenerService() {
         createNotificationChannel()
         // 先进入前台，满足 startForegroundService 的 5s 内必须 startForeground 的约束
         startForegroundService()
+        // T181 B：服务重启（START_STICKY / 开机）后恢复后台高频轮询的持锁状态。
+        FnthinkLiveMode.restore(this)
         // 小部件存活证据：一进入前台就落盘，并把节拍跑起来。
         // ⚠ 顺序要紧：划掉应用后服务会被 1s 闹钟拉起，若这里不写，重绘的小部件仍停在「已关闭」。
         writeLiveness(running = true, sync = true)
@@ -495,6 +497,8 @@ class NotificationMonitorService : NotificationListenerService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // 服务走了就不该再持锁：START_STICKY 重建时会由 onCreate 的 restore 重新拿。
+        FnthinkLiveMode.release()
         batteryChangedReceiver?.let {
             try {
                 unregisterReceiver(it)

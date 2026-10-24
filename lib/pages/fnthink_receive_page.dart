@@ -401,6 +401,13 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   /// 用户会以为这下一下随时都会发生。
   String _presenceText(AppLocalizations l10n) {
     final status = _presence!;
+    // T181 B：常驻轮询档不是"下一次自己醒"，它就是"现在一直在收"。
+    // 锁没拿上时如实说——"已开启"与"真的能醒"是两件事。
+    if (status.liveMode && _enabled && _consented) {
+      return status.wakeLock
+          ? l10n.fnthinkPresenceLive(status.liveSeconds)
+          : l10n.fnthinkPresenceLiveNoLock(status.liveSeconds);
+    }
     switch (_presenceLiveness()) {
       case FnthinkPresenceLiveness.dead:
         // 真坏的那一档：这台曾经醒过、现在没排上，而开关与同意都还在。
