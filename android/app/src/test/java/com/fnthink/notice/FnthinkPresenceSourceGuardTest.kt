@@ -71,11 +71,30 @@ class FnthinkPresenceSourceGuardTest {
     fun receiverOnlyHandsOffAndReArmsItDoesNotRunAnEngine() {
         assertTrue(
             "到点必须交给 WorkManager（receiver 的 onReceive 只有几秒寿命）",
-            receiver.contains("enqueueUniqueWork(") && receiver.contains("ExistingWorkPolicy.REPLACE"),
+            receiver.contains("enqueueUniqueWork(") && receiver.contains("ExistingWorkPolicy.KEEP"),
+        )
+        assertFalse(
+            "T181 A：REPLACE 会在下一颗闹钟到点时把还在跑/还在排队的那一轮取消；" +
+                "cadence 默认 20s、worker 预算 90s，冷启动必然凑不齐一轮",
+            receiver.contains("ExistingWorkPolicy.REPLACE"),
         )
         assertFalse(
             "receiver 里不许起引擎：那是 worker 的事，混在这儿等于每次都在半路被系统掐掉",
             receiver.contains("FlutterEngine"),
+        )
+    }
+
+    @Test
+    fun stoppedRoundIsReportedAsFailureNotAsSuccess() {
+        assertTrue(
+            "worker 必须把「Dart 交回了 roundDone」与「latch 被放行」分开记：onStopped 也放行同一把 latch",
+            worker.contains("AtomicBoolean") && worker.contains("roundReported.set(true)"),
+        )
+        assertTrue(
+            "被系统收走的那一轮必须留可 grep 的行，并按 failure 交回 WorkManager",
+            Regex(
+                "if\\s*\\(!completed\\)\\s*\\{[^}]*presence-round-stopped[^}]*Result\\.failure\\(\\)",
+            ).containsMatchIn(worker),
         )
     }
 

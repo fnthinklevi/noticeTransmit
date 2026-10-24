@@ -15,6 +15,7 @@ import io.flutter.plugins.GeneratedPluginRegistrant
 import io.flutter.view.FlutterCallbackInformation
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 被杀之后的那一轮收货：起一个后台 FlutterEngine，跑一轮，然后把它拆掉（T33 第二片 / §4-9）。
@@ -46,6 +47,15 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
     private var engine: FlutterEngine? = null
     private val finished = CountDownLatch(1)
 
+    /**
+     * T181 A：Dart 到底有没有交回 `roundDone`。
+     *
+     * 不能只看 [finished] 有没有被放行：`onStopped()` 也放行同一把 latch。
+     * 旧写法把"被系统收走"读成"这一轮跑完了"并返回 `Result.success()` ——
+     * 那一轮一个字节都没取到，而 WorkManager 与日志都看不出区别。
+     */
+    private val roundReported = AtomicBoolean(false)
+
     override fun doWork(): Result {
         val prefs =
             applicationContext.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
@@ -58,9 +68,14 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
         }
         mainHandler.post { startEngine(handle) }
         val reported = finished.await(ROUND_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        val completed = roundReported.get()
         destroyEngine()
         if (!reported) {
             Log.e(TAG, "presence-round-timeout（Dart 那一轮没在期限内交回结果）")
+            return Result.failure()
+        }
+        if (!completed) {
+            Log.e(TAG, "presence-round-stopped（本轮被系统收走，Dart 没交回结果）")
             return Result.failure()
         }
         return Result.success()
@@ -68,6 +83,9 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
 
     override fun onStopped() {
         // 系统要收走这个任务：立刻让引擎死掉并放开线程，别把 worker 挂在后台。
+        // 这一条与 `roundDone` 是两件事：放行 latch 只负责叫醒 `doWork`，
+        // 它是不是"跑完了"由 [roundReported] 回答。
+        Log.w(TAG, "presence-round-stopped（系统收走本轮）")
         finished.countDown()
         destroyEngine()
     }
@@ -119,6 +137,7 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
         result: io.flutter.plugin.common.MethodChannel.Result,
     ) {
         if (call.method == "roundDone") {
+            roundReported.set(true)
             result.success(true)
             finished.countDown()
             return

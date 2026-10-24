@@ -32,7 +32,12 @@ class FnthinkPresenceReceiver : BroadcastReceiver() {
         try {
             WorkManager.getInstance(context).enqueueUniqueWork(
                 FnthinkPresenceWorker.UNIQUE_WORK,
-                ExistingWorkPolicy.REPLACE,
+                // T181 A：这里必须是 KEEP，不能是 REPLACE。
+                // 闹钟按 cadence（默认 20s）续排，而 worker 一轮的预算是 90s；
+                // REPLACE 会在下一颗闹钟到点时把**还在跑或还在排队**的那一轮取消 ——
+                // 冷启动超过 20s 的设备会永远凑不齐一轮（表现为闹钟一直响、没有 roundDone）。
+                // KEEP 让已有的一轮跑完；下一颗闹钟到点若它已结束，就自然排上新的一轮。
+                ExistingWorkPolicy.KEEP,
                 OneTimeWorkRequestBuilder<FnthinkPresenceWorker>().build(),
             )
         } catch (e: Exception) {
