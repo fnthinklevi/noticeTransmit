@@ -11,8 +11,11 @@
   输出：--emit [--lang zh|en] 打印 <!-- readings:v1 --> 标记块（粘贴进文档）
   校验：--check FILE... [--strict] 比对文档里的标记块与当前读数，漂移即红
 
-CI（analyze.yml）：每个测试步骤把例数 export 成 READINGS_<KEY> 环境变量，
-末步 --check --strict 四份公开文档 —— 本脚本读环境变量作为最高优先读数来源。
+CI（analyze.yml）：末步 --check --strict 四份公开文档，并把各步产物喂给本脚本的解析器
+（--dart-log / --push-log / --jest-log / --kotlin-xml）—— 这三个解析器是例数的**唯一作者**。
+READINGS_<KEY> 环境变量仍占最高优先，但**只用于本地手工覆盖**；CI 不再 export 它们：
+两份作者口径不一致时会互相盖住，2026-10-24 为此连踩两次（kotlin 的相对路径 glob 恒 0；
+dart 的 grep 只取 `+N` 不含 `~S`，有用例被 skip 就把 3417 盖成 3413）。
 
 数字的单位后缀（例 / 个 / 行 / 类 / 套件）只在展示层；比较前剥成纯值。
 """
@@ -136,13 +139,26 @@ def collect_cheap():
 # 套件读数（从既有产物解析；本脚本不启动测试）
 # ---------------------------------------------------------------------------
 def parse_flutter_log(path):
-    """flutter/dart test 输出末行形如 `00:34 +1614: All tests passed!` 或 `+N -F: Some tests failed.`"""
+    """compact 末行的**三种**措辞都要认，且 skipped 计入总数：
+      `+N: All tests passed!`           无 skip 无失败
+      `+N ~S: All other tests passed!`  有 skip（本机实测，见下）
+      `+N -F: Some tests failed.`       有失败
+    ⚠ 上一版只认第 1 与第 3 种 ⇒ 仓库里一旦出现 `skip:` 的用例，末行变成
+    `All other tests passed!`，本函数返回 None，`--dart-log` 那条腿**静默失效**、
+    退回 shell grep 取的 `+N`（不含 ~S）⇒ 读数凭空少掉被 skip 的那几条。
+    2026-10-24 实测：roadmap 形状守卫那 4 条在 CI 上 skip ⇒ CI 取 3413、本机取 3417。
+    返回的是**声明的用例总数** = passed + failed + skipped，与某环境是否 skip 无关。
+    """
     text = Path(path).read_text(encoding='utf-8', errors='replace').replace('\r', '\n')
-    matches = re.findall(r'\+(\d+)(?:\s+-(\d+))?: (All tests passed|Some tests failed)', text)
+    matches = re.findall(
+        r'\+(\d+)(?:\s+-(\d+))?(?:\s+~(\d+))?: '
+        r'(All tests passed|All other tests passed|Some tests failed)',
+        text,
+    )
     if not matches:
         return None
-    passed, failed, _ = matches[-1]
-    return int(passed) + int(failed or 0)
+    passed, failed, skipped, _ = matches[-1]
+    return int(passed) + int(failed or 0) + int(skipped or 0)
 
 
 def parse_jest_log(path):

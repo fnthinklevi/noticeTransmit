@@ -59,9 +59,7 @@ jobs:
           dart test --reporter compact > push_test_output.log 2>&1; EC=$?
           tail -5 push_test_output.log
           if [ $EC -ne 0 ]; then exit $EC; fi
-          # 读数单一来源（T182）：例数交给末步的 readings drift check 比对公开文档
-          P=$(grep -oE '\+[0-9]+' push_test_output.log | tail -1 | tr -d '+')
-          echo "READINGS_PUSH_TESTS=$P" >> "$GITHUB_ENV"
+          # 同上：计数交给末步的 --push-log，这里不再另写一份 grep。
 
       - name: Version consistency check
         run: bash .github/scripts/check_version_consistency.sh
@@ -97,9 +95,10 @@ jobs:
             exit 1
           fi
           echo "✅ 所有测试通过"
-          # 读数单一来源（T182）：+N 即全量绿时的总例数（失败时上面已经 exit 1）
-          D=$(grep -oE '\+[0-9]+' test_output.log | tail -1 | tr -d '+')
-          echo "READINGS_DART_TESTS=$D" >> "$GITHUB_ENV"
+          # 计数不在这里做：交给末步把 test_output.log 喂给 gen_readings.py 的
+          # parse_flutter_log（唯一作者）。上一版这里另写一份 shell grep，只取 `+N`
+          # 不含 `~S`，而工具里 env 优先级最高 ⇒ 一旦有用例被 skip，这份复制品就会
+          # **盖住**正确读数（2026-10-24：CI 取到 3413，真值 3413+4=3417）。
 
       # ↓ 以下三步把 base.md §10.2「按 GitHub Actions 检验流程完整自检」声明的
       #   6 项检查真正接进 PR 门禁。此前 Android 单元测试只在打 tag 的
@@ -116,22 +115,11 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew :app:testDebugUnitTest --console=plain
-          # 读数单一来源（T182）：XML 求和。⚠ 本步 working-directory 是 android/，
-          # 而 Gradle 的 buildDir 被重定向到**仓库根** build/ —— 上一版这里用相对路径
-          # `build/app/...`，于是解析的是 android/build/...（不存在）⇒ 恒 0，
-          # 又因为本脚本 env 优先级最高，那个 0 会把任何正确读数盖掉（文档写 627/77，
-          # 而仓库根实测解析恰为 (627, 77)）。路径一律从 $GITHUB_WORKSPACE 取，不靠 cwd。
-          python3 - <<'PY' >> "$GITHUB_ENV"
-          import glob, os, xml.etree.ElementTree as ET
-          d = os.path.join(os.environ['GITHUB_WORKSPACE'],
-                           'build', 'app', 'test-results', 'testDebugUnitTest')
-          tests = classes = 0
-          for f in glob.glob(os.path.join(d, '*.xml')):
-              r = ET.parse(f).getroot()
-              tests += int(r.get('tests', 0)); classes += 1
-          print(f'READINGS_KOTLIN_TESTS={tests}')
-          print(f'READINGS_KOTLIN_CLASSES={classes}')
-          PY
+          # 计数交给末步的 --kotlin-xml（gen_readings.py 的 parse_kotlin_xml 是唯一作者）。
+          # 上一版在这里另写一段 python heredoc 求和，且 glob 用了相对路径 —— 本步
+          # working-directory 是 android/，而 Gradle buildDir 被重定向到**仓库根** build/，
+          # 于是它恒得 0；又因为工具里 env 优先级最高，那个 0 会盖掉正确读数
+          # （文档 627/77，仓库根实测解析恰为 (627,77)）。删掉这份复制品，路径也不再靠 cwd。
 
       # Android lint：抓编译器与 flutter analyze 都看不见的跨版本误用
       # （NewApi / WrongConstant / 未加导出标志的 registerReceiver 等——在 minSdk 24
@@ -155,9 +143,8 @@ jobs:
           npm test > jest_output.log 2>&1; EC=$?
           tail -8 jest_output.log
           if [ $EC -ne 0 ]; then exit $EC; fi
-          # 读数单一来源（T182）：取 jest 汇总的 total（与通过/失败措辞无关）
-          echo "READINGS_JEST_TESTS=$(grep -oE 'Tests:\s+.*[0-9]+ total' jest_output.log | tail -1 | grep -oE '[0-9]+ total' | grep -oE '[0-9]+')" >> "$GITHUB_ENV"
-          echo "READINGS_JEST_SUITES=$(grep -oE 'Test Suites:\s+.*[0-9]+ total' jest_output.log | tail -1 | grep -oE '[0-9]+ total' | grep -oE '[0-9]+')" >> "$GITHUB_ENV"
+          # 同上：计数交给末步的 --jest-log（parse_jest_log 取的是 `total`，
+          # 与 passed/skipped 的措辞无关）。这里不再另写一份 grep。
 
       # 代码格式统一闸门（本地跑同一支：bash .github/scripts/check_format.sh --fix）
       # 三路一并校验：dart format / ktlint 1.8.0（规则见仓库根 .editorconfig）/ prettier。
@@ -170,10 +157,14 @@ jobs:
       # --strict：某键没有采集来源（该步没跑/没导出）也判红，防环境悄悄降级成"没校验"。
       - name: Readings drift check
         run: |
-          # 采集有两条腿：各步 export 的 READINGS_*（优先），与各步落在 workspace 里的
-          # 产物（本脚本自己的解析器 —— 它才是这些例数的唯一作者，shell grep 只是复制它）。
-          # 上一版只有一条腿：任何一步的 grep 形状/环境悄悄变化 ⇒ 该键变成"无采集来源"，
-          # 判据本身没错，但读不到数。产物在就直接喂，不在就退回 env（仍会被 --strict 判红）。
+          # 采集只有一条腿：把各步落在 workspace 里的产物喂给 gen_readings.py 自己的
+          # 解析器（parse_flutter_log / parse_jest_log / parse_kotlin_xml）—— 它们是这些
+          # 例数的**唯一作者**。
+          # 为什么不再另写 export：上一版各步各自 grep 一份 READINGS_* 进 $GITHUB_ENV，
+          # 而工具里 env 优先级最高 ⇒ 复制品一旦口径不同就**盖住**正确值。实际连踩两次：
+          #   ① kotlin 的 glob 用了相对路径（cwd 是 android/）⇒ 恒 0 盖住 627/77；
+          #   ② dart 的 grep 只取 `+N` 不含 `~S` ⇒ 有用例被 skip 时盖成 3413（真值 3417）。
+          # 产物在就喂、不在就退回 env（仅本地手工覆盖用），仍会被 --strict 判红。
           ARGS=""
           if [ -f test_output.log ]; then ARGS="$ARGS --dart-log test_output.log"; fi
           if [ -f packages/fnthink_push/push_test_output.log ]; then
