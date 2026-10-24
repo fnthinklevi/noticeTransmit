@@ -158,7 +158,7 @@ bash .github/scripts/check_format.sh --fix    # 就地格式化（三路一并�
   ```bash
   cd server
   node --check server.js      # 语法自检
-  npm test                    # HTTP 契约测试（jest，44 个文件 / 801 例）
+  npm test                    # HTTP 契约测试（jest；例数见 §8.1 读数表）
   npm run format:check        # Prettier；或 npm run format 就地修
   npm start                   # 本地起服务，访问 /health 自测
   ```
@@ -182,16 +182,16 @@ flutter analyze --no-pub
 #    另含 version.json sha256 完备性、官网 i18n 覆盖、l10n zh/en 键集合一致）
 bash .github/scripts/check_version_consistency.sh
 
-# 3) Dart 单元测试（3308 例 / 291 文件）+ 覆盖率
+# 3) Dart 单元测试 + 覆盖率
 flutter test --no-pub --coverage
 
-# 4) Android JVM 单元测试（619 例 / 75 类，JDK 21；无需签名密钥）
+# 4) Android JVM 单元测试（JDK 21；无需签名密钥）
 cd android && ./gradlew :app:testDebugUnitTest --console=plain
 
 # 5) Android lint（debug 变体，error 即红）
 ./gradlew :app:lintDebug --console=plain
 
-# 6) 服务端契约测试（44 个文件 / 801 例，Node 24）
+# 6) 服务端契约测试（Node 24）
 cd ../server && npm ci && npm test
 
 # 7) 三路格式闸门（Dart / Kotlin / JS）
@@ -214,17 +214,37 @@ CI 额外做的事（本地可选）：
 
 ## 8. 测试体系与守卫约定
 
-### 8.1 测试基线
+### 8.1 测试基线（读数表 · 单一来源）
 
-| 层 | 数量 | 入口 |
-|----|------|------|
-| Dart 单元测试 | **3308 例 / 291 文件** | `flutter test --no-pub`（`test/` 下按 `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support` 分目录） |
-| Kotlin JVM 单元测试 | **619 例 / 75 类** | `cd android && ./gradlew :app:testDebugUnitTest`（报告在 `build/app/test-results/testDebugUnitTest/`） |
-| 服务端契约测试 | **801 例 / 44 文件** | `cd server && npm test`（`server/test/*.test.js`） |
-| l10n 词条 | **1593 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
+数字的唯一作者是 `tools/gen_readings.py`（T182）：本地跑完套件后用它 `--emit` 重新生成本块；
+CI（analyze.yml）末步对四份公开文档跑 `--check --strict`，任何手工改动/漂移直接判红 ——
+不要再手抄数字，也不要在这里之外再立第二份读数。
 
-跑测试前 `flutter pub get`；Dart 与 Kotlin 两侧的用例数会随功能增长，若你新增/删除测试，
-请同步更新本表的数字（它是文档口径，不是 CI 断言）。
+<!-- readings:v1（tools/gen_readings.py 生成与校验；手改会被 CI --check 拦下）
+| 读数 | 值 |
+|---|---|
+| App 全量测试（flutter test） | 3417 例 <!--k:dart_tests--> |
+| App 测试文件数（test/） | 301 个 <!--k:dart_test_files--> |
+| 幻念推送包测试（fnthink_push） | 593 例 <!--k:push_tests--> |
+| Kotlin JVM 单元测试 | 627 例 <!--k:kotlin_tests--> |
+| Kotlin 测试类数 | 77 类 <!--k:kotlin_classes--> |
+| 服务端契约测试（jest） | 814 例 <!--k:jest_tests--> |
+| 服务端测试套件数 | 45 套件 <!--k:jest_suites--> |
+| l10n 词条（zh；en 同数锁定） | 1649 条 <!--k:l10n_keys--> |
+| Dart 源码行数（lib/） | 86629 行 <!--k:dart_loc_lib--> |
+| Dart 测试行数（test/） | 86886 行 <!--k:dart_loc_test--> |
+| Kotlin 源码行数（android main） | 21416 行 <!--k:kotlin_loc_main--> |
+| Kotlin 测试行数（android test） | 12841 行 <!--k:kotlin_loc_test--> |
+| 应用版本（pubspec） | 1.6.1+161 <!--k:app_version--> |
+| 数据库 schema 版本 | 27 v <!--k:db_version--> |
+| Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |
+| Dart SDK 地板（pubspec） | 3.13.0 <!--k:dart_sdk--> |
+| Android Gradle Plugin | 9.4.1 <!--k:agp--> |
+| Gradle（wrapper） | 9.8.2 <!--k:gradle--> |
+| Node.js（server engines） | >=24 <!--k:node_engine--> |
+<!-- /readings -->
+
+各层入口命令见第 7 节校验清单；跑测试前 `flutter pub get`。
 
 ### 8.2 设备侧测试（手动触发）
 

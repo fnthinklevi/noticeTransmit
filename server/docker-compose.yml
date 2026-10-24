@@ -1,0 +1,33 @@
+# 通知转发助手 · 服务端单机部署/本地联调（T183，2026-10-24）
+# 生产反代与保活见 base.md §14.5–§14.7；数据文件清单见 §14.10。
+#
+# 首次启动：
+#   1. 准备 server/.env（键清单见 base.md §14.7；ENCRYPTION_KEY 64 位十六进制，
+#      ADMIN_TOKEN_HASH 用 bcryptjs 生成 —— 生成命令见 §6.5.1）
+#   2. docker compose up -d --build
+#   3. docker compose logs -f notice-server 看启动自检输出
+#
+# 两站部署（T170）：同一镜像、不同 UPDATE_REGION（cn | global）。写错值启动即抛（store.js fail-fast）。
+
+services:
+  notice-server:
+    build: .
+    image: notice-server:latest
+    container_name: notice-server
+    ports:
+      - "3456:3456"
+    env_file:
+      - path: .env
+        required: false   # CI/首次自检可无 .env；必需键缺失时 store.js 启动即抛，行为与裸进程一致
+    environment:
+      - NODE_ENV=production
+      # ENCRYPTION_KEY 缺失时 TOTP secret 会以明文 {plain} 落盘（base.md §14.7 警告），这里用
+      # :? 让缺失直接fail-fast而不是带着明文风险启动。
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY 必须在 .env 或 shell 给出（防 TOTP secret 明文落盘）}
+      - ADMIN_TOKEN_HASH=${ADMIN_TOKEN_HASH:?ADMIN_TOKEN_HASH 必须给出}
+      # 反代（§14.5）后置时必给，否则限流/封锁按代理 IP 误伤全站
+      - TRUST_PROXY=${TRUST_PROXY:-1}
+      # - UPDATE_REGION=global
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

@@ -165,7 +165,7 @@ It covers three toolchains:
   ```bash
   cd server
   node --check server.js      # syntax self-check
-  npm test                    # HTTP contract tests (jest, 44 files / 801 cases)
+  npm test                    # HTTP contract tests (jest; counts in §8.1 readings table)
   npm run format:check        # Prettier; or npm run format to fix in place
   npm start                   # run locally and hit /health
   ```
@@ -191,16 +191,16 @@ flutter analyze --no-pub
 #    plus version.json sha256 completeness, website i18n coverage, l10n zh/en key parity)
 bash .github/scripts/check_version_consistency.sh
 
-# 3) Dart unit tests (3308 cases / 291 files) + coverage
+# 3) Dart unit tests + coverage
 flutter test --no-pub --coverage
 
-# 4) Android JVM unit tests (619 cases / 75 classes, JDK 21; no signing keys needed)
+# 4) Android JVM unit tests (JDK 21; no signing keys needed)
 cd android && ./gradlew :app:testDebugUnitTest --console=plain
 
 # 5) Android lint (debug variant; errors fail the build)
 ./gradlew :app:lintDebug --console=plain
 
-# 6) Server contract tests (44 files / 801 cases, Node 24)
+# 6) Server contract tests (Node 24)
 cd ../server && npm ci && npm test
 
 # 7) Three-way formatting gate (Dart / Kotlin / JS)
@@ -226,17 +226,38 @@ Extra things CI does (optional locally):
 
 ## 8. Test System & Guard Conventions
 
-### 8.1 Test baseline
+### 8.1 Test baseline (readings table · single source)
 
-| Layer | Count | Entry point |
-|-------|-------|-------------|
-| Dart unit tests | **3308 cases / 291 files** | `flutter test --no-pub` (`test/` is grouped into `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support`) |
-| Kotlin JVM unit tests | **619 cases / 75 classes** | `cd android && ./gradlew :app:testDebugUnitTest` (reports under `build/app/test-results/testDebugUnitTest/`) |
-| Server contract tests | **801 cases / 44 files** | `cd server && npm test` (`server/test/*.test.js`) |
-| l10n keys | **1593 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
+The only author of these numbers is `tools/gen_readings.py` (T182): after running the suites
+locally, regenerate this block with `--emit`; the last step of CI (analyze.yml) runs
+`--check --strict` against the four public docs, so any manual edit or drift fails the build.
+Do not copy numbers by hand, and do not keep a second readings list anywhere else.
 
-Run `flutter pub get` before testing. Counts grow with features; if you add or remove tests, update
-the numbers above too (they are documentation, not a CI assertion).
+<!-- readings:v1 (generated & checked by tools/gen_readings.py; CI --check blocks manual edits)
+| Reading | Value |
+|---|---|
+| Dart unit tests (flutter test) | 3417 <!--k:dart_tests--> |
+| Dart test files (test/) | 301 <!--k:dart_test_files--> |
+| fnthink_push package tests | 593 <!--k:push_tests--> |
+| Kotlin JVM unit tests | 627 <!--k:kotlin_tests--> |
+| Kotlin test classes | 77 <!--k:kotlin_classes--> |
+| Server contract tests (jest) | 814 <!--k:jest_tests--> |
+| Server test suites | 45 <!--k:jest_suites--> |
+| l10n keys (zh; en locked to same count) | 1649 <!--k:l10n_keys--> |
+| Dart lines (lib/) | 86629 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 86886 <!--k:dart_loc_test--> |
+| Kotlin lines (android main) | 21416 <!--k:kotlin_loc_main--> |
+| Kotlin test lines (android test) | 12841 <!--k:kotlin_loc_test--> |
+| App version (pubspec) | 1.6.1+161 <!--k:app_version--> |
+| Database schema version | 27 <!--k:db_version--> |
+| Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
+| Dart SDK floor (pubspec) | 3.13.0 <!--k:dart_sdk--> |
+| Android Gradle Plugin | 9.4.1 <!--k:agp--> |
+| Gradle (wrapper) | 9.8.2 <!--k:gradle--> |
+| Node.js (server engines) | >=24 <!--k:node_engine--> |
+<!-- /readings -->
+
+Entry-point commands are in the Section 7 checklist; run `flutter pub get` before testing.
 
 ### 8.2 On-device tests (manual trigger only)
 

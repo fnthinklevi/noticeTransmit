@@ -1,0 +1,59 @@
+# T183 片2 · Docker 防回潮闸门（2026-10-24）
+#
+# 只在 server/** 变化时构建一次镜像，跑两条断言：
+#   ① 纯净度：镜像内不得出现 .env / data/ / test/ / tools/ / babel.config.js
+#     —— 防有人把 Dockerfile 改回 COPY . .（base.md §14.4 的原始事故面）；
+#   ② /health 自检：默认 DATA_DIR（容器内 /app/data）下 30s 内回 200。
+# 本地无 docker 时由本工作流兜底验证（base.md §14.4 的构建/核查清单）。
+
+name: Server Docker gate
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'server/**'
+      - '.github/workflows/server-docker.yml'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'server/**'
+      - '.github/workflows/server-docker.yml'
+  workflow_dispatch:
+
+jobs:
+  docker:
+    name: Build & purity & health
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Build image（context=server/，.dockerignore 生效）
+        run: docker build -t notice-server:ci server/
+
+      - name: 纯净度断言（镜像内零密钥零状态零测试物料）
+        run: |
+          docker run --rm --entrypoint sh notice-server:ci -c '
+            set -e
+            for p in /app/.env /app/data/.env /app/test /app/tools /app/babel.config.js /app/docker-compose.yml; do
+              if [ -e "$p" ]; then echo "❌ 镜像内出现 $p（.dockerignore 或 COPY 清单被改坏）"; exit 1; fi
+            done
+            echo "✅ 镜像内无 .env / data / test / tools"
+          '
+
+      - name: /health 自检（临时空数据目录，30s 就绪窗）
+        run: |
+          cid=$(docker run -d -p 34567:3456 notice-server:ci)
+          trap 'docker stop "$cid" >/dev/null 2>&1 || true' EXIT
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:34567/health > /dev/null 2>&1; then ok=1; break; fi
+            sleep 1
+          done
+          if [ "$ok" != "1" ]; then
+            echo "❌ /health 30s 未就绪，容器日志："
+            docker logs "$cid" | tail -50
+            exit 1
+          fi
+          echo "✅ /health 200（DATA_DIR=/app/data 默认路径可写可启动）"

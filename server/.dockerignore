@@ -1,0 +1,28 @@
+# T183：镜像零密钥零状态的双保险。构建上下文 = server/，本文件与其同目录生效。
+# 命中任何一条被 COPY 全量拷贝的写法（COPY . .）时，这些目录/文件也不会进镜像；
+# CI 纯净度断言（server-docker.yml）另外逐项验证镜像内不存在。
+
+# 密钥与环境配置 —— 绝不进镜像
+.env
+.env.*
+!.env.example
+
+# 运行时状态（TOTP/会话/封锁/限流/version.json）—— 只属宿主挂卷
+data/
+
+# 本地依赖与构建产物
+node_modules/
+coverage/
+npm-debug.log*
+
+# 测试与工具（jest/prettier/babel 生态，生产不需要）
+test/
+tools/
+babel.config.js
+
+# 文档与版本管理
+*.md
+.git/
+
+# compose 文件本身不需要进镜像
+docker-compose.yml

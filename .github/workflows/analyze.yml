@@ -55,7 +55,12 @@ jobs:
         run: |
           dart pub get
           dart analyze --fatal-infos
-          dart test
+          dart test > push_test_output.log 2>&1; EC=$?
+          tail -5 push_test_output.log
+          if [ $EC -ne 0 ]; then exit $EC; fi
+          # 读数单一来源（T182）：例数交给末步的 readings drift check 比对公开文档
+          P=$(grep -oE '\+[0-9]+' push_test_output.log | tail -1 | tr -d '+')
+          echo "READINGS_PUSH_TESTS=$P" >> "$GITHUB_ENV"
 
       - name: Version consistency check
         run: bash .github/scripts/check_version_consistency.sh
@@ -87,6 +92,9 @@ jobs:
             exit 1
           fi
           echo "✅ 所有测试通过"
+          # 读数单一来源（T182）：+N 即全量绿时的总例数（失败时上面已经 exit 1）
+          D=$(grep -oE '\+[0-9]+' test_output.log | tail -1 | tr -d '+')
+          echo "READINGS_DART_TESTS=$D" >> "$GITHUB_ENV"
 
       # ↓ 以下三步把 base.md §10.2「按 GitHub Actions 检验流程完整自检」声明的
       #   6 项检查真正接进 PR 门禁。此前 Android 单元测试只在打 tag 的
@@ -103,6 +111,16 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew :app:testDebugUnitTest --console=plain
+          # 读数单一来源（T182）：XML 求和（报告落在仓库根 build/，Gradle buildDir 已重定向）
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import glob, xml.etree.ElementTree as ET
+          tests = classes = 0
+          for f in glob.glob('build/app/test-results/testDebugUnitTest/*.xml'):
+              r = ET.parse(f).getroot()
+              tests += int(r.get('tests', 0)); classes += 1
+          print(f'READINGS_KOTLIN_TESTS={tests}')
+          print(f'READINGS_KOTLIN_CLASSES={classes}')
+          PY
 
       # Android lint：抓编译器与 flutter analyze 都看不见的跨版本误用
       # （NewApi / WrongConstant / 未加导出标志的 registerReceiver 等——在 minSdk 24
@@ -123,13 +141,25 @@ jobs:
         working-directory: server
         run: |
           npm ci --no-audit --no-fund
-          npm test
+          npm test > jest_output.log 2>&1; EC=$?
+          tail -8 jest_output.log
+          if [ $EC -ne 0 ]; then exit $EC; fi
+          # 读数单一来源（T182）：取 jest 汇总的 total（与通过/失败措辞无关）
+          echo "READINGS_JEST_TESTS=$(grep -oE 'Tests:\s+.*[0-9]+ total' jest_output.log | tail -1 | grep -oE '[0-9]+ total' | grep -oE '[0-9]+')" >> "$GITHUB_ENV"
+          echo "READINGS_JEST_SUITES=$(grep -oE 'Test Suites:\s+.*[0-9]+ total' jest_output.log | tail -1 | grep -oE '[0-9]+ total' | grep -oE '[0-9]+')" >> "$GITHUB_ENV"
 
       # 代码格式统一闸门（本地跑同一支：bash .github/scripts/check_format.sh --fix）
       # 三路一并校验：dart format / ktlint 1.8.0（规则见仓库根 .editorconfig）/ prettier。
       # 放在 JDK 与 server/node_modules 就绪之后，prettier 直接复用 npm script。
       - name: Code format check (Dart / Kotlin / JS)
         run: bash .github/scripts/check_format.sh
+
+      # 读数单一来源（T182）：四份公开文档里的 <!--k:key--> 读数块与实测对账，
+      # 漂移即红 —— 「文档读数校平」从人工批次变成 CI 拦截。
+      # --strict：某键没有采集来源（该步没跑/没导出）也判红，防环境悄悄降级成"没校验"。
+      - name: Readings drift check
+        run: |
+          python3 tools/gen_readings.py --check README.md README-en.md CONTRIBUTING.md CONTRIBUTING-en.md --strict
 
       - name: Install lcov
         run: sudo apt-get install -y lcov
