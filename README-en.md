@@ -446,15 +446,15 @@ counts / file numbers / LOC / versions are no longer copied by hand; the last st
 | Dart unit tests (flutter test) | 3417 <!--k:dart_tests--> |
 | Dart test files (test/) | 301 <!--k:dart_test_files--> |
 | fnthink_push package tests | 593 <!--k:push_tests--> |
-| Kotlin JVM unit tests | 627 <!--k:kotlin_tests--> |
+| Kotlin JVM unit tests | 628 <!--k:kotlin_tests--> |
 | Kotlin test classes | 77 <!--k:kotlin_classes--> |
 | Server contract tests (jest) | 814 <!--k:jest_tests--> |
 | Server test suites | 45 <!--k:jest_suites--> |
-| l10n keys (zh; en locked to same count) | 1649 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 86629 <!--k:dart_loc_lib--> |
-| Dart test lines (test/) | 86886 <!--k:dart_loc_test--> |
-| Kotlin lines (android main) | 21416 <!--k:kotlin_loc_main--> |
-| Kotlin test lines (android test) | 12841 <!--k:kotlin_loc_test--> |
+| l10n keys (zh; en locked to same count) | 1651 <!--k:l10n_keys--> |
+| Dart lines (lib/) | 86800 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 86889 <!--k:dart_loc_test--> |
+| Kotlin lines (android main) | 21535 <!--k:kotlin_loc_main--> |
+| Kotlin test lines (android test) | 12871 <!--k:kotlin_loc_test--> |
 | App version (pubspec) | 1.6.1+161 <!--k:app_version--> |
 | Database schema version | 27 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
