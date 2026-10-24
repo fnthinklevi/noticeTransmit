@@ -365,7 +365,7 @@ flutter build apk --release --target-platform android-arm64
 
 版本号不只在 `pubspec.yaml`。以下必须一致，否则 `check_version_consistency.sh` 判失败：
 
-1. `pubspec.yaml` 的 `version: X.Y.Z+NN`（`versionName` 与 `versionCode` 同步递增，当前为 `1.6.0+160`）；
+1. `pubspec.yaml` 的 `version: X.Y.Z+NN`（`versionName` 与 `versionCode` 同步递增，当前为 `1.6.1+161`）；
 2. `lib/update_manager.dart` 的 `_fallbackVersion` / `_fallbackBuild`；
 3. `android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt` 的 `FALLBACK_VERSION` / `FALLBACK_BUILD`；
 4. `server/data/version.json` 的 `latestVersion` / `latestBuild`；

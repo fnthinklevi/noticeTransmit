@@ -16,7 +16,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.0/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.1/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — 软件介绍、客户端下载与后台管理入口
@@ -346,7 +346,7 @@ noticeTransmit/
 ├── docs/                                # server_deploy_and_update_guide.md · cert_rotation_runbook.md（路线图等内部流水不入库）
 ├── .github/                             # workflows/（CI）与 scripts/（格式、版本一致性、本地发版）
 ├── assets/                              # 图标资源
-├── pubspec.yaml                         # version: 1.6.0+160
+├── pubspec.yaml                         # version: 1.6.1+161
 └── README.md
 ```
 

@@ -221,55 +221,69 @@ fi
 
 # ── 阶段 3：fileSize 回填 version.json + 下载链接 + 归档同步（步骤 7/9/10/10.1）──
 hr; echo "── 阶段 3：version.json 回填 + 归档同步 ──"
+# T170：两站按 UPDATE_REGION 各读 version.cn.json / version.global.json。
+# 只回填旧 version.json 会让两站继续报上一版（按站文件优先），所以三份一起写。
 "$PY" - "$VER" <<'PYEOF'
-import glob, json, os, shutil, sys
+import glob, json, os, shutil, hashlib, re, sys
 ver = sys.argv[1]
+build = int(re.search(r'^version:\s*\S+\+(\d+)', open('pubspec.yaml', encoding='utf-8').read(), re.M).group(1))
 mapping = {'notice_arm64': 'arm64', 'notice_arm32': 'arm32', 'notice_x86': 'x86_64', 'notice_all': 'all'}
-sizes, names = {}, {}
+sizes, names, sha = {}, {}, {}
 for apk in sorted(glob.glob(f'build/app/outputs/flutter-apk/v{ver}/*.apk')):
     base = os.path.basename(apk)
     for pre, key in mapping.items():
         if base.startswith(pre):
             sizes[key] = os.path.getsize(apk); names[key] = base
-p = 'server/data/version.json'
-d = json.load(open(p, encoding='utf-8'))
-import re as _re
-m = _re.search(r'^version:\s*\S+\+(\d+)', open('pubspec.yaml', encoding='utf-8').read(), _re.M)
-d['latestVersion'], d['latestBuild'] = ver, int(m.group(1))
-for k, v in sizes.items():
-    d['downloads'][k] = f'https://cdn2.fnthink.top/app/notice/update/{ver}/{names[k]}'
-d['fileSizes'] = sizes
-json.dump(d, open(p, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-open(p, 'a', encoding='utf-8').write('\n')
-os.makedirs(f'server/public/apks/{ver}', exist_ok=True)
-for k, base in names.items():
-    shutil.copy2(f'build/app/outputs/flutter-apk/v{ver}/{base}', f'server/public/apks/{ver}/{base}')
-print('version.json 回填 + 归档同步完成:', sizes)
-PYEOF
-"$PY" - "$VER" <<'PYEOF'
-import glob, json, os, re, hashlib, sys
-ver = sys.argv[1]
-mapping = {'notice_arm64': 'arm64', 'notice_arm32': 'arm32', 'notice_x86': 'x86_64', 'notice_all': 'all'}
-p = 'server/data/version.json'
-d = json.load(open(p, encoding='utf-8'))
-# sha256：与 CDN 侧校验值一致（文件字节级 SHA256，十六进制小写）
-sha = {}
-for apk in sorted(glob.glob(f'build/app/outputs/flutter-apk/v{ver}/*.apk')):
-    base = os.path.basename(apk)
-    for pre, key in mapping.items():
-        if base.startswith(pre):
             h = hashlib.sha256()
             with open(apk, 'rb') as f:
                 for chunk in iter(lambda: f.read(1 << 20), b''):
                     h.update(chunk)
             sha[key] = h.hexdigest()
-d['sha256'] = sha
-json.dump(d, open(p, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-open(p, 'a', encoding='utf-8').write('\n')
-print('sha256 回填完成')
+src = json.load(open('server/data/version.json', encoding='utf-8'))
+targets = [
+    ('server/data/version.json', 'https://cdn2.fnthink.top'),
+    ('server/data/version.global.json', 'https://cdn2.fnthink.top'),
+    ('server/data/version.cn.json', 'https://cdn.fnthink.com'),
+]
+for path, cdn in targets:
+    d = json.load(open(path, encoding='utf-8')) if os.path.exists(path) else dict(src)
+    d['latestVersion'], d['latestBuild'] = ver, build
+    d['changelog'] = src.get('changelog', '')
+    d['changelogEn'] = src.get('changelogEn', '')
+    d['downloads'] = {k: f'{cdn}/app/notice/update/{ver}/{names[k]}' for k in names}
+    d['fileSizes'] = sizes
+    d['sha256'] = sha
+    json.dump(d, open(path, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    open(path, 'a', encoding='utf-8').write('\n')
+os.makedirs(f'server/public/apks/{ver}', exist_ok=True)
+for base in names.values():
+    shutil.copy2(f'build/app/outputs/flutter-apk/v{ver}/{base}', f'server/public/apks/{ver}/{base}')
+print('version 三份回填 + 归档同步完成:', sizes)
 PYEOF
-if [ $? -eq 0 ]; then ok "sha256 回填（4 架构）"; else fail "sha256 回填失败"; fi
-if [ $? -eq 0 ]; then ok "version.json 与 server/public/apks/$VER 同步"; else fail "version.json 回填/归档失败"; fi
+if [ $? -eq 0 ]; then ok "version.json / version.global.json / version.cn.json 回填（含 sha256）"; else fail "version 回填失败"; fi
+"$PY" - "$VER" <<'PYEOF'
+import json, re, sys
+ver = sys.argv[1]
+build = int(re.search(r'^version:\s*\S+\+(\d+)', open('pubspec.yaml', encoding='utf-8').read(), re.M).group(1))
+targets = [
+    ('server/data/version.json', 'cdn2.fnthink.top'),
+    ('server/data/version.global.json', 'cdn2.fnthink.top'),
+    ('server/data/version.cn.json', 'cdn.fnthink.com'),
+]
+for path, host in targets:
+    d = json.load(open(path, encoding='utf-8'))
+    assert d['latestVersion'] == ver and d['latestBuild'] == build, f'{path} 版本不对'
+    assert len(d.get('sha256', {})) == 4 and len(d.get('fileSizes', {})) == 4, f'{path} 缺 sha/大小'
+    assert all(host in u for u in d['downloads'].values()), f'{path} 下载主机不是 {host}'
+print('OK')
+PYEOF
+RC=$?
+if [ $RC -eq 0 ]; then ok "三份 version 文件的版本/哈希/下载主机一致"; else fail "三份 version 文件校验失败"; fi
+if [ $RC -eq 0 ] && [ "$(ls -1 server/public/apks/$VER/*.apk 2>/dev/null | wc -l)" -eq 4 ]; then
+    ok "server/public/apks/$VER 归档同步"
+else
+    fail "归档同步失败（应有 4 个 APK）"
+fi
 
 # ── 阶段 4：缺项显式检查（防漏：update.md/徽章/官网动态化说明）────────────
 hr; echo "── 阶段 4：文档缺项检查 ──"

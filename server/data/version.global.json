@@ -1,28 +1,28 @@
 {
-  "latestVersion": "1.6.0",
-  "latestBuild": 160,
+  "latestVersion": "1.6.1",
+  "latestBuild": 161,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.75",
   "forceUpdateBuild": 115,
-  "changelog": "幻念推送 + 远程控制 + 通道体系重构 + 全局体验统一（1.6.0 大版本）\n\n🛰️ 幻念推送：两台设备配对后直接投递，消息签名可验、服务端不存正文；配对三步、逐条授权可撤销；新增在线状态、收件箱与发送历史；后台保活。\n🎛️ 远程控制：L2 应用动作 / L3 系统设置分档授权，执行前有可撤销延时窗口，两段回执。\n🧩 通道体系：三族统一列表页→详情页，主备自动降级，新增健康探测与通道状态页；幻念成为第四族。\n🎨 体验与 UI：底部导航重排、全应用 Cupertino 化；通知引擎覆盖亮度/网络/温度/设备状态；长说明收进带边界文本框，纯文字点击件清零。\n⚠️ 升级保留全部设置；幻念身份密钥与口令不进备份，换机需重建端点；升级前建议先导出备份。",
-  "changelogEn": "Fnthink Push + remote control + channel system rework + global experience unification (1.6.0)\n\n🛰️ Fnthink Push: paired devices deliver directly with signed messages and no body on the server; three-step pairing, revocable per-item grants, online state, inbox and send history, background keep-alive.\n🎛️ Remote control: L2 app actions and L3 system settings granted item by item, cancellable delay window, two-stage receipts.\n🧩 Channel system: unified list → detail pages, primary/backup failover, health probes and channel status; Fnthink joins as the fourth family.\n🎨 Experience & UI: new bottom navigation, app-wide Cupertino widgets, brightness/network/temperature/device-state engine, long notes in bordered boxes, no bare-text buttons.\n⚠️ All settings preserved; Fnthink identity keys and secrets are not in backups, so rebuild the endpoint after moving devices; export a backup before upgrading.",
+  "changelog": "幻念推送与配对体验修复（1.6.1）\n\n🔗 配对时只确认同意/拒绝，逐项权限移到设备详情。\n📨 幻念消息带应用名、标题与正文；发送人可显示备注或设备名。\n🔔 新增通知自检，锁屏/声音/震动/悬浮逐项检查并给厂商路径。\n🛠️ 修复长锁屏收不到、一直发送中、暂停误切备用、双通道历史缺行、聚合行不可点、注册限流十余小时等问题。\n🧩 更新界面更紧凑；大陆/海外各用各的 CDN。\n⚠️ 覆盖升级保留全部设置；幻念身份密钥与口令仍不进备份。",
+  "changelogEn": "Fnthink Push and pairing experience fixes (1.6.1)\n\n🔗 Pairing asks approve/deny only; per-item permissions moved to device details.\n📨 Fnthink messages now carry app name, title and body; the sender can show alias or device name.\n🔔 New notification self-check covers lock-screen, sound, vibration and heads-up with OEM paths.\n🛠️ Fixed long lock-screen misses, stuck sending, paused-to-backup switching, missing channel rows, unclickable merged rows and 12-hour registration rate limits.\n🧩 More compact update UI; mainland and overseas sites use their own CDNs.\n⚠️ Overlay upgrades preserve all settings; identity keys and secrets stay out of backups.",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.6.0/notice_arm64_1.6.0+160.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.6.0/notice_arm32_1.6.0+160.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.6.0/notice_x86_1.6.0+160.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.6.0/notice_all_1.6.0+160.apk"
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.6.1/notice_all_1.6.1+161.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.6.1/notice_arm32_1.6.1+161.apk",
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.6.1/notice_arm64_1.6.1+161.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.6.1/notice_x86_1.6.1+161.apk"
   },
   "fileSizes": {
-    "all": 82750670,
-    "arm32": 26198060,
-    "arm64": 30007230,
-    "x86_64": 32122182
+    "all": 82980945,
+    "arm32": 26297264,
+    "arm64": 30073669,
+    "x86_64": 32188627
   },
   "sha256": {
-    "all": "d58589216272917661e8ff0f8bdf43a017f09537855b719b80ab6c91af6f3b21",
-    "arm32": "7766a0cb52bca6c9da8e44c89fc2f309fc5d0d7ed604a490b131c022d2f38501",
-    "arm64": "fde02b83f1564b2a2109a7446c9cdfbc71b6d4dd63d1d922cc7c6b5f727b4490",
-    "x86_64": "77644746f09a76a3693256f3c0298e4fd6841cc5149d1073c28b0e87b83eac9c"
+    "all": "d6d84837b15a4f746b313c6707e971e2d3086660cf233e580d22a150dc1bd3a6",
+    "arm32": "61df5ed09199c9495a2c89607c378e4889cd7ce29d7317b5e372bb6baad10a4a",
+    "arm64": "baed32a986308769b764d3028acb13b4e2eb72d46736177b361f444ce913be45",
+    "x86_64": "25245a5084fa0100440f27effcb340a3f0ed70d0d259870cae0a39e66572239b"
   },
   "minSupportedVersion": "1.0.0"
 }

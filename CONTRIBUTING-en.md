@@ -380,7 +380,7 @@ flutter build apk --release --target-platform android-arm64
 
 The version is not only in `pubspec.yaml`. All of the following must match, otherwise `check_version_consistency.sh` fails:
 
-1. `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together; currently `1.6.0+160`);
+1. `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together; currently `1.6.1+161`);
 2. `_fallbackVersion` / `_fallbackBuild` in `lib/update_manager.dart`;
 3. `FALLBACK_VERSION` / `FALLBACK_BUILD` in `android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt`;
 4. `latestVersion` / `latestBuild` in `server/data/version.json`;
