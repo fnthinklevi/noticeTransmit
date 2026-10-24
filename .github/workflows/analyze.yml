@@ -111,11 +111,17 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew :app:testDebugUnitTest --console=plain
-          # 读数单一来源（T182）：XML 求和（报告落在仓库根 build/，Gradle buildDir 已重定向）
+          # 读数单一来源（T182）：XML 求和。⚠ 本步 working-directory 是 android/，
+          # 而 Gradle 的 buildDir 被重定向到**仓库根** build/ —— 上一版这里用相对路径
+          # `build/app/...`，于是解析的是 android/build/...（不存在）⇒ 恒 0，
+          # 又因为本脚本 env 优先级最高，那个 0 会把任何正确读数盖掉（文档写 627/77，
+          # 而仓库根实测解析恰为 (627, 77)）。路径一律从 $GITHUB_WORKSPACE 取，不靠 cwd。
           python3 - <<'PY' >> "$GITHUB_ENV"
-          import glob, xml.etree.ElementTree as ET
+          import glob, os, xml.etree.ElementTree as ET
+          d = os.path.join(os.environ['GITHUB_WORKSPACE'],
+                           'build', 'app', 'test-results', 'testDebugUnitTest')
           tests = classes = 0
-          for f in glob.glob('build/app/test-results/testDebugUnitTest/*.xml'):
+          for f in glob.glob(os.path.join(d, '*.xml')):
               r = ET.parse(f).getroot()
               tests += int(r.get('tests', 0)); classes += 1
           print(f'READINGS_KOTLIN_TESTS={tests}')
@@ -159,7 +165,21 @@ jobs:
       # --strict：某键没有采集来源（该步没跑/没导出）也判红，防环境悄悄降级成"没校验"。
       - name: Readings drift check
         run: |
-          python3 tools/gen_readings.py --check README.md README-en.md CONTRIBUTING.md CONTRIBUTING-en.md --strict
+          # 采集有两条腿：各步 export 的 READINGS_*（优先），与各步落在 workspace 里的
+          # 产物（本脚本自己的解析器 —— 它才是这些例数的唯一作者，shell grep 只是复制它）。
+          # 上一版只有一条腿：任何一步的 grep 形状/环境悄悄变化 ⇒ 该键变成"无采集来源"，
+          # 判据本身没错，但读不到数。产物在就直接喂，不在就退回 env（仍会被 --strict 判红）。
+          ARGS=""
+          if [ -f test_output.log ]; then ARGS="$ARGS --dart-log test_output.log"; fi
+          if [ -f packages/fnthink_push/push_test_output.log ]; then
+            ARGS="$ARGS --push-log packages/fnthink_push/push_test_output.log"
+          fi
+          if [ -f server/jest_output.log ]; then ARGS="$ARGS --jest-log server/jest_output.log"; fi
+          if [ -d "$GITHUB_WORKSPACE/build/app/test-results/testDebugUnitTest" ]; then
+            ARGS="$ARGS --kotlin-xml $GITHUB_WORKSPACE/build/app/test-results/testDebugUnitTest"
+          fi
+          echo "带产物参数：${ARGS:-（无，全部依赖 READINGS_* 环境变量）}"
+          python3 tools/gen_readings.py --check README.md README-en.md CONTRIBUTING.md CONTRIBUTING-en.md --strict $ARGS
 
       - name: Install lcov
         run: sudo apt-get install -y lcov
