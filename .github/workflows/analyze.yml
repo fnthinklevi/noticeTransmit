@@ -55,7 +55,8 @@ jobs:
         run: |
           dart pub get
           dart analyze --fatal-infos
-          dart test > push_test_output.log 2>&1; EC=$?
+          # 同上：--reporter 显式写，push_tests 的计数与根工程共用同一支 parse_flutter_log。
+          dart test --reporter compact > push_test_output.log 2>&1; EC=$?
           tail -5 push_test_output.log
           if [ $EC -ne 0 ]; then exit $EC; fi
           # 读数单一来源（T182）：例数交给末步的 readings drift check 比对公开文档
@@ -83,7 +84,11 @@ jobs:
       - name: Run unit tests
         run: |
           set +e
-          flutter test --no-pub --coverage > test_output.log 2>&1
+          # ⚠ --reporter 必须显式写。上一版没写，靠默认值：默认 reporter 随 Flutter 版本与
+          # 是否 TTY 变（CI 是 3.47.7、非 TTY），一旦落到 expanded/github 就没有 `+N` 汇总行，
+          # 于是 shell grep 与 gen_readings.py 的 parse_flutter_log 在同一份 log 上双双取空
+          # ⇒ READINGS_DART_TESTS 写成空串 ⇒ 闸门报"当前无采集来源"（2026-10-24 实测）。
+          flutter test --no-pub --coverage --reporter compact > test_output.log 2>&1
           EXIT_CODE=$?
           set -e
           cat test_output.log
