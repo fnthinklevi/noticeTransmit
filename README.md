@@ -247,7 +247,7 @@
 | 数据加密 | Node.js crypto（AES-256-GCM）/ AndroidKeyStore + flutter_secure_storage |
 | 构建工具 | Gradle 9.8.2 + AGP 9.4.1 + JDK 21 · minSdk 24 / compileSdk 37 / targetSdk 37 · Kotlin 由 AGP 内置编译（Kotlin 2.4.21 走 classpath 钉版） |
 | 代码质量 | flutter_lints ^6.0.0 · dart format · ktlint 1.8.0 · prettier 3.9.8 · Android lint（含 baseline） |
-| 测试 | flutter test（Dart 3389 例）· JUnit（Kotlin JVM 626 例）· jest + supertest（服务端 814 例）· integration_test |
+| 测试 | flutter test（Dart 3389 例）· JUnit（Kotlin JVM 627 例）· jest + supertest（服务端 814 例）· integration_test |
 | CI/CD | GitHub Actions（analyze / build-apk / integration_test / deploy-pages） |
 | APK 签名 | Gradle signingConfig：V1+V2+V3 全开，密钥仅由环境变量或 `android/key.properties` 注入 |
 
@@ -332,7 +332,7 @@ noticeTransmit/
 │   │   ├── ConfigManager.kt · SecurePrefs.kt · NetworkClient.kt
 │   │   └── channels/                     # 7 个 handler（配置 34 / 权限 29 / 设备 17 / 文件 12
 │   │                                     #   / 幻念 18 / 统计 8 / 远程执行 5 ＝ 123 个方法；+2 个 Worker 各 1 ＝ 125）
-│   ├── test/                             # Kotlin JVM 单测（77 个测试类 / 626 用例）
+│   ├── test/                             # Kotlin JVM 单测（77 个测试类 / 627 用例）
 │   └── androidTest/                      # 仪器测试（7 个文件）
 ├── server/                               # 服务端（更新服务 + TOTP 后台 + 幻念协议面）
 │   ├── server.js · lib/                  # 入口 + 模块化分层（32 个 JS：server.js + lib/ 31）
@@ -394,7 +394,7 @@ flutter test
 # 嵌套协议包单测（在包目录里跑）
 cd packages/fnthink_push && dart test && cd ../..
 
-# Kotlin JVM 单元测试（77 个测试类 / 626 用例）
+# Kotlin JVM 单元测试（77 个测试类 / 627 用例）
 cd android && ./gradlew :app:testDebugUnitTest
 
 # Android lint（error 即失败，已知误报由 android/app/lint-baseline.xml 兜住）
@@ -430,8 +430,8 @@ flutter test integration_test/smoke_test.dart
 
 - **Dart 单元测试** —— 300 个测试文件 / 3389 用例（`test/`）：架构契约（启动顺序、launcher manifest、跨端通道方法齐平、幻念镜像键名守卫）、数据库 schema 与迁移、备份/送达/过滤黄金用例、页面 widget 测试
 - **共享协议包测试** —— `packages/fnthink_push`：契约校验与向量断言，两端各跑一遍
-- **Kotlin JVM 单元测试** —— 77 个测试类 / 626 用例（`android/app/src/test/`）：双端规则匹配一致性由 `rule_engine_golden.json` 51 条黄金用例锁定，通道行为由 `channel_behavior_golden.json` 逐字节快照锁定
-- **服务端契约测试** —— 814 例（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面 18 条路由（14 条协议路由 + 4 条接入入口）
+- **Kotlin JVM 单元测试** —— 77 个测试类 / 627 用例（`android/app/src/test/`）：双端规则匹配一致性由 `rule_engine_golden.json` 51 条黄金用例锁定，通道行为由 `channel_behavior_golden.json` 逐字节快照锁定
+- **服务端契约测试** —— 814 例（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面 19 条路由（15 条协议路由 + 4 条接入入口）
 - **设备侧测试** —— `integration_test/smoke_test.dart` 主链路冒烟（启动 → 注入 → 通知页 → 送达状态 → 历史 → 服务启停 → 导出），加 `android/app/src/androidTest` 仪器测试，由 `integration_test.yml` 在 API 34 / x86_64 / Pixel 6 模拟器上触发
 
 **CI 工作流**（`.github/workflows/`，均运行于 `ubuntu-24.04`）：
