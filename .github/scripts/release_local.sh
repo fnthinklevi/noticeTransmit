@@ -340,13 +340,13 @@ hr
 if [ $FAIL -eq 0 ]; then
     echo -e "${GREEN}🎉 v$VER 发版机械步骤全部通过（$PASS 项）${NC}"
     echo "剩余人工步骤：base.md 审计条目/官网完备性确认 → git 提交打 tag → 部署 server/public"
-    # E7（口径已定：tag 一律带 v 前缀）。build-apk.yml 的过滤器是 on.push.tags: ['v*']，
-    # 而现存 tag 全部无前缀（1.5.71…1.5.74）⇒ 打 tag 从未触发过 release 构建，全靠手动。
-    if git rev-parse -q --verify "refs/tags/v$VER" >/dev/null; then
-        ok "tag v$VER 已存在（会触发 build-apk.yml）"
+    # 口径（2026-10-24 维护者确认）：tag 一律不带 v 前缀，与本仓历史 1.5.x / 1.6.0 一致。
+    # build-apk.yml 的过滤器是 on.push.tags: ['v*'] ⇒ 无前缀 tag 不会自动触发 release 构建。
+    if git rev-parse -q --verify "refs/tags/$VER" >/dev/null; then
+        ok "tag $VER 已存在（无前缀不会自动触发 build-apk.yml，需手动 dispatch）"
     else
-        warn "下一步请打 **带 v 前缀** 的 tag：git tag v$VER && git push --tags"
-        warn "  打成 \"$VER\"（无前缀）不会触发 build-apk.yml，release 构建就得手动点。"
+        warn "下一步请打 tag：git tag $VER && git push origin $VER"
+        warn "  无前缀 tag 不会触发 build-apk.yml，release 构建需在 Actions 手动运行。"
     fi
     exit 0
 else
