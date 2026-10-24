@@ -4,8 +4,8 @@
 #   ① 纯净度：镜像内不得出现 .env / data/ / test/ / tools/ / babel.config.js
 #     —— 防有人把 Dockerfile 改回 COPY . .（base.md §14.4 的原始事故面）；
 #   ② /health 自检：默认 DATA_DIR（容器内 /app/data）下 30s 内回 200；
-#     ADMIN_TOKEN_HASH 由仓库 secret 注入（服务不允许无凭证启动：store.js fail-fast，
-#     而裸 docker run 绕过了 docker-compose.yml 里的 ${…:?} 把关）。
+#     冒烟用的假 ADMIN_TOKEN_HASH 由这一步现算注入 —— 服务不允许无凭证启动（store.js
+#     fail-fast），裸 docker run 又绕过了 docker-compose.yml 里的 ${…:?} 把关。
 # 本地无 docker 时由本工作流兜底验证（base.md §14.4 的构建/核查清单）。
 
 name: Server Docker gate
@@ -45,22 +45,20 @@ jobs:
           '
 
       - name: /health 自检（临时空数据目录，30s 就绪窗）
-        env:
-          # 用仓库配的那把真值。step 级 env + docker `-e 变量名`（不带值）：真值既不入库，
-          # 也不出现在 run 脚本文本/命令行里。冒烟起的是**真服务**，所以这一步比测试夹具
-          # 更进一步 —— 它顺带验了「生产同款凭证确实能把这个镜像拉起来」，假 hash 验不到。
-          ADMIN_TOKEN_HASH: ${{ secrets.ADMIN_TOKEN_HASH }}
         run: |
-          # 服务不允许无凭证启动（store.js fail-fast；docker-compose.yml 那侧用
-          # ${ADMIN_TOKEN_HASH:?…} 把关），而这一步是裸 docker run，绕过了那道 :?，
-          # 所以这把 env 必须由本步自己给 —— 不给就是 exit(1)，/health 永远等不到。
-          # 前置断言：secret 没配就直接点名。上一版没有它，配置缺件会伪装成
-          # 「服务起不来 + 30s 超时 + 一句 store.js 的错」，只能从容器日志倒推。
-          if [ -z "$ADMIN_TOKEN_HASH" ]; then
-            echo "❌ 未配置 secrets.ADMIN_TOKEN_HASH —— 服务不允许无凭证启动"
-            exit 1
-          fi
-          cid=$(docker run -d -e ADMIN_TOKEN_HASH -p 34567:3456 notice-server:ci)
+          # 服务**不允许无凭证启动**（store.js 的 fail-fast；docker-compose.yml 那侧用
+          # ${ADMIN_TOKEN_HASH:?…} 把关）。这一步是裸 `docker run`，绕过了 compose 的 `:?`，
+          # 所以冒烟用的假 hash 必须由这一步自己给 —— 不给就是 exit(1)，/health 永远等不到。
+          # 值用**镜像自己的 node + bcryptjs 现算**：仓里不留任何字面量，也不可能被误当真凭证复用。
+          # ⚠ 别改成 ${{ secrets.ADMIN_TOKEN_HASH }}：仓库只配了 4 个签名用 secret
+          #   （KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD），没有这把
+          #   ⇒ 表达式求值成空串，服务照旧 fail-fast（2026-10-24 为此红过一轮）。
+          #   真要纳入生产凭证：先在 Settings→Secrets 配上，并另议"闸门依赖仓库配置"
+          #   这条 —— f5cf4767 当年正是以这个理由否决了从 workflow 拿 env。
+          CI_HASH=$(docker run --rm --entrypoint node notice-server:ci \
+            -e 'console.log(require("bcryptjs").hashSync("ci-smoke-only-not-a-secret",10))')
+          if [ -z "$CI_HASH" ]; then echo "❌ 现算冒烟 hash 失败（镜像里 node/bcryptjs 不在位？）"; exit 1; fi
+          cid=$(docker run -d -e ADMIN_TOKEN_HASH="$CI_HASH" -p 34567:3456 notice-server:ci)
           trap 'docker stop "$cid" >/dev/null 2>&1 || true' EXIT
           ok=0
           for i in $(seq 1 30); do
