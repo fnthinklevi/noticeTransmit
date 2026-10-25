@@ -16,7 +16,7 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.1/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.2/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
 
 🌐 **Official site**: [notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — introduction, client download and admin console
@@ -289,7 +289,7 @@ noticeTransmit/
 │   ├── di/service_locator.dart           # get_it service registration
 │   ├── l10n/arb/                         # app_zh.arb · app_en.arb (key sets locked together + generated)
 │   ├── models/                           # Data models (12 files)
-│   ├── pages/                            # Pages (47 files)
+│   ├── pages/                            # Pages (48 files)
 │   │   ├── main_page*.dart               # Home page (actions / dialogs / update split with same prefix)
 │   │   ├── fnthink_push_page.dart · fnthink_channel_list_page.dart · fnthink_receive_page.dart
 │   │   │                                 # Fnthink Push: switch / channels / inbox (remote-control instructions land here)
@@ -346,7 +346,7 @@ noticeTransmit/
 ├── docs/                                 # server_deploy_and_update_guide.md · cert_rotation_runbook.md (internal ledgers stay out of the repo)
 ├── .github/                              # workflows/ (CI) and scripts/ (format, version consistency, local release)
 ├── assets/                               # Resource files
-├── pubspec.yaml                          # Flutter configuration (version: 1.6.1+161)
+├── pubspec.yaml                          # Flutter configuration (version: 1.6.2+162)
 └── README.md
 ```
 
@@ -458,7 +458,7 @@ counts / file numbers / LOC / versions are no longer copied by hand; the last st
 | Dart test lines (test/) | 87061 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 21565 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 12908 <!--k:kotlin_loc_test--> |
-| App version (pubspec) | 1.6.1+161 <!--k:app_version--> |
+| App version (pubspec) | 1.6.2+162 <!--k:app_version--> |
 | Database schema version | 27 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK floor (pubspec) | 3.13.0 <!--k:dart_sdk--> |

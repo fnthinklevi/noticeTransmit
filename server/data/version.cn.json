@@ -1,28 +1,28 @@
 {
-  "latestVersion": "1.6.1",
-  "latestBuild": 161,
+  "latestVersion": "1.6.2",
+  "latestBuild": 162,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.75",
   "forceUpdateBuild": 115,
-  "changelog": "幻念推送与配对体验修复（1.6.1）\n\n🔗 配对时只确认同意/拒绝，逐项权限移到设备详情。\n📨 幻念消息带应用名、标题与正文；发送人可显示备注或设备名。\n🔔 新增通知自检，锁屏/声音/震动/悬浮逐项检查并给厂商路径。\n🛠️ 修复长锁屏收不到、一直发送中、暂停误切备用、双通道历史缺行、聚合行不可点、注册限流十余小时等问题。\n🧩 更新界面更紧凑；大陆/海外各用各的 CDN。\n⚠️ 覆盖升级保留全部设置；幻念身份密钥与口令仍不进备份。",
-  "changelogEn": "Fnthink Push and pairing experience fixes (1.6.1)\n\n🔗 Pairing asks approve/deny only; per-item permissions moved to device details.\n📨 Fnthink messages now carry app name, title and body; the sender can show alias or device name.\n🔔 New notification self-check covers lock-screen, sound, vibration and heads-up with OEM paths.\n🛠️ Fixed long lock-screen misses, stuck sending, paused-to-backup switching, missing channel rows, unclickable merged rows and 12-hour registration rate limits.\n🧩 More compact update UI; mainland and overseas sites use their own CDNs.\n⚠️ Overlay upgrades preserve all settings; identity keys and secrets stay out of backups.",
+  "changelog": "收取节奏自动化与后台保活（1.6.2）\n\n🔔 空闲改用长轮询，服务端有货即返回；新增实时唤醒通道，锁屏后台也能尽快收到。\n🔋 实时唤醒健康时不再常驻唤醒锁，空闲请求与耗电明显下降。\n🛠️ 被系统回收或划掉最近任务后 1 秒自动尝试重启；保活引导新增「允许关联启动」。\n⚙️ 移除「收取间隔」滑杆：节奏自动决定；旧备份可恢复但不再生效。\n⚠️ 实时唤醒需最新服务端；旧服务端自动退回长轮询，不影响收消息。",
+  "changelogEn": "Automatic receiving cadence and background delivery (1.6.2)\n\n🔔 Idle receiving now uses long polling and returns as soon as the server has mail; a real-time wake-up channel keeps messages arriving promptly behind a locked screen.\n🔋 No permanent wake lock while the wake-up channel is healthy — idle requests and battery use drop noticeably.\n🛠️ Automatically attempts a restart 1 second after the system reclaims the service or you swipe the task away; the keep-alive guide now includes \"allow associated start\".\n⚙️ The poll-interval slider is gone; cadence is automatic. An old backup can restore it, but it no longer takes effect.\n⚠️ The wake-up channel needs the latest server; older servers fall back to long polling automatically, so delivery still works.",
   "downloads": {
-    "all": "https://cdn.fnthink.com/app/notice/update/1.6.1/notice_all_1.6.1+161.apk",
-    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.1/notice_arm32_1.6.1+161.apk",
-    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.1/notice_arm64_1.6.1+161.apk",
-    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.1/notice_x86_1.6.1+161.apk"
+    "all": "https://cdn.fnthink.com/app/notice/update/1.6.2/notice_all_1.6.2+162.apk",
+    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.2/notice_arm32_1.6.2+162.apk",
+    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.2/notice_arm64_1.6.2+162.apk",
+    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.2/notice_x86_1.6.2+162.apk"
   },
   "fileSizes": {
-    "all": 82980945,
-    "arm32": 26297264,
-    "arm64": 30073669,
-    "x86_64": 32188627
+    "all": 82982115,
+    "arm32": 26298425,
+    "arm64": 30074837,
+    "x86_64": 32189786
   },
   "sha256": {
-    "all": "d6d84837b15a4f746b313c6707e971e2d3086660cf233e580d22a150dc1bd3a6",
-    "arm32": "61df5ed09199c9495a2c89607c378e4889cd7ce29d7317b5e372bb6baad10a4a",
-    "arm64": "baed32a986308769b764d3028acb13b4e2eb72d46736177b361f444ce913be45",
-    "x86_64": "25245a5084fa0100440f27effcb340a3f0ed70d0d259870cae0a39e66572239b"
+    "all": "ae3d408845310dee781c077c14d65f98e2841d134dbaccd6aceddf1ef7fc7966",
+    "arm32": "7c662847a2001e3042f381a9690529ef3ec7c249a98290027a8c815b2b70466f",
+    "arm64": "6e6059454e7fcca364c41f0fe4f7676e20494b4177aaea9e05fd75873b7d7e02",
+    "x86_64": "d016d6e6fa6889f3c95862f3bc624b72267f96b4835d8d0a2d65235907e6029a"
   },
   "minSupportedVersion": "1.0.0"
 }

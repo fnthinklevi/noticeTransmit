@@ -235,7 +235,7 @@ CI（analyze.yml）末步对四份公开文档跑 `--check --strict`，任何手
 | Dart 测试行数（test/） | 87061 行 <!--k:dart_loc_test--> |
 | Kotlin 源码行数（android main） | 21565 行 <!--k:kotlin_loc_main--> |
 | Kotlin 测试行数（android test） | 12908 行 <!--k:kotlin_loc_test--> |
-| 应用版本（pubspec） | 1.6.1+161 <!--k:app_version--> |
+| 应用版本（pubspec） | 1.6.2+162 <!--k:app_version--> |
 | 数据库 schema 版本 | 27 v <!--k:db_version--> |
 | Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK 地板（pubspec） | 3.13.0 <!--k:dart_sdk--> |
@@ -385,7 +385,7 @@ flutter build apk --release --target-platform android-arm64
 
 版本号不只在 `pubspec.yaml`。以下必须一致，否则 `check_version_consistency.sh` 判失败：
 
-1. `pubspec.yaml` 的 `version: X.Y.Z+NN`（`versionName` 与 `versionCode` 同步递增，当前为 `1.6.1+161`）；
+1. `pubspec.yaml` 的 `version: X.Y.Z+NN`（`versionName` 与 `versionCode` 同步递增，当前为 `1.6.2+162`）；
 2. `lib/update_manager.dart` 的 `_fallbackVersion` / `_fallbackBuild`；
 3. `android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt` 的 `FALLBACK_VERSION` / `FALLBACK_BUILD`；
 4. `server/data/version.json` 的 `latestVersion` / `latestBuild`；

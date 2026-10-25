@@ -16,7 +16,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.1/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.2/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — 软件介绍、客户端下载与后台管理入口
@@ -294,7 +294,7 @@ noticeTransmit/
 │   ├── di/service_locator.dart           # get_it 服务注册
 │   ├── l10n/arb/                         # app_zh.arb · app_en.arb（各 1643 词条 + 生成代码）
 │   ├── models/                           # 数据模型（12 个文件）
-│   ├── pages/                            # 页面（47 个文件）
+│   ├── pages/                            # 页面（48 个文件）
 │   │   ├── main_page*.dart               # 首页（actions / dialogs / update 同前缀拆分）
 │   │   ├── fnthink_push_page.dart · fnthink_channel_list_page.dart · fnthink_receive_page.dart
 │   │   │                                 # 幻念推送：开关 / 通道 / 收货（远程控制指令从这一档进）
@@ -349,7 +349,7 @@ noticeTransmit/
 ├── docs/                                # server_deploy_and_update_guide.md · cert_rotation_runbook.md（路线图等内部流水不入库）
 ├── .github/                             # workflows/（CI）与 scripts/（格式、版本一致性、本地发版）
 ├── assets/                              # 图标资源
-├── pubspec.yaml                         # version: 1.6.1+161
+├── pubspec.yaml                         # version: 1.6.2+162
 └── README.md
 ```
 
@@ -455,7 +455,7 @@ flutter test integration_test/smoke_test.dart
 | Dart 测试行数（test/） | 87061 行 <!--k:dart_loc_test--> |
 | Kotlin 源码行数（android main） | 21565 行 <!--k:kotlin_loc_main--> |
 | Kotlin 测试行数（android test） | 12908 行 <!--k:kotlin_loc_test--> |
-| 应用版本（pubspec） | 1.6.1+161 <!--k:app_version--> |
+| 应用版本（pubspec） | 1.6.2+162 <!--k:app_version--> |
 | 数据库 schema 版本 | 27 v <!--k:db_version--> |
 | Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK 地板（pubspec） | 3.13.0 <!--k:dart_sdk--> |

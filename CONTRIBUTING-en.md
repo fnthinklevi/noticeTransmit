@@ -248,7 +248,7 @@ Do not copy numbers by hand, and do not keep a second readings list anywhere els
 | Dart test lines (test/) | 87061 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 21565 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 12908 <!--k:kotlin_loc_test--> |
-| App version (pubspec) | 1.6.1+161 <!--k:app_version--> |
+| App version (pubspec) | 1.6.2+162 <!--k:app_version--> |
 | Database schema version | 27 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK floor (pubspec) | 3.13.0 <!--k:dart_sdk--> |
@@ -401,7 +401,7 @@ flutter build apk --release --target-platform android-arm64
 
 The version is not only in `pubspec.yaml`. All of the following must match, otherwise `check_version_consistency.sh` fails:
 
-1. `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together; currently `1.6.1+161`);
+1. `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together; currently `1.6.2+162`);
 2. `_fallbackVersion` / `_fallbackBuild` in `lib/update_manager.dart`;
 3. `FALLBACK_VERSION` / `FALLBACK_BUILD` in `android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt`;
 4. `latestVersion` / `latestBuild` in `server/data/version.json`;
