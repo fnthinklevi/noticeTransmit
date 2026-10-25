@@ -4703,6 +4703,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkDiagNo => 'No';
 
   @override
+  String get fnthinkScreenKeepalive =>
+      'Keep receiving while locked (more battery)';
+
+  @override
+  String get fnthinkScreenKeepaliveDesc =>
+      'Keeps the CPU awake while the screen is off so messages arrive sooner; this uses noticeably more battery.';
+
+  @override
+  String fnthinkDiagScreenLock(String enabled, String held) {
+    return 'Keep receiving while locked: switch $enabled · wake lock $held';
+  }
+
+  @override
   String get fnthinkExactAlarmMissing =>
       'Exact alarms not granted: background fetches may be late.';
 

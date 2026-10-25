@@ -12,8 +12,8 @@ import '../support/source_guards.dart';
 /// T59：幻念推送那一格「进备份什么、恢复什么、绝不进什么」。
 ///
 /// 判据（维护者 2026-10-01 定）：**备份恢复的是「意图」，不恢复「身份」，也不携带「凭证」**。
-/// 所以这一格只有五项：接收总开关、所选服务地址、同意门的版本号、所选收取间隔（T88）、
-/// 收件保留那一档（T47 片2）。字段集合的唯一判据是 `FnthinkBackup.field*` 那几枚常量
+/// 所以这一格只有六项：接收总开关、所选服务地址、同意门的版本号、所选收取间隔（T88）、
+/// 收件保留那一档（T47 片2）、锁屏持续接收开关（T197 片2）。字段集合的唯一判据是 `FnthinkBackup.field*` 那几枚常量
 /// —— 本文件不抄名单（抄的那一份会在加键那天过期而守卫仍绿），只钉"带出什么、判掉什么"。
 /// 本文件里最值钱的三条用例是 ①"从没配过的机器不带地址与同意键"、②"版本号不够就不写同意门
 /// 并把这句话报出来"、③"契约读不到时按没同意过处理" —— 三条都是 fail-closed 方向；
@@ -337,6 +337,40 @@ void main() {
         containsPair(FnthinkBackup.fieldRetentionDays, 13),
         reason: 'collect 先替它擦掉 ⇒ 症状变成"备份里干干净净而本机一直是坏的"',
       );
+    });
+  });
+
+  group('锁屏持续接收（T197 片2）', () {
+    test('没设过 ⇒ 不带这个键（缺省是开，由新机自己决定）', () async {
+      await seed({});
+      expect(
+        (await FnthinkBackup().collect()).keys,
+        isNot(contains(FnthinkBackup.fieldScreenKeepalive)),
+        reason: '把"没选过"写成 false/true 都是在替用户表态',
+      );
+    });
+
+    test('关过 ⇒ collect 带出 false，apply 恢复到本机', () async {
+      await seed({'flutter.${FnthinkSettings.keyScreenKeepalive}': false});
+      expect(
+        await FnthinkBackup().collect(),
+        containsPair(FnthinkBackup.fieldScreenKeepalive, false),
+      );
+
+      await seed({});
+      expect(
+        await FnthinkBackup().apply({
+          FnthinkBackup.fieldScreenKeepalive: false,
+        }),
+        isNull,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(FnthinkSettings.keyScreenKeepalive), isFalse);
+    });
+
+    test('只设过这一枚也算"这台配过幻念推送"', () async {
+      await seed({'flutter.${FnthinkSettings.keyScreenKeepalive}': true});
+      expect(await FnthinkBackup().hasContent(), isTrue);
     });
   });
 }

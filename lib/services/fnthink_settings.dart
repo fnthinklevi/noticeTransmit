@@ -17,6 +17,12 @@ class FnthinkSettings {
   final FnthinkContract contract;
 
   static const keyReceiveEnabled = 'fnthink.receive_enabled';
+
+  /// T197 片2：锁屏持续接收（屏幕灭时由服务持 PARTIAL_WAKE_LOCK）。
+  /// **默认开**（维护者 2026-10-25 拍板）；关掉就退回"只在屏幕亮着时靠系统调度"。
+  /// 原生侧读的是同一把键（带 `flutter.` 前缀），由 `fnthink_presence_guard_test` 钉住。
+  static const keyScreenKeepalive = 'fnthink.screen_keepalive';
+
   static const keyHost = 'fnthink.host';
 
   /// 本机记住的「已同意中转」版本号（契约 `privacy.relayConsentVersion` 的那一档）。
@@ -83,6 +89,17 @@ class FnthinkSettings {
   Future<void> setReceiveEnabled(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(keyReceiveEnabled, value);
+  }
+
+  /// 锁屏持续接收：没有存过就是**开**（T197 片2 的维护者拍板）。
+  Future<bool> get screenKeepalive async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(keyScreenKeepalive) ?? true;
+  }
+
+  Future<void> setScreenKeepalive(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(keyScreenKeepalive, value);
   }
 
   /// 连哪一台（裸主机名，可带端口）。默认是契约声明的那台。

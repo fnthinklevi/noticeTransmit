@@ -241,7 +241,7 @@
 | **协议契约** | `protocol/fnthink-v1.json`（单一真值）＋ `protocol/fnthink-vectors-v1.json`（跨端向量表） |
 | **共享协议包** | `packages/fnthink_push`（29 个 Dart 文件，两端与 CLI 共读同一份契约与向量） |
 | **身份与签名** | Ed25519（AndroidKeyStore 硬件背书，API 33+；30–32 走 KeyStore 包裹软件密钥） |
-| 国际化 | gen-l10n + ARB（zh / en 各 1643 词条） |
+| 国际化 | gen-l10n + ARB（zh / en 各 1668 词条） |
 | 崩溃统计 | 腾讯 Bugly 4.1.9.3（默认关闭） |
 | 服务端 | Node.js 24 LTS（`engines: >=24`）+ Express 5.x（Token 鉴权 + 二步验证 + 幻念协议面）/ GitHub Pages 静态部署 |
 | 服务端依赖 | bcryptjs · cors · dotenv · express · otplib · qrcode |
@@ -444,18 +444,18 @@ push 到仓库本体时漂移由 CI 自动校平并回写（`--fix`），PR / fo
 <!-- readings:v1（tools/gen_readings.py 生成与校验；手改会被 CI --check 拦下）
 | 读数 | 值 |
 |---|---|
-| App 全量测试（flutter test） | 3424 例 <!--k:dart_tests--> |
-| App 测试文件数（test/） | 302 个 <!--k:dart_test_files--> |
+| App 全量测试（flutter test） | 3464 例 <!--k:dart_tests--> |
+| App 测试文件数（test/） | 305 个 <!--k:dart_test_files--> |
 | 幻念推送包测试（fnthink_push） | 593 例 <!--k:push_tests--> |
-| Kotlin JVM 单元测试 | 629 例 <!--k:kotlin_tests--> |
-| Kotlin 测试类数 | 77 类 <!--k:kotlin_classes--> |
+| Kotlin JVM 单元测试 | 646 例 <!--k:kotlin_tests--> |
+| Kotlin 测试类数 | 82 类 <!--k:kotlin_classes--> |
 | 服务端契约测试（jest） | 825 例 <!--k:jest_tests--> |
 | 服务端测试套件数 | 46 套件 <!--k:jest_suites--> |
-| l10n 词条（zh；en 同数锁定） | 1643 条 <!--k:l10n_keys--> |
-| Dart 源码行数（lib/） | 87051 行 <!--k:dart_loc_lib--> |
-| Dart 测试行数（test/） | 87061 行 <!--k:dart_loc_test--> |
-| Kotlin 源码行数（android main） | 21565 行 <!--k:kotlin_loc_main--> |
-| Kotlin 测试行数（android test） | 12908 行 <!--k:kotlin_loc_test--> |
+| l10n 词条（zh；en 同数锁定） | 1668 条 <!--k:l10n_keys--> |
+| Dart 源码行数（lib/） | 88024 行 <!--k:dart_loc_lib--> |
+| Dart 测试行数（test/） | 88060 行 <!--k:dart_loc_test--> |
+| Kotlin 源码行数（android main） | 22035 行 <!--k:kotlin_loc_main--> |
+| Kotlin 测试行数（android test） | 13325 行 <!--k:kotlin_loc_test--> |
 | 应用版本（pubspec） | 1.6.2+162 <!--k:app_version--> |
 | 数据库 schema 版本 | 27 v <!--k:db_version--> |
 | Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |

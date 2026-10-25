@@ -130,6 +130,8 @@ class NotificationMonitorService : NotificationListenerService() {
         FnthinkLiveMode.restore(this)
         // T197 片1：解锁/亮屏/网络恢复时补一轮收货（开关与节流都在 FnthinkPresenceWake 里）。
         startFnthinkWakeTriggers()
+        // T197 片2：服务可能在屏幕已灭时才被拉起，先按此刻屏幕状态对一次锁。
+        FnthinkScreenLock.refresh(this)
         // 小部件存活证据：一进入前台就落盘，并把节拍跑起来。
         // ⚠ 顺序要紧：划掉应用后服务会被 1s 闹钟拉起，若这里不写，重绘的小部件仍停在「已关闭」。
         writeLiveness(running = true, sync = true)
@@ -551,17 +553,28 @@ class NotificationMonitorService : NotificationListenerService() {
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     val action = intent?.action ?: return
-                    if (action == Intent.ACTION_SCREEN_ON ||
-                        action == Intent.ACTION_USER_PRESENT
-                    ) {
-                        FnthinkPresenceWake.enqueueRound(
-                            this@NotificationMonitorService,
-                            "screen",
-                        )
+                    when (action) {
+                        Intent.ACTION_SCREEN_OFF -> {
+                            FnthinkScreenLock.onScreenOff(
+                                this@NotificationMonitorService,
+                            )
+                        }
+                        Intent.ACTION_SCREEN_ON,
+                        Intent.ACTION_USER_PRESENT,
+                        -> {
+                            FnthinkScreenLock.onScreenOn(
+                                this@NotificationMonitorService,
+                            )
+                            FnthinkPresenceWake.enqueueRound(
+                                this@NotificationMonitorService,
+                                "screen",
+                            )
+                        }
                     }
                 }
             }
             val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
                 addAction(Intent.ACTION_SCREEN_ON)
                 addAction(Intent.ACTION_USER_PRESENT)
             }
@@ -647,6 +660,7 @@ class NotificationMonitorService : NotificationListenerService() {
         // （连带 NotificationProcessor / Handler），"只注册不注销"这条本仓库已付过学费。
         stopDeviceStateWatchers()
         RetryQueue.stopWatching()
+        FnthinkScreenLock.release()
         stopFnthinkWakeTriggers()
         // 小部件存活证据：进程还在的最后一刻把"我停了"写下去并重绘 —— 这是划掉应用后
         // 能**立刻**变灰的唯一时机（serviceScope 已 cancel，故走同步 commit）。

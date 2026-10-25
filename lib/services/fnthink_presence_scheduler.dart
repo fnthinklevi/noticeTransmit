@@ -169,6 +169,19 @@ class FnthinkPresenceScheduler {
     return FnthinkSettings(contract: contract).fallbackPollSeconds;
   }
 
+  /// T197 片2：让原生按**此刻**的屏幕/开关状态对一次锁。
+  ///
+  /// 服务在屏幕事件与启动时会对账，但用户在本页翻开关时屏幕可能一直灭着 ——
+  /// 不主动叫一次，锁要等到下一次 5 分钟续期才跟着变。失败只留日志：
+  /// 锁是「更及时」的加速器，不是收货本身；叫不动它不能让开关那一发报错。
+  Future<void> refreshScreenLock() async {
+    try {
+      await _channel.invokeMethod<void>('refreshFnthinkScreenLock');
+    } catch (e) {
+      debugPrint('[fnthink] 锁屏持续接收获取状态失败：$e');
+    }
+  }
+
   /// 读回原生那份状态（"到底还有没有人醒"）。界面上那一行与排查用的日志都从这里取。
   Future<FnthinkPresenceStatus> status() async {
     final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>(
@@ -233,6 +246,9 @@ class FnthinkDiagSnapshot {
     this.batteryOptimizationIgnored = false,
     this.powerSaveMode = false,
     this.exactAlarmAllowed = false,
+    this.screenInteractive,
+    this.screenKeepalive,
+    this.screenLockHeld,
   });
 
   factory FnthinkDiagSnapshot.fromMap(Map<dynamic, dynamic> raw) {
@@ -251,6 +267,15 @@ class FnthinkDiagSnapshot {
       batteryOptimizationIgnored: raw['batteryOptimizationIgnored'] == true,
       powerSaveMode: raw['powerSaveMode'] == true,
       exactAlarmAllowed: raw['exactAlarmAllowed'] == true,
+      screenInteractive: raw['screenInteractive'] is bool
+          ? raw['screenInteractive'] as bool
+          : null,
+      screenKeepalive: raw['screenKeepalive'] is bool
+          ? raw['screenKeepalive'] as bool
+          : null,
+      screenLockHeld: raw['screenLockHeld'] is bool
+          ? raw['screenLockHeld'] as bool
+          : null,
     );
   }
 
@@ -267,6 +292,12 @@ class FnthinkDiagSnapshot {
   final bool batteryOptimizationIgnored;
   final bool powerSaveMode;
   final bool exactAlarmAllowed;
+
+  /// T197 片2：屏幕亮着没有 / 高可靠开关 / 服务是否真的持着锁。
+  /// null = 旧原生没有这一格（页面不画这一行，不拿 false 冒充“关着”）。
+  final bool? screenInteractive;
+  final bool? screenKeepalive;
+  final bool? screenLockHeld;
 }
 
 class FnthinkPresenceStatus {

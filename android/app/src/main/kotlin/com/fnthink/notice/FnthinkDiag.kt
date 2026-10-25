@@ -120,6 +120,11 @@ object FnthinkDiag {
             "batteryOptimizationIgnored" to batteryIgnored,
             "powerSaveMode" to powerSave,
             "exactAlarmAllowed" to ExactAlarmPolicy.allowed(context),
+            // T197 片2：屏幕亮着没有 / 高可靠开关开着没有 / 服务此刻是否真的持着锁。
+            // 第三格与服务侧 FnthinkScreenLock 同一个作者，页面不再自己猜。
+            "screenInteractive" to (pm?.isInteractive ?: true),
+            "screenKeepalive" to FnthinkScreenLock.keepaliveEnabled(context),
+            "screenLockHeld" to FnthinkScreenLock.isHolding(),
         )
     }
 

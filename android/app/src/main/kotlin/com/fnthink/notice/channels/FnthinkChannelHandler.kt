@@ -17,6 +17,7 @@ import com.fnthink.notice.FnthinkOpenTarget
 import com.fnthink.notice.FnthinkPairLink
 import com.fnthink.notice.FnthinkPresenceAlarm
 import com.fnthink.notice.FnthinkPresenceWorker
+import com.fnthink.notice.FnthinkScreenLock
 import com.fnthink.notice.LocationFix
 import com.fnthink.notice.SmsSearch
 import io.flutter.plugin.common.MethodCall
@@ -208,6 +209,13 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             }
             "cancelFnthinkPresence" -> {
                 FnthinkPresenceAlarm(context).cancel()
+                result.success(true)
+            }
+            // T197 片2：用户在本页翻「锁屏持续接收」或总开关时，屏幕可能一直灭着。
+            // 服务只在屏幕事件/启动时对账，不主动叫一次就要等下一次 5 分钟续期；
+            // 这一支只做「按此刻的屏幕与 prefs 重新对账」，不持有第二份判据。
+            "refreshFnthinkScreenLock" -> {
+                FnthinkScreenLock.refresh(context)
                 result.success(true)
             }
             // T181 B：常驻前台服务里的高频轮询档。Dart 侧每轮都会续一次，

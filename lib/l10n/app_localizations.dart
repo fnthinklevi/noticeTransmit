@@ -8076,6 +8076,24 @@ abstract class AppLocalizations {
   /// **'否'**
   String get fnthinkDiagNo;
 
+  /// No description provided for @fnthinkScreenKeepalive.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁屏持续接收（更耗电）'**
+  String get fnthinkScreenKeepalive;
+
+  /// No description provided for @fnthinkScreenKeepaliveDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁屏后仍让 CPU 保持唤醒，收货更及时；会明显增加耗电。'**
+  String get fnthinkScreenKeepaliveDesc;
+
+  /// No description provided for @fnthinkDiagScreenLock.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁屏持续接收：开关 {enabled} · 唤醒锁 {held}'**
+  String fnthinkDiagScreenLock(String enabled, String held);
+
   /// No description provided for @fnthinkExactAlarmMissing.
   ///
   /// In zh, this message translates to:

@@ -40,6 +40,23 @@ void main() {
     });
   });
 
+  group('T197 片2：锁屏持续接收', () {
+    test('没写过 ⇒ 默认开（维护者 2026-10-25 拍板）', () async {
+      expect(await settings.screenKeepalive, isTrue);
+    });
+
+    test('关掉后读回来是关，且写的键名与原生读的是同一把', () async {
+      await settings.setScreenKeepalive(false);
+      expect(await settings.screenKeepalive, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getBool(FnthinkSettings.keyScreenKeepalive),
+        isFalse,
+        reason: 'Dart 写的是裸键，SharedPreferences 自己加 flutter. 前缀',
+      );
+    });
+  });
+
   group('服务地址', () {
     test('默认那台来自契约（代码里没有兜底域名）', () async {
       expect(await settings.host, defaultHost['default']);

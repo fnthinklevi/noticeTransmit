@@ -11,8 +11,8 @@ import 'fnthink_settings.dart';
 /// **判据（维护者 2026-10-01 定，覆盖此前口径）：备份恢复的是「意图」，
 /// 不恢复「身份」，也不携带「凭证」。**
 ///
-/// 进这一格的只有五项：接收总开关、所选服务地址、同意门的版本号（第几版中转政策）、
-/// 用户选的那一档收取间隔（T88 之后）、收件保留那一档（T47 片2）。
+/// 进这一格的只有六项：接收总开关、所选服务地址、同意门的版本号（第几版中转政策）、
+/// 用户选的那一档收取间隔（T88 之后）、收件保留那一档（T47 片2）、锁屏持续接收开关（T197 片2）。
 /// 能力档位与端点的名字要等 T49 —— 本机此刻还没有"可存的那一份"，与其写一个空键占位，
 /// 不如等真的有值再进（写了就是"备份里有这一类"的假承诺）。
 ///
@@ -32,7 +32,7 @@ import 'fnthink_settings.dart';
 ///    两台设备上有同样的哈希 —— 恢复出来的那份随时可能落到别人手里。它还带着一条**单向**的
 ///    依赖（凭据在对面那台录的验证器里，备份补不回来），所以"恢复"在这里根本不是一个
 ///    能靠备份文件完成的操作，正确的做法是**重新生成 + 当面交给对方**。
-///    ⚠ 这一条**不需要**新增排除逻辑：这一格是**白名单式**的（[collect] 只写点名的五个字段），
+///    ⚠ 这一条**不需要**新增排除逻辑：这一格是**白名单式**的（[collect] 只写点名的六个字段），
 ///    所以"没进"是构造保证的。守卫在 `test/architecture/fnthink_backup_privacy_guard_test.dart`
 ///    （名单里有 `RemoteCredentialStore` 与三个键名）—— 有人往 [collect] 里"顺手加一行"
 ///    时那里会当场喊住。
@@ -72,6 +72,10 @@ class FnthinkBackup {
   /// 判档位的那张表住 `FnthinkSettings.retentionChoices`（唯一作者），
   /// **不来自契约** —— 所以这一档不像间隔那样需要"契约读不到就不恢复"。
   static const fieldRetentionDays = 'inbox_retention_days';
+
+  /// 锁屏持续接收那一枚开关（T197 片2）。同上：只是意图（"锁屏时要不要为收货多耗一点电"），
+  /// 不带凭证、读不出任何一条消息；没设过就不写键 —— 新机的缺省是开，由本机自己决定。
+  static const fieldScreenKeepalive = 'screen_keepalive';
 
   /// 已装配好的那一份契约（null = 现在读不到）。
   ///
@@ -124,6 +128,9 @@ class FnthinkBackup {
         // 症状是"备份里干干净净而本机一直是坏的"。
         if (prefs.getInt(FnthinkSettings.keyRetentionDays) case final int days)
           fieldRetentionDays: days,
+        if (prefs.getBool(FnthinkSettings.keyScreenKeepalive)
+            case final bool keepalive)
+          fieldScreenKeepalive: keepalive,
       },
     };
   }
@@ -135,7 +142,8 @@ class FnthinkBackup {
         prefs.getString(FnthinkSettings.keyHost) != null ||
         prefs.getInt(FnthinkSettings.keyConsentVersion) != null ||
         prefs.getInt(FnthinkSettings.keyPollSeconds) != null ||
-        prefs.getInt(FnthinkSettings.keyRetentionDays) != null;
+        prefs.getInt(FnthinkSettings.keyRetentionDays) != null ||
+        prefs.getBool(FnthinkSettings.keyScreenKeepalive) != null;
   }
 
   /// 形状兜底：文件是外部输入，值类型不受控。缺项一律**不写键**（保持本机现值），
@@ -167,6 +175,9 @@ class FnthinkBackup {
     if (raw[fieldRetentionDays] case final num days) {
       out[fieldRetentionDays] = days.toInt();
     }
+    if (raw[fieldScreenKeepalive] case final bool keepalive) {
+      out[fieldScreenKeepalive] = keepalive;
+    }
     return out;
   }
 
@@ -176,6 +187,9 @@ class FnthinkBackup {
     final prefs = await SharedPreferences.getInstance();
     if (values[fieldReceiveEnabled] case final bool enabled) {
       await prefs.setBool(FnthinkSettings.keyReceiveEnabled, enabled);
+    }
+    if (values[fieldScreenKeepalive] case final bool keepalive) {
+      await prefs.setBool(FnthinkSettings.keyScreenKeepalive, keepalive);
     }
     if (values[fieldHost] case final String host) {
       // 再校验一次：`normalize` 是主路径上的兜底，但这一格也可能被别的调用方直接喂值

@@ -107,6 +107,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   bool _enabled = false;
   bool _consented = false;
 
+  /// T197 片2：锁屏持续接收（默认开，维护者 2026-10-25 拍板）。
+  bool _screenKeepalive = true;
+
   /// 撤销那一发的结论（T119）。null = 这一页还没撤销过 —— 撤销之后"已同意"那行字会消失，
   /// 用户需要一句"那刚才发生了什么、什么没被删"，否则他分不清"我撤销成功了"与"页面坏了"。
   String? _consentResult;
@@ -402,11 +405,13 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
     final values = await Future.wait<bool>([
       settings.receiveEnabled,
       settings.hasRelayConsent(),
+      settings.screenKeepalive,
     ]);
     if (!mounted) return;
     setState(() {
       _enabled = values[0];
       _consented = values[1];
+      _screenKeepalive = values[2];
     });
     await _readServerHealth();
   }
@@ -518,6 +523,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
       _enabled = value;
     });
     await settings.setReceiveEnabled(value);
+    // T197 片2：总开关也是锁屏持锁的判据之一；屏幕可能一直灭着，
+    // 不主动对账就要等下一次 5 分钟续期才放/收锁。
+    await _deps.presence.refreshScreenLock();
     if (value) {
       final result = await _coordinator.startIfEnabled();
       if (!mounted) return;
@@ -546,6 +554,22 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
       _busy = false;
     });
     unawaited(_readPresence());
+  }
+
+  /// T197 片2：「锁屏持续接收（更耗电）」。写 prefs 后立刻叫原生对一次锁，
+  /// 否则用户翻完开关看到的仍是上一次的状态，直到 5 分钟续期才变。
+  Future<void> _toggleScreenKeepalive(bool value) async {
+    final settings = _settings;
+    if (settings == null || _busy) return;
+    setState(() {
+      _busy = true;
+      _screenKeepalive = value;
+    });
+    await settings.setScreenKeepalive(value);
+    await _deps.presence.refreshScreenLock();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _readPresence();
   }
 
   /// 立即收取（手动跑一轮）。
@@ -687,6 +711,32 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
           keyName: 'fnthink-receive-status',
           dot: _running,
           text: _running ? l10n.fnthinkStatusRunning : l10n.fnthinkStatusIdle,
+        ),
+        // T197 片2：锁屏后 CPU 保持唤醒，门铃静默假死时看门狗才有机会跑。
+        // 默认开（维护者 2026-10-25 拍板），关掉退回「只在屏幕亮着时靠系统调度」。
+        FnthinkRowLabel(
+          keyName: 'fnthink-screen-keepalive-title',
+          label: l10n.fnthinkScreenKeepalive,
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: AppInfoNoteBox(
+                text: l10n.fnthinkScreenKeepaliveDesc,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            CupertinoSwitch(
+              key: const ValueKey('fnthink-screen-keepalive-switch'),
+              value: _screenKeepalive,
+              onChanged: _busy ? null : _toggleScreenKeepalive,
+            ),
+          ],
         ),
         // T137 验收③：只报**我们自己那侧** + 一键跳系统。
         // 厂商（MIUI 等）的悬浮/锁屏/声音开关不在任何 APK 可读的 API 里（六厂商官方
@@ -832,6 +882,14 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
               _diagBool(l10n, diag.exactAlarmAllowed),
             ),
           ),
+          if (diag.screenKeepalive != null && diag.screenLockHeld != null)
+            FnthinkNote(
+              keyName: 'fnthink-diag-screen-lock',
+              text: l10n.fnthinkDiagScreenLock(
+                _diagBool(l10n, diag.screenKeepalive!),
+                _diagBool(l10n, diag.screenLockHeld!),
+              ),
+            ),
         ],
         // 缺授权时给路径，不替用户调：这两项都要跳系统页，回来由生命周期重读。
         if (_exactAlarmGranted == false) ...[

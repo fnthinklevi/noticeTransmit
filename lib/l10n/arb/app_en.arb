@@ -2594,6 +2594,19 @@
   },
   "fnthinkDiagYes": "Yes",
   "fnthinkDiagNo": "No",
+  "fnthinkScreenKeepalive": "Keep receiving while locked (more battery)",
+  "fnthinkScreenKeepaliveDesc": "Keeps the CPU awake while the screen is off so messages arrive sooner; this uses noticeably more battery.",
+  "fnthinkDiagScreenLock": "Keep receiving while locked: switch {enabled} · wake lock {held}",
+  "@fnthinkDiagScreenLock": {
+    "placeholders": {
+      "enabled": {
+        "type": "String"
+      },
+      "held": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkExactAlarmMissing": "Exact alarms not granted: background fetches may be late.",
   "fnthinkBatteryOptMissing": "Battery optimization not ignored: the system may limit background fetches.",
   "fnthinkGrantNow": "Grant",

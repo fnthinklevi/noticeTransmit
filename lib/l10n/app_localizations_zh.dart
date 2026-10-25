@@ -4473,6 +4473,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkDiagNo => '否';
 
   @override
+  String get fnthinkScreenKeepalive => '锁屏持续接收（更耗电）';
+
+  @override
+  String get fnthinkScreenKeepaliveDesc => '锁屏后仍让 CPU 保持唤醒，收货更及时；会明显增加耗电。';
+
+  @override
+  String fnthinkDiagScreenLock(String enabled, String held) {
+    return '锁屏持续接收：开关 $enabled · 唤醒锁 $held';
+  }
+
+  @override
   String get fnthinkExactAlarmMissing => '精确闹钟未授权：后台收取可能晚到。';
 
   @override

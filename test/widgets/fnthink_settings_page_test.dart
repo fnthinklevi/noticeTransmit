@@ -543,7 +543,11 @@ void main() {
       final h = harness();
       final l10n = await pumpReceive(tester, h);
       expect(
-        tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
+        tester
+            .widget<CupertinoSwitch>(
+              find.byKey(const ValueKey('fnthink-receive-switch')),
+            )
+            .value,
         isFalse,
       );
       expect(find.text(l10n.fnthinkStatusIdle), findsOneWidget);
@@ -564,7 +568,7 @@ void main() {
       stubChannels();
       final h = harness();
       final l10n = await pumpReceive(tester, h);
-      await tester.tap(find.byType(CupertinoSwitch));
+      await tester.tap(find.byKey(const ValueKey('fnthink-receive-switch')));
       await tester.pumpAndSettle();
       final prefs = await SharedPreferences.getInstance();
       // 注意读的是**不带前缀**的那个键：SharedPreferences 自己会加 `flutter.`，
@@ -646,10 +650,14 @@ void main() {
       stubChannels();
       final h = harness(canSign: false);
       final l10n = await pumpReceive(tester, h);
-      await tester.tap(find.byType(CupertinoSwitch));
+      await tester.tap(find.byKey(const ValueKey('fnthink-receive-switch')));
       await tester.pumpAndSettle();
       expect(
-        tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
+        tester
+            .widget<CupertinoSwitch>(
+              find.byKey(const ValueKey('fnthink-receive-switch')),
+            )
+            .value,
         isTrue,
         reason: 'prefs 已经是开的那一份；回弹说的是"你没点上"，而真实情况是"点上了但起不来"',
       );
@@ -668,9 +676,9 @@ void main() {
       stubChannels();
       final h = harness();
       final l10n = await pumpReceive(tester, h);
-      await tester.tap(find.byType(CupertinoSwitch));
+      await tester.tap(find.byKey(const ValueKey('fnthink-receive-switch')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(CupertinoSwitch));
+      await tester.tap(find.byKey(const ValueKey('fnthink-receive-switch')));
       await tester.pumpAndSettle();
       expect(h.coordinator.isRunning, isFalse);
       expect(find.text(l10n.fnthinkStatusIdle), findsOneWidget);
@@ -787,7 +795,7 @@ void main() {
       stubChannels();
       final h = harness(messages: const ['m_1'], pending: 2);
       await pumpReceive(tester, h);
-      await tester.tap(find.byType(CupertinoSwitch));
+      await tester.tap(find.byKey(const ValueKey('fnthink-receive-switch')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('fnthink-receive-now')));
       await tester.pumpAndSettle();
@@ -805,7 +813,7 @@ void main() {
       final gate = Completer<void>();
       final h = harness(gate: () => gate.future, messages: const ['m_1']);
       final l10n = await pumpReceive(tester, h);
-      await tester.tap(find.byType(CupertinoSwitch));
+      await tester.tap(find.byKey(const ValueKey('fnthink-receive-switch')));
       await tester.pumpAndSettle();
       // 起循环的那一轮此刻卡在 poll 上，这一发拿回的是"整轮跳过"那份账。
       await tester.tap(find.byKey(const ValueKey('fnthink-receive-now')));
