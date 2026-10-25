@@ -269,7 +269,8 @@ def norm(key, raw):
 
 def cmd_check(files, readings, strict):
     errors = 0
-    checked = 0
+    compared = 0
+    nosource = 0
     for path in files:
         text = Path(path).read_text(encoding='utf-8')
         pairs = parse_blocks(text)
@@ -277,8 +278,12 @@ def cmd_check(files, readings, strict):
             print('⚠ %s：未找到 readings 标记块' % path)
             continue
         for key, raw in pairs:
-            checked += 1
+            # ⚠ 计数只在**真的比对了**之后才 +1。上一版把 checked += 1 放在 key 存在性
+            # 判断之前，于是"无采集来源"的键也算进分母、末行还说"全部一致" ——
+            # 非 strict 下这会直接报假绿（2026-10-25 实测：4 个键无来源，末行仍是
+            # "19 项全部一致"）。compare 与 no-source 必须分开报。
             if key not in readings:
+                nosource += 1
                 msg = '❌ %s：<!--k:%s--> 当前无采集来源（CI-only？本地需提供对应 --*-log / 环境变量）' % (path, key)
                 if strict:
                     print(msg)
@@ -286,15 +291,18 @@ def cmd_check(files, readings, strict):
                 else:
                     print('… ' + msg[2:] + '（非 strict，仅提示）')
                 continue
+            compared += 1
             want = norm(key, readings[key] if isinstance(readings[key], str) else str(readings[key]))
             got = norm(key, raw)
             if want != got:
                 print('❌ %s：<!--k:%s--> 文档=%r 实收=%r' % (path, key, raw, readings[key]))
                 errors += 1
+    tail = '' if not nosource else '；另有 %d 项无采集来源、**未比对**' % nosource
     if errors:
-        print('readings check：%d 处漂移（共比对 %d 项）—— 手工校平批次就该由这道闸门替代' % (errors, checked))
+        print('readings check：%d 处漂移（比对 %d 项%s）—— 手工校平批次就该由这道闸门替代'
+              % (errors, compared, tail))
         return 1
-    print('✅ readings check：%d 项全部一致' % checked)
+    print('✅ readings check：比对 %d 项全部一致%s' % (compared, tail))
     return 0
 
 
