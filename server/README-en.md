@@ -230,8 +230,8 @@ server/
 │   ├── otp.js             # TOTP wrapper (otplib v13, explicit crypto/base32 plugins)
 │   ├── middleware.js      # Security headers / rate limit / blocking / auth / errors
 │   ├── routes/            # Routes (auth.js / version.js / alerts.js / ops.js / echo.js)
-│   └── fnthink/           # Fnthink surface (22 modules: routes / delivery / pairing / endpoints / rate limit / version echo …)
-├── test/                  # HTTP contract tests (jest + supertest, 44 files / 801 cases)
+│   └── fnthink/           # Fnthink surface (24 modules: routes / delivery / pairing / endpoints / long-poll waiters / SSE doorbell / rate limit / version echo …)
+├── test/                  # HTTP contract tests (jest + supertest, 46 files / 825 cases)
 ├── package.json           # Dependencies and scripts (engines.node = ">=24")
 ├── package-lock.json      # Lock file used by npm ci
 ├── babel.config.js        # Jest ESM compatibility
@@ -351,7 +351,7 @@ All endpoints (admin routes in `lib/routes/{auth,version,alerts,ops}.js`; public
 | `GET`  | `/api/version/region` | public (exempt from IP blocks) | Geo read-back `{country,source,edge}` — reports the country code the edge saw; **the client decides which host to use**. ⚠ whether that header is trustworthy must be declared by the deployment (`FNTHINK_GEO_TRUST`); undeclared means `country:null` |
 | `GET`  | `/health` | public (exempt from IP blocks) | Health check: `status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch` (`null` = no versioned request seen yet) |
 | `POST` | `/api/echo` | `ECHO_TOKEN` (404 when unset) | Generic intake echo (T09; used for generic stamping) |
-| `POST/GET` | `/api/fnthink/*` | per route (signature / secret / rate limit) | Fnthink surface, **18 routes**: 14 protocol routes + 4 `/p/…` intake forms; full table below |
+| `POST/GET` | `/api/fnthink/*` | per route (signature / secret / rate limit) | Fnthink surface, **20 routes**: 16 protocol routes + 4 `/p/…` intake forms; full table below |
 | `POST` | `/api/admin/login` | Token (+ OTP / recovery code) | Login, returns `sessionId` |
 | `POST` | `/api/admin/logout` | Session/Token | Revoke the current session |
 | `GET`  | `/api/admin/totp/setup` | Session/Token | Generates secret + QR when 2FA is off; only status when it is on (secret never leaked again) |
@@ -515,7 +515,7 @@ The file takes effect immediately after saving, no service restart needed (it is
 | Form | What you do | What you get | What it costs you to skip |
 | --- | --- | --- | --- |
 | **A. Update service only** (default, most people) | The six Quick-Start steps | Website + admin console + `/api/version/check` + APK downloads | Nothing. `/api/fnthink/*` answers **503**, and the log carries `[fnthink] 协议入口没有起来` |
-| **B. Update service + fnthink push public face** | A, plus the "Adding fnthink push" chapter | All of the above plus `/api/fnthink/{register,poll,ack,message,pair-arm,pair,pair-confirm}` | Nothing. The two halves do not interfere |
+| **B. Update service + fnthink push public face** | A, plus the "Adding fnthink push" chapter | All of the above plus `/api/fnthink/{register,poll,stream,ack,message,pair-arm,pair,pair-confirm,…}`; `/poll` supports long polling and `/stream` is the T185 SSE doorbell | Nothing. The two halves do not interfere |
 
 > ⚠️ **If you are on form A**: `/api/fnthink/*` returning 503 and that log line mean **"this segment is not
 > installed"**, not "the server is broken". You do not need the protocol contract and you do not need
@@ -588,7 +588,7 @@ Expect these lines (do not continue if any is missing):
     ⚠ 告警不落盘（契约 alerts.persistToDisk=false）：列表为空只代表"本进程起来以后没触发"
 ```
 
-> The sample above is abbreviated. The current banner lists **all 18 public routes** from `router.stack` (14 protocol + 4 `/p/…` intake forms), each with its rate-limit tier.
+> The sample above is abbreviated. The current banner lists **all 20 public routes** from `router.stack` (16 protocol + 4 `/p/…` intake forms), each with its rate-limit tier.
 (last two lines are the anomaly-report banner; the log is Chinese-only by design)
 
 **Step 5 — acceptance (5 curls, including the "update channel still works" regression)**
@@ -715,18 +715,20 @@ handing the server a new signing key.
 `revocation` keys (`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`). Renaming a state
 means shipping the contract with it — the implementation keeps no hidden default.
 
-### Public route table (as of 2026-10-22, 18 routes)
+### Public route table (as of 2026-10-25, 20 routes)
 
-`server/lib/fnthink/routes.js` registers **14 protocol routes + 4 `/p/…` intake forms**. The startup banner reads this list from `router.stack` instead of keeping a second copy.
+`server/lib/fnthink/routes.js` registers **16 protocol routes + 4 `/p/…` intake forms**. The startup banner reads this list from `router.stack` instead of keeping a second copy.
 
 | Route (all under `/api/fnthink`) | Purpose |
 |---|---|
 | `POST /message` | Deliver one Fnthink message (signature-checked; L1/L2/L3 all use it) |
-| `POST /poll` | Pull pending messages for a device (rate-limited by device address) |
+| `POST /poll` | Pull pending messages for a device (rate-limited by device address; long polling since T185, enabled by the client with `x-fnthink-wait`, held for up to 45 s) |
+| `GET /stream` | T185 SSE doorbell (one-time short ticket; `event: wake` only wakes the client — delivery still goes through `/poll`; 20 s heartbeat) |
 | `POST /ack` | Acknowledge receipt (the only delivery proof) |
 | `POST /probe` | Non-intrusive probe (does not deliver; returns `PROBE_READY_FIELD` + server time) |
 | `POST /register` | Device registration (rate-limited by IP) |
 | `POST /pair-arm` / `POST /pair` / `POST /pair-confirm` / `POST /pair-revoke` | Pairing three-step and revoke |
+| `POST /pair-grant-update` | Per-device permission update after pairing (T174; updates an existing grant only, never creates one) |
 | `POST /endpoint-create` / `POST /endpoint-list` / `POST /endpoint-revoke` / `POST /endpoint-rotate` | Local endpoint management (T38–T41 / T120) |
 | `POST /peer-presence` | Peer "last fetched X seconds ago" readout (T156; empty payload, cannot query a specific peer) |
 | `POST /p/:endpointId/probe` | Intake endpoint probe |
@@ -1334,14 +1336,49 @@ matter most — three steps:
    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
    ```
 
-> 💡 **What the push face does not need**: WebSocket / long-lived connections (`/poll` returns immediately),
-> any static directory, PHP, or `proxy_read_timeout`-style tuning. The plainer the block, the better.
+> 💡 **The push face only needs two timeouts and one buffering switch** (since T185 `/poll` holds the request and
+> `/stream` is SSE):
+>
+> - **`/poll` long polling**: the server holds for up to 45 s (contract `presence.longPoll.maxWaitSeconds`, 25 s by
+>   default). The proxy read timeout must be **greater than 45 s**; Nginx's default `proxy_read_timeout 60s` is
+>   exactly enough, but a panel template that lowers it to 30 s makes the client receive a 504 on a held request.
+>   Long polling is **opted into by the client** with the `x-fnthink-wait` request header, and the server replies
+>   with `x-fnthink-long-poll` as the capability marker — an old server that ignores the header returns immediately
+>   and the client simply runs at the normal polling cadence; a too-short proxy timeout makes long-poll requests
+>   fail and retry with backoff (no messages are lost, it just waits for nothing).
+> - **`/stream` SSE doorbell**: buffering must be off and the read timeout must exceed the 20 s heartbeat; otherwise
+>   `wake` events are held back by the proxy, and a read timeout below 20 s cuts the connection:
+>
+>   ```nginx
+>   location = /api/fnthink/stream {
+>       proxy_pass http://127.0.0.1:3456;
+>       proxy_http_version 1.1;
+>       proxy_set_header Connection "";
+>       proxy_set_header Host $host;
+>       proxy_set_header X-Real-IP $remote_addr;
+>       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+>       proxy_buffering off;          # required: otherwise wake events wait for the connection to close
+>       proxy_cache off;
+>       proxy_read_timeout 3600s;     # must exceed the 20 s heartbeat; the heartbeat keeps it alive
+>   }
+>   ```
+>
+>   The server already sends `X-Accel-Buffering: no`, but writing `proxy_buffering off` explicitly is still
+>   recommended. `/stream` without a ticket always answers 403; once connected it sends a `: ping` comment every
+>   20 s. `event: wake` is only a doorbell — delivery still goes through `/poll`, persistence and ack.
+> - **Still not needed**: WebSocket, any static directory, PHP.
+>
+> 💡 **What if you skip it**: when SSE cannot connect, the client keeps using long polling (delivery is unaffected);
+> a too-short proxy read timeout makes long-poll requests fail and retry with backoff. With buffering left on and an
+> edge that ignores `X-Accel-Buffering: no`, `wake` may be held until the connection closes and the doorbell degrades
+> to the 300 s safety poll — neither case loses messages, but both cost latency, battery and requests.
+> An old server that ignores the wait header simply runs at the normal cadence; no client change is needed.
 >
 > ⚠️ **The reverse proxy is the only HTTPS exit**: the server does not check the scheme itself (the contract's
 > `transport.httpsOnly=true` is a declaration it never reads), and it listens on `0.0.0.0` — so if port 3456 is
 > reachable publicly, plain HTTP delivery works too. That is why step 6 says "open 80 / 443 only".
 
-**Pairing self-check (three calls that separate "which layer answered 404 / 502")**
+**Pairing self-check (four calls that separate "which layer answered 404 / 502")**
 
 ```bash
 # 1) straight to the upstream (bypassing Nginx): expect 403
@@ -1352,10 +1389,13 @@ curl -sk -o /dev/null -w '%{http_code}\n' -X POST https://push.example.com/api/f
      -H 'Content-Type: application/json' -d '{}'
 # 3) the admin console must not be reachable here: expect 404
 curl -sk -o /dev/null -w '%{http_code}\n' https://push.example.com/admin.html
+# 4) SSE doorbell: 403 without a ticket is normal; 404 means the proxy never forwarded /stream
+curl -sk -o /dev/null -w '%{http_code}\n' https://push.example.com/api/fnthink/stream
 ```
 
 403 on ① but 404 on ② ⇒ the proxy is misconfigured (almost always the trailing slash on the target URL);
-502 on ② ⇒ upstream not running / wrong port.
+502 on ② ⇒ upstream not running / wrong port; 403 on both ① and ② ⇒ the proxy is working; 404 on ④ ⇒ add
+`location = /api/fnthink/stream`.
 
 **Step 5 — start the process.**
 - Panel: Websites → **Node Project** → Add (startup file `server.js`, port `3456`, run directory = code
@@ -1397,7 +1437,7 @@ Scripts from `package.json` (run inside `server/`, Node 24 required):
 | --- | --- | --- |
 | `npm start` | `node server.js` | Start the service |
 | `npm run dev` | `node server.js` | Same (no hot reload) |
-| `npm test` | `jest --verbose` | HTTP contract tests: **44 files / 801 cases** under `server/test/` drive real requests through supertest — security headers, login/logout/session expiry, the version save chain, the full TOTP flow, concurrent recovery-code replay, prototype-key forgery, the 5-failure IP block, and the Fnthink surface |
+| `npm test` | `jest --verbose` | HTTP contract tests: **46 files / 825 cases** under `server/test/` drive real requests through supertest — security headers, login/logout/session expiry, the version save chain, the full TOTP flow, concurrent recovery-code replay, prototype-key forgery, the 5-failure IP block, and the Fnthink surface |
 | `npm run format` | `prettier --write "lib/**/*.js" server.js "test/**/*.js"` | Format |
 | `npm run format:check` | `prettier --check …` | Check only (used by CI) |
 

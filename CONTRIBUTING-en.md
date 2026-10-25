@@ -244,7 +244,7 @@ Do not copy numbers by hand, and do not keep a second readings list anywhere els
 | Server contract tests (jest) | 825 <!--k:jest_tests--> |
 | Server test suites | 46 <!--k:jest_suites--> |
 | l10n keys (zh; en locked to same count) | 1652 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 87415 <!--k:dart_loc_lib--> |
+| Dart lines (lib/) | 87422 <!--k:dart_loc_lib--> |
 | Dart test lines (test/) | 87340 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 21565 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 12908 <!--k:kotlin_loc_test--> |

@@ -231,7 +231,7 @@ CI（analyze.yml）末步对四份公开文档跑 `--check --strict`，任何手
 | 服务端契约测试（jest） | 825 例 <!--k:jest_tests--> |
 | 服务端测试套件数 | 46 套件 <!--k:jest_suites--> |
 | l10n 词条（zh；en 同数锁定） | 1652 条 <!--k:l10n_keys--> |
-| Dart 源码行数（lib/） | 87415 行 <!--k:dart_loc_lib--> |
+| Dart 源码行数（lib/） | 87422 行 <!--k:dart_loc_lib--> |
 | Dart 测试行数（test/） | 87340 行 <!--k:dart_loc_test--> |
 | Kotlin 源码行数（android main） | 21565 行 <!--k:kotlin_loc_main--> |
 | Kotlin 测试行数（android test） | 12908 行 <!--k:kotlin_loc_test--> |

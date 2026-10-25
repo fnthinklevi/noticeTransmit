@@ -62,7 +62,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['款可选应用图标'] = 'App Icon Variants';
   D['通知本地处理'] = 'Local Processing';
   D['多语言国际化'] = 'Multi-language i18n';
-  D['全应用中英双语支持（850+ 词条，中英键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。'] = 'Full-app Chinese/English bilingual support (1251 strings each, both key sets enforced equal by CI), one-tap language switch in settings; launcher icons come in 17 variants with separate Chinese/English aliases.';
+  D['全应用中英双语支持（850+ 词条，中英键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。'] = 'Full-app Chinese/English bilingual support (1652 strings each, both key sets enforced equal by CI), one-tap language switch in settings; launcher icons come in 17 variants with separate Chinese/English aliases.';
   D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则约束（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) or SMTP email — with app filtering, keyword filtering, a visual rule constraints (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and custom battery alerts.';
   D['Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / custom — ntfy and Gotify support self-hosted servers) + SMTP email (SSL/STARTTLS). Independent switch per channel; subject/body support template variables.';
   // feature cards — updated v1.5.48
@@ -85,7 +85,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['内置适配企业微信群机器人、钉钉自定义机器人、飞书群机器人、Telegram Bot、Bark 服务、Server酱、PushPlus 的消息格式；支持 SMTP 邮件推送（SSL/STARTTLS）；也支持任意自定义 Webhook 地址，可对接兼容的第三方平台或你自己的服务端。'] = 'Built-in support for WeCom group bots, DingTalk custom bots, Feishu group bots, Telegram Bot, Bark service, ServerChan, and PushPlus. Also supports SMTP email push (SSL/STARTTLS) and any custom Webhook URL for third-party services or your own backend.';
   // footer — updated v1.5.48
   D['后台保活 · 在线更新'] = 'Background Persistence & Updates';
-  D['前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新，无需重装。'] = 'Foreground service + battery whitelist + auto-start for reliable persistence. OTA updates supported.';
+  D['前台服务 + 长轮询 / 实时门铃（SSE）+ 电量白名单 + 开机自启，稳定常驻；被系统回收或划掉最近任务后 1 秒自动尝试重启；支持版本更新，无需重装。'] = 'Foreground service + long polling / real-time doorbell (SSE) + battery whitelist + auto-start for reliable persistence; automatically attempts a restart 1 second after the system reclaims the service or you swipe the task away; OTA updates supported.';
   D['通知，如何抵达你想要的地方'] = 'How Notifications Reach You';
   D['捕获通知'] = 'Capture';
   D['系统通知栏产生消息，监听服务实时捕获'] = 'System notification bar generates message, listener captures in real time';
@@ -169,7 +169,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['规则测试器'] = 'Rule Tester';
   D['输入模拟通知（应用 + 标题 / 内容 / 优先级），实时展示「过滤 → 规则匹配 → 最终动作」完整命中链路，规则为什么不生效一眼看清。'] = 'Enter a simulated notification (app + title / content / priority) and see the full trace in real time — filter → rule matching → final action. See at a glance why a rule did or did not fire.';
   D['推送可靠性 · 自动重试与补扫'] = 'Push Reliability · Auto-retry & Re-scan';
-  D['推送失败自动入队重试（服务启动 / 网络恢复时重放最近失败项，15 分钟冷却、最多 3 次、24 小时内有效）；服务被系统回收后启动时自动补扫通知栏中未处理的驻留通知（最长回溯 6 小时），长时间锁屏后台也少漏通知。'] = 'Failed pushes are queued and replayed automatically (on service start / network recovery; 15-minute cooldown, up to 3 attempts, valid within 24 hours); after the OS recycles the service, startup re-scans still-visible notifications against a persisted watermark (up to 6 hours back) — far fewer missed notifications during long screen-off periods.';
+  D['推送失败自动入队重试（服务启动 / 网络恢复时重放最近失败项，15 分钟冷却、最多 3 次、24 小时内有效）；服务被系统回收后启动时自动补扫通知栏中未处理的驻留通知（最长回溯 6 小时）；幻念推送另有实时唤醒通道，长时间锁屏后台也少漏通知。'] = 'Failed pushes are queued and replayed automatically (on service start / network recovery; 15-minute cooldown, up to 3 attempts, valid within 24 hours); after the OS reclaims the service, startup re-scans still-visible notifications against a persisted watermark (up to 6 hours back); Fnthink Push also has a real-time wake-up channel, so fewer messages are missed during long screen-off periods.';
   D['安装包完整性校验 sha256'] = 'APK Integrity Check (sha256)';
   D['应用内更新下载完成后、安装前先比对 version.json 下发的 sha256，不一致即删除并阻止安装——防 CDN 传输损坏或途中篡改，与签名校验（可信根）双层互补。'] = 'After an in-app update is downloaded, the APK sha256 from version.json is verified before installation — mismatches are deleted and blocked, protecting against CDN corruption or in-transit tampering. Complements the signature check (root of trust).';
 
@@ -211,7 +211,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   // ── 补漏：check_site_i18n.py 现报的 5 处未覆盖（导航/统计/国际化卡/两段隐私声明）──
   D['远程控制'] = 'Remote Control';
   D['条转发通道族（含幻念推送）'] = 'forwarding channel families (incl. Fnthink Push)';
-  D['全应用中英双语支持（中英各 1251 词条，键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。'] = 'Chinese and English throughout (1251 entries per language, key sets aligned by CI), one-tap switching in Settings; 17 launcher icons with Chinese and English alias entries that follow the UI language.';
+  D['全应用中英双语支持（中英各 1652 词条，键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。'] = 'Chinese and English throughout (1652 entries per language, key sets aligned by CI), one-tap switching in Settings; 17 launcher icons with Chinese and English alias entries that follow the UI language.';
 
   // ── 当前语言 ──
   // 默认语言按**域名**定（早先按 navigator.languages，浏览器 locale 说了算）：

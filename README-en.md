@@ -109,7 +109,7 @@ Fully bilingual (zh / en ARB; key count in the readings table under "Quality & C
 - 🔄 **Notification State Machine Optimization** — unified show / hide logic across 5 scenarios (start / stop / process kill / keep-alive / permission missing), the persistent notification syncs in real time with the monitoring state
 - 🌙 **Dark Mode** — light / dark / follow system three theme modes
 - 📲 **Cupertino Design Language** — the whole app uses the iOS design language through a single `AppRoot` assembly point, with a clean and elegant interface
-- 🛡️ **Background Survival** — foreground service + battery optimization whitelist + boot auto-start; built-in OEM ROM keep-alive guide (battery unrestricted / auto-start / task lock, one-tap jump to vendor settings)
+- 🛡️ **Background Survival** — foreground service + long polling / live wake-up channel + battery optimization whitelist + boot auto-start; no permanent wake lock while the doorbell is healthy, and messages still arrive promptly behind a locked screen; built-in OEM ROM keep-alive guide (battery unrestricted / auto-start / associated start / task lock, one-tap jump to vendor settings)
 - 🩺 **Runtime Diagnostics Switch** — tap the version number 7 times on the More page to toggle diagnostic logs (rule / merge `[diag]` logs in logcat, excluding notification titles / bodies) — troubleshoot without reinstalling
 - 💾 **Config Backup & Restore** — export **12 categories of configs** (Webhook / mail channels with credentials, self-built app channels with credentials, notification rules, SMS settings, app filter, keyword lists, battery rules & switch, temperature rules, device name, theme / language, Fnthink config) encrypted as a `.nbackup` file (AES-256-GCM + PBKDF2 210k-iteration passphrase derivation, self-describing KDF header). Restore after switching or reinstalling by picking the file and entering your passphrase; conflict strategy offers "overwrite all / fill gaps only" when existing configs are detected, non-https URLs are skipped automatically; backup format v2 is backward compatible with v1
 - 📱 **Home-Screen Widgets Upgraded** — fully redesigned 2×2 / 4×2 layouts (status ring, hint pill, daily counter); the system pin dialog now shows a preview and description, and launchers without pin support automatically open a brand-specific step-by-step guide. New SMS monitoring settings hub: listening toggle / verification-code toggle / SIM-card selection (auto-disabled on single-SIM devices); card filtering applies to both SMS and call paths, and pushed messages can carry a bilingual "SIM 1, Carrier" info line
@@ -130,7 +130,7 @@ Fully bilingual (zh / en ARB; key count in the readings table under "Quality & C
 - 🎭 **Obfuscation Rules Ready** — ProGuard / R8 rules file configured (`proguard-rules.pro`), release builds enable code obfuscation and resource shrinking
 - 📡 **Secure Token Transmission** — token only accepted via Header, URL parameters disabled
 - 🎲 **Cryptographic Randomness** — session IDs generated using `crypto.randomUUID()`
-- 🗄️ **SQLite Encryption** — notification records, Webhook / mail / self-built app channel configs and the delivery log (schema v26, 12 tables) are all stored with SQLCipher AES-256 encryption; the key is held in AndroidKeyStore via flutter_secure_storage
+- 🗄️ **SQLite Encryption** — notification records, Webhook / mail / self-built app channel configs and the delivery log (schema v27, 12 tables) are all stored with SQLCipher AES-256 encryption; the key is held in AndroidKeyStore via flutter_secure_storage
 - 🔑 **Webhook Key Protection** — Webhook URLs (including DingTalk / WeCom / Feishu auth keys) encrypted via AndroidKeyStore
 - 🔐 **SSL Certificate Pinning** — both HTTP clients are ready (Dart `PinnedHttpClient` + the OkHttp `CertificatePinner` in Kotlin `NetworkClient`), forming the HTTPS certificate security layer, **disabled by default** (requires injecting `CERT_PINS` / `ENABLE_CERT_PINNING`; always off in Debug builds), currently protected indirectly via Cloudflare CDN; see [docs/cert_rotation_runbook.md](docs/cert_rotation_runbook.md) for rotation / enablement
 - 🧩 **Widget Broadcast Guard** — home-screen widget toggle broadcasts are protected by the signature-level custom permission `com.fnthink.notice.permission.WIDGET_CONTROL`, so third-party apps cannot forge a `TOGGLE_PUSH` broadcast to silently pause or resume pushes
@@ -153,6 +153,7 @@ The usual convention for notification tools is "you hand your content to a third
 - ↩️ **Revocable** — revoking on the receiver side takes effect immediately, no need to wait for the peer to go offline
 - 🌐 **Two regions** — Chengdu `*.fnthink.com` and Los Angeles `*.fnthink.top`; pick one from the More page. Fully self-hostable
 - 📨 **Forward onward** — after receiving a message, forward it through your configured **Fnthink channels** to a bound device or a webhook address
+- ⚡ **Receiving behind a locked screen** — idle polls are long-polled for 25 s; when the SSE doorbell is healthy the server wakes the device instantly, and a dropped stream falls back to long polling automatically. No permanent wake lock while the doorbell is healthy — an order of magnitude less battery than 5-second polling
 
 ### Capability levels
 
@@ -227,10 +228,10 @@ The usual convention for notification tools is "you hand your content to a third
 | HTTP Client | http (Dart) / OkHttp 5.5.0 (Kotlin) |
 | Email Sending | com.sun.mail:android-mail 1.6.7 (SMTP) |
 | Notification Listening | NotificationListenerService |
-| Background Survival | Android native Foreground Service + WakeLock (PARTIAL_WAKE_LOCK) |
+| Background Survival | Android native Foreground Service + long polling / SSE doorbell (idle `/poll` holds 25 s; no permanent wake lock while `/stream` is healthy, with a 300 s fallback) + battery whitelist + boot auto-start |
 | Background Tasks | workmanager ^0.10.10 (daily archive + wake-up fallback) |
 | Coroutines | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
-| Cross-platform Communication | MethodChannel `com.fnthink.notice/notification` (122 methods · 7 native handlers + 2 workers) |
+| Cross-platform Communication | MethodChannel `com.fnthink.notice/notification` (127 methods · 7 native handlers + 2 workers) |
 | **Protocol Contract** | `protocol/fnthink-v1.json` (single source of truth) + `protocol/fnthink-vectors-v1.json` (cross-side vectors) |
 | **Shared Protocol Package** | `packages/fnthink_push` (29 Dart files; both ends and the CLI read one contract and one vector table) |
 | **Identity & Signature** | Ed25519 (AndroidKeyStore-backed, API 33+; 30–32 use a KeyStore-wrapped software key) |
@@ -298,9 +299,10 @@ noticeTransmit/
 │   │   ├── battery_page.dart · temperature_page.dart · device_state_page.dart
 │   │   ├── sms_monitor_settings_page.dart · app_filter_page.dart · keywords_page.dart
 │   │   └── backup_restore_page.dart · permission_settings_page.dart · privacy_policy_page.dart · more_page.dart
-│   ├── services/                         # Service layer (107 files)
+│   ├── services/                         # Service layer (113 files)
 │   │   ├── platform_channel.dart         # Unified MethodChannel declaration
 │   │   ├── fnthink_receive_coordinator.dart  # Fnthink coordinator (send / receive / poll / record)
+│   │   ├── fnthink_stream_service.dart   # SSE doorbell (one-time ticket / heartbeat / backoff / reconnect with a fresh ticket)
 │   │   ├── fnthink_channel_mirror.dart   # Cross-end mirror of Fnthink channel configs (native reads it for primary/backup routing)
 │   │   ├── fnthink_fanout_entrypoint.dart# Background entry for forwarding an incoming notification
 │   │   ├── fnthink_l2_actions.dart · fnthink_l3_executor.dart  # Remote-control executors
@@ -451,7 +453,7 @@ counts / file numbers / LOC / versions are no longer copied by hand; the last st
 | Server contract tests (jest) | 825 <!--k:jest_tests--> |
 | Server test suites | 46 <!--k:jest_suites--> |
 | l10n keys (zh; en locked to same count) | 1652 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 87415 <!--k:dart_loc_lib--> |
+| Dart lines (lib/) | 87422 <!--k:dart_loc_lib--> |
 | Dart test lines (test/) | 87340 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 21565 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 12908 <!--k:kotlin_loc_test--> |

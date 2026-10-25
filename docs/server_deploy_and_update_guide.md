@@ -23,7 +23,7 @@
 | 项 | 状态 |
 | --- | --- |
 | 更新服务 | **已上线**：`notice.fnthink.top`。⚠ 2026-10-06 起 App 侧**不再是编译期常量**：两档地址（`notice.fnthink.com` / `notice.fnthink.top`）住在 `lib/services/update_server_regions.dart`，应用内「更多 → 更新服务器」可选（T95） |
-| 幻念推送公网面 | **代码就绪（2026-10-23 现读 19 条）**：`/api/fnthink/*` = 15 条协议路由 + 4 条 `/p/…` 接入入口；含 `probe`、`peer-presence`（T156）、`pair-revoke`、端点管理与 `/api/echo`（T09）。三层限流 + 体积闸（#129/#130/#131）；**两个推送域名都已上线**（`.top` 见 8.9 第十一轮、`.com` 见 8.9 第十三轮；2026-09-29 外网实测的是**当时的七条**：403 `rejected_unsigned` / 暴露 404 / 大 body 413+`{}`。此后新增的路由需按新总表复跑） |
+| 幻念推送公网面 | **代码就绪（2026-10-25 现读 20 条）**：`/api/fnthink/*` = 16 条协议路由 + 4 条 `/p/…` 接入入口；含 `probe`、`peer-presence`（T156）、`pair-revoke`、端点管理、`/stream`（T185 SSE 门铃）与 `/api/echo`（T09）。三层限流 + 体积闸（#129/#130/#131）；**两个推送域名都已上线**（`.top` 见 8.9 第十一轮、`.com` 见 8.9 第十三轮；2026-09-29 外网实测的是**当时的七条**：403 `rejected_unsigned` / 暴露 404 / 大 body 413+`{}`。此后新增的路由需按新总表复跑） |
 | ⚠ 两域名在**两个不同的 CDN** 后面 | `.top` → Cloudflare；`.com` → 腾讯云 EdgeOne（`*.eo.dnse1.com`）。 ⇒ #140「真实客户端 IP」**不是一次修完两处**：两边的回源头不一样，要各配一次、各验一遍（验收命令见 8.9 第十三轮末尾） |
 | 设备侧 fnthink 客户端 | **已做**：App 内已有幻念身份/配对/收发/远程执行/端点管理等完整客户端（T71–T156）。公网面需要两台设备完成配对后才有真实推送流量；单机只有探针流量 |
 | 契约 | `protocol/fnthink-v1.json`（**不在 `server/` 里**，每次它变了必须重传） |
@@ -500,12 +500,25 @@ server {
 
     client_max_body_size 64k;      # 与服务端协议闸一致；设小了先被 Nginx 挡掉、回 HTML 而不是协议形状
 
+    # SSE 门铃（T185）：必须关缓冲，读超时 > 心跳 20s
+    location = /api/fnthink/stream {
+        proxy_pass http://127.0.0.1:3456;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_buffering off;             # 不关的话 wake 会被攒到连接结束才下发
+        proxy_cache off;
+        proxy_read_timeout 3600s;        # 靠心跳维持，不靠这条超时
+    }
     location ^~ /api/fnthink/ {
         proxy_pass http://127.0.0.1:3456;                    # ⚠ 无尾斜杠（有尾斜杠 ⇒ 整面 404）
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;          # 服务端目前不读，但写对不吃亏
+        proxy_read_timeout 60s;                              # 长轮询最多挂 45s，必须 > 45s
     }
     location ^~ /health {
         proxy_pass http://127.0.0.1:3456;
@@ -519,15 +532,20 @@ server {
 }
 ```
 
-**不需要配的**：WebSocket / `Upgrade` 头（`/poll` 是立即返回的短请求）、任何静态目录、PHP、
-`proxy_read_timeout` 之类的调优。**反代是 HTTPS 的唯一出口** —— 服务端不判 scheme（`httpsOnly` 只是契约
+**需要配的只剩两处超时和一处缓冲**：`/poll` 会挂起最多 45 秒（客户端用请求头 `x-fnthink-wait` 主动开启，
+响应头 `x-fnthink-long-poll` 是识别位），反代读超时必须 > 45 秒（Nginx 默认 60s 正好够）；
+`/stream` 是 SSE 门铃，必须 `proxy_buffering off` 且读超时 > 心跳 20 秒，否则 `wake` 会被攒住；读超时低于 20 秒还会把连接切断。
+**仍然不需要**：WebSocket / `Upgrade` 头、任何静态目录、PHP。漏配不会丢消息：SSE 连不上时客户端继续用长轮询，
+反代读超时太短会让长轮询请求失败并退避重试；没关缓冲且边缘不认服务端的 `X-Accel-Buffering: no` 时，
+`wake` 可能被攒到连接结束，门铃退化成 300 秒兜底轮询（代价是延迟与耗电，收货不受影响）。
+**反代是 HTTPS 的唯一出口** —— 服务端不判 scheme（`httpsOnly` 只是契约
 声明，`server.js` 里没有任何 `req.secure` / `x-forwarded-proto` 判据）且监听 `0.0.0.0`，所以 3456 一旦对
 公网开放，明文投递也能通；这正是 8.6 要"只放行 80/443"的原因。
 
 **④ SSL**：在同一站点里给两个域名一起申请（Let's Encrypt 支持多域名 SAN；面板申请界面把两行都填）。
 **申请完复查 ① 的那三行 `proxy_set_header`** —— 面板重写 443 段时可能重排配置。
 
-**配对自检（三条，能把"哪一层答的 404/502"分开）**
+**配对自检（四条，能把"哪一层答的 404/502"分开）**
 
 ```bash
 # ① 直连上游（绕开 Nginx）：应 403
@@ -538,9 +556,12 @@ curl -sk -o /dev/null -w '%{http_code}\n' -X POST https://push.fnthink.top/api/f
      -H 'Content-Type: application/json' -d '{}'
 # ③ 管理面不该从这里进：应 404
 curl -sk -o /dev/null -w '%{http_code}\n' https://push.fnthink.top/admin.html
+# ④ SSE 门铃：无票应 403（正常）；404 ⇒ 反代没把 /stream 转给上游
+curl -sk -o /dev/null -w '%{http_code}\n' https://push.fnthink.top/api/fnthink/stream
 ```
 
-① 403 + ② 404 ⇒ 反代配错（先查尾斜杠）；② 502 ⇒ 上游没起 / 端口不对；② 403 但 ① 也 403 ⇒ 反代已通。
+① 403 + ② 404 ⇒ 反代配错（先查尾斜杠）；② 502 ⇒ 上游没起 / 端口不对；② 403 但 ① 也 403 ⇒ 反代已通；
+④ 404 ⇒ 补上 `location = /api/fnthink/stream`。
 
 **推送域名两个都上了（2026-09-29 复测；本节这一栏原先写的是"只配了 `.top`"）**
 
@@ -824,7 +845,7 @@ curl -sS --ssl-no-revoke -o /dev/null -w '%{http_code}\n' -X POST https://push.f
 rsync -av ./protocol/fnthink-v1.json user@host:$ROOT/../protocol/
 # ② 或放任意位置 + .env 里显式指定
 #   FNTHINK_CONTRACT=/绝对路径/fnthink-v1.json
-pm2 restart update-server && pm2 logs update-server --lines 40   # 横幅应列出全部 19 条公网路由（逐条限流档位）+ 请求体上限 65536
+pm2 restart update-server && pm2 logs update-server --lines 40   # 横幅应列出全部 20 条公网路由（逐条限流档位）+ 请求体上限 65536
 ```
 改完再跑验收：`poll` 应回 **403 + `{"receipt":"rejected_unsigned"}`**。
 

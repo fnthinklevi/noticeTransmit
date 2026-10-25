@@ -53,7 +53,7 @@
 
 **第三条线：远程控制。** 由已配对的另一台设备下发指令，按 L2（应用动作）/ L3（系统设置）分档逐条授权：L2 四项动作、L3 六项设置，每项单独开关、每次执行前有可撤销的延时窗口、执行结果两段回执。
 
-全应用中英双语国际化（1649 词条 × 2 语言）。Apache License 2.0 开源，免费无广告。
+全应用中英双语国际化（1652 词条 × 2 语言）。Apache License 2.0 开源，免费无广告。
 
 ---
 
@@ -106,7 +106,7 @@
 - 📱 **桌面小组件升级** —— 布局与视觉全面美化（状态圆环 / 提示胶囊 / 当日计数），系统添加弹窗带预览与说明，不支持一键添加的桌面自动弹出分品牌分步引导；短信监听设置中心（监听开关 / 验证码开关 / 监听卡选择）
 - 🖼️ **桌面图标切换** —— 内置 17 款图标 × 中英双语标签 = 34 个 launcher 图标别名，应用内一键切换
 - 🌙 **深色模式** —— 浅色 / 深色 / 跟随系统三种
-- 🌐 **多语言国际化** —— 中英双语（`app_zh.arb` / `app_en.arb` 各 1649 词条，gen-l10n 生成，CI 锁定两侧键集合一致），设置页自由切换；语言标签同步下发原生侧，常驻通知与推送文案随之切换
+- 🌐 **多语言国际化** —— 中英双语（`app_zh.arb` / `app_en.arb` 各 1652 词条，gen-l10n 生成，CI 锁定两侧键集合一致），设置页自由切换；语言标签同步下发原生侧，常驻通知与推送文案随之切换
 - 📄 **文本选择菜单多机型适配** —— 全部 36 处文本组件的选择菜单按钮文案（复制/剪切/粘贴/全选/分享）统一为应用内词条，消除厂商 ROM 上按钮显示英文或空白的问题
 - 📊 **推送统计统一** —— 首页 / 更多页 / 状态栏三处统计共用同一数据源，当日计数实时同步
 - ⏸️ **一键暂停推送** —— 常驻通知 Action 按钮暂停/恢复（监听继续，仅停止发送），状态持久化；暂停期间的消息在历史中标为"用户暂停推送"，可一键"现在推送"补推
@@ -121,7 +121,7 @@
 
 ### 后台保活
 
-- 🛡️ **后台保活** —— 前台服务 + 电量优化白名单 + 开机自启动；内置国产 ROM 保活引导（省电无限制 / 自启动 / 任务锁定，一键跳转厂商设置）
+- 🛡️ **后台保活** —— 前台服务 + 长轮询 / 实时门铃 + 电量优化白名单 + 开机自启动；门铃健康时不再常驻持锁，长锁屏也由服务器唤醒即时收取；内置国产 ROM 保活引导（省电无限制 / 自启动 / 关联启动 / 任务锁定，一键跳转厂商设置）
 - 🔋 **兜底唤醒** —— 精确闹钟 + WorkManager 双保险，被杀后仍能按时醒来取件；重启后闹钟自动补排
 
 ### 安全加固
@@ -158,6 +158,7 @@
 - ↩️ **可撤销** —— 接收端撤销授权后，配对关系即刻失效，不需要等待对端下线
 - 🌐 **双地域** —— 成都 `*.fnthink.com` 与洛杉矶 `*.fnthink.top` 两套服务，用户可在「更多」页选用哪一套；也支持完全自行部署
 - 📨 **转发到别处** —— 收到一条幻念推送后，可按配置的**幻念通道**转发给绑定设备或一个 webhook 地址
+- ⚡ **锁屏也在收** —— 空闲时走 25 秒长轮询；SSE 门铃健康时由服务器即时唤醒，门铃断了自动退回长轮询；门铃健康时不常驻持锁，耗电比 5 秒短轮询低一个量级
 
 ### 能力分级
 
@@ -232,14 +233,14 @@
 | 网络请求 | http（Dart） / OkHttp 5.5.0（Kotlin） |
 | 邮件发送 | com.sun.mail:android-mail 1.6.7（SMTP） |
 | 通知监听 | NotificationListenerService |
-| 后台保活 | Foreground Service + WakeLock (PARTIAL_WAKE_LOCK) |
+| 后台保活 | Foreground Service + 长轮询 / SSE 门铃（空闲 `/poll` hold 25s；`/stream` 健康时不常驻持锁、空闲退到 300s）；电量白名单 + 开机自启 |
 | 后台任务 | workmanager ^0.10.10（每日归档 + 兜底唤醒） |
 | 协程 | kotlinx.coroutines（SupervisorJob + Dispatchers.IO） |
-| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（125 个方法 · 7 个原生 handler + 2 个 Worker） |
+| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（127 个方法 · 7 个原生 handler + 2 个 Worker） |
 | **协议契约** | `protocol/fnthink-v1.json`（单一真值）＋ `protocol/fnthink-vectors-v1.json`（跨端向量表） |
 | **共享协议包** | `packages/fnthink_push`（29 个 Dart 文件，两端与 CLI 共读同一份契约与向量） |
 | **身份与签名** | Ed25519（AndroidKeyStore 硬件背书，API 33+；30–32 走 KeyStore 包裹软件密钥） |
-| 国际化 | gen-l10n + ARB（zh / en 各 1649 词条） |
+| 国际化 | gen-l10n + ARB（zh / en 各 1652 词条） |
 | 崩溃统计 | 腾讯 Bugly 4.1.9.3（默认关闭） |
 | 服务端 | Node.js 24 LTS（`engines: >=24`）+ Express 5.x（Token 鉴权 + 二步验证 + 幻念协议面）/ GitHub Pages 静态部署 |
 | 服务端依赖 | bcryptjs · cors · dotenv · express · otplib · qrcode |
@@ -290,7 +291,7 @@ noticeTransmit/
 │   ├── update_manager.dart               # 应用内更新（多源回退 + sha256 校验）
 │   ├── database/database_helper.dart     # SQLCipher schema v27（12 张表）
 │   ├── di/service_locator.dart           # get_it 服务注册
-│   ├── l10n/arb/                         # app_zh.arb · app_en.arb（各 1649 词条 + 生成代码）
+│   ├── l10n/arb/                         # app_zh.arb · app_en.arb（各 1652 词条 + 生成代码）
 │   ├── models/                           # 数据模型（12 个文件）
 │   ├── pages/                            # 页面（47 个文件）
 │   │   ├── main_page*.dart               # 首页（actions / dialogs / update 同前缀拆分）
@@ -303,9 +304,10 @@ noticeTransmit/
 │   │   ├── battery_page.dart · temperature_page.dart · device_state_page.dart
 │   │   ├── sms_monitor_settings_page.dart · app_filter_page.dart · keywords_page.dart
 │   │   └── backup_restore_page.dart · permission_settings_page.dart · privacy_policy_page.dart · more_page.dart
-│   ├── services/                         # 服务层（107 个文件）
+│   ├── services/                         # 服务层（113 个文件）
 │   │   ├── platform_channel.dart         # MethodChannel 统一声明
 │   │   ├── fnthink_receive_coordinator.dart  # 幻念协调者（发货 / 收货 / 轮询 / 记录）
+│   │   ├── fnthink_stream_service.dart   # SSE 门铃（一次性票 / 心跳 / 断线退避 / 重连换票）
 │   │   ├── fnthink_channel_mirror.dart   # 幻念通道配置的跨端镜像（原生读它参与主备路由）
 │   │   ├── fnthink_fanout_entrypoint.dart# 收到通知后转发的后台入口
 │   │   ├── fnthink_l2_actions.dart · fnthink_l3_executor.dart  # 远程控制执行器
@@ -431,7 +433,7 @@ flutter test integration_test/smoke_test.dart
 - **Dart 单元测试**（`test/`）：架构契约（启动顺序、launcher manifest、跨端通道方法齐平、幻念镜像键名守卫）、数据库 schema 与迁移、备份/送达/过滤黄金用例、页面 widget 测试
 - **共享协议包测试** —— `packages/fnthink_push`：契约校验与向量断言，两端各跑一遍
 - **Kotlin JVM 单元测试**（`android/app/src/test/`）：双端规则匹配一致性由 `rule_engine_golden.json` 51 条黄金用例锁定，通道行为由 `channel_behavior_golden.json` 逐字节快照锁定
-- **服务端契约测试**（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面 19 条路由（15 条协议路由 + 4 条接入入口）
+- **服务端契约测试**（`server/test/`，jest + supertest）：登录 / TOTP 启用与恢复码消费 / 会话失效 / IP 封锁，以及幻念协议面 20 条路由（16 条协议路由 + 4 条接入入口）
 - **设备侧测试** —— `integration_test/smoke_test.dart` 主链路冒烟（启动 → 注入 → 通知页 → 送达状态 → 历史 → 服务启停 → 导出），加 `android/app/src/androidTest` 仪器测试，由 `integration_test.yml` 在 API 34 / x86_64 / Pixel 6 模拟器上触发
 
 **读数表（单一来源）**：下面这块由 `tools/gen_readings.py` 生成与校验（T182）——
@@ -448,7 +450,7 @@ flutter test integration_test/smoke_test.dart
 | 服务端契约测试（jest） | 825 例 <!--k:jest_tests--> |
 | 服务端测试套件数 | 46 套件 <!--k:jest_suites--> |
 | l10n 词条（zh；en 同数锁定） | 1652 条 <!--k:l10n_keys--> |
-| Dart 源码行数（lib/） | 87415 行 <!--k:dart_loc_lib--> |
+| Dart 源码行数（lib/） | 87422 行 <!--k:dart_loc_lib--> |
 | Dart 测试行数（test/） | 87340 行 <!--k:dart_loc_test--> |
 | Kotlin 源码行数（android main） | 21565 行 <!--k:kotlin_loc_main--> |
 | Kotlin 测试行数（android test） | 12908 行 <!--k:kotlin_loc_test--> |

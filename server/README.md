@@ -174,8 +174,8 @@ server/
 │   ├── otp.js             # TOTP 封装（otplib v13，需显式注入 crypto/base32 插件）
 │   ├── middleware.js      # 安全头/限流/封锁/鉴权/错误处理
 │   ├── routes/            # 路由（auth.js / version.js / alerts.js / ops.js / echo.js）
-│   └── fnthink/           # 幻念协议面（22 个模块：routes / 投递 / 配对 / 端点 / 限流 / 版本回声 …）
-├── test/                  # HTTP 契约测试（jest + supertest，44 个文件 / 801 例）
+│   └── fnthink/           # 幻念协议面（24 个模块：routes / 投递 / 配对 / 端点 / 长轮询唤醒 / SSE 门铃 / 限流 / 版本回声 …）
+├── test/                  # HTTP 契约测试（jest + supertest，46 个文件 / 825 例）
 ├── package.json           # 依赖与 scripts（engines.node = ">=24"）
 ├── package-lock.json      # 依赖锁（npm ci 使用）
 ├── babel.config.js        # Jest ESM 兼容
@@ -295,7 +295,7 @@ PORT=8080 npm start
 | `GET`  | `/api/version/region` | 公开（豁免 IP 封锁） | 地理回读 `{country,source,edge}`：报**边缘**看到的国家码，**选哪台由客户端判**；⚠ 该头是否可信要部署声明（`FNTHINK_GEO_TRUST`），没声明就回 `country:null` |
 | `GET`  | `/health` | 公开（豁免 IP 封锁） | 健康检查：`status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch`（`null` = 还没收到过带版本的请求） |
 | `POST` | `/api/echo` | `ECHO_TOKEN`（未配置则 404） | 通用收件回声口（T09；generic 盖章用） |
-| `POST/GET` | `/api/fnthink/*` | 按路由（验签 / 口令 / 限流） | 幻念协议面 **19 条**：15 条协议路由 + 4 条 `/p/…` 接入入口；完整表见下文「公网路由总表」 |
+| `POST/GET` | `/api/fnthink/*` | 按路由（验签 / 口令 / 限流） | 幻念协议面 **20 条**：16 条协议路由 + 4 条 `/p/…` 接入入口；完整表见下文「公网路由总表」 |
 | `POST` | `/api/admin/login` | Token（+ OTP / 恢复码） | 登录，成功返回 `sessionId` |
 | `POST` | `/api/admin/logout` | 会话/Token | 吊销当前会话 |
 | `GET`  | `/api/admin/totp/setup` | 会话/Token | 未启用时生成 secret + 二维码；已启用时只回状态（不再泄露 secret） |
@@ -516,7 +516,7 @@ npm run fnthink:doctor -- --url https://你的实例地址
 | 形态 | 你要做 | 你会得到 | 不做会怎样 |
 | --- | --- | --- | --- |
 | **A. 只装更新服务**（默认，多数人） | 按「快速开始」六步 | 官网 + 管理后台 + 版本检查 `/api/version/check` + APK 下载 | 无。`/api/fnthink/*` 一律回 **503**，启动日志有 `[fnthink] 协议入口没有起来` |
-| **B. 更新服务 + 幻念推送公网面** | A 之外，再加「加装幻念推送」那一章 | 上面全部，另加 `/api/fnthink/{register,poll,ack,message,pair-arm,pair,pair-confirm}` | 无。两部分互不影响 |
+| **B. 更新服务 + 幻念推送公网面** | A 之外，再加「加装幻念推送」那一章 | 上面全部，另加 `/api/fnthink/{register,poll,stream,ack,message,pair-arm,pair,pair-confirm,…}`；`/poll` 支持长轮询，`/stream` 是 T185 的 SSE 门铃 | 无。两部分互不影响 |
 
 > ⚠️ **形态 A 的读者**：`/api/fnthink/*` 回 503 与日志里那行 `[fnthink] 协议入口没有起来` 是**正常现象** ——
 > 它说的是"你没装这一段"，不是"服务坏了"。你不必上传协议契约、也不必设 `FNTHINK_CONTRACT`。
@@ -586,7 +586,7 @@ pm2 restart update-server && pm2 logs update-server --lines 40
     ⚠ 告警不落盘（契约 alerts.persistToDisk=false）：列表为空只代表"本进程起来以后没触发"
 ```
 
-> 上面只节选两行。当前横幅会从 `router.stack` 列出**全部 18 条**公网路由（14 条协议 + 4 条 `/p/…` 入口），并逐条标明限流档位。
+> 上面只节选两行。当前横幅会从 `router.stack` 列出**全部 20 条**公网路由（16 条协议 + 4 条 `/p/…` 入口），并逐条标明限流档位。
 
 **第 5 步：验收（5 条，含"更新通道没被弄坏"的回归）**
 
@@ -701,14 +701,15 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
 （`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`）。改档位名要连同契约一起改，
 实现里没有一份"看不见的缺省"。
 
-### 公网路由总表（2026-10-23 现读，19 条）
+### 公网路由总表（2026-10-25 现读，20 条）
 
-`server/lib/fnthink/routes.js` 当前注册 **15 条协议路由 + 4 条 `/p/…` 接入入口**；启动横幅从 `router.stack` 取这份清单，不另抄一遍：
+`server/lib/fnthink/routes.js` 当前注册 **16 条协议路由 + 4 条 `/p/…` 接入入口**；启动横幅从 `router.stack` 取这份清单，不另抄一遍：
 
 | 路由（均在 `/api/fnthink` 下） | 用途 |
 |---|---|
 | `POST /message` | 投递一条幻念消息（验签；L1/L2/L3 都走这里） |
-| `POST /poll` | 设备拉取待收消息（按设备地址限流） |
+| `POST /poll` | 设备拉取待收消息（按设备地址限流；T185 起支持长轮询，客户端用 `x-fnthink-wait` 开启，最多 hold 45s） |
+| `GET /stream` | T185 SSE 门铃（用一次性短票换连接；`event: wake` 只唤醒，投递仍走 `/poll`；心跳 20s） |
 | `POST /ack` | 确认收到（唯一送达依据） |
 | `POST /probe` | 非浸入探针（不投递，只回 `PROBE_READY_FIELD` 与服务端时间） |
 | `POST /register` | 设备登记（按 IP 限流） |
@@ -1283,14 +1284,45 @@ journalctl -u update-server -f
    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
    ```
 
-> 💡 **推送面不需要配的**：WebSocket / 长连接（`/poll` 是立即返回的短请求）、任何静态目录、PHP、
-> `proxy_read_timeout` 之类的调优。反代块越朴素越好。
+> 💡 **推送面需要配的只有两处超时和一处缓冲**（T185 起 `/poll` 会挂起等待，`/stream` 是 SSE）：
+>
+> - **`/poll` 长轮询**：服务端最多挂起 45 秒（契约 `presence.longPoll.maxWaitSeconds`，默认 25 秒）。
+>   反代读超时必须**大于 45 秒**；Nginx 默认 `proxy_read_timeout 60s` 正好够，面板模板若把它调到 30s，
+>   客户端会在一次挂起请求上直接拿到 504。长轮询是**客户端用请求头 `x-fnthink-wait` 主动开启**的，
+>   服务端在响应头回 `x-fnthink-long-poll` 作为识别位 —— 旧服务端不识别这个头时会立即返回，
+>   客户端按普通轮询节奏工作；反代读超时过短时长轮询请求会失败并退避重试（不会丢消息，只是白等）。
+> - **`/stream` SSE 门铃**：必须关闭缓冲、读超时大于心跳（20 秒），否则 `wake` 事件会被反代攒着不发；
+>   读超时若低于 20 秒，连接还会被反代切断：
+>
+>   ```nginx
+>   location = /api/fnthink/stream {
+>       proxy_pass http://127.0.0.1:3456;
+>       proxy_http_version 1.1;
+>       proxy_set_header Connection "";
+>       proxy_set_header Host $host;
+>       proxy_set_header X-Real-IP $remote_addr;
+>       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+>       proxy_buffering off;          # SSE 必须：否则 wake 会被攒到连接结束才下发
+>       proxy_cache off;
+>       proxy_read_timeout 3600s;     # 必须大于心跳 20s；靠心跳维持，不靠这条超时
+>   }
+>   ```
+>
+>   服务端响应自带 `X-Accel-Buffering: no`，但 Nginx 侧仍建议显式写 `proxy_buffering off`。
+>   `/stream` 不带票一律 403；连上后每 20 秒一条注释心跳 `: ping`，`event: wake` 只是门铃，
+>   真正的消息仍从 `/poll` 取、落库后 ack。
+> - **其余仍然不需要**：WebSocket、任何静态目录、PHP。
+>
+> 💡 **漏配了会怎样**：SSE 连不上时客户端继续用长轮询（收货不受影响）；反代读超时太短会让长轮询请求
+>   失败并退避重试。没关缓冲时，若边缘不识别服务端的 `X-Accel-Buffering: no`，`wake` 可能被攒到连接结束，
+>   门铃会退化成 300 秒兜底轮询 —— 两种情况都不丢消息，代价是延迟、耗电与请求数上升。
+>   旧服务端不识别等待头时按普通节奏工作，不需要改客户端。
 >
 > ⚠️ **反代是 HTTPS 的唯一出口**：服务端自己不判 scheme（契约里的 `transport.httpsOnly=true` 是声明，
 > 服务端不读它），而它监听 `0.0.0.0` —— 所以 3456 一旦对公网开放，明文 HTTP 也能投递。这也是第 6 步
 > 「只放行 80 / 443」的原因。
 
-**配对自检（三条，能把"哪一层的 404 / 502"分开）**
+**配对自检（四条，能把"哪一层的 404 / 502"分开）**
 
 ```bash
 # ① 直连上游（绕开 Nginx）：应 403
@@ -1301,6 +1333,8 @@ curl -sk -o /dev/null -w '%{http_code}\n' -X POST https://push.example.com/api/f
      -H 'Content-Type: application/json' -d '{}'
 # ③ 管理面不该从这里进：应 404
 curl -sk -o /dev/null -w '%{http_code}\n' https://push.example.com/admin.html
+# ④ SSE 门铃：无票应 403（正常）；404 ⇒ 反代没把 /stream 转给上游
+curl -sk -o /dev/null -w '%{http_code}\n' https://push.example.com/api/fnthink/stream
 ```
 
 ① 403 而 ② 404 ⇒ 反代配错（多半是目标 URL 带了尾斜杠）；② 502 ⇒ 上游没起 / 端口不对。
@@ -1342,7 +1376,7 @@ curl -sk -o /dev/null -w '%{http_code}\n' https://push.example.com/admin.html
 |------|----------|------|
 | `npm start` | `node server.js` | 启动服务 |
 | `npm run dev` | `node server.js` | 同上（无热重载） |
-| `npm test` | `jest --verbose` | HTTP 契约测试：`server/test/` 共 **44 个文件 / 801 例**，用 supertest 打真实请求，覆盖安全头、登录/注销/会话过期、版本保存链路、TOTP 全流程、恢复码并发重放、原型键伪造、2FA 连续失败触发封锁，以及幻念协议面 |
+| `npm test` | `jest --verbose` | HTTP 契约测试：`server/test/` 共 **46 个文件 / 825 例**，用 supertest 打真实请求，覆盖安全头、登录/注销/会话过期、版本保存链路、TOTP 全流程、恢复码并发重放、原型键伪造、2FA 连续失败触发封锁，以及幻念协议面 |
 | `npm run format` | `prettier --write "lib/**/*.js" server.js "test/**/*.js"` | 格式化 |
 | `npm run format:check` | `prettier --check …` | 只检查不改（CI 用） |
 
