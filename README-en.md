@@ -225,14 +225,14 @@ The usual convention for notification tools is "you hand your content to a third
 | State Management / DI | get_it (^9.3.0) + Service classes |
 | Local Database | sqflite_sqlcipher (^3.4.1) · SQLCipher AES-256 · schema v26 / 12 tables |
 | Key-Value Storage | shared_preferences (^2.5.6) · flutter_secure_storage (^10.3.1, ships a vendored crypto implementation) · native SecurePrefs uses androidx.security 1.1.0 |
-| Native Service | Kotlin 2.4.21 (Android), 89 Kotlin files in the main sourceset |
+| Native Service | Kotlin 2.4.21 (Android), 93 Kotlin files in the main sourceset |
 | HTTP Client | http (Dart) / OkHttp 5.5.0 (Kotlin) |
 | Email Sending | com.sun.mail:android-mail 1.6.7 (SMTP) |
 | Notification Listening | NotificationListenerService |
-| Background Survival | Android native Foreground Service + long polling / SSE doorbell (idle `/poll` holds 25 s; no permanent wake lock while `/stream` is healthy, with a 300 s fallback) + battery whitelist + boot auto-start |
+| Background Survival | Android native Foreground Service + long polling / SSE doorbell (idle `/poll` holds 25 s; polling falls back to 300 s while `/stream` is healthy; the service holds a `PARTIAL_WAKE_LOCK` while the screen is off and "keep receiving while locked" is on) + battery whitelist + boot auto-start |
 | Background Tasks | workmanager ^0.10.10 (daily archive + wake-up fallback) |
 | Coroutines | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
-| Cross-platform Communication | MethodChannel `com.fnthink.notice/notification` (127 methods · 7 native handlers + 2 workers) |
+| Cross-platform Communication | MethodChannel `com.fnthink.notice/notification` (128 methods · 7 native handlers + 2 workers) |
 | **Protocol Contract** | `protocol/fnthink-v1.json` (single source of truth) + `protocol/fnthink-vectors-v1.json` (cross-side vectors) |
 | **Shared Protocol Package** | `packages/fnthink_push` (29 Dart files; both ends and the CLI read one contract and one vector table) |
 | **Identity & Signature** | Ed25519 (AndroidKeyStore-backed, API 33+; 30–32 use a KeyStore-wrapped software key) |
@@ -440,8 +440,9 @@ Fnthink Push deployment (two regions, where to upload the contract file, reverse
 - **On-device tests** — `integration_test/smoke_test.dart` runs the main-path smoke test (launch -> inject -> notification page -> delivery status -> history -> service start/stop -> export), plus the `android/app/src/androidTest` instrumented tests, driven by `integration_test.yml` on an API 34 / x86_64 / Pixel 6 emulator
 
 **Readings table (single source).** The block below is generated and checked by `tools/gen_readings.py` (T182) —
-counts / file numbers / LOC / versions are no longer copied by hand; the last step of CI (analyze.yml) runs
-`--check --strict` against the four public docs, so a stale number fails the build instead of waiting for a manual sweep.
+counts / file numbers / LOC / versions are no longer copied by hand: the last step of CI (analyze.yml) runs
+`--check --strict` against the four public docs; on pushes to the repository itself any drift is auto-levelled and
+committed back (`--fix`), while PR / fork runs fail the build and ask for a local `--fix`. No manual sweep needed.
 
 <!-- readings:v1 (generated & checked by tools/gen_readings.py; CI --check blocks manual edits)
 | Reading | Value |

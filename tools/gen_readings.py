@@ -9,10 +9,14 @@
         --dart-log/--push-log/--jest-log/--kotlin-xml（测试例数，来自已跑完的套件产物；
         本脚本自己不跑测试套件 —— 跑套件是 CI 步骤 / 维护者闸门的事）
   输出：--emit [--lang zh|en] 打印 <!-- readings:v1 --> 标记块（粘贴进文档）
+  校平：--fix FILE...（2026-10-25）把文档里的标记块就地重写为当前读数；
+        文档里已有、而本次没采集到来源的键**沿用旧值**（不会因为本地没跑套件就把行删掉）
   校验：--check FILE... [--strict] 比对文档里的标记块与当前读数，漂移即红
 
 CI（analyze.yml）：末步 --check --strict 四份公开文档，并把各步产物喂给本脚本的解析器
 （--dart-log / --push-log / --jest-log / --kotlin-xml）—— 这三个解析器是例数的**唯一作者**。
+2026-10-25 起该步在 push 到仓库本体时**自动校平**：--check 见漂移就 --fix 重写四份文档的
+标记块、复核通过后回推（PR / fork 无写权限，保持判红并把 --fix 命令打进日志）。
 READINGS_<KEY> 环境变量仍占最高优先，但**只用于本地手工覆盖**；CI 不再 export 它们：
 两份作者口径不一致时会互相盖住，2026-10-24 为此连踩两次（kotlin 的相对路径 glob 恒 0；
 dart 的 grep 只取 `+N` 不含 `~S`，有用例被 skip 就把 3417 盖成 3413）。
@@ -88,6 +92,7 @@ INT_KEYS = set(UNIT_ZH) - {
 
 BLOCK_BEGIN = '<!-- readings:v1'
 BLOCK_END = '<!-- /readings -->'
+BLOCK_RE = re.compile(re.escape(BLOCK_BEGIN) + r'.*?' + re.escape(BLOCK_END), re.S)
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +272,35 @@ def norm(key, raw):
     return raw
 
 
+def cmd_fix(files, readings):
+    """把文档里的标记块就地重写为当前读数；返回实际改动的文件数。
+
+    「本次没采集到来源」的键沿用文档里已有的值 —— 本地不跑套件就 --fix 时，
+    dart/push/kotlin/jest 四类例数不会被整行删掉（那会把公开文档的表格打出一个洞）。
+    少来源这件事由 --check --strict 单独判红，不由 --fix 顺手吞掉。
+    """
+    changed = 0
+    for path in files:
+        text = Path(path).read_text(encoding='utf-8')
+        if not BLOCK_RE.search(text):
+            print('⚠ %s：未找到 readings 标记块，跳过' % path)
+            continue
+        merged = dict(readings)
+        for key, raw in parse_blocks(text):
+            if key not in merged:
+                merged[key] = norm(key, raw) if key in INT_KEYS else raw
+        block = render_block(merged, 'en' if path.endswith('-en.md') else 'zh')
+        new = BLOCK_RE.sub(lambda _m: block, text)
+        if new == text:
+            print('· %s：标记块已是最新' % path)
+            continue
+        Path(path).write_text(new, encoding='utf-8')
+        changed += 1
+        print('✍ %s：标记块已重写' % path)
+    print('fix：%d 个文件已更新' % changed)
+    return changed
+
+
 def cmd_check(files, readings, strict):
     errors = 0
     compared = 0
@@ -311,6 +345,7 @@ def main():
     ap.add_argument('--collect', action='store_true', help='打印全部可采集读数')
     ap.add_argument('--emit', action='store_true', help='打印标记块（粘贴进文档）')
     ap.add_argument('--check', nargs='+', metavar='FILE', help='校验文档中的标记块')
+    ap.add_argument('--fix', nargs='+', metavar='FILE', help='把文档中的标记块就地重写为当前读数（CI push 到本体时自动校平）')
     ap.add_argument('--strict', action='store_true', help='check 时把「无采集来源」也判红（CI 用）')
     ap.add_argument('--lang', choices=['zh', 'en'], default='zh')
     ap.add_argument('--dart-log', help='flutter test 输出日志（根工程）')
@@ -331,6 +366,10 @@ def main():
     if args.emit:
         print(render_block(readings, args.lang))
         return 0
+    if args.fix:
+        cmd_fix(args.fix, readings)
+        if not args.check:
+            return 0
     if args.check:
         sys.exit(cmd_check(args.check, readings, args.strict))
     ap.print_help()

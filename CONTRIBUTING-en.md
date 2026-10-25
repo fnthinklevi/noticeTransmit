@@ -229,8 +229,9 @@ Extra things CI does (optional locally):
 ### 8.1 Test baseline (readings table · single source)
 
 The only author of these numbers is `tools/gen_readings.py` (T182): after running the suites
-locally, regenerate this block with `--emit`; the last step of CI (analyze.yml) runs
-`--check --strict` against the four public docs, so any manual edit or drift fails the build.
+locally, regenerate this block with `--emit` / `--fix`; the last step of CI (analyze.yml) runs
+`--check --strict` against the four public docs — on pushes to the repository itself any drift is
+auto-levelled and committed back, while PR / fork runs fail the build and ask for a local `--fix`.
 Do not copy numbers by hand, and do not keep a second readings list anywhere else.
 
 <!-- readings:v1 (generated & checked by tools/gen_readings.py; CI --check blocks manual edits)

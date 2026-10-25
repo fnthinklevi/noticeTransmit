@@ -7,6 +7,10 @@ on:
     branches: [ main, master, develop ]
   workflow_dispatch:
 
+# 读数末步在 push 到仓库本体时要回推「自动校平」提交；其余步骤仍只需读权限。
+permissions:
+  contents: write
+
 jobs:
   analyze:
     name: Flutter Analyze
@@ -14,6 +18,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # 读数末步在 push 场景会把自动校平的提交回推；回推被拒时要 rebase 重试，
+          # 而浅克隆（默认 depth=1）拿不到 merge-base ⇒ 这里取全量历史。
+          fetch-depth: 0
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -152,10 +160,15 @@ jobs:
       - name: Code format check (Dart / Kotlin / JS)
         run: bash .github/scripts/check_format.sh
 
-      # 读数单一来源（T182）：四份公开文档里的 <!--k:key--> 读数块与实测对账，
-      # 漂移即红 —— 「文档读数校平」从人工批次变成 CI 拦截。
-      # --strict：某键没有采集来源（该步没跑/没导出）也判红，防环境悄悄降级成"没校验"。
-      - name: Readings drift check
+      # 读数单一来源（T182）：四份公开文档里的 <!--k:key--> 读数块与实测对账。
+      # 2026-10-25 起：push 到仓库本体时不再「判红等人工校平」，而是拿本步产物 --fix
+      # 就地重写四个标记块、复核后回推（GITHUB_TOKEN 推的提交不会再触发 workflow，天然防循环）。
+      # 理由：这 9 个「代码形状」键（例数/文件数/词条/4 个 LOC）几乎每个功能提交都会动，
+      # 判红等于每个功能提交都要跟一次人工校平 —— 与 T182「校平由闸门替代」的方向相反。
+      # PR / fork 无写权限、也不该由 CI 改别人的分支 ⇒ 保持判红，并把 --fix 命令打进日志。
+      - name: Readings drift check & auto-level
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           # 采集只有一条腿：把各步落在 workspace 里的产物喂给 gen_readings.py 自己的
           # 解析器（parse_flutter_log / parse_jest_log / parse_kotlin_xml）—— 它们是这些
@@ -175,7 +188,44 @@ jobs:
             ARGS="$ARGS --kotlin-xml $GITHUB_WORKSPACE/build/app/test-results/testDebugUnitTest"
           fi
           echo "带产物参数：${ARGS:-（无，全部依赖 READINGS_* 环境变量）}"
-          python3 tools/gen_readings.py --check README.md README-en.md CONTRIBUTING.md CONTRIBUTING-en.md --strict $ARGS
+
+          DOCS="README.md README-en.md CONTRIBUTING.md CONTRIBUTING-en.md"
+          set +e
+          python3 tools/gen_readings.py --check $DOCS --strict $ARGS
+          RC=$?
+          set -e
+          if [ $RC -eq 0 ]; then exit 0; fi
+
+          if [ "$EVENT_NAME" != "push" ]; then
+            echo "❌ 读数漂移，且本场景（event=$EVENT_NAME）不自动校平：PR / fork 的 token 无写权限。"
+            echo "— 本地跑完四套测试后执行这条重写标记块，再提交推送："
+            echo "    python3 tools/gen_readings.py --fix $DOCS"
+            exit 1
+          fi
+
+          echo "— 自动校平：用本步产物重写四份文档的读数块"
+          python3 tools/gen_readings.py --fix $DOCS $ARGS
+          if git diff --quiet -- $DOCS; then
+            echo "❌ 标记块内容未变 ⇒ 这次红的项没有采集来源，--fix 治不了；请查上面哪一步没跑/没落产物"
+            exit 1
+          fi
+          # 复核：上面 --fix 只重写标记块，若仍有「无来源」键，--strict 会在这里再红一次
+          python3 tools/gen_readings.py --check $DOCS --strict $ARGS
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $DOCS
+          git commit -m "docs(readings): CI 自动校平读数块（tools/gen_readings.py --fix）"
+          # 本作业耗时数分钟，期间可能又有提交推进了分支 ⇒ rebase 后重试（只动文档块，冲突面极小）
+          for i in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo "✅ 读数块已回写并推送（本步按自动校平判绿）"
+              exit 0
+            fi
+            echo "… 推送被拒（第 $i 次），rebase 后重试"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+          done
+          echo "❌ 自动校平推送失败（分支保护？）—— 请本地 --fix 后手动提交"
+          exit 1
 
       - name: Install lcov
         run: sudo apt-get install -y lcov

@@ -230,14 +230,14 @@
 | 状态管理 / 依赖注入 | get_it (^9.3.0) + Service 类 |
 | 本地数据库 | sqflite_sqlcipher (^3.4.1) · SQLCipher AES-256 · schema v27 / 12 张表 |
 | 键值存储 | shared_preferences (^2.5.6) · flutter_secure_storage (^10.3.1，自带 vendored 加密实现) · 原生 SecurePrefs 走 androidx.security 1.1.0 |
-| 原生服务 | Kotlin 2.4.21（Android），主源码 89 个 Kotlin 文件 |
+| 原生服务 | Kotlin 2.4.21（Android），主源码 93 个 Kotlin 文件 |
 | 网络请求 | http（Dart） / OkHttp 5.5.0（Kotlin） |
 | 邮件发送 | com.sun.mail:android-mail 1.6.7（SMTP） |
 | 通知监听 | NotificationListenerService |
-| 后台保活 | Foreground Service + 长轮询 / SSE 门铃（空闲 `/poll` hold 25s；`/stream` 健康时不常驻持锁、空闲退到 300s）；电量白名单 + 开机自启 |
+| 后台保活 | Foreground Service + 长轮询 / SSE 门铃（空闲 `/poll` hold 25s；`/stream` 健康时轮询空闲退到 300s；屏幕灭且「锁屏持续接收」开启时由服务持 `PARTIAL_WAKE_LOCK`）；电量白名单 + 开机自启 |
 | 后台任务 | workmanager ^0.10.10（每日归档 + 兜底唤醒） |
 | 协程 | kotlinx.coroutines（SupervisorJob + Dispatchers.IO） |
-| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（127 个方法 · 7 个原生 handler + 2 个 Worker） |
+| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（128 个方法 · 7 个原生 handler + 2 个 Worker） |
 | **协议契约** | `protocol/fnthink-v1.json`（单一真值）＋ `protocol/fnthink-vectors-v1.json`（跨端向量表） |
 | **共享协议包** | `packages/fnthink_push`（29 个 Dart 文件，两端与 CLI 共读同一份契约与向量） |
 | **身份与签名** | Ed25519（AndroidKeyStore 硬件背书，API 33+；30–32 走 KeyStore 包裹软件密钥） |
@@ -438,7 +438,8 @@ flutter test integration_test/smoke_test.dart
 - **设备侧测试** —— `integration_test/smoke_test.dart` 主链路冒烟（启动 → 注入 → 通知页 → 送达状态 → 历史 → 服务启停 → 导出），加 `android/app/src/androidTest` 仪器测试，由 `integration_test.yml` 在 API 34 / x86_64 / Pixel 6 模拟器上触发
 
 **读数表（单一来源）**：下面这块由 `tools/gen_readings.py` 生成与校验（T182）——
-例数 / 文件数 / LOC / 版本号不再手抄，CI（analyze.yml）末步 `--check --strict` 对四份公开文档拦漂移；数字过期 = CI 红，不再需要人工校平批次。
+例数 / 文件数 / LOC / 版本号不再手抄：CI（analyze.yml）末步 `--check --strict` 对四份公开文档对账，
+push 到仓库本体时漂移由 CI 自动校平并回写（`--fix`），PR / fork 场景判红、要求本地 `--fix`；不再需要人工校平批次。
 
 <!-- readings:v1（tools/gen_readings.py 生成与校验；手改会被 CI --check 拦下）
 | 读数 | 值 |

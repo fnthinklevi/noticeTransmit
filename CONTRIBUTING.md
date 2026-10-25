@@ -216,9 +216,9 @@ CI 额外做的事（本地可选）：
 
 ### 8.1 测试基线（读数表 · 单一来源）
 
-数字的唯一作者是 `tools/gen_readings.py`（T182）：本地跑完套件后用它 `--emit` 重新生成本块；
-CI（analyze.yml）末步对四份公开文档跑 `--check --strict`，任何手工改动/漂移直接判红 ——
-不要再手抄数字，也不要在这里之外再立第二份读数。
+数字的唯一作者是 `tools/gen_readings.py`（T182）：本地跑完套件后用它 `--emit` / `--fix` 重写本块；
+CI（analyze.yml）末步对四份公开文档跑 `--check --strict` —— push 到仓库本体时漂移由 CI 自动校平回写，
+PR / fork 场景判红、要求本地 `--fix`。不要再手抄数字，也不要在这里之外再立第二份读数。
 
 <!-- readings:v1（tools/gen_readings.py 生成与校验；手改会被 CI --check 拦下）
 | 读数 | 值 |
