@@ -12,6 +12,7 @@ import '../models/fnthink_pair_request_record.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_contract_loader.dart';
 import 'fnthink_credential_store.dart';
+import 'fnthink_diag.dart';
 import 'fnthink_grant_items.dart';
 import 'fnthink_presence_scheduler.dart';
 import 'fnthink_receive_loop.dart';
@@ -25,6 +26,13 @@ typedef FnthinkStartResult = ({bool started, String reason});
 
 /// 最近一次**成功**收取的时刻（T176 自检）。键名不带 `flutter.`：这是 Dart 自己写的。
 const String kFnthinkLastRoundAtKey = 'fnthink_last_round_at';
+
+/// T196：把一轮的结论压成诊断读数里那一格（`ok` / `failed:transport` / `rateLimited` …）。
+/// 只给状态与原因，不带标题、正文或服务地址。
+String fnthinkPollDiagStatus(FnthinkLoopReport report) {
+  final reason = report.reason?.trim() ?? '';
+  return reason.isEmpty ? report.status.name : '${report.status.name}:$reason';
+}
 
 /// 「这台已经在这台服务器上登记过」的持久标记（T180）。
 ///
@@ -716,6 +724,14 @@ class FnthinkReceiveCoordinator {
   }
 
   void _noteRound(FnthinkLoopReport report) {
+    // T196：每一发 poll 的尝试（成功或失败）都留一枚时刻与结论。只写状态与原因，
+    // 不写标题/正文；写盘失败只留日志，不许反过来影响收货。
+    unawaited(
+      markFnthinkPoll(
+        atMs: DateTime.now().millisecondsSinceEpoch,
+        status: fnthinkPollDiagStatus(report),
+      ),
+    );
     if (report.status == FnthinkPollStatus.rejectedUnsigned) {
       // 运行中的循环收到 403：服务端已经不认这台（重建过身份 / 设备表被清）。
       // 立刻把"已登记"标记作废 —— 下一次 start 会重登一次，而不是靠用户猜。

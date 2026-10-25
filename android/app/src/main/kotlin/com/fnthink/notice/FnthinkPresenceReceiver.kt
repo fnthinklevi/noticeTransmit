@@ -26,6 +26,7 @@ class FnthinkPresenceReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != FnthinkPresenceAlarm.ACTION_ROUND_DUE) return
+        FnthinkDiag.markAlarmFired(context)
         val alarm = FnthinkPresenceAlarm(context)
         val cadence = alarm.cadenceSeconds()
         Log.d(TAG, "幻念收货闹钟到点，cadence=$cadence")

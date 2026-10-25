@@ -57,6 +57,7 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
     private val roundReported = AtomicBoolean(false)
 
     override fun doWork(): Result {
+        FnthinkDiag.markWorkerStarted(applicationContext)
         val prefs =
             applicationContext.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         // 入口 handle 由 Dart 在前台写（PluginUtilities.getCallbackHandle）。键名带 `flutter.`
@@ -64,6 +65,7 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
         val handle = prefs.getLong(KEY_HANDLE, 0L)
         if (handle == 0L) {
             Log.e(TAG, "presence-round-skipped:no-entry-handle（App 还没在前台注册过后台入口）")
+            FnthinkDiag.markWorkerFinished(applicationContext, "skipped:no-handle")
             return Result.success()
         }
         mainHandler.post { startEngine(handle) }
@@ -72,12 +74,15 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
         destroyEngine()
         if (!reported) {
             Log.e(TAG, "presence-round-timeout（Dart 那一轮没在期限内交回结果）")
+            FnthinkDiag.markWorkerFinished(applicationContext, "failure:timeout")
             return Result.failure()
         }
         if (!completed) {
             Log.e(TAG, "presence-round-stopped（本轮被系统收走，Dart 没交回结果）")
+            FnthinkDiag.markWorkerFinished(applicationContext, "failure:stopped")
             return Result.failure()
         }
+        FnthinkDiag.markWorkerFinished(applicationContext, "success")
         return Result.success()
     }
 
@@ -86,6 +91,7 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
         // 这一条与 `roundDone` 是两件事：放行 latch 只负责叫醒 `doWork`，
         // 它是不是"跑完了"由 [roundReported] 回答。
         Log.w(TAG, "presence-round-stopped（系统收走本轮）")
+        FnthinkDiag.markWorkerFinished(applicationContext, "stopped")
         finished.countDown()
         destroyEngine()
     }

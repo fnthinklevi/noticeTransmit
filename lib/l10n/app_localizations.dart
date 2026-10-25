@@ -8005,6 +8005,77 @@ abstract class AppLocalizations {
   /// **'后台任务：收货 {presenceWork} · 转发 {fanoutWork} · 待发 {queue} 条'**
   String fnthinkWorkChain(Object fanoutWork, Object presenceWork, Object queue);
 
+  /// No description provided for @fnthinkDiagAlarmAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次闹钟触发：{time}'**
+  String fnthinkDiagAlarmAt(String time);
+
+  /// No description provided for @fnthinkDiagAlarmNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次闹钟触发：还没有记录'**
+  String get fnthinkDiagAlarmNever;
+
+  /// No description provided for @fnthinkDiagWorkerAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次后台一轮：{result} · {time}'**
+  String fnthinkDiagWorkerAt(String result, String time);
+
+  /// No description provided for @fnthinkDiagWorkerNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次后台一轮：还没有记录'**
+  String get fnthinkDiagWorkerNever;
+
+  /// No description provided for @fnthinkDiagPollAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次 poll：{time} · {status}'**
+  String fnthinkDiagPollAt(String time, String status);
+
+  /// No description provided for @fnthinkDiagPollNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次 poll：还没有记录'**
+  String get fnthinkDiagPollNever;
+
+  /// No description provided for @fnthinkDiagStreamAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次 SSE 字节：{time}'**
+  String fnthinkDiagStreamAt(String time);
+
+  /// No description provided for @fnthinkDiagStreamNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次 SSE 字节：还没有记录'**
+  String get fnthinkDiagStreamNever;
+
+  /// No description provided for @fnthinkDiagSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统：Doze {doze} · 电池优化已忽略 {battery} · 省电 {powerSave} · 精确闹钟 {exact}'**
+  String fnthinkDiagSystem(
+    String doze,
+    String battery,
+    String powerSave,
+    String exact,
+  );
+
+  /// No description provided for @fnthinkDiagYes.
+  ///
+  /// In zh, this message translates to:
+  /// **'是'**
+  String get fnthinkDiagYes;
+
+  /// No description provided for @fnthinkDiagNo.
+  ///
+  /// In zh, this message translates to:
+  /// **'否'**
+  String get fnthinkDiagNo;
+
   /// No description provided for @fnthinkExactAlarmMissing.
   ///
   /// In zh, this message translates to:

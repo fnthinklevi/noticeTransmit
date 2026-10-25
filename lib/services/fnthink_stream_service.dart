@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
 
+import 'fnthink_diag.dart';
 import 'fnthink_receiver_service.dart';
 
 /// SSE 门铃（T185 第二步）。
@@ -110,6 +111,10 @@ class FnthinkStreamService {
       _setHealthy(true);
       _attempt = 0;
       _buffer.clear();
+      // T196：连接建立/每一块字节都留一枚时刻，原生自检据此回答"门铃最后一次有动静是什么时候"。
+      unawaited(
+        markFnthinkStreamByte(atMs: DateTime.now().millisecondsSinceEpoch),
+      );
       _sub = connection.body
           .transform(utf8.decoder)
           .listen(
@@ -130,6 +135,9 @@ class FnthinkStreamService {
 
   /// 一块一块地解 SSE：事件之间用空行分隔，`:` 开头的是心跳注释（忽略）。
   void _consume(String chunk) {
+    unawaited(
+      markFnthinkStreamByte(atMs: DateTime.now().millisecondsSinceEpoch),
+    );
     // SSE 行尾允许 \r\n；去掉 \r 之后按 \n\n 分块。
     _buffer.write(chunk.replaceAll('\r', ''));
     var text = _buffer.toString();

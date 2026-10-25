@@ -4668,6 +4668,68 @@ void main() {
       );
     });
 
+    testWidgets('T196 自检：四格读数来自原生 diag；缺格不冒充有记录', (tester) async {
+      final at = DateTime(2026, 10, 25, 9, 30, 0).millisecondsSinceEpoch;
+      stubChannels(
+        presenceStatus: () => {
+          'nextRoundAt': at + 20000,
+          'cadenceSeconds': 20,
+          'everArmedAt': at,
+          'diag': {
+            'lastAlarmFiredAt': at,
+            'lastWorkerStartedAt': at - 1000,
+            'lastWorkerFinishedAt': at,
+            'lastWorkerResult': 'success',
+            'lastPollAt': at - 2000,
+            'lastPollStatus': 'ok',
+            'lastStreamByteAt': at - 20000,
+            'deviceIdle': true,
+            'batteryOptimizationIgnored': false,
+            'powerSaveMode': false,
+            'exactAlarmAllowed': true,
+          },
+        },
+      );
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      final expected = <(String, String)>[
+        ('fnthink-diag-alarm', l10n.fnthinkDiagAlarmAt('09:30:00')),
+        (
+          'fnthink-diag-worker',
+          l10n.fnthinkDiagWorkerAt('success', '09:30:00'),
+        ),
+        ('fnthink-diag-poll', l10n.fnthinkDiagPollAt('09:29:58', 'ok')),
+        ('fnthink-diag-stream', l10n.fnthinkDiagStreamAt('09:29:40')),
+        (
+          'fnthink-diag-system',
+          l10n.fnthinkDiagSystem(
+            l10n.fnthinkDiagYes,
+            l10n.fnthinkDiagNo,
+            l10n.fnthinkDiagNo,
+            l10n.fnthinkDiagYes,
+          ),
+        ),
+      ];
+      for (final (key, text) in expected) {
+        final row = find.byKey(ValueKey(key));
+        await revealTo(tester, row);
+        expect(find.text(text), findsOneWidget, reason: key);
+      }
+    });
+
+    testWidgets('T196 自检：旧原生没有 diag 格 ⇒ 这一块不画', (tester) async {
+      stubChannels(
+        presenceStatus: () => {'nextRoundAt': 1, 'cadenceSeconds': 20},
+      );
+      final h = harness();
+      await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('fnthink-diag-alarm')), findsNothing);
+      expect(find.byKey(const ValueKey('fnthink-diag-system')), findsNothing);
+    });
+
     testWidgets('退避中 ⇒ 不把退避当常态间隔；单起一行，且「立即收取」禁用（T180）', (tester) async {
       final now = DateTime.now().millisecondsSinceEpoch;
       stubChannels(

@@ -7,6 +7,7 @@ import com.fnthink.notice.CallLogSearch
 import com.fnthink.notice.CameraSnap
 import com.fnthink.notice.ContactSearch
 import com.fnthink.notice.FnthinkAlertDisplay
+import com.fnthink.notice.FnthinkDiag
 import com.fnthink.notice.FnthinkFanoutQueue
 import com.fnthink.notice.FnthinkFanoutWorker
 import com.fnthink.notice.FnthinkIdentityStore
@@ -261,6 +262,9 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                             "presenceWork" to workState(FnthinkPresenceWorker.UNIQUE_WORK),
                             "fanoutWork" to workState(FnthinkFanoutWorker.UNIQUE_WORK),
                             "fanoutQueue" to FnthinkFanoutQueue(context).pendingCount(),
+                            // T196：后台收货的只读诊断快照。单独一格里放，
+                            // 免得以后每加一枚读数就把 status 顶层再撑宽一格。
+                            "diag" to FnthinkDiag.snapshot(context),
                         ),
                     )
                 }

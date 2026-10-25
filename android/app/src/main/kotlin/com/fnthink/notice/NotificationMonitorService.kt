@@ -102,6 +102,7 @@ class NotificationMonitorService : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "Service created")
+        FnthinkDiag.markServiceStarted(this)
 
         monitoringEnabled = readMonitoringEnabled()
 

@@ -4655,6 +4655,54 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String fnthinkDiagAlarmAt(String time) {
+    return 'Last alarm fired: $time';
+  }
+
+  @override
+  String get fnthinkDiagAlarmNever => 'Last alarm fired: no record yet';
+
+  @override
+  String fnthinkDiagWorkerAt(String result, String time) {
+    return 'Last background round: $result · $time';
+  }
+
+  @override
+  String get fnthinkDiagWorkerNever => 'Last background round: no record yet';
+
+  @override
+  String fnthinkDiagPollAt(String time, String status) {
+    return 'Last poll: $time · $status';
+  }
+
+  @override
+  String get fnthinkDiagPollNever => 'Last poll: no record yet';
+
+  @override
+  String fnthinkDiagStreamAt(String time) {
+    return 'Last SSE byte: $time';
+  }
+
+  @override
+  String get fnthinkDiagStreamNever => 'Last SSE byte: no record yet';
+
+  @override
+  String fnthinkDiagSystem(
+    String doze,
+    String battery,
+    String powerSave,
+    String exact,
+  ) {
+    return 'System: Doze $doze · battery optimization ignored $battery · power save $powerSave · exact alarm $exact';
+  }
+
+  @override
+  String get fnthinkDiagYes => 'Yes';
+
+  @override
+  String get fnthinkDiagNo => 'No';
+
+  @override
   String get fnthinkExactAlarmMissing =>
       'Exact alarms not granted: background fetches may be late.';
 

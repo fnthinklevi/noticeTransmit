@@ -4425,6 +4425,54 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String fnthinkDiagAlarmAt(String time) {
+    return '上次闹钟触发：$time';
+  }
+
+  @override
+  String get fnthinkDiagAlarmNever => '上次闹钟触发：还没有记录';
+
+  @override
+  String fnthinkDiagWorkerAt(String result, String time) {
+    return '上次后台一轮：$result · $time';
+  }
+
+  @override
+  String get fnthinkDiagWorkerNever => '上次后台一轮：还没有记录';
+
+  @override
+  String fnthinkDiagPollAt(String time, String status) {
+    return '上次 poll：$time · $status';
+  }
+
+  @override
+  String get fnthinkDiagPollNever => '上次 poll：还没有记录';
+
+  @override
+  String fnthinkDiagStreamAt(String time) {
+    return '上次 SSE 字节：$time';
+  }
+
+  @override
+  String get fnthinkDiagStreamNever => '上次 SSE 字节：还没有记录';
+
+  @override
+  String fnthinkDiagSystem(
+    String doze,
+    String battery,
+    String powerSave,
+    String exact,
+  ) {
+    return '系统：Doze $doze · 电池优化已忽略 $battery · 省电 $powerSave · 精确闹钟 $exact';
+  }
+
+  @override
+  String get fnthinkDiagYes => '是';
+
+  @override
+  String get fnthinkDiagNo => '否';
+
+  @override
   String get fnthinkExactAlarmMissing => '精确闹钟未授权：后台收取可能晚到。';
 
   @override

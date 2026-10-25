@@ -320,6 +320,22 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
     return '${two(at.hour)}:${two(at.minute)}:${two(at.second)}';
   }
 
+  /// T196：后台一轮的读数。优先用结束时刻；还在跑时用开始时刻并把结果读成 `running`。
+  /// 两个时刻都是 0 才是真的"还没有记录"。
+  String _diagWorkerText(AppLocalizations l10n, FnthinkDiagSnapshot diag) {
+    final at = diag.lastWorkerFinishedAt > 0
+        ? diag.lastWorkerFinishedAt
+        : diag.lastWorkerStartedAt;
+    if (at <= 0) return l10n.fnthinkDiagWorkerNever;
+    final result = diag.lastWorkerResult.isEmpty
+        ? 'running'
+        : diag.lastWorkerResult;
+    return l10n.fnthinkDiagWorkerAt(result, _presenceClock(at));
+  }
+
+  String _diagBool(AppLocalizations l10n, bool value) =>
+      value ? l10n.fnthinkDiagYes : l10n.fnthinkDiagNo;
+
   /// 那一行落在哪一档（T140 层2 察）。判据的**唯一作者**是 `judgePresenceLiveness`：
   /// 页面只把手上那三份事实交进去，不在这儿自己比 `nextRoundAt == 0` —— 那一比就会长出
   /// 第二份"什么叫死了"，而它和原生的 cancel 语义迟早漂开（cancel 把 cadence 也清了）。
@@ -777,6 +793,46 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
               _presence!.fanoutQueue,
             ),
           ),
+        // T196：最后一层到底走到哪一步。旧原生没有 `diag` 这一格 ⇒ 整块不画；
+        // 有这一格但某一格是 0/空 ⇒ 说"还没有记录"，不把它读成"刚刚发生过"。
+        if (_presence?.diag case final FnthinkDiagSnapshot diag) ...[
+          FnthinkNote(
+            keyName: 'fnthink-diag-alarm',
+            text: diag.lastAlarmFiredAt > 0
+                ? l10n.fnthinkDiagAlarmAt(_presenceClock(diag.lastAlarmFiredAt))
+                : l10n.fnthinkDiagAlarmNever,
+          ),
+          FnthinkNote(
+            keyName: 'fnthink-diag-worker',
+            text: _diagWorkerText(l10n, diag),
+          ),
+          FnthinkNote(
+            keyName: 'fnthink-diag-poll',
+            text: diag.lastPollAt > 0
+                ? l10n.fnthinkDiagPollAt(
+                    _presenceClock(diag.lastPollAt),
+                    diag.lastPollStatus.isEmpty ? '—' : diag.lastPollStatus,
+                  )
+                : l10n.fnthinkDiagPollNever,
+          ),
+          FnthinkNote(
+            keyName: 'fnthink-diag-stream',
+            text: diag.lastStreamByteAt > 0
+                ? l10n.fnthinkDiagStreamAt(
+                    _presenceClock(diag.lastStreamByteAt),
+                  )
+                : l10n.fnthinkDiagStreamNever,
+          ),
+          FnthinkNote(
+            keyName: 'fnthink-diag-system',
+            text: l10n.fnthinkDiagSystem(
+              _diagBool(l10n, diag.deviceIdle),
+              _diagBool(l10n, diag.batteryOptimizationIgnored),
+              _diagBool(l10n, diag.powerSaveMode),
+              _diagBool(l10n, diag.exactAlarmAllowed),
+            ),
+          ),
+        ],
         // 缺授权时给路径，不替用户调：这两项都要跳系统页，回来由生命周期重读。
         if (_exactAlarmGranted == false) ...[
           FnthinkNote(

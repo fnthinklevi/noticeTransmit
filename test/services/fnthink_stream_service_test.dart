@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
 import 'package:notice_transmit/services/fnthink_stream_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// T185 第二步：SSE 门铃。
 ///
@@ -14,6 +15,7 @@ import 'package:notice_transmit/services/fnthink_stream_service.dart';
 ///  ③ 断了要**换新票**重连（票是一次性的），退避期间不叠出第二条连接。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   final contract = FnthinkContract.readFile();
 
   Future<void> flush() =>

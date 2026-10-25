@@ -2533,6 +2533,67 @@
   "fnthinkLastRoundAt": "Last successful fetch: {time}",
   "fnthinkLastRoundNever": "Last successful fetch: no record yet",
   "fnthinkWorkChain": "Background tasks: fetch {presenceWork} · fanout {fanoutWork} · {queue} queued",
+  "fnthinkDiagAlarmAt": "Last alarm fired: {time}",
+  "@fnthinkDiagAlarmAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkDiagAlarmNever": "Last alarm fired: no record yet",
+  "fnthinkDiagWorkerAt": "Last background round: {result} · {time}",
+  "@fnthinkDiagWorkerAt": {
+    "placeholders": {
+      "result": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkDiagWorkerNever": "Last background round: no record yet",
+  "fnthinkDiagPollAt": "Last poll: {time} · {status}",
+  "@fnthinkDiagPollAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkDiagPollNever": "Last poll: no record yet",
+  "fnthinkDiagStreamAt": "Last SSE byte: {time}",
+  "@fnthinkDiagStreamAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkDiagStreamNever": "Last SSE byte: no record yet",
+  "fnthinkDiagSystem": "System: Doze {doze} · battery optimization ignored {battery} · power save {powerSave} · exact alarm {exact}",
+  "@fnthinkDiagSystem": {
+    "placeholders": {
+      "doze": {
+        "type": "String"
+      },
+      "battery": {
+        "type": "String"
+      },
+      "powerSave": {
+        "type": "String"
+      },
+      "exact": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkDiagYes": "Yes",
+  "fnthinkDiagNo": "No",
   "fnthinkExactAlarmMissing": "Exact alarms not granted: background fetches may be late.",
   "fnthinkBatteryOptMissing": "Battery optimization not ignored: the system may limit background fetches.",
   "fnthinkGrantNow": "Grant",

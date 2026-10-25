@@ -173,21 +173,7 @@ class FnthinkPresenceScheduler {
     final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>(
       'fnthinkPresenceStatus',
     );
-    return FnthinkPresenceStatus(
-      nextRoundAt: (raw?['nextRoundAt'] as num?)?.toInt() ?? 0,
-      cadenceSeconds: (raw?['cadenceSeconds'] as num?)?.toInt() ?? 0,
-      // 旧原生没有这一格 ⇒ 0（按常态节奏处理，不凭空造一个退避）。
-      backoffSeconds: (raw?['backoffSeconds'] as num?)?.toInt() ?? 0,
-      everArmedAt: (raw?['everArmedAt'] as num?)?.toInt() ?? 0,
-      // T176：两条 WorkManager 链与待发条数。旧原生没有这三格 ⇒ 空串 / 0，
-      // 页面据此说"读不到"，不编一个 `none`。
-      presenceWork: '${raw?['presenceWork'] ?? ''}',
-      fanoutWork: '${raw?['fanoutWork'] ?? ''}',
-      fanoutQueue: (raw?['fanoutQueue'] as num?)?.toInt() ?? 0,
-      liveMode: raw?['liveMode'] == true,
-      liveSeconds: (raw?['liveSeconds'] as num?)?.toInt() ?? 0,
-      wakeLock: raw?['wakeLock'] == true,
-    );
+    return FnthinkPresenceStatus.fromMap(raw);
   }
 }
 
@@ -227,6 +213,61 @@ FnthinkPresenceLiveness judgePresenceLiveness({
       : FnthinkPresenceLiveness.pendingFirstRound;
 }
 
+/// T196：原生 `FnthinkDiag.snapshot()` 的那一份只读读数。
+///
+/// `null`（旧原生没有 `diag` 这一格）与"全 0"必须分开：前者是"这一版读不到"，
+/// 后者是"读得到，但确实还没有记录"。页面据此决定画不画这一块，不许把两者混成一句。
+class FnthinkDiagSnapshot {
+  const FnthinkDiagSnapshot({
+    this.lastAlarmFiredAt = 0,
+    this.lastWorkerStartedAt = 0,
+    this.lastWorkerFinishedAt = 0,
+    this.lastWorkerResult = '',
+    this.lastPollAt = 0,
+    this.lastPollStatus = '',
+    this.lastStreamByteAt = 0,
+    this.serviceStartedAt = 0,
+    this.processStartedAt = 0,
+    this.deviceIdle = false,
+    this.batteryOptimizationIgnored = false,
+    this.powerSaveMode = false,
+    this.exactAlarmAllowed = false,
+  });
+
+  factory FnthinkDiagSnapshot.fromMap(Map<dynamic, dynamic> raw) {
+    int ms(String key) => (raw[key] as num?)?.toInt() ?? 0;
+    return FnthinkDiagSnapshot(
+      lastAlarmFiredAt: ms('lastAlarmFiredAt'),
+      lastWorkerStartedAt: ms('lastWorkerStartedAt'),
+      lastWorkerFinishedAt: ms('lastWorkerFinishedAt'),
+      lastWorkerResult: '${raw['lastWorkerResult'] ?? ''}',
+      lastPollAt: ms('lastPollAt'),
+      lastPollStatus: '${raw['lastPollStatus'] ?? ''}',
+      lastStreamByteAt: ms('lastStreamByteAt'),
+      serviceStartedAt: ms('serviceStartedAt'),
+      processStartedAt: ms('processStartedAt'),
+      deviceIdle: raw['deviceIdle'] == true,
+      batteryOptimizationIgnored: raw['batteryOptimizationIgnored'] == true,
+      powerSaveMode: raw['powerSaveMode'] == true,
+      exactAlarmAllowed: raw['exactAlarmAllowed'] == true,
+    );
+  }
+
+  final int lastAlarmFiredAt;
+  final int lastWorkerStartedAt;
+  final int lastWorkerFinishedAt;
+  final String lastWorkerResult;
+  final int lastPollAt;
+  final String lastPollStatus;
+  final int lastStreamByteAt;
+  final int serviceStartedAt;
+  final int processStartedAt;
+  final bool deviceIdle;
+  final bool batteryOptimizationIgnored;
+  final bool powerSaveMode;
+  final bool exactAlarmAllowed;
+}
+
 class FnthinkPresenceStatus {
   const FnthinkPresenceStatus({
     required this.nextRoundAt,
@@ -239,7 +280,30 @@ class FnthinkPresenceStatus {
     this.liveMode = false,
     this.liveSeconds = 0,
     this.wakeLock = false,
+    this.diag,
   });
+
+  /// 原生 `fnthinkPresenceStatus` 的读法**只有这一处**：页面与测试都从这里拿，
+  /// 不许各自再抄一份键名映射（旧原生缺的格子按 0/空串落，不补一个猜的值）。
+  factory FnthinkPresenceStatus.fromMap(Map<dynamic, dynamic>? raw) {
+    final diagRaw = raw?['diag'];
+    return FnthinkPresenceStatus(
+      nextRoundAt: (raw?['nextRoundAt'] as num?)?.toInt() ?? 0,
+      cadenceSeconds: (raw?['cadenceSeconds'] as num?)?.toInt() ?? 0,
+      // 旧原生没有这一格 ⇒ 0（按常态节奏处理，不凭空造一个退避）。
+      backoffSeconds: (raw?['backoffSeconds'] as num?)?.toInt() ?? 0,
+      everArmedAt: (raw?['everArmedAt'] as num?)?.toInt() ?? 0,
+      // T176：两条 WorkManager 链与待发条数。旧原生没有这三格 ⇒ 空串 / 0，
+      // 页面据此说"读不到"，不编一个 `none`。
+      presenceWork: '${raw?['presenceWork'] ?? ''}',
+      fanoutWork: '${raw?['fanoutWork'] ?? ''}',
+      fanoutQueue: (raw?['fanoutQueue'] as num?)?.toInt() ?? 0,
+      liveMode: raw?['liveMode'] == true,
+      liveSeconds: (raw?['liveSeconds'] as num?)?.toInt() ?? 0,
+      wakeLock: raw?['wakeLock'] == true,
+      diag: diagRaw is Map ? FnthinkDiagSnapshot.fromMap(diagRaw) : null,
+    );
+  }
 
   /// 下一轮被排在什么时候（毫秒）。0 = 没排。
   final int nextRoundAt;
@@ -275,6 +339,9 @@ class FnthinkPresenceStatus {
 
   /// 转发待发队列里还有几条（T175 的队列）。
   final int fanoutQueue;
+
+  /// T196：后台收货的只读诊断读数。null = 旧原生没有这一格（页面不画）。
+  final FnthinkDiagSnapshot? diag;
 
   bool get armed => nextRoundAt > 0;
 }
