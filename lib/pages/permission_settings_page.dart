@@ -590,6 +590,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     final steps = [
       (l10n.keepAliveStep1, widget.onRequestBatteryOptimization),
       (l10n.keepAliveStep2, vendorJump),
+      // T185：荣耀 MagicOS / 华为 EMUI 官方要求「自启动 + 关联启动 + 后台运行」三件齐，
+      // 少这一条时用户开完自启动仍会被系统挡住（飞书官方帮助页也把这三项分行列出）。
+      (l10n.keepAliveStepAssoc, vendorJump),
       (l10n.keepAliveStep3, vendorJump),
       (l10n.keepAliveStep4, widget.onRequestNotificationListenerPermission),
     ];

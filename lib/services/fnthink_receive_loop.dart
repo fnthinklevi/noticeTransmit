@@ -43,12 +43,32 @@ class FnthinkReceiveLoop {
     int Function()? nowMs,
     Timer Function(Duration delay, void Function() callback)? schedule,
     this.clampDelay,
+    this.pollNow,
+    this.cancelPoll,
+    this.onStart,
+    this.onStop,
     this.onRound,
   }) : nowMs = nowMs ?? _systemNowMs,
        schedule = schedule ?? _defaultSchedule;
 
   /// 一次取货（生产实现是 [FnthinkReceiverService.pollOnce] 的 tear-off）。
   final Future<FnthinkReceiveOutcome> Function() poll;
+
+  /// 「立即收取」那一发（T185）。null = 与 [poll] 同一条路。
+  ///
+  /// 它存在的唯一理由：长轮询的 [poll] 会被服务端 hold 到契约的 `waitSeconds`，
+  /// 而用户在页面上点「立即收取」时要的是**立刻**看到结果 —— 15 秒后按钮才转完
+  /// 与「按钮坏了」在屏幕上长得一样。
+  final Future<FnthinkReceiveOutcome> Function()? pollNow;
+
+  /// 取消正在 hold 的 [poll]（T185）。手动那一轮在 `_inRound` 时先用它把那一发叫停，
+  /// 再等它退出来跑真正的手动轮 —— 否则用户点「立即收取」只能看着按钮转到 25 秒后。
+  final Future<void> Function()? cancelPoll;
+
+  /// 循环起停的副作用（T185 第二步：SSE 门铃的开/关随循环走）。
+  /// null = 这一台没有门铃（后台那一轮 / 测试里的裸循环）。
+  final Future<void> Function()? onStart;
+  final void Function()? onStop;
 
   /// 回一条送达结论（同上，`ack` 的边界在内核判：词表、本轮、不重复）。
   final Future<FnthinkAckResult> Function(String messageId, String result) ack;
@@ -118,12 +138,18 @@ class FnthinkReceiveLoop {
   bool _wantRunning = false;
   bool _inRound = false;
 
+  /// 在途那一轮什么时候退出来（T185）。手动那一轮用它等被叫停的 hold 收尾。
+  Completer<void>? _roundDone;
+
   bool get isRunning => _wantRunning;
 
   /// 开始循环：立刻跑一轮，之后每轮按内核给的间隔排下一轮。重复调用不会叠出第二个循环。
   void start() {
     if (_wantRunning) return;
     _wantRunning = true;
+    // T185：SSE 门铃随循环起停；它不阻塞第一轮（连不上就自己退避重试）。
+    final hook = onStart;
+    if (hook != null) unawaited(hook());
     _tick();
   }
 
@@ -132,6 +158,7 @@ class FnthinkReceiveLoop {
     _wantRunning = false;
     _timer?.cancel();
     _timer = null;
+    onStop?.call();
   }
 
   void _tick() {
@@ -163,27 +190,60 @@ class FnthinkReceiveLoop {
   static Duration get _fallbackDelay => const Duration(seconds: 60);
 
   /// 一轮。公开出来是给调用方（页面手动"立即收取"、测试）一个不带定时器的入口。
-  Future<FnthinkLoopReport> runOnce() async {
+  ///
+  /// [manual]（T185）：true = 用户点的「立即收取」那一发，走 [pollNow]（不 hold）。
+  /// 定时器那一轮与手动那一轮共用同一套顺序与后果，差别只在"这次要不要等"。
+  Future<FnthinkLoopReport> runOnce({bool manual = false}) async {
     if (_inRound) {
-      // 上一轮还没结束 ⇒ 这一轮**整轮跳过**，不做任何 IO，也不动 ack 计数。
-      // 排回去也得等一会儿：拿 Duration.zero 排就等于把"跳过"变成一台空转的马达。
-      return FnthinkLoopReport(
-        status: FnthinkPollStatus.failed,
-        reason: 'round-in-progress',
-        nextDelay: _fallbackDelay,
-        skipped: true,
-      );
+      // 定时器那一轮撞上在途 ⇒ **整轮跳过**，不做任何 IO，也不动 ack 计数。
+      if (!manual) {
+        return FnthinkLoopReport(
+          status: FnthinkPollStatus.failed,
+          reason: 'round-in-progress',
+          nextDelay: _fallbackDelay,
+          skipped: true,
+        );
+      }
+      // 手动那一轮（T185）：先叫停在途的长轮询，等那一轮退出来再跑真的那一轮。
+      // 不叫停的话，用户点一下要等整个 hold（25 秒）结束 —— 屏幕上就是按钮坏了。
+      //
+      // ⚠ 没有 cancelPoll 的装配（裸循环 / 老装配）沿用**整轮跳过**：那份账至少是真话
+      //   （"正在收，这一轮的结局马上见"），而不是等一个没人能叫停的 hold。
+      final cancel = cancelPoll;
+      if (cancel == null) {
+        return FnthinkLoopReport(
+          status: FnthinkPollStatus.failed,
+          reason: 'round-in-progress',
+          nextDelay: _fallbackDelay,
+          skipped: true,
+        );
+      }
+      await cancel();
+      await _roundDone?.future;
+      if (_inRound) {
+        // 叫停之后又被另一轮抢到了（两次手动同时来）：这一发仍按跳过处理。
+        return FnthinkLoopReport(
+          status: FnthinkPollStatus.failed,
+          reason: 'round-in-progress',
+          nextDelay: _fallbackDelay,
+          skipped: true,
+        );
+      }
     }
     _inRound = true;
+    final done = Completer<void>();
+    _roundDone = done;
     try {
-      return await _runRound();
+      return await _runRound(manual: manual);
     } finally {
       _inRound = false;
+      done.complete();
+      if (identical(_roundDone, done)) _roundDone = null;
     }
   }
 
-  Future<FnthinkLoopReport> _runRound() async {
-    final outcome = await poll();
+  Future<FnthinkLoopReport> _runRound({required bool manual}) async {
+    final outcome = await (manual ? (pollNow ?? poll) : poll)();
     if (outcome.status != FnthinkPollStatus.ok) {
       // 一次失败的取货不产生任何"这条没了"的判断（五种失败的下一步在内核里分过类）。
       return FnthinkLoopReport(

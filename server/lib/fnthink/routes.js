@@ -104,9 +104,69 @@ const {
 } = require('./messagestore');
 const { createEndpointIngress, readIngress } = require('./endpointintake');
 const versionEcho = require('./version_echo');
+const { waitForDevice, wakeDevice, onWake } = require('./waiters');
+const { issueTicket, consumeTicket } = require('./streams');
 
 const contract = assertSupported(loadContract());
 const router = express.Router();
+
+// T185：长轮询那一段（缺段 = 关）。所有数字与头名只从契约读。
+const LONG_POLL = (contract.presence || {}).longPoll || {};
+/// T185 第二步：SSE 门铃那一段（缺段 = 关）。
+const STREAM = (contract.presence || {}).stream || {};
+
+/// 这次 poll 要 hold 多少毫秒。0 = 立刻回答（旧客户端 / 手动「立即收取」都不带这枚头）。
+///
+/// ⚠ 用请求头而不是往签名载荷里加键：`signature.canonicalOrder` 是固定六键。头只决定
+///   「这次要不要等」，不参与权限、送达结论与签名。
+function requestedWaitMs(req) {
+  if (LONG_POLL.enabled !== true) return 0;
+  const header = String(LONG_POLL.requestHeader || '').toLowerCase();
+  const max = Number(LONG_POLL.maxWaitSeconds || 0);
+  if (header === '' || !Number.isFinite(max) || max <= 0) return 0;
+  const raw = Number(req.get(header));
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.min(raw, max) * 1000;
+}
+
+/// 一台设备在 poll 响应里"看见新东西"的判据：新消息、新回执，或**配对面发生了变化**。
+///
+/// ⚠ 配对面不能整体当判据：待答复的请求与"我发起过的（含终态）"每一轮都会原样回来 ——
+///   拿「列表非空」当有货，会让每个带待答复请求的设备都永远 hold 不住。这里比的是
+///   与请求开始时那份快照的**差集**（新 id 或状态变了），而不是列表长度。
+function faceKeys(payload) {
+  return new Set([
+    ...payload.incoming.map((row) => 'i:' + JSON.stringify(row)),
+    ...payload.outgoing.map((row) => 'o:' + JSON.stringify(row)),
+  ]);
+}
+
+function hasNews(payload, baselineFaces) {
+  if (payload.messages.length > 0 || payload.receipts.length > 0) return true;
+  for (const key of faceKeys(payload)) {
+    if (!baselineFaces.has(key)) return true;
+  }
+  return false;
+}
+
+/// 这次 poll 是不是「只换一张 SSE 票」（T185 第二步）。
+///
+/// 换票走的是**同一条签名 poll 事件**、同一个 `/poll` 入口：不新增一种 clientEvent，
+/// 也不动签名链。它只多带一枚请求头，服务端见头就只发票、不取货（否则换票会顺手把
+/// 一条消息拿走，而客户端那一侧没有经过落库/ack 的顺序）。
+function streamTicketOnly(req) {
+  if (STREAM.enabled !== true) return false;
+  const header = String(STREAM.ticketRequestHeader || '').toLowerCase();
+  if (header === '') return false;
+  return String(req.get(header) || '') === '1';
+}
+
+/// 票的有效期（毫秒）。数字只从契约读；缺/非法时返回 0（调用方不发票）。
+function streamTicketTtlMs() {
+  const seconds = Number(STREAM.ticketTtlSeconds || 0);
+  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+  return Math.floor(seconds) * 1000;
+}
 // 按**已证明的发送方地址**计的配额（#130-A2）：计额点只能在验签之后 ——
 // 请求体里那个 sender 在验签之前只是字符串，按它计额的后果是 DoS 转移（攻击者拿别人的地址
 // 把受害者顶到 429）。所以它出现在下面每条路由的 `auth.ok` 之后、业务副作用之前。
@@ -327,6 +387,9 @@ router.post(
       process.env.ENCRYPTION_KEY,
     );
     saveMessages(messages);
+    // T185：这一条是给**对端**排的队 ⇒ 叫醒对端正在 hold 的那一发 poll。
+    // 没有它，消息最多晚一个 wait（25s）才被看见 —— 功能不坏，但长轮询的意义少了一半。
+    wakeDevice(normalize(alphabetFromContract(contract), result.message.device));
     if (result.evictionBlocked) {
       // 上限超着但一条都挤不动（都在飞 / 在等对端上线）：这不是错误，是**额度算不到在飞的这些**。
       // 不写这一行，运维下次看到的就只有"这台怎么堆了这么多条"，而没有任何地方说过为什么。
@@ -361,75 +424,187 @@ router.post(
     }
 
     if (rejectIfOverQuota(res, 'poll', auth.sender)) return;
+    // 到达即心跳（T185）：长轮询会 hold 一段时间，`lastSeenAt` 必须在**请求到达**时刷新，
+    // 不能等 hold 结束 —— 否则对端在这 25 秒里会把这台看成离线。
     touchDevice(contract, state.devices, auth.sender, now);
-    const messages = loadMessages();
-    // 到期扫描放在取货之前：过期的那条不该再被当成"待投"下发（正文也按契约已释放）。
-    expireDueMessages(contract, messages, now);
-    // 「取走了没等到 ack」的恢复也必须排在取货**之前**：扫一次把过期的 delivering 推回 queued，
-    // 同一轮 dispatch 就能把它再发出去 —— 晚一步就等于多等一个 cadence，而这一档要消灭的
-    // 正是"取走了却再也没人发"（见 messagestore.requeueUnackedStale 与 delivery.ackDeadlineSeconds）。
-    requeueUnackedStale(contract, messages, auth.sender, now);
-    const dispatched = dispatchForDevice(contract, messages, auth.sender, now);
 
-    const out = [];
-    for (const taken of dispatched.taken) {
-      const record = messages[taken.messageId];
-      let content;
-      try {
-        content = decryptBodyFor(contract, process.env.ENCRYPTION_KEY, record.body);
-      } catch (e) {
-        // 解不开几乎总是 ENCRYPTION_KEY 被轮换过（旧密文是旧密钥封的）。整条 poll 失败
-        // 是对的（fail-closed：宁可设备什么都取不到，也不把一条解不出的消息静默跳过——
-        // 跳过就等于替发送方宣布"这条没发过"），但错误必须点名是哪一条、哪台设备：
-        // 否则运维在日志里只看到一句"服务器内部错误"，而那条消息会一直卡到过期，
-        // 并且每一轮 poll 再炸一次。
-        console.error(
-          `[fnthink:poll] 正文解密失败 device=${auth.sender} messageId=${record.messageId}: ${e.message}`,
-        );
-        throw e;
-      }
-      out.push(projectForPoll(record, content));
+    // SSE 换票（T185 第二步）：只发票，不取货、不 hold。与取货共用同一个 /poll
+    // 是刻意的 —— 不新增一种 clientEvent、不动签名链，票只为「GET 连接」服务。
+    if (streamTicketOnly(req)) {
+      const ttlMs = streamTicketTtlMs();
+      const ticket = ttlMs > 0 ? issueTicket(auth.sender, ttlMs, now) : null;
+      return res.status(200).json({
+        ...(ticket
+          ? {
+              [STREAM.ticketField]: ticket,
+              [STREAM.ticketExpiresField]: now + ttlMs,
+            }
+          : {}),
+        serverTime: now,
+      });
     }
-    const receipts = receiptsForSender(
-      contract,
-      messages,
-      auth.sender,
-      now,
-      contract.clientEvents.poll.maxBatchPerPoll,
-    );
-    saveMessages(messages);
 
-    // 一次 poll 只读一遍这张表：两面（谁在请求配对你 / 我发起的那条）读的是**同一份**，
-    // 读两遍的话中间落进一次写盘，同一句响应里的两面就来自两个时刻的表。
-    const requests = loadRequests();
+    // 取一次货。长轮询会重复调用它，每次用**当下**的时刻（过期扫描与回执都按它算）：
+    // 一次 hold 25 秒之后还拿请求到达那一刻判过期，会把刚过期的货再交出去。
+    const collect = (at) => {
+      const messages = loadMessages();
+      // 到期扫描放在取货之前：过期的那条不该再被当成"待投"下发（正文也按契约已释放）。
+      expireDueMessages(contract, messages, at);
+      // 「取走了没等到 ack」的恢复也必须排在取货**之前**：扫一次把过期的 delivering 推回 queued，
+      // 同一轮 dispatch 就能把它再发出去 —— 晚一步就等于多等一个 cadence，而这一档要消灭的
+      // 正是"取走了却再也没人发"（见 messagestore.requeueUnackedStale 与 delivery.ackDeadlineSeconds）。
+      requeueUnackedStale(contract, messages, auth.sender, at);
+      const dispatched = dispatchForDevice(contract, messages, auth.sender, at);
 
-    res.status(200).json({
-      messages: out,
-      receipts,
-      pending: pendingCountFor(contract, messages, auth.sender),
-      // 配对请求走的是另一张表（它不是消息：没有正文、不过 type 词表），
-      // 但它的可见性与消息一样只有一条路 —— 设备来取。键名取自契约 pairRequest.pollKey，
-      // 少这一行的表现是"请求躺在表里，A 屏幕上永远显示等待配对"。
-      [PAIR_FACES.incoming]: pendingFor(contract, requests, state.devices, auth.sender, now),
-      // T110 第二面：同一条记录对**发起方**也要可见（"我发起给谁、现在算什么状态、多久之前"）。
-      // 与上面那一条共用这张表、共用到期扫描，但选择键相反（requester 而不是 target）、
-      // 且**含终态**——发起方要的恰恰是"后来怎么样了"。投影名单来自契约 pairRequest.sentFields。
-      // ⚠ 两面都带 `state.devices`：那一格里「对面自己报的名字」的出处是设备表
-      //   （自登记那一发写进去的），请求表里没有这一列，也不存快照（T128 片3）。
-      [PAIR_FACES.outgoing]: sentFor(
+      const out = [];
+      for (const taken of dispatched.taken) {
+        const record = messages[taken.messageId];
+        let content;
+        try {
+          content = decryptBodyFor(contract, process.env.ENCRYPTION_KEY, record.body);
+        } catch (e) {
+          // 解不开几乎总是 ENCRYPTION_KEY 被轮换过（旧密文是旧密钥封的）。整条 poll 失败
+          // 是对的（fail-closed：宁可设备什么都取不到，也不把一条解不出的消息静默跳过——
+          // 跳过就等于替发送方宣布"这条没发过"），但错误必须点名是哪一条、哪台设备：
+          // 否则运维在日志里只看到一句"服务器内部错误"，而那条消息会一直卡到过期，
+          // 并且每一轮 poll 再炸一次。
+          console.error(
+            `[fnthink:poll] 正文解密失败 device=${auth.sender} messageId=${record.messageId}: ${e.message}`,
+          );
+          throw e;
+        }
+        out.push(projectForPoll(record, content));
+      }
+      const receipts = receiptsForSender(
         contract,
-        requests,
-        state.devices,
+        messages,
         auth.sender,
-        now,
+        at,
         contract.clientEvents.poll.maxBatchPerPoll,
-      ),
+      );
+      saveMessages(messages);
+
+      // 一次 collect 只读一遍这张表：两面（谁在请求配对你 / 我发起的那条）读的是**同一份**，
+      // 读两遍的话中间落进一次写盘，同一句响应里的两面就来自两个时刻的表。
+      const requests = loadRequests();
+      return {
+        messages: out,
+        receipts,
+        pending: pendingCountFor(contract, messages, auth.sender),
+        // 配对请求走的是另一张表（它不是消息：没有正文、不过 type 词表），
+        // 但它的可见性与消息一样只有一条路 —— 设备来取。键名取自契约 pairRequest.pollKey，
+        // 少这一行的表现是"请求躺在表里，A 屏幕上永远显示等待配对"。
+        incoming: pendingFor(contract, requests, state.devices, auth.sender, at),
+        // T110 第二面：同一条记录对**发起方**也要可见（"我发起给谁、现在算什么状态、多久之前"）。
+        // 与上面那一条共用这张表、共用到期扫描，但选择键相反（requester 而不是 target）、
+        // 且**含终态**——发起方要的恰恰是"后来怎么样了"。投影名单来自契约 pairRequest.sentFields。
+        // ⚠ 两面都带 `state.devices`：那一格里「对面自己报的名字」的出处是设备表
+        //   （自登记那一发写进去的），请求表里没有这一列，也不存快照（T128 片3）。
+        outgoing: sentFor(
+          contract,
+          requests,
+          state.devices,
+          auth.sender,
+          at,
+          contract.clientEvents.poll.maxBatchPerPoll,
+        ),
+      };
+    };
+
+    const waitMs = requestedWaitMs(req);
+    let payload = collect(now);
+    if (waitMs > 0) {
+      const baseline = faceKeys(payload);
+      const deadline = Date.now() + waitMs;
+      let closed = false;
+      // 客户端断开（用户关掉接收 / 进程被杀）时别把这次 hold 拖满：请求已经没人要了。
+      // ⚠ 听 `res` 的 close 而不是 `req` 的：Node 的 IncomingMessage 在请求体读完时就会
+      //   发一次 close，听它会让长轮询连等都等不了。
+      res.on('close', () => {
+        closed = true;
+      });
+      while (!closed && !hasNews(payload, baseline)) {
+        const left = deadline - Date.now();
+        if (left <= 0) break;
+        const woke = await waitForDevice(auth.sender, left);
+        if (closed) return;
+        // 超时也要再取一次：唤醒可能落在「上一次 collect」与「登记等待」之间，
+        // 那一发不会丢（货还在表里），但不在这一刻补取就要等客户端下一轮。
+        payload = collect(Date.now());
+        if (!woke) break;
+      }
+    }
+    if (waitMs > 0 && LONG_POLL.responseHeader) {
+      // 旧服务端的识别位（T185）：只有看到这枚头，新客户端才把下一轮压到零延迟；
+      // 没有它（旧服务端不认请求头、立刻回空）时客户端仍按常态间隔 —— 否则是忙等。
+      res.set(String(LONG_POLL.responseHeader), '1');
+    }
+    // 门铃**支持位**（T185 第二步）：新客户端看到它才会去换票。
+    // 旧服务端没有这枚头 ⇒ 客户端不换票 ⇒ 也不会有一发"被旧服务端当普通 poll 取走货"
+    // 的换票请求（那会把消息从队列里拿走却没人落库/ack）。
+    if (STREAM.enabled === true && STREAM.supportHeader) {
+      res.set(String(STREAM.supportHeader), '1');
+    }
+    res.status(200).json({
+      messages: payload.messages,
+      receipts: payload.receipts,
+      pending: payload.pending,
+      [PAIR_FACES.incoming]: payload.incoming,
+      [PAIR_FACES.outgoing]: payload.outgoing,
       // T29 的「ts 以服务端时间判定」到这里才有承载处：设备用它算自己的时钟偏移，
-      // 之后签出去的 ts 才是服务端认的那个时间。
-      serverTime: now,
+      // 之后签出去的 ts 才是服务端认的那个时间。长轮询结束时取的是**回答这一刻**的时间。
+      serverTime: Date.now(),
     });
   }),
 );
+
+// ── GET /stream：SSE 门铃（T185 第二步）──────────────────────────────
+//
+// 它**不是第二条投递通道**：只写 `event: wake`，收到之后设备仍走唯一的
+// poll → 落库 → ack 那条链。这样投递语义、去重、ack 归属都没有第二份实现。
+//
+// 鉴权走一次性短票（见 streams.js）：票在 /poll 里换，GET 只带票、不带签名。
+// 票无效 / 过期 / 已用 / 段关闭 —— 对外全是一句 403，不告诉探测者是哪一种。
+router.get('/stream', (req, res) => {
+  if (STREAM.enabled !== true) {
+    return res.status(statusCode(contract, 'forbidden')).end();
+  }
+  const header = String(STREAM.ticketHeader || '').toLowerCase();
+  const token = header === '' ? '' : String(req.get(header) || '');
+  const device = consumeTicket(token);
+  if (!device) return res.status(statusCode(contract, 'forbidden')).end();
+
+  res.status(200).set({
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    // nginx 见到这一枚才不会缓冲整条流（缓冲 = 客户端一个 event 都收不到）。
+    'X-Accel-Buffering': 'no',
+  });
+  if (typeof res.flushHeaders === 'function') res.flushHeaders();
+  res.write(': connected\n\n');
+
+  // 消息/回执/配对面变化时叫醒这台设备挂着的流。写失败（连接刚断）由 close 清理。
+  const off = onWake(device, () => {
+    try {
+      res.write('event: wake\ndata: {}\n\n');
+    } catch (e) {
+      // 连接已经断了；close 那边会 removeListener。这里不抛，免得带崩别的订阅者。
+    }
+  });
+  const heartbeatSeconds = Math.max(5, Number(STREAM.heartbeatSeconds) || 20);
+  const timer = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+    } catch (e) {
+      // 同上：下一次 close 会清理。
+    }
+  }, heartbeatSeconds * 1000);
+  res.on('close', () => {
+    clearInterval(timer);
+    off();
+  });
+});
 
 // ── POST /ack：设备回执（契约 delivery.ackIsOnlyProof：这是唯一的送达依据）──
 router.post(
@@ -464,6 +639,9 @@ router.post(
 
     const { step } = advanceMessage(contract, messages, auth.messageId, event, { now });
     saveMessages(messages);
+    // T185：回执是给**原发送方**的 —— 它可能正 hold 在 /poll 上等「我发的那条到了没有」。
+    // sender 可能是端点（`endpoint:<id>`），归一化后为 null ⇒ 叫醒函数自然空转。
+    wakeDevice(normalize(alphabetFromContract(contract), messages[auth.messageId].sender));
     res.status(200).json({ receipt: step.receipt || null, state: step.state });
   }),
 );
@@ -632,6 +810,8 @@ router.post(
       //（配对不许成为"哪些地址码挂着口令"的探针）。状态码取契约，别写 429 字面量。
       return res.status(statusCode(contract, 'rateLimited')).json({});
     }
+    // T185：待答复的那一侧在 poll 里等这条请求 —— 叫醒它，别让「有人请求配对」晚 25 秒。
+    wakeDevice(normalize(alphabetFromContract(contract), created.request.target));
     res.status(statusCode(contract, 'queued')).json({
       requestId: created.request.id,
       // 状态名取自契约那张表，路由里不出现 'pending' 字面量：
@@ -671,6 +851,8 @@ router.post(
       // 一个能被分辨的 requestId 就等于把"谁的配对请求还在等"这件事说出去了。
       return sendFailure(res, statusCode(contract, 'forbidden'), 'rejected_capability');
     }
+    // T185：发起方那一面的状态刚变了（pending → approved/denied），它在 poll 里等的就是这一格。
+    wakeDevice(normalize(alphabetFromContract(contract), decided.request.requester));
     res.status(200).json({
       requestId: decided.request.id,
       status: decided.request.status,
@@ -707,6 +889,8 @@ router.post(
     }
     if (rejectIfOverQuota(res, 'pairRevoke', auth.addressCode)) return;
     const revoked = revokePeer(contract, state.devices, auth.addressCode, auth.peerCode, now);
+    // T185：对面那一行授权刚被划掉，它的名单/能力面需要重读一次。
+    wakeDevice(normalize(alphabetFromContract(contract), auth.peerCode));
     res.status(200).json({
       revoked: revoked.removed,
       serverTime: now,
@@ -746,6 +930,10 @@ router.post(
       auth.items,
       now,
     );
+    // T185：对面那一行授权的档位/清单变了，它在 poll 里等的是这一格。
+    if (updated !== null) {
+      wakeDevice(normalize(alphabetFromContract(contract), auth.peerCode));
+    }
     res.status(200).json({
       updated: updated !== null,
       ...(updated
@@ -1078,6 +1266,8 @@ function handleEndpointIngress(req, res, endpointId, secret, method) {
     process.env.ENCRYPTION_KEY,
   );
   saveMessages(messages);
+  // T185：端点入口排进来的货同样是给目标设备的 —— 它在 poll 里 hold 着，叫醒它。
+  wakeDevice(normalize(alphabetFromContract(contract), result.message.device));
   // 调用日志只在**认出了端点**时记（随机 id 不该能凭空造出条目），且只记元数据：
   // 正文与标题一个字节都不进日志（契约 endpoint.callLog.fields 钉着这一点）。
   recordEndpointCall(

@@ -524,6 +524,7 @@
   "keepAliveGuideDesc": "部分系统会限制后台服务，可能导致收不到通知。按以下步骤设置可提高稳定性：",
   "keepAliveStep1": "省电策略设为不限制",
   "keepAliveStep2": "允许自启动",
+  "keepAliveStepAssoc": "允许关联启动（荣耀/华为等系统需要）",
   "keepAliveStep3": "后台运行不受限（任务锁定）",
   "keepAliveStep4": "确认已开启通知使用权",
   "notes": "说明",

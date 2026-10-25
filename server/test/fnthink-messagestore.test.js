@@ -805,8 +805,10 @@ describe('回执账（T35）', () => {
       // 用全文件 indexOf 比较是安全的：`requeueUnackedStale` 与 `dispatchForDevice`
       // 各自**只在 poll 那一个处理器里出现一次**（守卫本身也钉住这一点，见下面两条）。
       const src = fs.readFileSync(path.join(__dirname, '../lib/fnthink/routes.js'), 'utf8');
-      const scan = src.indexOf('requeueUnackedStale(contract, messages, auth.sender, now);');
-      const take = src.indexOf('dispatchForDevice(contract, messages, auth.sender, now);');
+      // T185：poll 的取货被收进 `collect(at)`（长轮询会重复调用它，时刻按**当下**算），
+      // 所以那两行的时刻参数叫 `at` 而不是 `now` —— 顺序判据一个字都没变。
+      const scan = src.indexOf('requeueUnackedStale(contract, messages, auth.sender, at);');
+      const take = src.indexOf('dispatchForDevice(contract, messages, auth.sender, at);');
       expect(scan).toBeGreaterThan(-1);
       expect(take).toBeGreaterThan(-1);
       // poll 必须先扫「没等到 ack」的再取货：晚一步那条要多等一个 cadence 才重发
@@ -818,10 +820,10 @@ describe('回执账（T35）', () => {
         );
       }
       // 两处调用各自只许出现一次（import 那行是裸标识符，不带调用括号，所以数不到）。
-      expect(src.split('requeueUnackedStale(contract, messages, auth.sender, now);')).toHaveLength(
+      expect(src.split('requeueUnackedStale(contract, messages, auth.sender, at);')).toHaveLength(
         2,
       );
-      expect(src.split('dispatchForDevice(contract, messages, auth.sender, now);')).toHaveLength(2);
+      expect(src.split('dispatchForDevice(contract, messages, auth.sender, at);')).toHaveLength(2);
     });
   });
 });

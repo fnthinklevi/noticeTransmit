@@ -240,6 +240,33 @@
       "intervalSeconds": 5,
       "durationSeconds": 120,
       "_intervalSecondsWhy": "提频档与常态下界同值（5s）是有意的：常态最快那一档**不得比提频更慢**（两侧校验都钉这条，等号放行是 T88 把下界压到 5s 的直接后果）。这一档设在 5s 的用户已经问得和提频一样密，提频对他不再额外提速 —— 这是下界选择的代价，不是缺陷。额度侧没变：`ratelimit.js` 的 `pollPerMinute` 一直是按这一档推出来的。"
+    },
+    "longPoll": {
+      "enabled": true,
+      "waitSeconds": 25,
+      "maxWaitSeconds": 45,
+      "clientTimeoutSeconds": 55,
+      "requestHeader": "x-fnthink-wait",
+      "responseHeader": "x-fnthink-long-poll",
+      "_why": "T185：空闲时别每 5 秒发一次完整签名的 HTTP。设备在**收货循环**里带 `requestHeader`（值是 `waitSeconds`），服务端没有新货就 hold 到超时；有货/回执/配对面变化立刻返回。手动「立即收取」不带这枚头 ⇒ 服务端绝不 hold（否则用户点一下要等 25 秒）。",
+      "_numbersWhy": "wait 25s ⇒ 空闲 2.4 次/分，远低于 poll 的 14 次/分额度；max 45s 仍小于在线阈值（`onlineThresholdMultiplier × pollIntervalSeconds.default` = 60s），所以一次 hold 不会让对端把你判成离线。`clientTimeoutSeconds` 比 `maxWaitSeconds` 多 10s：服务端 hold 之外还要留出网络与反代的时间。",
+      "_headersWhy": "用头而不是往签名载荷里加键：`signature.canonicalOrder` 是固定六键，加一格就是协议变更。请求头只决定「这次要不要等」，与签名、权限、送达结论都无关。响应头 `responseHeader` 是**旧服务端的识别位**：旧服务端不认请求头、立刻返回空响应；新客户端只有看到这枚响应头才把下一轮压到零延迟，否则仍按常态间隔 —— 少了它，新客户端配旧服务端会变成忙等。"
+    },
+    "stream": {
+      "enabled": true,
+      "path": "/api/fnthink/stream",
+      "supportHeader": "x-fnthink-stream",
+      "ticketRequestHeader": "x-fnthink-ticket",
+      "ticketHeader": "x-fnthink-stream-ticket",
+      "ticketField": "streamTicket",
+      "ticketExpiresField": "streamTicketExpiresAt",
+      "ticketTtlSeconds": 90,
+      "heartbeatSeconds": 20,
+      "safetyPollSeconds": 300,
+      "_why": "T185 第二步：长轮询把空闲请求压到 2.4 次/分，SSE 再把它压到一条连接（正常时只有心跳，没有请求）。SSE 只是**门铃**：收到 `wake` 后仍走唯一的 poll → 落库 → ack 那条链，投递语义一个字节都不改。",
+      "_ticketWhy": "SSE 是 GET，没法把签名放进请求体；把签名塞 URL 会进访问日志。所以用一枚**一次性短票**：设备先用普通的 /poll（带 ticketRequestHeader）换票，再拿 ticketHeader 去连 /stream。票 90 秒过期、只用一次、只绑一台设备；服务端重启后票失效 ⇒ 客户端换一张即可。",
+      "_numbersWhy": "heartbeat 20s 小于常见反代的 60s 读超时；safetyPollSeconds 300 是「SSE 静默死了但连接还在」时的兜底：最长 5 分钟一定有一次真 poll。它只在流健康时生效，不健康时回到 longPoll 的 25s。",
+      "_fallbackWhy": "流连不上（反代缓冲、证书、旧服务端）时客户端必须**退回长轮询**，而不是停摆：SSE 是加速器，不是唯一通道。"
     }
   },
   "revocation": {

@@ -255,6 +255,36 @@ class FnthinkPresenceSourceGuardTest {
         )
     }
 
+    @Test
+    fun taskRemovalAndSystemKillScheduleAFreshRestart() {
+        val service = stripComments(File(SRC + "NotificationMonitorService.kt").readText())
+        assertTrue(
+            "T185 第三步：划掉任务要补一条自愈链 —— `stopWithTask=false` 只保证不主动停，" +
+                "国产 ROM 常在划掉后收走进程；缺这一行时表现是「划一下，后台就再也没醒过」",
+            service.contains("override fun onTaskRemoved("),
+        )
+        assertTrue(
+            "自愈必须交给 AlarmManager（Android 12+ 不许后台直接起 FGS），" +
+                "且 API 26+ 用 getForegroundService 而不是 getService",
+            service.contains("PendingIntent.getForegroundService"),
+        )
+        assertTrue(
+            "被系统收走时也要排（onDestroy 里只在 monitoringEnabled 时排：用户关掉监听就别再叫醒它）",
+            service.contains("if (monitoringEnabled) scheduleSelfRestart()"),
+        )
+        assertTrue(
+            "请求码必须是新号 3202；复用 3201/2001/3001/3002/3101 会互相覆盖，" +
+                "被覆盖的那一类从此不再响而没有任何日志",
+            service.contains("SELF_RESTART_REQUEST_CODE = 3202"),
+        )
+        for (taken in listOf("2001", "3001", "3002", "3101", "3201")) {
+            assertFalse(
+                "自愈请求码复用了已有码 $taken：同码会互相覆盖",
+                service.contains("SELF_RESTART_REQUEST_CODE = $taken"),
+            )
+        }
+    }
+
     private fun count(src: String, needle: String): Int = src.split(needle).size - 1
 
     private companion object {

@@ -1154,6 +1154,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get keepAliveStep2 => 'Allow auto-start';
 
   @override
+  String get keepAliveStepAssoc =>
+      'Allow associated start (required on Honor/Huawei)';
+
+  @override
   String get keepAliveStep3 => 'Keep running in background (task lock)';
 
   @override

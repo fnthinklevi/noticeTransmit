@@ -345,4 +345,77 @@ void main() {
       expect(runFnthinkPresenceRound, same(fnthinkBackgroundRound));
     });
   });
+
+  // ── T185 第二步：SSE 健康 / 后台 isolate 的"不开常驻档"两档 ──────────────
+  group('门铃与后台 isolate 决定要不要常驻持锁', () {
+    setUp(() {
+      fnthinkStreamHealthy = false;
+      fnthinkBackgroundIsolate = false;
+      fnthinkLiveModeActive = false;
+      fnthinkLiveSecondsActive = 0;
+    });
+    tearDown(() {
+      fnthinkStreamHealthy = false;
+      fnthinkBackgroundIsolate = false;
+      fnthinkLiveModeActive = false;
+      fnthinkLiveSecondsActive = 0;
+    });
+
+    int scheduledSeconds() =>
+        (calls
+                    .firstWhere((c) => c.method == 'scheduleFnthinkPresence')
+                    .arguments
+                as Map)['seconds']
+            as int;
+
+    test('门铃健康 ⇒ 不 start live、撤锁，兜底退到契约的 safetyPollSeconds', () async {
+      mockAppChannel(reply: true);
+      fnthinkStreamHealthy = true;
+      final contract = FnthinkContract.parse(realContractText);
+      final scheduler = FnthinkPresenceScheduler(
+        contracts: loaderFrom(realContractText),
+      );
+
+      await scheduler.notice(keepAwake: true);
+
+      expect(
+        calls.where((c) => c.method == 'startFnthinkLive'),
+        isEmpty,
+        reason: '门铃健康时网络回包本身会唤醒 CPU，再持一把锁就是白耗电',
+      );
+      expect(calls.where((c) => c.method == 'stopFnthinkLive'), isNotEmpty);
+      expect(scheduledSeconds(), contract.streamSpec!.safetyPollSeconds);
+    });
+
+    test('后台那一轮 ⇒ 不开常驻档（引擎只活一轮），兜底仍是契约最慢档', () async {
+      mockAppChannel(reply: true);
+      fnthinkBackgroundIsolate = true;
+      final contract = FnthinkContract.parse(realContractText);
+      final scheduler = FnthinkPresenceScheduler(
+        contracts: loaderFrom(realContractText),
+      );
+
+      await scheduler.notice(keepAwake: true);
+
+      expect(
+        calls.where((c) => c.method == 'startFnthinkLive'),
+        isEmpty,
+        reason: '那颗引擎交回 roundDone 就结束；它拿的锁会留在进程里，而续期的人已经没了',
+      );
+      expect(scheduledSeconds(), contract.pollIntervalRange.max);
+    });
+
+    test('门铃没开（默认）⇒ 仍按 T181 B 常驻持锁', () async {
+      mockAppChannel(reply: true);
+      final contract = FnthinkContract.parse(realContractText);
+      final scheduler = FnthinkPresenceScheduler(
+        contracts: loaderFrom(realContractText),
+      );
+
+      await scheduler.notice(keepAwake: true);
+
+      expect(calls.where((c) => c.method == 'startFnthinkLive'), hasLength(1));
+      expect(scheduledSeconds(), contract.pollIntervalRange.max);
+    });
+  });
 }

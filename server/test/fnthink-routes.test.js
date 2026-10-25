@@ -294,6 +294,163 @@ describe('POST /api/fnthink/poll', () => {
   });
 });
 
+describe('POST /api/fnthink/poll 长轮询（T185）', () => {
+  // 用一台**独立设备**：poll 的配额按设备地址计，挤进前面那些用例的桶里会被 429 干扰。
+  const LONG = '9PQRSTVWXYZ2345678';
+  const longKey = keypair();
+  const waitHeader = String(contract.presence.longPoll.requestHeader);
+  const longPollHeader = String(contract.presence.longPoll.responseHeader);
+
+  beforeAll(() => {
+    register(LONG, longKey);
+    const devices = devicestore.loadDevices();
+    // 让 SENDER 能投给 LONG（长轮询要验的是「消息到达时提前返回」）。
+    devicestore.approvePeer(contract, devices, LONG, SENDER, 'L1', [], T0);
+    devicestore.saveDevices(devices);
+  });
+
+  test('不带等待头 ⇒ 立刻回答（手动「立即收取」与旧客户端走这一支）', async () => {
+    const t0 = Date.now();
+    const res = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', longKey, LONG))
+      .expect(200);
+    expect(Date.now() - t0).toBeLessThan(1000);
+    expect(res.headers[longPollHeader]).toBeUndefined();
+    expect(res.body.messages).toEqual([]);
+  });
+
+  test('带等待头、无货 ⇒ hold 到超时，且回识别头', async () => {
+    const t0 = Date.now();
+    const res = await request(app)
+      .post('/api/fnthink/poll')
+      .set(waitHeader, '1')
+      .send(eventBody('poll', longKey, LONG))
+      .expect(200);
+    const elapsed = Date.now() - t0;
+    expect(elapsed).toBeGreaterThanOrEqual(850);
+    expect(res.headers[longPollHeader]).toBe('1');
+    expect(res.body.messages).toEqual([]);
+  });
+
+  test('hold 期间来一条消息 ⇒ 立刻醒来并把它交回去（不等到超时）', async () => {
+    const pending = (async () =>
+      await request(app)
+        .post('/api/fnthink/poll')
+        .set(waitHeader, '3')
+        .send(eventBody('poll', longKey, LONG))
+        .expect(200))();
+    // 等 waiter 真的登记上（它是一个请求内的临时状态，没登记前发消息会白等一个超时）。
+    await new Promise((r) => setTimeout(r, 150));
+    const posted = await request(app)
+      .post('/api/fnthink/message')
+      .send(messageBody({ target: LONG }))
+      .expect(202);
+    const t0 = Date.now();
+    const res = await pending;
+    expect(Date.now() - t0).toBeLessThan(2500);
+    expect(res.body.messages.map((m) => m.messageId)).toContain(posted.body.messageId);
+  });
+
+  test('普通 poll 带门铃支持位（客户端只有看到它才许换票）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', longKey, LONG))
+      .expect(200);
+    expect(res.headers[String(contract.presence.stream.supportHeader)]).toBe('1');
+  });
+
+  test('换票：带 ticketRequestHeader ⇒ 只回票，不取货、不 hold（T185 第二步）', async () => {
+    const spec = contract.presence.stream;
+    const res = await request(app)
+      .post('/api/fnthink/poll')
+      .set(String(spec.ticketRequestHeader), '1')
+      .send(eventBody('poll', longKey, LONG))
+      .expect(200);
+    expect(typeof res.body[spec.ticketField]).toBe('string');
+    expect(res.body[spec.ticketField].length).toBeGreaterThan(16);
+    expect(res.body[spec.ticketExpiresField]).toBeGreaterThan(Date.now());
+    // 换票不取货：响应里没有 messages / pending 那些取货字段。
+    expect(res.body.messages).toBeUndefined();
+    expect(res.body.pending).toBeUndefined();
+    expect(res.headers[String(contract.presence.longPoll.responseHeader)]).toBeUndefined();
+  });
+
+  test('SSE：有效票能连上，消息落盘时收到 wake（门铃不投递）', async () => {
+    const http = require('http');
+    const { issueTicket } = require('../lib/fnthink/streams');
+    const spec = contract.presence.stream;
+    const ticket = issueTicket(LONG, 5000);
+    const server = app.listen(0);
+    let sseReq = null;
+    try {
+      const port = server.address().port;
+      let connectedSeen = false;
+      let wakeSeen = false;
+      let connectedResolve;
+      let wakeResolve;
+      const connected = new Promise((r) => (connectedResolve = r));
+      const woken = new Promise((r) => (wakeResolve = r));
+      sseReq = http.get(
+        {
+          port,
+          path: spec.path,
+          headers: { [spec.ticketHeader]: ticket },
+        },
+        (res) => {
+          expect(res.statusCode).toBe(200);
+          expect(String(res.headers['content-type'])).toContain('text/event-stream');
+          let buf = '';
+          res.on('data', (chunk) => {
+            buf += chunk.toString('utf8');
+            if (!connectedSeen && buf.includes(': connected')) {
+              connectedSeen = true;
+              connectedResolve();
+            }
+            if (!wakeSeen && buf.includes('event: wake')) {
+              wakeSeen = true;
+              wakeResolve();
+              res.destroy();
+            }
+          });
+        },
+      );
+      sseReq.on('error', () => {
+        // destroy 之后的 ECONNRESET 是预期的。
+      });
+      await connected;
+      await request(app)
+        .post('/api/fnthink/message')
+        .send(messageBody({ target: LONG }))
+        .expect(202);
+      await woken;
+      // 门铃不投递：消息仍在队列里，下一次 poll 才取走（本用例只验 wake 到了）。
+      const messages = messagestore.loadMessages();
+      const queued = Object.values(messages).filter(
+        (m) => m.device === LONG && m.state === contract.delivery.initialState,
+      );
+      expect(queued.length).toBeGreaterThan(0);
+    } finally {
+      if (sseReq) sseReq.destroy();
+      server.close();
+    }
+  }, 15000);
+
+  test('请求一到就刷新 lastSeenAt（不能等 hold 结束才算心跳）', async () => {
+    const before = devicestore.loadDevices()[LONG].lastSeenAt;
+    const pending = (async () =>
+      await request(app)
+        .post('/api/fnthink/poll')
+        .set(waitHeader, '1')
+        .send(eventBody('poll', longKey, LONG))
+        .expect(200))();
+    await new Promise((r) => setTimeout(r, 150));
+    const during = devicestore.loadDevices()[LONG].lastSeenAt;
+    expect(during).toBeGreaterThan(before);
+    await pending;
+  });
+});
+
 describe('POST /api/fnthink/ack', () => {
   test('ack displayed ⇒ 进 delivered 并立刻释放正文；回执随后只被 poll 取走一次', async () => {
     const posted = await request(app).post('/api/fnthink/message').send(messageBody()).expect(202);
@@ -2242,6 +2399,9 @@ describe('契约声明的路径 == 实际挂载的路径', () => {
     // transport.apiPaths（那张表只管设备面，混进来等于宣布"设备面路径也可以携带口令"）；
     // 但它同样是"契约声明了一条路径"，漏在这一格里就会变成"声明了却没挂，客户端敲一年 404"。
     contract.endpoint.probe.bearerPath,
+    // T185 第二步：SSE 门铃。它不是签名事件（GET + 一次性票），所以也不进 apiPaths
+    // （那张表的每一项都要能反查一个 clientEvent），但它同样是一条必须挂上的声明路径。
+    contract.presence.stream.path,
   ];
 
   test('不多不少：挂载清单与契约声明逐条对得上（改任一边都必须同时改另一边）', () => {

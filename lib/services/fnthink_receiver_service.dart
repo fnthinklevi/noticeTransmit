@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -91,6 +92,32 @@ class FnthinkReceiverService {
   final String Function() _nonce;
   final Duration timeout;
 
+  /// 这一次 poll 要不要让服务端 hold（T185）。只有收货循环会置 true：
+  /// 手动「立即收取」必须立刻看到结果，不能被 25 秒的 hold 拖住。
+  ///
+  /// ⚠ 收货循环是串行的（`FnthinkReceiveLoop` 一轮没完不跑下一轮），所以这里一个 bool
+  ///   就够；同一进程里不会有两个 poll 同时在飞。
+  bool _holdPoll = false;
+
+  /// 正在 hold 的那一发 poll 的取消开关（T185）。手动「立即收取」要它：
+  /// 不取消的话，用户得等一个 25 秒的 hold 自然结束，而屏幕上只是一直转圈。
+  Completer<void>? _heldPollAbort;
+
+  /// 这一发 poll 只是去换一张 SSE 票（T185 第二步）：不 hold、不取货。
+  bool _ticketOnly = false;
+
+  /// SSE 门铃是否健康（由 `FnthinkStreamService` 写）。健康时空闲轮询退到契约的
+  /// `safetyPollSeconds`，让门铃负责即时性 —— 它只是**节奏加速器**，投递链仍是 poll。
+  bool streamHealthy = false;
+
+  /// 这台服务端支持门铃（来自普通 poll 的**支持位**响应头，T185 第二步）。
+  ///
+  /// ⚠ 换票请求是发在同一条 /poll 上的：旧服务端不认识换票头时会把它当普通取货，
+  ///   货被拿走却没人落库/ack。所以**没见过支持位就一个换票请求都不发**。
+  bool _streamSupported = false;
+
+  bool get streamSupported => _streamSupported;
+
   /// 本机那一档常态收取间隔（T88），null = 用户没选过 ⇒ 内核用契约的 default。
   /// 这里只是将设置里读到的值转交，范围判据在设置层与内核构造处各判一次（同一对 min/max）。
   final int? pollIntervalSeconds;
@@ -149,13 +176,64 @@ class FnthinkReceiverService {
         ? envelope
         : (Map<String, Object?>.of(envelope)
             ..[versionField] = contract.contractVersion);
-    final response = await _client
-        .post(
-          baseUri.resolve(_pathForEnvelope(envelope)),
-          headers: const {'Content-Type': 'application/json'},
+    // T185：长轮询只加一枚**请求头**（签名链的六键一个都不动），且只在收货循环那一轮加：
+    //  ① 头缺席 = 立刻回答 —— 手动「立即收取」与旧客户端走的都是这一支；
+    //  ② 超时要长于服务端 hold（契约 clientTimeoutSeconds），否则 hold 还没结束就先被判成传输异常。
+    final longPoll = contract.longPollSpec;
+    final stream = contract.streamSpec;
+    final pollType = contract.str(const [
+      'clientEvents',
+      'poll',
+      'messageType',
+    ]);
+    final fields = envelope['fields'];
+    final envelopeType = fields is Map ? '${fields['type']}' : '';
+    final isPoll = pollType != null && pollType == envelopeType;
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    var effectiveTimeout = timeout;
+    if (isPoll && _ticketOnly && stream != null) {
+      // 换票那一发：一枚头，服务端见头只发票、不取货、不 hold。它与长轮询互斥。
+      headers[stream.ticketRequestHeader] = '1';
+    } else if (isPoll && _holdPoll && longPoll != null) {
+      headers[longPoll.requestHeader] = '${longPoll.waitSeconds}';
+      effectiveTimeout = Duration(seconds: longPoll.clientTimeoutSeconds);
+    }
+    final uri = baseUri.resolve(_pathForEnvelope(envelope));
+    final http.Response response;
+    if (isPoll && !_ticketOnly && _holdPoll && longPoll != null) {
+      // 长轮询这一支用可中止的请求：手动「立即收取」会 complete 掉这个 abortTrigger，
+      // 那一发立刻以 RequestAbortedException 收场，循环随后跑真正的手动那一轮。
+      final abort = Completer<void>();
+      _heldPollAbort = abort;
+      try {
+        final request = _AbortableRequest(
+          'POST',
+          uri,
+          headers: headers,
           body: jsonEncode(payload),
-        )
-        .timeout(timeout);
+          abortTrigger: abort.future,
+        );
+        final streamed = await _client
+            .send(request)
+            .timeout(
+              effectiveTimeout,
+              onTimeout: () {
+                if (!abort.isCompleted) abort.complete();
+                throw TimeoutException(
+                  '长轮询超过 ${effectiveTimeout.inSeconds}s',
+                  effectiveTimeout,
+                );
+              },
+            );
+        response = await http.Response.fromStream(streamed);
+      } finally {
+        if (identical(_heldPollAbort, abort)) _heldPollAbort = null;
+      }
+    } else {
+      response = await _client
+          .post(uri, headers: headers, body: jsonEncode(payload))
+          .timeout(effectiveTimeout);
+    }
     Map<String, Object?> body = const {};
     // ⚠ 只按 UTF-8 解，**不走 `response.body`**（T85a）。实测过 `package:http` 的行为再写：
     // 没有 `charset` 时，**`text/*` 与干脆没有 content-type 的响应用 latin-1 解**，
@@ -192,6 +270,20 @@ class FnthinkReceiverService {
     // T180：服务端用这枚头说明是 minute 还是 day 那一档。旧服务端没有它 ⇒ null，
     // 客户端按"分钟档"的老说法处理，不猜一个更坏的结论。
     final quotaWindow = response.headers[contract.quotaWindowHeader]?.trim();
+    // T185：服务端认了长轮询才会有这枚响应头。旧服务端不认请求头、立刻回空 ——
+    // 没有这枚头时调用方必须按常态间隔走，否则就是拿零延迟追一个不支持 hold 的服务端。
+    final longPolled =
+        longPoll != null &&
+        isPoll &&
+        !_ticketOnly &&
+        _holdPoll &&
+        response.headers[longPoll.responseHeader.toLowerCase()] == '1';
+    // 支持位（T185 第二步）：普通 poll 才会带；换票那一发不带（也不需要）。
+    final streamSupported =
+        stream != null &&
+        isPoll &&
+        !_ticketOnly &&
+        response.headers[stream.supportHeader.toLowerCase()] == '1';
     return FnthinkReply(
       status: response.statusCode,
       body: body,
@@ -202,11 +294,63 @@ class FnthinkReceiverService {
       quotaWindow: quotaWindow == 'day' || quotaWindow == 'minute'
           ? quotaWindow
           : null,
+      longPolled: longPolled,
+      streamSupported: streamSupported,
     );
   }
 
+  /// 取消正在 hold 的那一发 poll（T185）。没有在 hold 时是空操作。
+  ///
+  /// 只给「立即收取」用：它不会取消别的事件（ack/register 那些不经过这一格），
+  /// 也不会把 client 关掉 —— 中止只作用于这一条请求。
+  void cancelHeldPoll() {
+    final abort = _heldPollAbort;
+    if (abort != null && !abort.isCompleted) abort.complete();
+  }
+
+  /// 换一张 SSE 票（T185 第二步）。null = 没有 stream 段 / 签不出来 / 服务端没给票。
+  ///
+  /// 走的是**同一条签名 poll 事件**（六键不变），只多一枚请求头；服务端见头只发票、
+  /// 不取货。票本身是短命的一次性凭证，本层不落盘、不日志、不缓存。
+  Future<FnthinkStreamTicket?> requestStreamTicket() async {
+    final spec = contract.streamSpec;
+    if (spec == null) return null;
+    // 没见过支持位就**不发**：旧服务端会把换票当普通取货（货被拿走却没人落库/ack）。
+    if (!_streamSupported) return null;
+    if (!await _canSign()) return null;
+    try {
+      final nonce = _nonce();
+      final envelope = await kernel.buildEnvelope(
+        fields: kernel.pollFields(nonce: nonce),
+        nonce: nonce,
+      );
+      _ticketOnly = true;
+      final FnthinkReply reply;
+      try {
+        reply = await _transport(envelope);
+      } finally {
+        _ticketOnly = false;
+      }
+      if (reply.status != 200) return null;
+      final ticket = reply.body[spec.ticketField];
+      final expires = reply.body[spec.ticketExpiresField];
+      if (ticket is! String || ticket.isEmpty) return null;
+      return FnthinkStreamTicket(
+        ticket: ticket,
+        expiresAt: expires is int ? expires : 0,
+      );
+    } catch (e) {
+      debugPrint('[fnthink] 换 SSE 票失败（退回长轮询）：$e');
+      return null;
+    }
+  }
+
   /// 一次取货。签名拿不出来时**不发**：那既不是网络问题也不该被算成一次失败的重试依据。
-  Future<FnthinkReceiveOutcome> pollOnce() async {
+  ///
+  /// [hold]（T185）：true = 收货循环那一轮，允许服务端把请求 hold 到契约的 `waitSeconds`；
+  /// false = 手动「立即收取」，必须立刻返回。服务端没认（没有响应头）时下一轮仍按常态间隔，
+  /// 失败的那几档也一律按内核给的退避 —— 长轮询只缩短**成功且空闲**时的等待。
+  Future<FnthinkReceiveOutcome> pollOnce({bool hold = true}) async {
     if (!await _canSign()) {
       return FnthinkReceiveOutcome(
         status: FnthinkPollStatus.failed,
@@ -214,7 +358,32 @@ class FnthinkReceiverService {
         nextDelay: kernel.currentDelay,
       );
     }
-    final result = await kernel.poll();
+    _holdPoll = hold;
+    final FnthinkPollResult result;
+    try {
+      result = await kernel.poll();
+    } finally {
+      _holdPoll = false;
+    }
+    // 支持位只从**普通 poll** 的成功响应更新：一次网络抖动不该把门铃关掉，
+    // 而旧服务端（永远没有这一位）必须一直保持"不换票"。
+    if (result.status == FnthinkPollStatus.ok) {
+      _streamSupported = result.streamSupported;
+    }
+    // 服务端认了长轮询 ⇒ 这一轮刚返回就意味着"到点了/有新货"，下一轮立刻发，
+    // 不再等一个常态间隔。没认（旧服务端 / 手动那一轮）就照内核给的节奏走。
+    var nextDelay = result.longPolled ? Duration.zero : result.nextDelay;
+    // SSE 健康时门铃负责即时性：空闲轮询退到契约的 safetyPollSeconds（兜底，
+    // 防"流静默死了但连接还在"）。有货/回执/还有积压时仍立刻再取，先把队列排空。
+    final safety = contract.streamSpec?.safetyPollSeconds;
+    if (result.status == FnthinkPollStatus.ok &&
+        streamHealthy &&
+        safety != null &&
+        result.messages.isEmpty &&
+        result.receipts.isEmpty &&
+        result.pending == 0) {
+      nextDelay = Duration(seconds: safety);
+    }
     return FnthinkReceiveOutcome(
       status: result.status,
       messages: result.messages,
@@ -222,7 +391,7 @@ class FnthinkReceiverService {
       pending: result.pending,
       pairRequests: result.pairRequests,
       sentPairRequests: result.sentPairRequests,
-      nextDelay: result.nextDelay,
+      nextDelay: nextDelay,
       signedWhileUncalibrated: result.signedWhileUncalibrated,
       reason: result.reason,
     );
@@ -586,6 +755,16 @@ class FnthinkReceiverService {
   }
 }
 
+/// 一张 SSE 短票（T185 第二步）。有效期由服务端起算，本机只做展示与排查，不拿它当判据。
+class FnthinkStreamTicket {
+  const FnthinkStreamTicket({required this.ticket, required this.expiresAt});
+
+  final String ticket;
+
+  /// 毫秒时间戳；0 = 服务端没给（旧服务端），连接失败时重新换一张即可。
+  final int expiresAt;
+}
+
 /// 一次轮询的结果（内核那个类的对外形状，多了"这一轮该做什么"的可读解释）。
 class FnthinkReceiveOutcome {
   const FnthinkReceiveOutcome({
@@ -679,4 +858,22 @@ class FnthinkKeystoreSigner implements FnthinkIdentitySigner {
 
   @override
   Future<String?> publicKey() async => (await _identity.identity())?.publicKey;
+}
+
+/// 可中止的 POST（T185 长轮询专用）。`package:http` 只给了 mixin，具体形状要自己拼：
+/// `Request` 提供 method/url/headers/body，`Abortable` 只多一枚 `abortTrigger`。
+class _AbortableRequest extends http.Request with http.Abortable {
+  _AbortableRequest(
+    super.method,
+    super.url, {
+    Map<String, String>? headers,
+    String? body,
+    required this.abortTrigger,
+  }) {
+    if (headers != null) this.headers.addAll(headers);
+    if (body != null) this.body = body;
+  }
+
+  @override
+  final Future<void>? abortTrigger;
 }

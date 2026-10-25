@@ -17,6 +17,7 @@ import 'fnthink_presence_scheduler.dart';
 import 'fnthink_receive_loop.dart';
 import 'fnthink_receiver_service.dart';
 import 'fnthink_settings.dart';
+import 'fnthink_stream_service.dart';
 
 /// 一次启动请求的结论。**reason 总是有值**：started 之外每一种都要能被界面原样说给用户 ——
 /// "为什么没在收货"是这类后台功能最常被问的一句，而答案是"不知道"就等于没做。
@@ -31,6 +32,12 @@ const String kFnthinkLastRoundAtKey = 'fnthink_last_round_at';
 /// 冷启动与后台 isolate 读到同一个值 ⇒ **不再发那一发 register**。
 /// 旧实现只在进程内记（`_registeredFor`），于是每次开机都重登一次，日额度被同一台设备烧穿。
 const String kFnthinkRegisterMarkerKey = 'fnthink_register_marker_v1';
+
+/// T185 第二步：**主 isolate** 的循环才开 SSE 门铃。
+///
+/// 后台那一轮（WorkManager 起的另一颗引擎）只活一轮：流刚连上就会被收走，而每轮
+/// 换票 + 建连都是白耗流量。它在 [fnthinkBackgroundRound] 里把这一格置 false。
+bool fnthinkAllowStream = true;
 
 /// 公钥指纹（FNV-1a 64 位）。只用于"这把钥匙变没变"的本地比较，不是安全摘要。
 String fnthinkPublicKeyFingerprint(String publicKey) {
@@ -214,8 +221,47 @@ typedef FnthinkServiceFactory = FnthinkReceiverService Function(
 /// coordinator 的一行 `return FnthinkReceiveLoop(...)` 里，就只有真机能回答它了。
 FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
   final service = buildFnthinkReceiveService(spec);
-  return FnthinkReceiveLoop(
+  late final FnthinkReceiveLoop loop;
+  // T185 第二步：门铃随循环起停。段缺 / 后台那一轮 / 旧契约 ⇒ 不建，退回长轮询。
+  final streamSpec = spec.contract.streamSpec;
+  final stream = (!fnthinkAllowStream || streamSpec == null)
+      ? null
+      : FnthinkStreamService(
+          contract: spec.contract,
+          baseUri: spec.baseUri,
+          requestTicket: service.requestStreamTicket,
+          // 门铃一响就跑一轮（不 hold）；与手动「立即收取」走同一条串行入口：
+          // 若此刻有一发长轮询在飞，它会先被叫停。
+          onWake: () => loop.runOnce(manual: true),
+          onHealthyChanged: (healthy) {
+            service.streamHealthy = healthy;
+            fnthinkStreamHealthy = healthy;
+            // 后台 isolate 从 prefs 读同一份：它不能因为"不知道门铃开着"去持锁。
+            unawaited(() async {
+              try {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool(kFnthinkStreamHealthyKey, healthy);
+              } catch (e) {
+                debugPrint('[fnthink] 门铃状态没落盘（后台那一轮会按 60 秒兜底）：$e');
+              }
+            }());
+            if (!healthy && loop.isRunning) {
+              // 流断了：立刻补一轮（不 hold）把断线期间的消息取回来；
+              // 这一轮之后 notice 会把常驻档重新打开。
+              // ⚠ 只在循环还开着时补：`stop()` 也会触发 healthy=false，
+              //   那一刻再跑一轮就等于"用户刚关掉接收，又去问了一次货"。
+              unawaited(loop.runOnce(manual: true));
+            }
+          },
+        );
+  loop = FnthinkReceiveLoop(
     poll: service.pollOnce,
+    // T185：手动「立即收取」走不 hold 的那一发；定时器那一轮才允许服务端等到 `waitSeconds`。
+    // 若手动撞上在途的那一轮，先用 cancelPoll 叫停 hold，再跑真正的手动轮。
+    pollNow: () => service.pollOnce(hold: false),
+    cancelPoll: () async => service.cancelHeldPoll(),
+    onStart: stream == null ? null : () async => stream.start(),
+    onStop: stream?.stop,
     ack: (messageId, result) =>
         service.ack(messageId: messageId, result: result),
     persist: spec.persist,
@@ -230,6 +276,7 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
     onCommand: spec.onCommand,
     onRound: spec.onRound,
   );
+  return loop;
 }
 
 /// 把「契约 + 设置 + 本机凭证 + 收件表 + 收货循环」接成一个能启停的东西（#126 第四片）。
@@ -1708,7 +1755,8 @@ class FnthinkReceiveCoordinator {
         return FnthinkManualRound(skipReason: result.reason);
       }
     }
-    final report = await loop.runOnce();
+    // T185：manual=true ⇒ 走 `pollNow`（不让服务端 hold），点一下立刻出结果。
+    final report = await loop.runOnce(manual: true);
     // 手动那一轮不经过 `_tick`，所以 `onRound` 不会响 —— 这里补上同一个口径。
     // 少这一行时的表现很具体：开关开着、后台一直在收，而"有人请求配对"那一栏要等下一次
     // 定时器才更新，用户点了"立即收取"却看见空栏。

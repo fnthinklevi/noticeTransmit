@@ -1142,6 +1142,113 @@ class FnthinkContract {
     return (intervalSeconds: interval, durationSeconds: duration);
   }
 
+  /// 长轮询（T185）。null = 这一段缺、或 `enabled=false` ⇒ 调用方按短轮询跑，一个字节都不变。
+  ///
+  /// ⚠ 两个头名从契约读，不在这里写 `x-fnthink-wait`：客户端与服务端各写一份字符串的结果
+  /// 是「服务端不认这枚头、立刻返回空」——而新客户端又会把下一轮压到零延迟，变成忙等。
+  /// 响应头是旧服务端的识别位：只有看到它才允许零延迟，否则退回常态间隔。
+  ({
+    int waitSeconds,
+    int maxWaitSeconds,
+    int clientTimeoutSeconds,
+    String requestHeader,
+    String responseHeader,
+  })?
+  get longPollSpec {
+    if (boolOf(const ['presence', 'longPoll', 'enabled']) != true) return null;
+    final node = map(const ['presence', 'longPoll']) ?? const {};
+    final wait = node['waitSeconds'];
+    final max = node['maxWaitSeconds'];
+    final timeout = node['clientTimeoutSeconds'];
+    final requestHeader = node['requestHeader'];
+    final responseHeader = node['responseHeader'];
+    if (wait is! int ||
+        wait <= 0 ||
+        max is! int ||
+        max < wait ||
+        timeout is! int ||
+        timeout <= max ||
+        requestHeader is! String ||
+        requestHeader.isEmpty ||
+        responseHeader is! String ||
+        responseHeader.isEmpty) {
+      throw StateError(
+        '契约的 presence.longPoll 不完整：要 waitSeconds/maxWaitSeconds/clientTimeoutSeconds '
+        '与两个非空头名（不补默认值：猜一个数就是第二份节奏）',
+      );
+    }
+    return (
+      waitSeconds: wait,
+      maxWaitSeconds: max,
+      clientTimeoutSeconds: timeout,
+      requestHeader: requestHeader,
+      responseHeader: responseHeader,
+    );
+  }
+
+  /// SSE 门铃（T185 第二步）。null = 缺段 / `enabled=false` ⇒ 只走长轮询。
+  ///
+  /// `path` 是**完整公网路径**（客户端直接 `baseUri.resolve`），票与头的名字全从这里读：
+  /// 两侧各写一份 `x-fnthink-stream-ticket` 的结果是连不上，而现场只有 403 没有原因。
+  ({
+    String path,
+    String supportHeader,
+    String ticketRequestHeader,
+    String ticketHeader,
+    String ticketField,
+    String ticketExpiresField,
+    int ticketTtlSeconds,
+    int heartbeatSeconds,
+    int safetyPollSeconds,
+  })?
+  get streamSpec {
+    if (boolOf(const ['presence', 'stream', 'enabled']) != true) return null;
+    final node = map(const ['presence', 'stream']) ?? const {};
+    final path = node['path'];
+    final supportHeader = node['supportHeader'];
+    final ticketRequestHeader = node['ticketRequestHeader'];
+    final ticketHeader = node['ticketHeader'];
+    final ticketField = node['ticketField'];
+    final ticketExpiresField = node['ticketExpiresField'];
+    final ttl = node['ticketTtlSeconds'];
+    final heartbeat = node['heartbeatSeconds'];
+    final safety = node['safetyPollSeconds'];
+    if (path is! String ||
+        path.isEmpty ||
+        supportHeader is! String ||
+        supportHeader.isEmpty ||
+        ticketRequestHeader is! String ||
+        ticketRequestHeader.isEmpty ||
+        ticketHeader is! String ||
+        ticketHeader.isEmpty ||
+        ticketField is! String ||
+        ticketField.isEmpty ||
+        ticketExpiresField is! String ||
+        ticketExpiresField.isEmpty ||
+        ttl is! int ||
+        ttl <= 0 ||
+        heartbeat is! int ||
+        heartbeat <= 0 ||
+        safety is! int ||
+        safety <= 0) {
+      throw StateError(
+        '契约的 presence.stream 不完整：要 path / 三个头名 / 两个响应字段名 / '
+        'ticketTtlSeconds / heartbeatSeconds / safetyPollSeconds（不补默认值）',
+      );
+    }
+    return (
+      path: path,
+      supportHeader: supportHeader,
+      ticketRequestHeader: ticketRequestHeader,
+      ticketHeader: ticketHeader,
+      ticketField: ticketField,
+      ticketExpiresField: ticketExpiresField,
+      ticketTtlSeconds: ttl,
+      heartbeatSeconds: heartbeat,
+      safetyPollSeconds: safety,
+    );
+  }
+
   /// `ts` 允许的偏移上限（秒）。超过它，服务端会把这条判过期，而对外只有一句同形的话。
   int get maxSkewSeconds {
     final value = intOf(const ['signature', 'maxSkewSeconds']);

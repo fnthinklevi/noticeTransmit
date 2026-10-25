@@ -2138,6 +2138,12 @@ abstract class AppLocalizations {
   /// **'允许自启动'**
   String get keepAliveStep2;
 
+  /// No description provided for @keepAliveStepAssoc.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许关联启动（荣耀/华为等系统需要）'**
+  String get keepAliveStepAssoc;
+
   /// No description provided for @keepAliveStep3.
   ///
   /// In zh, this message translates to:

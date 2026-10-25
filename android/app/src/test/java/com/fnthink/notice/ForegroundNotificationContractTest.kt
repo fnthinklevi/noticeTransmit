@@ -122,8 +122,15 @@ class ForegroundNotificationContractTest {
     fun `onTaskRemoved 保留保活重启排程（自启动场景 4）`() {
         val block = extractFunction(serviceSource, "override fun onTaskRemoved(")
         assertTrue(
-            "onTaskRemoved 缺少重启排程（AlarmManager 1s 拉起，保活恢复链）",
-            block.contains("AlarmManager") && block.contains("PendingIntent"),
+            "onTaskRemoved 不再调自愈链（T185 第三步之后两条入口共用 scheduleSelfRestart）",
+            block.contains("scheduleSelfRestart()"),
+        )
+        // 排程本身收在 helper 里：onTaskRemoved 与 onDestroy 共用同一份，
+        // 所以 AlarmManager/PendingIntent 这两样要在 helper 里判，不是从 onTaskRemoved 里删掉。
+        val helper = extractFunction(serviceSource, "private fun scheduleSelfRestart(")
+        assertTrue(
+            "scheduleSelfRestart 缺少重启排程（AlarmManager 1s 拉起，保活恢复链）",
+            helper.contains("AlarmManager") && helper.contains("PendingIntent"),
         )
     }
 

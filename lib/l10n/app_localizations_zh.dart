@@ -1105,6 +1105,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get keepAliveStep2 => '允许自启动';
 
   @override
+  String get keepAliveStepAssoc => '允许关联启动（荣耀/华为等系统需要）';
+
+  @override
   String get keepAliveStep3 => '后台运行不受限（任务锁定）';
 
   @override

@@ -293,6 +293,10 @@ class FnthinkReceiveKernel {
       // —— 解析两遍就会出现"提频按一份判、界面按另一份画"的两个读者（T129）。
       sentPairRequests: sentNow,
       signedWhileUncalibrated: signedWhileUncalibrated,
+      // T185：服务端认了这枚长轮询响应头才为 true；旧服务端一直是 false。
+      longPolled: reply.longPolled,
+      // 支持位同样来自响应头：旧服务端没有它 ⇒ 客户端不换票（换票会被旧服务端当普通取货）。
+      streamSupported: reply.streamSupported,
     );
   }
 
@@ -1785,6 +1789,8 @@ class FnthinkReply {
     this.body = const <String, Object?>{},
     this.retryAfterSeconds,
     this.quotaWindow,
+    this.longPolled = false,
+    this.streamSupported = false,
   });
 
   /// 数字必须来自契约 `statusCodes` 那一份，不是本类的默认值。
@@ -1794,6 +1800,14 @@ class FnthinkReply {
 
   /// 429 时服务端说明是 `minute` 还是 `day` 那一档（T180）。null = 老服务端没这枚头。
   final String? quotaWindow;
+
+  /// 这一发是**长轮询**、且服务端认了（T185 的响应头）。只有它为 true 时调用方才允许
+  /// 把下一轮压到零延迟 —— 旧服务端不认请求头、会立刻回空，拿零延迟去追它是忙等。
+  final bool longPolled;
+
+  /// 这台服务端支持 SSE 门铃（T185 第二步的支持位）。旧服务端没有这枚头 ⇒ **不许换票**：
+  /// 换票走的是同一条 /poll，旧服务端会把票请求当普通取货，货被拿走却没人落库/ack。
+  final bool streamSupported;
 }
 
 typedef FnthinkSigner = Future<String> Function(List<int> canonicalBytes);
@@ -1920,6 +1934,8 @@ class FnthinkPollResult {
     this.sentPairRequests = const [],
     required this.nextDelay,
     required this.signedWhileUncalibrated,
+    this.longPolled = false,
+    this.streamSupported = false,
     this.reason,
   });
 
@@ -1947,6 +1963,14 @@ class FnthinkPollResult {
   /// 这一发是在还没学到服务端时间时签的 —— 调用方要把这当作"值得告诉用户一次"的状态，
   /// 而不是静默重试：一路 403/410 而屏幕上只有"连接失败"，是最难排查的那种形状。
   final bool signedWhileUncalibrated;
+
+  /// 这一发是长轮询且服务端认了（T185）。调用方据此把下一轮压到零延迟；
+  /// 失败的那几档一律 false（下一次仍按常态间隔退一步）。
+  final bool longPolled;
+
+  /// 这台服务端支持 SSE 门铃（T185 第二步）。旧服务端没有这一位 ⇒ 客户端**不换票**，
+  /// 因为换票请求在旧服务端上是一条普通 poll（会把货取走而没人落库/ack）。
+  final bool streamSupported;
   final String? reason;
 
   bool get ok => status == FnthinkPollStatus.ok;

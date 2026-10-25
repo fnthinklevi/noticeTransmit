@@ -20,6 +20,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -56,6 +57,10 @@ class NotificationMonitorService : NotificationListenerService() {
         const val ACTION_BATTERY_ALARM = "com.fnthink.notice.BATTERY_ALARM"
         private const val BATTERY_ALARM_INTERVAL_MS = 15 * 60 * 1000L
         private const val BATTERY_ALARM_REQUEST_CODE = 2001
+        // T185 第三步：划掉任务 / 被系统收走时的自愈链。1 秒是给系统的清理让路；
+        // 请求码不与 2001/3001/3002/3101/3201 复用（同码会互相覆盖）。
+        private const val SELF_RESTART_REQUEST_CODE = 3202
+        private const val SELF_RESTART_DELAY_MS = 1000L
         // 前台通知刷新（推送启停状态变更后由 PushToggleActionReceiver 触发）
         const val ACTION_REFRESH_FOREGROUND = "com.fnthink.notice.REFRESH_FOREGROUND"
         // 历史记录"现在推送"：由 MainActivity.pushRecordNow 转发，手动补推单条记录
@@ -495,8 +500,43 @@ class NotificationMonitorService : NotificationListenerService() {
         return super.onBind(intent)
     }
 
+    // 把"1 秒后重启自己"排给 AlarmManager（T185 第三步）。
+    //
+    // 只在监听开着时排：用户已经关掉监听就让它安静地停，不要再把人叫起来。
+    // `getForegroundService`（API 26+）而不是 `getService`：Android 12+ 从后台起
+    // 普通服务会被直接拒，而起前台服务是被允许的那一档（电池优化豁免下）。
+    private fun scheduleSelfRestart() {
+        if (!monitoringEnabled) return
+        try {
+            val intent = Intent(this, NotificationMonitorService::class.java)
+            val flags = PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            val pending = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(
+                    this,
+                    SELF_RESTART_REQUEST_CODE,
+                    intent,
+                    flags,
+                )
+            } else {
+                PendingIntent.getService(this, SELF_RESTART_REQUEST_CODE, intent, flags)
+            }
+            val alarmManager = getSystemService(ALARM_SERVICE) as? AlarmManager ?: return
+            alarmManager.set(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + SELF_RESTART_DELAY_MS,
+                pending,
+            )
+            Log.i(TAG, "Self-restart scheduled in ${SELF_RESTART_DELAY_MS}ms")
+        } catch (e: Exception) {
+            // 失败只留日志：这是兜底链，主路（START_STICKY / 系统重新绑定监听器）还在。
+            Log.w(TAG, "Self-restart scheduling failed", e)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        // T185 第三步：被系统收走时也补一条自愈链（用户关掉监听时不排 —— 见上）。
+        if (monitoringEnabled) scheduleSelfRestart()
         // 服务走了就不该再持锁：START_STICKY 重建时会由 onCreate 的 restore 重新拿。
         FnthinkLiveMode.release()
         batteryChangedReceiver?.let {
@@ -756,19 +796,9 @@ class NotificationMonitorService : NotificationListenerService() {
         super.onTaskRemoved(rootIntent)
         // 用户划掉最近任务：系统可能回收进程。START_STICKY 会重启服务但延迟不确定；
         // 主动排程 1 秒后拉起，减小「监听 + 前台服务」的空窗期（漏通知窗口）。
+        // T185 第三步：与 onDestroy 共用同一条自愈链（新请求码 3202、API 26+ 走前台服务）。
         try {
-            val restart = Intent(applicationContext, NotificationMonitorService::class.java)
-            val pi = PendingIntent.getService(
-                applicationContext,
-                0,
-                restart,
-                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
-            )
-            getSystemService(AlarmManager::class.java)?.set(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + 1000L,
-                pi
-            )
+            scheduleSelfRestart()
             // 划掉任务：先按"已停止"落盘并重绘小部件，让用户立刻看到真实状态；
             // 若 1s 后服务真的被拉起，onCreate 会把它翻回「推送中」—— 反馈跟着事实走，不粉饰。
             writeLiveness(running = false, sync = true)

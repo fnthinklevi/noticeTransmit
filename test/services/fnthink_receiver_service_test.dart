@@ -842,6 +842,151 @@ void main() {
       );
     });
   });
+
+  // ── T185：长轮询的接线（只有「要不要 hold」与「下一轮多快」两件事）──
+  group('长轮询', () {
+    test('收货循环那一轮带等待头；服务端认了 ⇒ 下一轮零延迟', () async {
+      final spec = contract.longPollSpec!;
+      final rec = _Recorder(
+        scripts: ['{"messages":[],"receipts":[],"pending":0}'],
+        headers: {'content-type': 'application/json', spec.responseHeader: '1'},
+      );
+      final outcome = await build(contract, rec, _Signer()).pollOnce();
+
+      expect(
+        rec.requests.single.headers[spec.requestHeader],
+        '${spec.waitSeconds}',
+        reason: '不带这枚头 ⇒ 服务端立刻回空，等于什么都没优化',
+      );
+      expect(
+        outcome.nextDelay,
+        Duration.zero,
+        reason: '服务端刚 hold 完（或有货）⇒ 下一轮必须立刻发，不能再等一个常态间隔',
+      );
+    });
+
+    test('手动那一轮不带等待头：就算服务端回了识别头，也不许零延迟', () async {
+      final spec = contract.longPollSpec!;
+      final rec = _Recorder(
+        scripts: ['{"messages":[],"receipts":[],"pending":0}'],
+        headers: {'content-type': 'application/json', spec.responseHeader: '1'},
+      );
+      final outcome = await build(
+        contract,
+        rec,
+        _Signer(),
+      ).pollOnce(hold: false);
+
+      expect(
+        rec.requests.single.headers.containsKey(spec.requestHeader),
+        isFalse,
+        reason: '手动「立即收取」被 hold 25 秒，用户看到的是按钮坏了',
+      );
+      expect(outcome.nextDelay, isNot(Duration.zero));
+    });
+
+    test('旧服务端（不认等待头、没有识别头）⇒ 仍按常态间隔，不拿零延迟追它', () async {
+      final spec = contract.longPollSpec!;
+      final rec = _Recorder(
+        scripts: ['{"messages":[],"receipts":[],"pending":0}'],
+      );
+      final outcome = await build(contract, rec, _Signer()).pollOnce();
+
+      // 新客户端仍会带上那枚头（旧服务端忽略它），但**没有响应头就不许零延迟**。
+      expect(rec.requests.single.headers[spec.requestHeader], isNotNull);
+      expect(
+        outcome.nextDelay,
+        Duration(seconds: contract.pollIntervalSeconds),
+        reason: '旧服务端立刻回空；零延迟会把一次正常部署变成忙等',
+      );
+    });
+
+    test('换票：带 ticketRequestHeader，且与长轮询的等待头互斥', () async {
+      final spec = contract.streamSpec!;
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[],"receipts":[],"pending":0}',
+          '{"${spec.ticketField}":"t1","${spec.ticketExpiresField}":123}',
+        ],
+        headers: {'content-type': 'application/json', spec.supportHeader: '1'},
+      );
+      final service = build(contract, rec, _Signer());
+      // 先走一发普通 poll 学到"这台服务端支持门铃"（支持位）。
+      await service.pollOnce(hold: false);
+      final ticket = await service.requestStreamTicket();
+
+      expect(rec.requests, hasLength(2));
+      expect(
+        rec.requests.last.headers[spec.ticketRequestHeader],
+        '1',
+        reason: '不带这枚头，服务端只会当普通取货（票永远拿不到）',
+      );
+      expect(
+        rec.requests.last.headers.containsKey(
+          contract.longPollSpec!.requestHeader,
+        ),
+        isFalse,
+        reason: '换票必须立刻返回：这两个头同时出现时服务端会 hold，而票只要一张',
+      );
+      expect(ticket?.ticket, 't1');
+    });
+
+    test('没见过支持位（旧服务端）⇒ 一个换票请求都不发', () async {
+      final rec = _Recorder(scripts: ['{"serverTime":1}']);
+      final service = build(contract, rec, _Signer());
+      expect(await service.requestStreamTicket(), isNull);
+      expect(
+        rec.requests,
+        isEmpty,
+        reason:
+            '旧服务端不认识换票头，会把它当普通取货：货被拿走却没人落库/ack —— '
+            '这一条比"门铃没开"严重得多',
+      );
+    });
+
+    test('服务端没给票 ⇒ null（退回长轮询，不崩）', () async {
+      final spec = contract.streamSpec!;
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[],"receipts":[],"pending":0}',
+          '{"serverTime":1}',
+        ],
+        headers: {'content-type': 'application/json', spec.supportHeader: '1'},
+      );
+      final service = build(contract, rec, _Signer());
+      await service.pollOnce(hold: false);
+      expect(await service.requestStreamTicket(), isNull);
+    });
+
+    test('门铃健康且空闲 ⇒ 下一轮退到契约的 safetyPollSeconds', () async {
+      final spec = contract.streamSpec!;
+      final rec = _Recorder(
+        scripts: ['{"messages":[],"receipts":[],"pending":0}'],
+      );
+      final service = build(contract, rec, _Signer())..streamHealthy = true;
+      final outcome = await service.pollOnce(hold: false);
+      expect(
+        outcome.nextDelay,
+        Duration(seconds: spec.safetyPollSeconds),
+        reason: '门铃负责即时性；这一档只是"流静默死了"的兜底',
+      );
+    });
+
+    test('门铃健康但有货 ⇒ 仍立刻再取（先把队列排空）', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[{"messageId":"m_1","type":"notice","title":"t","body":"b"}],'
+              '"receipts":[],"pending":1}',
+        ],
+      );
+      final service = build(contract, rec, _Signer())..streamHealthy = true;
+      final outcome = await service.pollOnce(hold: false);
+      expect(
+        outcome.nextDelay,
+        isNot(Duration(seconds: contract.streamSpec!.safetyPollSeconds)),
+      );
+    });
+  });
 }
 
 /// 记下每一次请求，并按脚本回响应。

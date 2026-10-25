@@ -62,9 +62,12 @@ class FnthinkPresenceScheduler {
       return;
     }
     final backoff = afterSeconds != null && afterSeconds > 0;
+    // T185 第二步：SSE 健康时门铃负责即时性，网络回包本身会唤醒 CPU —— 这时不再
+    // 常驻持锁、也不再高频轮询。后台那一轮同样不开常驻档：那颗引擎只活一轮。
+    final liveWanted = !fnthinkStreamHealthy && !fnthinkBackgroundIsolate;
     // 退避那一档要在**第一个 await 之前**就把常驻档关掉：循环排下一轮时读的是这颗全局，
     // 晚一步清，Retry-After 就会被 clamp 压回高频 —— 正是 T181 B 最容易踩的那一脚。
-    if (backoff) {
+    if (backoff || !liveWanted) {
       _clearLiveGlobals();
       await _stopLive();
     } else {
@@ -89,11 +92,22 @@ class FnthinkPresenceScheduler {
     }
     // 常驻档活着时，闹钟只当"进程被杀"的兜底：退到契约允许的**最慢**那一档，
     // 循环还在跑时它不会真的响；循环一停，最迟那一档之后由 worker 接手。
-    final alarmSeconds = backoff
-        ? afterSeconds
-        : (fnthinkLiveModeActive
-              ? await _backstopSeconds()
-              : await _cadenceSeconds());
+    //
+    // T185 第二步的三档：
+    //  - SSE 健康 ⇒ 兜底退到 `stream.safetyPollSeconds`（正常时门铃立刻叫醒，
+    //    这一颗只防"流静默死了但连接还在"）；
+    //  - 后台那一轮 / 常驻档 ⇒ 契约最慢档（60s），是"进程被杀"的接手间隔；
+    //  - 都没有 ⇒ 用户选的那一档常态 cadence。
+    final int alarmSeconds;
+    if (backoff) {
+      alarmSeconds = afterSeconds;
+    } else if (fnthinkStreamHealthy) {
+      alarmSeconds = await _streamSafetySeconds();
+    } else if (fnthinkLiveModeActive || fnthinkBackgroundIsolate) {
+      alarmSeconds = await _backstopSeconds();
+    } else {
+      alarmSeconds = await _cadenceSeconds();
+    }
     if (backoff) {
       _backstopArmedForMs = 0;
     } else if (fnthinkLiveModeActive) {
@@ -136,6 +150,14 @@ class FnthinkPresenceScheduler {
   Future<int> _backstopSeconds() async {
     final contract = await contracts.load();
     return contract.pollIntervalRange.max;
+  }
+
+  /// SSE 健康时的兜底间隔：契约 `presence.stream.safetyPollSeconds`。
+  /// 段缺（旧契约）时退回契约最慢档 —— 宁可 60 秒兜一次，也不在实现里写一个数。
+  Future<int> _streamSafetySeconds() async {
+    final contract = await contracts.load();
+    return contract.streamSpec?.safetyPollSeconds ??
+        contract.pollIntervalRange.max;
   }
 
   /// 下一轮的间隔：**只从"契约 + 本机那一档设置"读**（T88 之后仍然只有一个作者）。
@@ -264,6 +286,16 @@ const String kFnthinkPresenceHandleKey = 'fnthink_presence_handle';
 /// 常驻档下兜底闹钟"再往前推一次"的余量：比它更近就不重排，免得每轮都去敲 AlarmManager。
 const int _kBackstopRearmWindowMs = 30000;
 
+/// T185 第二步：SSE 门铃是否健康。主 isolate 由流服务写；后台 isolate 从 [kFnthinkStreamHealthyKey]
+/// 读同一份 —— 那颗引擎只活一轮，不能因为"它不知道门铃开着"就去开常驻档。
+bool fnthinkStreamHealthy = false;
+
+/// 后台那一轮（WorkManager 起的另一颗引擎）。它只活一轮，**永远**不开常驻档/不持锁。
+bool fnthinkBackgroundIsolate = false;
+
+/// 流健康状态落盘的键（Dart 自己写的裸键；后台 isolate 读同一份）。
+const String kFnthinkStreamHealthyKey = 'fnthink_stream_healthy';
+
 /// 当前这颗 isolate 是否处在常驻轮询档。循环排下一轮时用 [fnthinkLiveClampDelay] 压间隔。
 ///
 /// 只活在本 isolate：前台 UI 与后台 worker 各有一份，互不冒充。
@@ -325,6 +357,9 @@ Future<bool> publishEntryHandle() async {
 Future<void> fnthinkPresenceEntrypoint() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  // T185 第二步：这一颗引擎只跑一轮（worker 交回 roundDone 后就结束）。
+  // 它不开常驻档、不持锁 —— 持锁是主 isolate 的事，而这里的锁会在引擎销毁后留在进程里。
+  fnthinkBackgroundIsolate = true;
   const channel = MethodChannel(kFnthinkPresenceChannel);
   try {
     await runFnthinkPresenceRound();

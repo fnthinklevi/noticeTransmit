@@ -29,6 +29,72 @@ void main() {
   _t105cReceipts();
   _t154ReceiptDelivery();
 
+  // ── T185：长轮询只该在**定时器那一轮**发生 ──────────────────────────────
+  group('长轮询与手动收取', () {
+    test('手动那一轮走 pollNow（不 hold），定时器那一轮仍走 poll', () async {
+      final h = _Harness();
+      final loop = h.loop();
+      await loop.runOnce(manual: true);
+      expect(h.pollNowCalls, 1);
+      expect(h.pollCalls, 0, reason: '手动点了「立即收取」却被服务端 hold 25 秒，界面上就是按钮坏了');
+      await loop.runOnce();
+      expect(h.pollCalls, 1);
+      expect(h.pollNowCalls, 1);
+    });
+
+    test('手动撞上在途的 hold ⇒ 先叫停，再跑真正的手动轮（不返回 skipped）', () async {
+      var cancelCalls = 0;
+      final hold = Completer<FnthinkReceiveOutcome>();
+      final loop = FnthinkReceiveLoop(
+        poll: () => hold.future,
+        pollNow: () async => _ok(const []),
+        cancelPoll: () async {
+          cancelCalls++;
+          if (!hold.isCompleted) {
+            hold.complete(
+              const FnthinkReceiveOutcome(
+                status: FnthinkPollStatus.transportError,
+                nextDelay: Duration(seconds: 20),
+              ),
+            );
+          }
+        },
+        ack: (messageId, result) async => const FnthinkAckResult(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 20),
+        ),
+        persist: (_) async => true,
+        nowMs: () => 1700000000000,
+        schedule: (_, _) => Timer(Duration.zero, () {}),
+      );
+      final held = loop.runOnce();
+      await Future<void>.delayed(Duration.zero);
+      final manual = await loop.runOnce(manual: true);
+      expect(cancelCalls, 1, reason: '不叫停的话这一发要等整个 hold（25 秒）');
+      expect(manual.skipped, isFalse);
+      await held;
+    });
+
+    test('pollNow 没接 ⇒ 退回同一条路（老装配不因少这一格而崩）', () async {
+      var pollCalls = 0;
+      final loop = FnthinkReceiveLoop(
+        poll: () async {
+          pollCalls++;
+          return _ok(const []);
+        },
+        ack: (messageId, result) async => const FnthinkAckResult(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 20),
+        ),
+        persist: (_) async => true,
+        nowMs: () => 1700000000000,
+        schedule: (_, _) => Timer(Duration.zero, () {}),
+      );
+      await loop.runOnce(manual: true);
+      expect(pollCalls, 1);
+    });
+  });
+
   group('顺序：取货 → 落库 → ack', () {
     test('三条取到就三条落库、三条各 ack 一次 delivered', () async {
       final h = _Harness();
@@ -853,11 +919,19 @@ class _Harness {
   final List<void Function()> callbacks = [];
   final Map<String, List<FnthinkAckResult>> ackByMessage = {};
 
+  int pollNowCalls = 0;
+
   Future<FnthinkReceiveOutcome> poll() async {
     final i = pollCalls;
     pollCalls++;
     if (_pollScript.isEmpty) return _ok(const []);
     return _pollScript[i < _pollScript.length ? i : _pollScript.length - 1];
+  }
+
+  /// 手动「立即收取」那一发（T185）：与 [poll] 分开是为了让用例看得出**哪一条路被走了**。
+  Future<FnthinkReceiveOutcome> pollNow() async {
+    pollNowCalls++;
+    return _ok(const []);
   }
 
   Future<FnthinkAckResult> ack(String messageId, String result) async {
@@ -902,6 +976,7 @@ class _Harness {
     }
     return FnthinkReceiveLoop(
       poll: poll,
+      pollNow: pollNow,
       ack: ack,
       persist: persist,
       nowMs: nowMs ?? () => 1700000000000,

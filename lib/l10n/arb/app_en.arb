@@ -524,6 +524,7 @@
   "keepAliveGuideDesc": "Some systems restrict background services and may miss notifications. Follow these steps:",
   "keepAliveStep1": "Set battery optimization to Unrestricted",
   "keepAliveStep2": "Allow auto-start",
+  "keepAliveStepAssoc": "Allow associated start (required on Honor/Huawei)",
   "keepAliveStep3": "Keep running in background (task lock)",
   "keepAliveStep4": "Confirm notification access is enabled",
   "notes": "Notes",

@@ -234,7 +234,12 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
     // 一个 NAS 出口后面挂三个端点会互相挤，那正是 A1 那 7 条配对用例红在 429 上的形状。
     const fourthKind = endpointKindOf('/p/e_1/s_1');
     expect(listed.has(fourthKind)).toBe(false); // 第四类确实是名单之外，不是被顺手列进去了
+    // T185 第二步：/stream 是 SSE 门铃（GET + 一次性票），不是签名事件，也没有
+    // "设备地址/发送方"可当限流主键 —— 它不进三份名单，但也不是"漏登记"。
+    const streamPath = contract.presence.stream.path;
     const missing = mounted.filter((entry) => {
+      const path = entry.replace(/^[A-Z,]+ /, '');
+      if (path === streamPath) return false;
       const kind = endpointKindOf(entry);
       return kind !== fourthKind && !listed.has(kind);
     });

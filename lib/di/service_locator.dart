@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:fnthink_push/fnthink_push.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_helper.dart';
 import '../services/history_paging.dart';
@@ -792,6 +794,16 @@ Future<void> _requestVendorAutoStart(GetIt getIt) async {
 /// ⚠ 与前台必须是同一条收货路（同一套判据、同一个内核）：在这儿拼第二个 poll 循环，
 ///   就等于给同一个协议找第二个作者。守卫钉在 `test/architecture/fnthink_presence_guard_test.dart`。
 Future<void> fnthinkBackgroundRound() async {
+  // T185 第二步：这一颗引擎只跑一轮 —— 不放 SSE 门铃（流刚连上就会被收走），
+  // 但要把主 isolate 落盘的「门铃健康」读回来：它只影响闹钟兜底间隔与要不要持锁。
+  fnthinkAllowStream = false;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    fnthinkStreamHealthy = prefs.getBool(kFnthinkStreamHealthyKey) ?? false;
+  } catch (e) {
+    // 读不到就按"门铃没开"处理：那是保守的一档（60 秒兜底），不是猜一个更省电的值。
+    debugPrint('[fnthink] 后台那一轮读门铃状态失败：$e');
+  }
   // 前台进程里整棵树已经装好了（`registerLazySingleton` 二次注册会抛，别重复装）；
   // 后台 isolate 里 getIt 是空的 —— 那一次由这里补上，且必须在收货之前。
   if (!getIt.isRegistered<FnthinkReceiveCoordinator>()) setupLocator();
