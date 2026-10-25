@@ -65,12 +65,13 @@ class FnthinkPresenceScheduler {
     // T185 第二步：SSE 健康时门铃负责即时性，网络回包本身会唤醒 CPU —— 这时不再
     // 常驻持锁、也不再高频轮询。后台那一轮同样不开常驻档：那颗引擎只活一轮。
     final liveWanted = !fnthinkStreamHealthy && !fnthinkBackgroundIsolate;
-    // 退避那一档要在**第一个 await 之前**就把常驻档关掉：循环排下一轮时读的是这颗全局，
-    // 晚一步清，Retry-After 就会被 clamp 压回高频 —— 正是 T181 B 最容易踩的那一脚。
-    if (backoff || !liveWanted) {
+    // T197 片1：后台那一轮**不许碰共享的原生开关**。旧写法在这里调 stopFnthinkLive，
+    // 会把主 isolate 正持有的锁关掉，而主 isolate 可能已经睡着、没人再把它打开。
+    // 退避那一档要在**第一个 await 之前**就把常驻档关掉：循环排下一轮时读的是这颗全局。
+    if (!fnthinkBackgroundIsolate && (backoff || !liveWanted)) {
       _clearLiveGlobals();
       await _stopLive();
-    } else {
+    } else if (!fnthinkBackgroundIsolate) {
       final liveSeconds = await _liveSeconds();
       _setLiveGlobals(liveSeconds);
       var live = false;

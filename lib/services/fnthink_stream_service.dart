@@ -28,7 +28,9 @@ class FnthinkStreamService {
     required this.onHealthyChanged,
     FnthinkSseOpen? open,
     List<Duration>? backoff,
+    int Function()? nowMs,
   }) : _open = open ?? _httpOpen,
+       _nowMs = nowMs ?? _defaultNowMs,
        _backoff =
            backoff ??
            const [
@@ -42,21 +44,35 @@ class FnthinkStreamService {
              Duration(seconds: 120),
            ];
 
+  static int _defaultNowMs() => DateTime.now().millisecondsSinceEpoch;
+
   final FnthinkContract contract;
   final Uri baseUri;
   final Future<FnthinkStreamTicket?> Function() requestTicket;
   final void Function() onWake;
   final void Function(bool healthy) onHealthyChanged;
   final FnthinkSseOpen _open;
+  final int Function() _nowMs;
   final List<Duration> _backoff;
 
   bool _running = false;
   bool _healthy = false;
   int _attempt = 0;
+
+  /// 连接代际：每次新连接/清理都递增；旧连接留下的 Timer 带着旧代际，
+  /// 即使漏跑一拍也只能原地返回。
+  int _generation = 0;
   StreamSubscription<String>? _sub;
   void Function()? _closeConnection;
   Timer? _retryTimer;
+
+  /// T197 片1：最后一次收到**任何字节**的时刻（含 `: connected` 与服务端心跳）。
+  /// 健康位只说明"连接曾经建成"，它不能回答"这条流现在还活着吗"。
+  int? _lastByteAtMs;
+  Timer? _watchdogTimer;
   final StringBuffer _buffer = StringBuffer();
+
+  int? get _heartbeatSeconds => contract.streamSpec?.heartbeatSeconds;
 
   bool get isHealthy => _healthy;
 
@@ -112,9 +128,11 @@ class FnthinkStreamService {
       _attempt = 0;
       _buffer.clear();
       // T196：连接建立/每一块字节都留一枚时刻，原生自检据此回答"门铃最后一次有动静是什么时候"。
-      unawaited(
-        markFnthinkStreamByte(atMs: DateTime.now().millisecondsSinceEpoch),
-      );
+      // T197 片1：同一枚时刻也是看门狗的起点 —— 只有字节能证明这条流还活着。
+      _lastByteAtMs = _nowMs();
+      _generation++;
+      _startWatchdog(_generation);
+      unawaited(markFnthinkStreamByte(atMs: _nowMs()));
       _sub = connection.body
           .transform(utf8.decoder)
           .listen(
@@ -135,9 +153,8 @@ class FnthinkStreamService {
 
   /// 一块一块地解 SSE：事件之间用空行分隔，`:` 开头的是心跳注释（忽略）。
   void _consume(String chunk) {
-    unawaited(
-      markFnthinkStreamByte(atMs: DateTime.now().millisecondsSinceEpoch),
-    );
+    _lastByteAtMs = _nowMs();
+    unawaited(markFnthinkStreamByte(atMs: _nowMs()));
     // SSE 行尾允许 \r\n；去掉 \r 之后按 \n\n 分块。
     _buffer.write(chunk.replaceAll('\r', ''));
     var text = _buffer.toString();
@@ -166,7 +183,49 @@ class FnthinkStreamService {
     _scheduleRetry();
   }
 
+  /// T197 片1：连接建成后每半个心跳查一次"上次收到字节是什么时候"。
+  /// 健康位只证明连接曾经建成；服务端心跳停了/反代静默切断时，socket 可能还挂着。
+  ///
+  /// 代际：Timer 只属于创建它的那条连接。旧 Timer 即便漏跑一拍，
+  /// 也只会看到 `generation != _generation` 后直接返回，不能改写新连接的健康位。
+  void _startWatchdog(int generation) {
+    _watchdogTimer?.cancel();
+    final hb = _heartbeatSeconds;
+    if (hb == null || hb <= 0) return;
+    final interval = Duration(seconds: hb <= 2 ? 1 : hb ~/ 2);
+    _watchdogTimer = Timer.periodic(
+      interval,
+      (_) => checkStaleForTest(generation: generation),
+    );
+  }
+
+  /// 测试入口：不等真实计时器，直接把"现在"推进到阈值之外再调用。
+  @visibleForTesting
+  void checkStaleForTest({int? generation}) {
+    if (generation != null && generation != _generation) return;
+    if (!_running || !_healthy) return;
+    final last = _lastByteAtMs;
+    if (last == null) return;
+    final hb = _heartbeatSeconds;
+    if (hb == null || hb <= 0) return;
+    if (!isStreamStale(
+      lastByteAtMs: last,
+      nowMs: _nowMs(),
+      heartbeatSeconds: hb,
+    )) {
+      return;
+    }
+    debugPrint('[fnthink] SSE 超过 ${hb * 2.5}s 没有字节，判死不假装在线');
+    _setHealthy(false);
+    _cleanupConnection();
+    _scheduleRetry();
+  }
+
   void _cleanupConnection() {
+    _generation++;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
+    _lastByteAtMs = null;
     final sub = _sub;
     _sub = null;
     if (sub != null) unawaited(sub.cancel());
@@ -259,4 +318,18 @@ bool isWakeEventBlock(String block) {
     if (line.trim() == 'event: wake') return true;
   }
   return false;
+}
+
+/// T197 片1：SSE 的读超时判据。服务端每 `heartbeatSeconds` 发一次心跳，
+/// 超过 **2.5 倍**仍没有任何字节 ⇒ 这条流已经静默死了。
+///
+/// 不算死：从没收到过字节（`lastByteAtMs <= 0`）或契约没给心跳（<= 0）——
+/// 那是"还没开始"或"契约坏了"，不是"静默断了"；前者由连接建立那一步处理。
+bool isStreamStale({
+  required int lastByteAtMs,
+  required int nowMs,
+  required int heartbeatSeconds,
+}) {
+  if (lastByteAtMs <= 0 || heartbeatSeconds <= 0) return false;
+  return nowMs - lastByteAtMs > heartbeatSeconds * 2500;
 }

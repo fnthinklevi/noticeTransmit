@@ -13,6 +13,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
@@ -89,6 +91,8 @@ class NotificationMonitorService : NotificationListenerService() {
     private var batteryChangedReceiver: android.content.BroadcastReceiver? = null
     private var delayedPushReceiver: android.content.BroadcastReceiver? = null
     private var mergePushReceiver: android.content.BroadcastReceiver? = null
+    private var fnthinkScreenReceiver: android.content.BroadcastReceiver? = null
+    private var fnthinkNetworkCallback: ConnectivityManager.NetworkCallback? = null
     private var batteryAlarmPendingIntent: PendingIntent? = null
     @Volatile private var cachedConfig: ConfigSnapshot? = null
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
@@ -124,6 +128,8 @@ class NotificationMonitorService : NotificationListenerService() {
         startForegroundService()
         // T181 B：服务重启（START_STICKY / 开机）后恢复后台高频轮询的持锁状态。
         FnthinkLiveMode.restore(this)
+        // T197 片1：解锁/亮屏/网络恢复时补一轮收货（开关与节流都在 FnthinkPresenceWake 里）。
+        startFnthinkWakeTriggers()
         // 小部件存活证据：一进入前台就落盘，并把节拍跑起来。
         // ⚠ 顺序要紧：划掉应用后服务会被 1s 闹钟拉起，若这里不写，重绘的小部件仍停在「已关闭」。
         writeLiveness(running = true, sync = true)
@@ -534,6 +540,77 @@ class NotificationMonitorService : NotificationListenerService() {
         }
     }
 
+    /**
+     * T197 片1：解锁/亮屏/网络恢复 ⇒ 让 [FnthinkPresenceWorker] 去跑一轮。
+     *
+     * 只做"触发"：不在这里拼 poll、不自己算节奏。开关与 5 秒节流都在
+     * [FnthinkPresenceWake] 一处，服务这一层只负责注册与注销系统监听。
+     */
+    private fun startFnthinkWakeTriggers() {
+        if (fnthinkScreenReceiver == null) {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    val action = intent?.action ?: return
+                    if (action == Intent.ACTION_SCREEN_ON ||
+                        action == Intent.ACTION_USER_PRESENT
+                    ) {
+                        FnthinkPresenceWake.enqueueRound(
+                            this@NotificationMonitorService,
+                            "screen",
+                        )
+                    }
+                }
+            }
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    registerReceiver(receiver, filter)
+                }
+                fnthinkScreenReceiver = receiver
+            } catch (e: Exception) {
+                Log.w(TAG, "Fnthink screen trigger registration failed", e)
+            }
+        }
+        if (fnthinkNetworkCallback == null) {
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    FnthinkPresenceWake.enqueueRound(
+                        this@NotificationMonitorService,
+                        "network",
+                    )
+                }
+            }
+            try {
+                getSystemService(ConnectivityManager::class.java)
+                    ?.registerDefaultNetworkCallback(callback)
+                fnthinkNetworkCallback = callback
+            } catch (e: Exception) {
+                Log.w(TAG, "Fnthink network trigger registration failed", e)
+            }
+        }
+    }
+
+    private fun stopFnthinkWakeTriggers() {
+        fnthinkScreenReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {}
+        }
+        fnthinkScreenReceiver = null
+        fnthinkNetworkCallback?.let {
+            try {
+                getSystemService(ConnectivityManager::class.java)
+                    ?.unregisterNetworkCallback(it)
+            } catch (_: Exception) {}
+        }
+        fnthinkNetworkCallback = null
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         // T185 第三步：被系统收走时也补一条自愈链（用户关掉监听时不排 —— 见上）。
@@ -570,6 +647,7 @@ class NotificationMonitorService : NotificationListenerService() {
         // （连带 NotificationProcessor / Handler），"只注册不注销"这条本仓库已付过学费。
         stopDeviceStateWatchers()
         RetryQueue.stopWatching()
+        stopFnthinkWakeTriggers()
         // 小部件存活证据：进程还在的最后一刻把"我停了"写下去并重绘 —— 这是划掉应用后
         // 能**立刻**变灰的唯一时机（serviceScope 已 cancel，故走同步 commit）。
         try {

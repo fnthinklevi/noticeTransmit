@@ -383,6 +383,13 @@ void main() {
         isEmpty,
         reason: '那颗引擎交回 roundDone 就结束；它拿的锁会留在进程里，而续期的人已经没了',
       );
+      expect(
+        calls.where((c) => c.method == 'stopFnthinkLive'),
+        isEmpty,
+        reason:
+            'T197 片1：后台那一轮不许关主 isolate 的锁 —— 主 isolate 可能已经睡着，'
+            '没人会再把它打开；旧写法在这里调 stopFnthinkLive，正好制造这个空窗',
+      );
       expect(scheduledSeconds(), contract.pollIntervalRange.max);
     });
 

@@ -64,6 +64,118 @@ void main() {
     expect(wakes, hasLength(2));
   });
 
+  test('19s 心跳保持健康；50s 静默才判死', () async {
+    var now = 100000;
+    final controller = StreamController<List<int>>();
+    final opened = Completer<void>();
+    final healthy = <bool>[];
+    final service = FnthinkStreamService(
+      contract: contract,
+      baseUri: Uri.https('push.example', ''),
+      requestTicket: () async =>
+          const FnthinkStreamTicket(ticket: 't1', expiresAt: 0),
+      onWake: () {},
+      onHealthyChanged: healthy.add,
+      nowMs: () => now,
+      open: (uri, headers) async {
+        opened.complete();
+        return FnthinkSseConnection(
+          status: 200,
+          body: controller.stream,
+          close: () => unawaited(controller.close()),
+        );
+      },
+      backoff: const [Duration(days: 1)],
+    );
+    addTearDown(service.stop);
+    service.start();
+    await opened.future;
+    await flush();
+    expect(healthy, [true]);
+
+    now += 19000;
+    controller.add(utf8.encode(': ping\n\n'));
+    await flush();
+    service.checkStaleForTest();
+    expect(service.isHealthy, isTrue, reason: '19s < 2.5×20s，不许误杀');
+
+    now += 50001;
+    service.checkStaleForTest();
+    await flush();
+    expect(service.isHealthy, isFalse);
+    expect(healthy, [true, false]);
+  });
+
+  test('50s 静默只重连一次；旧代际 Timer 不能改写新连接；stop 后不翻转', () async {
+    var now = 100000;
+    final controllers = <StreamController<List<int>>>[];
+    final healthy = <bool>[];
+    var opens = 0;
+    final service = FnthinkStreamService(
+      contract: contract,
+      baseUri: Uri.https('push.example', ''),
+      requestTicket: () async =>
+          const FnthinkStreamTicket(ticket: 't1', expiresAt: 0),
+      onWake: () {},
+      onHealthyChanged: healthy.add,
+      nowMs: () => now,
+      open: (uri, headers) async {
+        opens++;
+        final c = StreamController<List<int>>();
+        controllers.add(c);
+        return FnthinkSseConnection(
+          status: 200,
+          body: c.stream,
+          close: () => unawaited(c.close()),
+        );
+      },
+      backoff: const [Duration.zero],
+    );
+    addTearDown(service.stop);
+    service.start();
+    await flush();
+    expect(opens, 1);
+    expect(healthy, [true]);
+
+    now += 50001;
+    service.checkStaleForTest();
+    await flush();
+    await flush();
+    expect(healthy, [true, false, true]);
+    expect(opens, 2, reason: '一次静默只触发一次重连');
+
+    // 初始连接代际是 1，新连接已是 3；旧 Timer 带着 1 来敲门必须原地返回。
+    service.checkStaleForTest(generation: 1);
+    expect(service.isHealthy, isTrue);
+    service.stop();
+    service.checkStaleForTest();
+    expect(service.isHealthy, isFalse);
+    expect(healthy.last, isFalse);
+  });
+
+  test('换票失败仍按既有退避重试，且从不假装在线', () async {
+    var tickets = 0;
+    final healthy = <bool>[];
+    final service = FnthinkStreamService(
+      contract: contract,
+      baseUri: Uri.https('push.example', ''),
+      requestTicket: () async {
+        tickets++;
+        return null;
+      },
+      onWake: () {},
+      onHealthyChanged: healthy.add,
+      backoff: const [Duration.zero, Duration.zero],
+    );
+    addTearDown(service.stop);
+    service.start();
+    await flush();
+    await flush();
+    expect(tickets, greaterThanOrEqualTo(2), reason: '换票失败不能停在那儿');
+    expect(healthy, isEmpty);
+    expect(service.isHealthy, isFalse);
+  });
+
   test('流断了 ⇒ healthy=false，并用**新票**重连（一次性票不能复用）', () async {
     final controllers = <StreamController<List<int>>>[];
     var tickets = 0;
