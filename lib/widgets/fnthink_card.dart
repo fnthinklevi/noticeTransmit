@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
+import 'app_card_style.dart';
 import '../theme/app_colors.dart';
 
 /// 复制一段东西并当场说一句"已复制"（T97 片B：两张幻念页共用这一枚装配点）。
@@ -60,6 +61,7 @@ class FnthinkCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.separator(context)),
       ),

@@ -7,6 +7,7 @@ import '../services/device_info_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/engine_page_sections.dart';
 import '../widgets/help_note_button.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 
 /// 设备状态页（T18）：T17 那份 `getDeviceSnapshot` 的第一个消费方。
@@ -219,6 +220,7 @@ class _DeviceSnapshotPageState extends State<DeviceSnapshotPage> {
               key: const ValueKey('device-status-rows'),
               decoration: BoxDecoration(
                 color: AppColors.cardBg(context),
+                boxShadow: appCardShadows(context),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.separator(context)),
               ),

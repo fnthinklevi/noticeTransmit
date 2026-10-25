@@ -209,6 +209,7 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _onDisagreeFirst(BuildContext dialogCtx) {
     showCupertinoDialog(
+      barrierColor: AppColors.dialogBarrier,
       context: dialogCtx,
       barrierDismissible: false,
       builder: (ctx) {
@@ -226,15 +227,18 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
               Flexible(child: Text(l10n.privacyWarnTitle)),
             ],
           ),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Text(
-              l10n.privacyWarnBody,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: AppColors.secondaryLabel(ctx),
+          content: ColoredBox(
+            color: AppColors.dialogSurface(ctx),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                l10n.privacyWarnBody,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppColors.secondaryLabel(ctx),
+                ),
               ),
             ),
           ),
@@ -263,6 +267,7 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final navContext = _navigatorKey.currentState?.overlay?.context;
     if (navContext == null) return;
     showCupertinoDialog(
+      barrierColor: AppColors.dialogBarrier,
       context: navContext,
       barrierDismissible: false,
       builder: (ctx) {
@@ -280,14 +285,17 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
               Flexible(child: Text(l10n.privacyTitle)),
             ],
           ),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: PrivacyGateBody(
-              // 用 Cupertino 转场推它：全文页本身仍是 Material 的 Scaffold，但
-              // 根组件已是 CupertinoApp，不该再往「MaterialPageRoute 只许变薄」那本
-              // 台账里加一处（见 ui_style_guards_test.dart 的 kMaterialRouteSites）。
-              onOpenPolicy: () => Navigator.of(ctx).push(
-                CupertinoPageRoute(builder: (_) => const PrivacyPolicyPage()),
+          content: ColoredBox(
+            color: AppColors.dialogSurface(ctx),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: PrivacyGateBody(
+                // 用 Cupertino 转场推它：全文页本身仍是 Material 的 Scaffold，但
+                // 根组件已是 CupertinoApp，不该再往「MaterialPageRoute 只许变薄」那本
+                // 台账里加一处（见 ui_style_guards_test.dart 的 kMaterialRouteSites）。
+                onOpenPolicy: () => Navigator.of(ctx).push(
+                  CupertinoPageRoute(builder: (_) => const PrivacyPolicyPage()),
+                ),
               ),
             ),
           ),

@@ -8,6 +8,7 @@ import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
 import '../services/installed_apps_service.dart';
 import '../services/platform_channel.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_input_style.dart';
 import '../widgets/fnthink_card.dart';
@@ -352,13 +353,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.shadowFaint,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
+        boxShadow: appCardShadows(context),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1420,6 +1415,7 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
       margin: const EdgeInsets.only(bottom: 2),
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(children: children),

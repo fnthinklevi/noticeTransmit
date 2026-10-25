@@ -179,6 +179,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
       ),
       floatingActionButton: _channels.isNotEmpty
           ? FloatingActionButton(
+              shape: const CircleBorder(),
               onPressed: _addChannel,
               child: const Icon(Icons.add),
             )

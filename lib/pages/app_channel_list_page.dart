@@ -143,6 +143,7 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: l10n.addChannel,
+        shape: const CircleBorder(),
         onPressed: _addChannel,
         child: const Icon(Icons.add),
       ),
@@ -170,7 +171,6 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
       // 控件状态跟着错位（本仓库在 webhook 页踩过同一类）。
       key: ValueKey('app-channel-row-$id'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 0,
       color: AppColors.cardBg(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),

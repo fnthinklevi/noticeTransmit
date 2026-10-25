@@ -91,6 +91,38 @@ void main() {
     return out;
   }
 
+  List<String> dialogBarrierOffenders(Map<String, String> sources) {
+    final out = <String>[];
+    for (final entry in sources.entries) {
+      final src = entry.value;
+      for (final m in RegExp(
+        r'showCupertinoDialog(?:<[^()]*>)?\(',
+      ).allMatches(src)) {
+        final block = balanced(src, m.end - 1);
+        if (!block.contains('barrierColor: AppColors.dialogBarrier')) {
+          out.add('${entry.key}:${lineOf(src, m.start)}');
+        }
+      }
+    }
+    return out;
+  }
+
+  List<String> cardShadowOffenders(Map<String, String> sources) {
+    final out = <String>[];
+    for (final entry in sources.entries) {
+      final src = entry.value;
+      for (final m in RegExp(r'BoxDecoration\(').allMatches(src)) {
+        final block = balanced(src, m.end - 1);
+        if (!block.contains('AppColors.cardBg(')) continue;
+        if (!block.contains('BorderRadius.circular(12)')) continue;
+        if (!block.contains('boxShadow: appCardShadows(')) {
+          out.add('${entry.key}:${lineOf(src, m.start)}');
+        }
+      }
+    }
+    return out;
+  }
+
   List<String> hardcodedUiTextOffenders(Map<String, String> sources) {
     final cjk = RegExp(r'[\u3400-\u9fff]');
     final allowed = RegExp(r'debugPrint\(|\blog\(|assert\(|text\.contains\(');
@@ -256,6 +288,24 @@ void main() {
         isTrue,
         reason: 'base §9.1：弹窗圆角 14',
       );
+      expect(
+        RegExp(
+          r'cardTheme: CardThemeData\([\s\S]*?elevation: 1,'
+          r'[\s\S]*?shadowColor: colors\.cardShadow,',
+        ).hasMatch(src),
+        isTrue,
+        reason: 'base §9.1：卡片要有阴影；Card 走主题 elevation + shadowColor',
+      );
+      expect(
+        RegExp(
+          r'navigationBarTheme: NavigationBarThemeData\([\s\S]*?height: 50,'
+          r'[\s\S]*?indicatorColor: Colors\.transparent,',
+        ).hasMatch(src),
+        isTrue,
+        reason:
+            '底部导航按 iOS tab bar 形态收口：高度 50、无 M3 大号 pill indicator；'
+            '选中态只靠图标/文字变蓝。',
+      );
     });
   });
 
@@ -295,6 +345,64 @@ void main() {
             'CupertinoSwitch(value: c, onChanged: h);\n',
       };
       expect(switchColorOffenders(sample), ['lib/pages/x.dart:1']);
+    });
+  });
+
+  group('弹窗遮罩', () {
+    test('每个 showCupertinoDialog 都用统一 barrierColor', () {
+      expect(
+        dialogBarrierOffenders(codeByPath),
+        isEmpty,
+        reason:
+            '默认 Cupertino barrier 浅色只有 20% 黑，首页红色状态圆的光晕会透进半透明弹窗正文；'
+            '统一 44% 黑既压暗背景，也保留「点外面关掉」。',
+      );
+    });
+
+    test('遮罩的尺认得合成样本', () {
+      final sample = {
+        'lib/pages/x.dart':
+            'showCupertinoDialog<void>(barrierColor: AppColors.dialogBarrier, context: c, builder: b);\n'
+            'showCupertinoDialog<void>(context: c, builder: b);\n',
+      };
+      expect(dialogBarrierOffenders(sample), ['lib/pages/x.dart:2']);
+    });
+
+    test('隐私政策两枚弹窗的正文垫弹窗同色底（红圆光晕不透正文）', () {
+      final src = codeByPath['main.dart'];
+      expect(src, isNotNull, reason: 'main.dart 不在了 ⇒ 本条在空转');
+      final count = RegExp(
+        r'content: ColoredBox\(\s*color: AppColors\.dialogSurface\(ctx\)',
+      ).allMatches(src!).length;
+      expect(
+        count,
+        2,
+        reason:
+            '首页红色状态圆的光晕会透过 CupertinoAlertDialog 的半透明正文；'
+            '两枚隐私弹窗的 content 必须各垫一层 dialogSurface（与弹窗同色，避免白块套灰框），'
+            '弹窗本体不动、barrier 仍可点穿。',
+      );
+    });
+  });
+
+  group('卡片', () {
+    test('每个 radius-12 的 cardBg BoxDecoration 都带统一阴影', () {
+      expect(
+        cardShadowOffenders(codeByPath),
+        isEmpty,
+        reason:
+            'base §9.1：卡片阴影模糊 4、偏移 (0,2)。卡片一律走 `appCardShadows(context)`，'
+            '不要在页面里各写一份 BoxShadow（深浅色值住 AppColors.cardShadow）。',
+      );
+    });
+
+    test('卡片阴影的尺认得合成样本', () {
+      final sample = {
+        'lib/pages/x.dart':
+            'BoxDecoration(color: AppColors.cardBg(context), borderRadius: BorderRadius.circular(12));\n'
+            'BoxDecoration(color: AppColors.cardBg(context), borderRadius: BorderRadius.circular(12), boxShadow: appCardShadows(context));\n',
+      };
+      expect(cardShadowOffenders(sample), ['lib/pages/x.dart:1']);
     });
   });
 

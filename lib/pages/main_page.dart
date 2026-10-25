@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
@@ -604,35 +605,42 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          // 切到「更多」那一tab 时重取幻念通道那一份读数（T103）：新建／删除／启停都发生在
-          // 从引擎 hub 或从这一页本身 push 出去的页面里，回到这一tab 就得报最新的数。
-          if (index == 2) unawaited(_refreshFnthinkChannels());
-          setState(() => _currentIndex = index);
-        },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
-            label: l10n.tabHome,
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: AppColors.separator(context), width: 0.5),
           ),
-          // 中间这一格是「通知引擎」：电量 / 温度 / 设备状态这类**设备侧触发**的告警
-          // 都归它（内容骨架 = T15）。本批只换导航形状，child 暂时仍是电量页 ——
-          // 顺序上先立形状，是为了让集成测试的 tab 文案只被改动一次。
-          NavigationDestination(
-            icon: const Icon(Icons.bolt_outlined),
-            selectedIcon: const Icon(Icons.bolt),
-            label: l10n.tabNotificationEngine,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.more_horiz),
-            selectedIcon: const Icon(Icons.more_horiz),
-            label: l10n.tabMore,
-          ),
-        ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            // 切到「更多」那一tab 时重取幻念通道那一份读数（T103）：新建／删除／启停都发生在
+            // 从引擎 hub 或从这一页本身 push 出去的页面里，回到这一tab 就得报最新的数。
+            if (index == 2) unawaited(_refreshFnthinkChannels());
+            setState(() => _currentIndex = index);
+          },
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(CupertinoIcons.house),
+              selectedIcon: const Icon(CupertinoIcons.house_fill),
+              label: l10n.tabHome,
+            ),
+            // 中间这一格是「通知引擎」：电量 / 温度 / 设备状态这类**设备侧触发**的告警
+            // 都归它（内容骨架 = T15）。本批只换导航形状，child 暂时仍是电量页 ——
+            // 顺序上先立形状，是为了让集成测试的 tab 文案只被改动一次。
+            NavigationDestination(
+              icon: const Icon(CupertinoIcons.bolt),
+              selectedIcon: const Icon(CupertinoIcons.bolt_fill),
+              label: l10n.tabNotificationEngine,
+            ),
+            NavigationDestination(
+              icon: const Icon(CupertinoIcons.ellipsis),
+              selectedIcon: const Icon(CupertinoIcons.ellipsis),
+              label: l10n.tabMore,
+            ),
+          ],
+        ),
       ),
     );
   }

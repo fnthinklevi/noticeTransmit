@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/services/installed_apps_service.dart';
+import 'package:notice_transmit/widgets/app_card_style.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_permission_prompt.dart';
 import 'package:notice_transmit/widgets/app_text_selection_menu.dart';
@@ -447,6 +448,7 @@ class _RemoteTriggerFilterPageState extends State<RemoteTriggerFilterPage>
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.cardBg(context),
+              boxShadow: appCardShadows(context),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(

@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show AlertDialog, Icons;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
 
@@ -130,6 +132,31 @@ void main() {
   });
 
   group('askConfirm（双动作确认框）', () {
+    testWidgets('取消那颗是次要文字色，字号/字重按 base 的按钮档', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          host(
+            action: (ctx, l10n) => IosDialogActions.askConfirm(
+              ctx,
+              title: '删除这条规则',
+              message: '删掉之后不可恢复',
+              confirmText: '删除',
+              cancelText: '先不删',
+              destructive: true,
+            ),
+          ),
+        ),
+      );
+      await open(tester);
+      final dialogContext = tester.element(find.byType(CupertinoAlertDialog));
+      final cancel =
+          tester.renderObject<RenderParagraph>(find.text('先不删')).text
+              as TextSpan;
+      expect(cancel.style?.color, AppColors.secondaryLabel(dialogContext));
+      expect(cancel.style?.fontSize, 16);
+      expect(cancel.style?.fontWeight, FontWeight.w600);
+    });
+
     testWidgets('确认那颗回 true，取消那颗回 false', (tester) async {
       final results = <bool>[];
       Future<void> ask(BuildContext ctx, AppLocalizations l10n) async {

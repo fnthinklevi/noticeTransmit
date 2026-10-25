@@ -6,7 +6,6 @@ class AppTheme {
   static ThemeData _buildTheme({
     required Brightness brightness,
     required AppThemeColors colors,
-    required Color indicatorColor,
   }) {
     return ThemeData(
       useMaterial3: true,
@@ -47,8 +46,10 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        elevation: 0,
+        elevation: 1,
         color: colors.cardBg,
+        shadowColor: colors.cardShadow,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         clipBehavior: Clip.antiAlias,
       ),
@@ -81,8 +82,9 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colors.cardBg.withValues(alpha: 0.95),
         elevation: 0,
-        height: 64,
-        indicatorColor: indicatorColor,
+        height: 50,
+        // iOS tab bar 没有 M3 那颗大号 pill；选中态只靠图标/文字变蓝。
+        indicatorColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return TextStyle(
@@ -154,19 +156,11 @@ class AppTheme {
 
   static ThemeData lightTheme() {
     final colors = AppThemeColors.light();
-    return _buildTheme(
-      brightness: Brightness.light,
-      colors: colors,
-      indicatorColor: colors.systemBlue.withValues(alpha: 0.1),
-    );
+    return _buildTheme(brightness: Brightness.light, colors: colors);
   }
 
   static ThemeData darkTheme() {
     final colors = AppThemeColors.dark();
-    return _buildTheme(
-      brightness: Brightness.dark,
-      colors: colors,
-      indicatorColor: colors.systemBlue.withValues(alpha: 0.2),
-    );
+    return _buildTheme(brightness: Brightness.dark, colors: colors);
   }
 }

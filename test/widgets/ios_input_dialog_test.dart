@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show AlertDialog;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/ios_input_dialog.dart';
 
@@ -60,6 +62,23 @@ void main() {
   Finder cancelBtn() => find.byKey(const ValueKey('ios-input-cancel'));
 
   group('取值', () {
+    testWidgets('取消那颗是次要文字色', (tester) async {
+      await openDialog(tester, (_) {});
+      final dialogContext = tester.element(find.byType(CupertinoAlertDialog));
+      final cancel =
+          tester
+                  .renderObject<RenderParagraph>(
+                    find.descendant(
+                      of: cancelBtn(),
+                      matching: find.byType(Text),
+                    ),
+                  )
+                  .text
+              as TextSpan;
+      expect(cancel.style?.color, AppColors.secondaryLabel(dialogContext));
+      expect(cancel.style?.fontSize, 16);
+    });
+
     testWidgets('画的是一件 Cupertino 的；显式要 trim 的那一格回去空格后的值', (tester) async {
       final seen = <String?>[];
       await openDialog(

@@ -7,6 +7,7 @@ import '../models/fnthink_channel.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../services/fnthink_channel_service.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
@@ -232,6 +233,7 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: l10n.addChannel,
+        shape: const CircleBorder(),
         onPressed: _openDetail,
         child: const Icon(Icons.add),
       ),
@@ -244,7 +246,6 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
       // key 挂在**通道 id** 上：列表顺序会变（复制／删除），按下标挂 key 会让控件状态错位。
       key: ValueKey('fnthink-channel-row-${channel.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 0,
       color: AppColors.cardBg(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -386,6 +387,7 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.separator(context)),
       ),

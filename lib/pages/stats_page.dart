@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/channel_display.dart';
 import '../services/notification_service.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 
 import 'package:get_it/get_it.dart';
@@ -107,6 +108,7 @@ class _StatsPageState extends State<StatsPage> {
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.cardBg(context),
+              boxShadow: appCardShadows(context),
               borderRadius: BorderRadius.circular(12),
             ),
             padding: const EdgeInsets.all(16),
@@ -131,6 +133,7 @@ class _StatsPageState extends State<StatsPage> {
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.cardBg(context),
+              boxShadow: appCardShadows(context),
               borderRadius: BorderRadius.circular(12),
             ),
             padding: const EdgeInsets.all(16),
@@ -155,6 +158,7 @@ class _StatsPageState extends State<StatsPage> {
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.cardBg(context),
+              boxShadow: appCardShadows(context),
               borderRadius: BorderRadius.circular(12),
             ),
             padding: const EdgeInsets.all(16),
@@ -189,6 +193,7 @@ class _StatsPageState extends State<StatsPage> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),
@@ -292,6 +297,7 @@ class _StatsPageState extends State<StatsPage> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),
@@ -561,6 +567,7 @@ class _StatsPageState extends State<StatsPage> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),

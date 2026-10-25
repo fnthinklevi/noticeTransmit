@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../services/filter_service.dart';
 import '../services/installed_apps_service.dart';
 import '../services/rule_trace.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_info_note_box.dart';
 import '../widgets/app_text_selection_menu.dart';
@@ -134,6 +135,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -427,6 +429,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

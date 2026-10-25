@@ -12,6 +12,7 @@ import '../l10n/app_localizations.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_remote_settings.dart';
 import '../services/remote_credential_store.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
@@ -803,6 +804,7 @@ class _Card extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

@@ -1664,11 +1664,17 @@ abstract class AppLocalizations {
   /// **'新添加的通道默认启用'**
   String get webhookDesc3;
 
-  /// No description provided for @channelNameOptional.
+  /// No description provided for @webhookChannelNameHint.
   ///
   /// In zh, this message translates to:
-  /// **'通道名称（可选，如 企业微信·通知）'**
-  String get channelNameOptional;
+  /// **'可选，如 企业微信·通知'**
+  String get webhookChannelNameHint;
+
+  /// No description provided for @webhookUrlLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'Webhook 地址'**
+  String get webhookUrlLabel;
 
   /// No description provided for @webhookUrlPlaceholder.
   ///

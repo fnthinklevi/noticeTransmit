@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart'
     show AlertDialog, InputDecoration, InkWell, showDialog, TextField;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/ios_form_dialog.dart';
 
@@ -66,6 +68,16 @@ void main() {
   );
 
   group('取值与形状（含 fields 是 Material 控件那一种）', () {
+    testWidgets('取消那颗是次要文字色', (tester) async {
+      await open(tester);
+      final dialogContext = tester.element(find.byType(CupertinoAlertDialog));
+      final cancel =
+          tester.renderObject<RenderParagraph>(find.text('取消')).text
+              as TextSpan;
+      expect(cancel.style?.color, AppColors.secondaryLabel(dialogContext));
+      expect(cancel.style?.fontSize, 16);
+    });
+
     testWidgets('画的是 Cupertino 那一件，标题在字段之上，字段按给的顺序排', (tester) async {
       await open(tester);
 

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import 'app_dialog_text_style.dart';
 
 /// 表单型弹层的**外壳**（T90 片12）：标题 + 一叠字段 + 取消/保存。
 ///
@@ -74,6 +75,7 @@ class IosFormDialog extends StatelessWidget {
       actions: [
         CupertinoDialogAction(
           onPressed: () => Navigator.pop(context),
+          textStyle: appDialogCancelStyle(context),
           child: Text(cancelText),
         ),
         CupertinoDialogAction(

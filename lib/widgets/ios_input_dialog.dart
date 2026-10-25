@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import 'app_dialog_text_style.dart';
 import 'app_input_style.dart';
 import 'app_text_selection_menu.dart';
 
@@ -44,6 +45,7 @@ Future<String?> showIosInputDialog(
 }) {
   final l10n = AppLocalizations.of(context);
   return showCupertinoDialog<String>(
+    barrierColor: AppColors.dialogBarrier,
     context: context,
     barrierDismissible: true,
     builder: (ctx) => _IosInputDialog(
@@ -212,6 +214,7 @@ class _IosInputDialogState extends State<_IosInputDialog> {
         CupertinoDialogAction(
           key: const ValueKey('ios-input-cancel'),
           onPressed: () => Navigator.pop(context),
+          textStyle: appDialogCancelStyle(context),
           child: Text(widget.cancelText),
         ),
         CupertinoDialogAction(

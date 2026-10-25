@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import 'app_dialog_text_style.dart';
 
 /// 「有更新」那一屏用户选的那一档（T90 片21）。
 enum UpdateChoice { ignore, later, update }
@@ -39,6 +40,7 @@ class IosDialogActions {
   }) {
     final l10n = AppLocalizations.of(context);
     return showCupertinoDialog<void>(
+      barrierColor: AppColors.dialogBarrier,
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
         title: Text(title),
@@ -78,6 +80,7 @@ class IosDialogActions {
   }) async {
     final l10n = AppLocalizations.of(context);
     final ok = await showCupertinoDialog<bool>(
+      barrierColor: AppColors.dialogBarrier,
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (ctx) => CupertinoAlertDialog(
@@ -89,6 +92,7 @@ class IosDialogActions {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(ctx),
+            textStyle: appDialogCancelStyle(ctx),
             child: Text(cancelText ?? l10n.cancel),
           ),
           CupertinoDialogAction(
@@ -123,6 +127,7 @@ class IosDialogActions {
     required String allowText,
   }) async {
     final picked = await showCupertinoDialog<bool>(
+      barrierColor: AppColors.dialogBarrier,
       context: context,
       barrierDismissible: true,
       builder: (ctx) => CupertinoAlertDialog(
@@ -193,6 +198,7 @@ class IosDialogActions {
     bool barrierDismissible = true,
   }) async {
     final picked = await showCupertinoDialog<bool>(
+      barrierColor: AppColors.dialogBarrier,
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (ctx) => CupertinoAlertDialog(
@@ -236,6 +242,7 @@ class IosDialogActions {
   }) {
     final l10n = AppLocalizations.of(context);
     return showCupertinoDialog<T>(
+      barrierColor: AppColors.dialogBarrier,
       context: context,
       // ⚠ 默认开着（照旧那枚 Material `showDialog` 的行为）；说明型应该先占屏幕读完。
       barrierDismissible: barrierDismissible,
@@ -277,6 +284,7 @@ class IosDialogActions {
     bool barrierDismissible = true,
   }) async {
     final picked = await showCupertinoDialog<ConflictChoice>(
+      barrierColor: AppColors.dialogBarrier,
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (ctx) => CupertinoAlertDialog(
@@ -288,6 +296,7 @@ class IosDialogActions {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(ctx),
+            textStyle: appDialogCancelStyle(ctx),
             child: Text(cancelText),
           ),
           // ⚠ 中间那一档是**默认行为（没动作）**，不是破坏性一鞘：
@@ -330,6 +339,7 @@ class IosDialogActions {
     bool barrierDismissible = true,
   }) {
     return showCupertinoDialog<UpdateChoice>(
+      barrierColor: AppColors.dialogBarrier,
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (ctx) => CupertinoAlertDialog(
@@ -380,6 +390,7 @@ class IosDialogActions {
     Widget? body,
   }) {
     return showCupertinoDialog<UpdateChoice>(
+      barrierColor: AppColors.dialogBarrier,
       context: context,
       // ⚠ 照旧行为：强推那枚点外面**不许**关（`showDialog(barrierDismissible: false)`），
       // 而 `showCupertinoDialog` 的默认恰好也是 false —— 这一处默认是对的，但写成显式值，

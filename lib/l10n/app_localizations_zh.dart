@@ -862,7 +862,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookDesc3 => '新添加的通道默认启用';
 
   @override
-  String get channelNameOptional => '通道名称（可选，如 企业微信·通知）';
+  String get webhookChannelNameHint => '可选，如 企业微信·通知';
+
+  @override
+  String get webhookUrlLabel => 'Webhook 地址';
 
   @override
   String get webhookUrlPlaceholder => 'https://example.com/webhook';

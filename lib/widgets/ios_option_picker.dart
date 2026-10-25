@@ -61,6 +61,7 @@ Future<T?> showIosOptionPicker<T>(
   Widget? header,
 }) {
   return showCupertinoDialog<T>(
+    barrierColor: AppColors.dialogBarrier,
     context: context,
     // ⚠ 这一句不是装饰：`showCupertinoDialog` 的 `barrierDismissible` **默认 false**
     // （ Cupertino 弹窗按 iOS 原生语义"必须答"），而旧的那枚 Material `showDialog` 默认可以点外面关。

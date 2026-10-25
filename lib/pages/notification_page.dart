@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/home_service_status.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/pull_to_refresh_list.dart';
@@ -125,9 +126,8 @@ class NotificationPage extends StatelessWidget {
                   color: toneColor,
                   boxShadow: [
                     BoxShadow(
-                      color: toneColor.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      spreadRadius: 5,
+                      color: toneColor.withValues(alpha: 0.05),
+                      blurRadius: 6,
                     ),
                   ],
                 ),
@@ -173,6 +173,7 @@ class NotificationPage extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.cardBg(context),
+                boxShadow: appCardShadows(context),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.separator(context)),
               ),
@@ -368,6 +369,7 @@ class NotificationPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: AppColors.cardBg(context),
+          boxShadow: appCardShadows(context),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -439,6 +441,7 @@ class NotificationPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.cardBg(context),
+          boxShadow: appCardShadows(context),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(

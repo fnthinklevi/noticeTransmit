@@ -7,6 +7,7 @@ import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
 import '../services/rule_template_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_card_style.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/rule_template_sheet.dart';
@@ -196,13 +197,7 @@ class _RuleListPageState extends State<RuleListPage> {
                 decoration: BoxDecoration(
                   color: AppColors.cardBg(context),
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppColors.shadowFaint,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+                  boxShadow: appCardShadows(context),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -551,6 +546,7 @@ class _RuleListPageState extends State<RuleListPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _addRule,
         tooltip: l10n.ruleAddTooltip,
+        shape: const CircleBorder(),
         backgroundColor: AppColors.blue,
         child: const Icon(Icons.add, color: AppColors.onAccent),
       ),

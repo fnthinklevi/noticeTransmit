@@ -16,6 +16,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color systemCyan;
   final Color systemYellow;
   final Color systemGray;
+  final Color cardShadow;
+  final Color dialogSurface;
 
   const AppThemeColors({
     required this.bgColor,
@@ -33,6 +35,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     required this.systemCyan,
     required this.systemYellow,
     required this.systemGray,
+    required this.cardShadow,
+    required this.dialogSurface,
   });
 
   factory AppThemeColors.light() {
@@ -52,6 +56,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       systemCyan: Color(0xFF5AC8FA),
       systemYellow: Color(0xFFFFCC00),
       systemGray: Color(0xFFF2F2F7),
+      cardShadow: Color(0x0F000000),
+      dialogSurface: Color(0xFFDDDDDD),
     );
   }
 
@@ -72,6 +78,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       systemCyan: Color(0xFF64D2FF),
       systemYellow: Color(0xFFFFD60A),
       systemGray: Color(0xFF2C2C2E),
+      cardShadow: Color(0x3D000000),
+      dialogSurface: Color(0xFF2A2A2A),
     );
   }
 
@@ -92,6 +100,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     Color? systemCyan,
     Color? systemYellow,
     Color? systemGray,
+    Color? cardShadow,
+    Color? dialogSurface,
   }) {
     return AppThemeColors(
       bgColor: bgColor ?? this.bgColor,
@@ -109,6 +119,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       systemCyan: systemCyan ?? this.systemCyan,
       systemYellow: systemYellow ?? this.systemYellow,
       systemGray: systemGray ?? this.systemGray,
+      cardShadow: cardShadow ?? this.cardShadow,
+      dialogSurface: dialogSurface ?? this.dialogSurface,
     );
   }
 
@@ -134,6 +146,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       systemCyan: Color.lerp(systemCyan, other.systemCyan, t)!,
       systemYellow: Color.lerp(systemYellow, other.systemYellow, t)!,
       systemGray: Color.lerp(systemGray, other.systemGray, t)!,
+      cardShadow: Color.lerp(cardShadow, other.cardShadow, t)!,
+      dialogSurface: Color.lerp(dialogSurface, other.dialogSurface, t)!,
     );
   }
 }
@@ -164,6 +178,8 @@ class AppColors {
   static Color systemCyan(BuildContext context) => of(context).systemCyan;
   static Color systemYellow(BuildContext context) => of(context).systemYellow;
   static Color systemGray(BuildContext context) => of(context).systemGray;
+  static Color cardShadow(BuildContext context) => of(context).cardShadow;
+  static Color dialogSurface(BuildContext context) => of(context).dialogSurface;
 
   static const Color blue = Color(0xFF007AFF);
   static const Color green = Color(0xFF34C759);
@@ -176,6 +192,10 @@ class AppColors {
   static const Color teal = Color(0xFF00C7BE);
   static const Color pink = Color(0xFFFF2D55);
 
+  /// 模态遮罩。默认 Cupertino barrier 浅色只有 20% 黑，首页红色状态圆的光晕会
+  /// 透进半透明弹窗正文；44% 黑把背景压暗一档，同时保留“点外面关掉”的语义。
+  static const Color dialogBarrier = Color(0x70000000);
+
   /// 铺在品牌色/系统色实底上的前景色。白色不是主题色，单独收在这里，
   /// 页面里不写 `Colors.white`。
   static const Color onAccent = Color(0xFFFFFFFF);
@@ -185,9 +205,6 @@ class AppColors {
 
   /// 分组卡/浮层的柔和阴影（8%）。偏移与模糊仍在调用点，按 base §9.1 取 (0,2)/4。
   static const Color shadowSoft = Color(0x14000000);
-
-  /// 更淡的一层阴影（2%），只用于与页面主背景同色的卡片。
-  static const Color shadowFaint = Color(0x05000000);
 
   /// 通知来源应用的品牌色（与通道品牌表分开：这里说的是「哪类应用发的通知」）。
   static const Color brandWeChat = Color(0xFF07C160);

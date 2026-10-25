@@ -19,6 +19,7 @@ import '../services/fnthink_peer_presence_display.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../services/fnthink_relay_consent.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_info_note_box.dart';
 import '../widgets/channel_health_badge.dart';
@@ -1219,6 +1220,7 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.separator(context)),
       ),

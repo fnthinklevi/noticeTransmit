@@ -15,6 +15,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -43,13 +44,13 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
               ],
             ),
             const SizedBox(height: 12),
-            _buildFieldLabel(context, l10n.channelNameOptional),
+            _buildFieldLabel(context, l10n.channelName),
             TextField(
               contextMenuBuilder: AppTextSelectionMenu.editableText,
               controller: _nameController,
               decoration: _inputDecoration(
                 context,
-                hint: l10n.channelNameOptional,
+                hint: l10n.webhookChannelNameHint,
               ),
               style: TextStyle(
                 fontSize: 14,
@@ -61,7 +62,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
               },
             ),
             const SizedBox(height: 12),
-            _buildFieldLabel(context, l10n.webhookUrlPlaceholder),
+            _buildFieldLabel(context, l10n.webhookUrlLabel),
             TextField(
               contextMenuBuilder: AppTextSelectionMenu.editableText,
               controller: _urlController,

@@ -13,6 +13,7 @@ import '../services/device_info_service.dart';
 import '../l10n/app_localizations.dart';
 import '../models/email_channel.dart';
 import '../models/fnthink_channel.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_visuals.dart';
 import '../widgets/fnthink_card.dart';
@@ -424,6 +425,7 @@ class MorePage extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

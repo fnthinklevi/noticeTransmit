@@ -895,7 +895,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webhookDesc3 => 'Newly added channels are enabled by default';
 
   @override
-  String get channelNameOptional => 'Channel name (optional)';
+  String get webhookChannelNameHint => 'Optional, e.g. WeCom · Notifications';
+
+  @override
+  String get webhookUrlLabel => 'Webhook URL';
 
   @override
   String get webhookUrlPlaceholder => 'https://example.com/webhook';

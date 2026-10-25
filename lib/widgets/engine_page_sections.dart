@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import 'app_card_style.dart';
 
 /// 通知引擎三族设置页（电量 / 温度 / 设备状态）共用的版式。
 ///
@@ -112,17 +113,24 @@ class EngineSection extends StatelessWidget {
         // 分组卡本身是 Material：ListTile / InkWell 的水波纹只画在**最近的不透明
         // Material** 上，卡底色放在外层 Container 的 BoxDecoration 里就会把波纹压到背景之下
         // （本仓库在设备状态页与 CardActionSheet 上各撞过一次，别再让第三页踩）。
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Material(
-            color: AppColors.cardBg(context),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: AppColors.separator(context)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: rows,
+        // 阴影放在外层 Container：Material 自己画的那层会被下面的 ClipRRect 裁掉。
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: appCardShadows(context),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Material(
+              color: AppColors.cardBg(context),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: AppColors.separator(context)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: rows,
+              ),
             ),
           ),
         ),

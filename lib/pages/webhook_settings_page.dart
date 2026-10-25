@@ -13,6 +13,7 @@ import '../services/platform_channel.dart';
 import '../services/template_variables.dart';
 import '../services/webhook_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_card_style.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/channel_health_badge.dart';

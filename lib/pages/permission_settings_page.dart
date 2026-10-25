@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/fnthink_l3_grants.dart';
 import '../services/permission_service.dart';
 import '../services/vendor_family.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_info_note_box.dart';
 import '../widgets/pull_to_refresh_list.dart';
@@ -599,6 +600,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -726,6 +728,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

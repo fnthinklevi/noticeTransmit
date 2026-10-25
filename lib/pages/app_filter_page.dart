@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/installed_apps_service.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_permission_prompt.dart';
 import '../widgets/fnthink_card.dart';
@@ -444,6 +445,7 @@ class _AppFilterPageState extends State<AppFilterPage>
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.cardBg(context),
+              boxShadow: appCardShadows(context),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(

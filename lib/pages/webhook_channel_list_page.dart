@@ -9,6 +9,7 @@ import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../services/channel_probe_service.dart';
 import '../services/webhook_service.dart';
+import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
@@ -156,6 +157,7 @@ class _WebhookChannelListPageState extends State<WebhookChannelListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: l10n.addChannel,
+        shape: const CircleBorder(),
         onPressed: () => _openDetail(),
         child: const Icon(Icons.add),
       ),
@@ -177,7 +179,6 @@ class _WebhookChannelListPageState extends State<WebhookChannelListPage> {
       // —— 这一族此前正是"下标寻址九条并行列表"出的问题。
       key: ValueKey('webhook-channel-row-$id'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 0,
       color: AppColors.cardBg(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -349,6 +350,7 @@ class _WebhookChannelListPageState extends State<WebhookChannelListPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
+        boxShadow: appCardShadows(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
