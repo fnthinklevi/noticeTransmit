@@ -545,16 +545,12 @@ class _RuleListPageState extends State<RuleListPage> {
             onPressed: _showGuideDialog,
             tooltip: l10n.ruleHelp,
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _addRule,
-            tooltip: l10n.ruleAddTooltip,
-          ),
         ],
       ),
       body: _buildRuleList(),
       floatingActionButton: FloatingActionButton(
         onPressed: _addRule,
+        tooltip: l10n.ruleAddTooltip,
         backgroundColor: AppColors.blue,
         child: const Icon(Icons.add, color: AppColors.onAccent),
       ),

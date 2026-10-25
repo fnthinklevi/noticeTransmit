@@ -646,6 +646,14 @@
   "rulePHigh": "高 (200)",
   "rulePHighest": "最高 (500)",
   "rulePriorityCustom": "自定义…",
+  "rulePriorityCustomValue": "自定义…（{value}）",
+  "@rulePriorityCustomValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
   "rulePriorityCustomTitle": "自定义优先级",
   "rulePriorityCustomHint": "0-500 的整数",
   "rulePriorityCustomInvalid": "请输入 0-500 的整数",

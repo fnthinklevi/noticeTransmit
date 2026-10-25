@@ -524,7 +524,13 @@ class FnthinkEntryRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(

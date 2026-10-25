@@ -1416,6 +1416,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rulePriorityCustom => 'Custom…';
 
   @override
+  String rulePriorityCustomValue(int value) {
+    return 'Custom… ($value)';
+  }
+
+  @override
   String get rulePriorityCustomTitle => 'Custom Priority';
 
   @override

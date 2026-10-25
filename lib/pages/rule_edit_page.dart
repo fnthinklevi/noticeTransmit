@@ -455,12 +455,12 @@ class _RuleEditPageState extends State<RuleEditPage> {
       _IosOption(200, l10n.rulePHigh),
       _IosOption(500, l10n.rulePHighest),
     ];
-    // 历史/自定义优先级不在标准档位内 → 追加「自定义 (N)」选项保证回显正确
+    // 历史/自定义优先级不在标准档位内 → 追加「自定义（N）」选项保证回显正确
     if (!standardPriorities.contains(_rule.priority)) {
       options.add(
         _IosOption(
           _rule.priority,
-          '${l10n.rulePriorityCustom} (${_rule.priority})',
+          l10n.rulePriorityCustomValue(_rule.priority),
         ),
       );
     }

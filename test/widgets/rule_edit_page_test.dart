@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 // ⇒ 按类型找它得引 material 的这一名；用 show 限定，避免与 cupertino 的同名件冲突。
 import 'package:flutter/material.dart'
     show AlertDialog, IconButton, Icons, InkWell, TextField;
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/rule_edit_page.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
@@ -90,10 +91,13 @@ void main() {
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
 
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(RuleEditPage)),
+      );
       expect(
-        find.text('自定义… (123)'),
+        find.text(l10n.rulePriorityCustomValue(123)),
         findsOneWidget,
-        reason: '123 不在标准档位里 ⇒ 字段回显"自定义 (N)"，这条断言同时证明值真写进了 _rule',
+        reason: '123 不在标准档位里 ⇒ 字段回显「自定义…（N）」，这条断言同时证明值真写进了 _rule',
       );
     });
 

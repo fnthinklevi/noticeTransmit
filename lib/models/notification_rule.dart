@@ -355,7 +355,7 @@ class NotificationRule {
       NotificationRule(
         id: 'sms_code',
         name: '验证码短信优先推送',
-        description: '标题或内容包含"验证码"、"验证码"的通知优先推送',
+        description: '标题或内容包含「验证码」的通知优先推送',
         enabled: true,
         priority: 100,
         conditions: [

@@ -1357,6 +1357,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rulePriorityCustom => '自定义…';
 
   @override
+  String rulePriorityCustomValue(int value) {
+    return '自定义…（$value）';
+  }
+
+  @override
   String get rulePriorityCustomTitle => '自定义优先级';
 
   @override

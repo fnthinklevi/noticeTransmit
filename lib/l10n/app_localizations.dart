@@ -2618,6 +2618,12 @@ abstract class AppLocalizations {
   /// **'自定义…'**
   String get rulePriorityCustom;
 
+  /// No description provided for @rulePriorityCustomValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义…（{value}）'**
+  String rulePriorityCustomValue(int value);
+
   /// No description provided for @rulePriorityCustomTitle.
   ///
   /// In zh, this message translates to:
