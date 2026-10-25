@@ -158,7 +158,7 @@ class _SplashPageState extends State<SplashPage>
                 child: const Icon(
                   Icons.notifications_active,
                   size: 56,
-                  color: Colors.white,
+                  color: AppColors.onAccent,
                 ),
               ),
               const SizedBox(height: 24),
@@ -178,12 +178,14 @@ class _SplashPageState extends State<SplashPage>
                 ),
               ),
               const SizedBox(height: 16),
-              const SizedBox(
+              SizedBox(
                 width: 40,
                 height: 4,
                 child: LinearProgressIndicator(
-                  backgroundColor: Colors.grey,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.blue),
+                  backgroundColor: AppColors.systemGray(context),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.blue,
+                  ),
                 ),
               ),
             ],

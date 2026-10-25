@@ -66,15 +66,4 @@ class LocaleService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLastSystemLang, _lastSystemLang!);
   }
-
-  String get languageLabel {
-    switch (_language) {
-      case AppLanguage.system:
-        return '默认';
-      case AppLanguage.zh:
-        return '中文';
-      case AppLanguage.en:
-        return 'English';
-    }
-  }
 }

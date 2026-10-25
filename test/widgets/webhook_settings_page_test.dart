@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/webhook_settings_page.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
@@ -820,9 +821,12 @@ void main() {
       await tester.pump(kTestWebhookBudget + const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(WebhookSettingsPage)),
+      );
       expect(
         find.textContaining(
-          '原生 ${kTestWebhookBudget.inSeconds}s 未回复 testWebhook',
+          l10n.webhookTestTimeout(kTestWebhookBudget.inSeconds),
         ),
         findsOneWidget,
         reason: '到了上限却不说话 ⇒ 用户只看到一个还停在原地的界面，分不清是没测还是坏了',

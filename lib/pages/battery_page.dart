@@ -219,7 +219,7 @@ class _BatteryPageState extends State<BatteryPage> {
         break;
       case 'discharging':
         icon = Icons.battery_0_bar;
-        iconColor = const Color(0xFFFF9500);
+        iconColor = AppColors.orange;
         subtitle = l10n.ruleStopCharging;
         break;
       case 'level_above':
@@ -234,12 +234,12 @@ class _BatteryPageState extends State<BatteryPage> {
         break;
       case 'level_equals':
         icon = Icons.equalizer;
-        iconColor = const Color(0xFFAF52DE);
+        iconColor = AppColors.purple;
         subtitle = l10n.ruleEqualThreshold(value);
         break;
       default:
         icon = Icons.help_outline;
-        iconColor = Colors.grey;
+        iconColor = AppColors.secondaryLabel(context);
         subtitle = l10n.ruleUnknown;
     }
 
@@ -273,7 +273,7 @@ class _BatteryPageState extends State<BatteryPage> {
           SlidableAction(
             onPressed: (_) => _confirmDeleteRule(ruleId, title),
             backgroundColor: AppColors.red,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onAccent,
             icon: Icons.delete_outline,
             label: l10n.delete,
           ),
@@ -611,7 +611,9 @@ class _BatteryPageState extends State<BatteryPage> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.primaryLabel(context),
+            color: isSelected
+                ? AppColors.onAccent
+                : AppColors.primaryLabel(context),
           ),
         ),
       ),

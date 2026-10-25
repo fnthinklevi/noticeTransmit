@@ -209,26 +209,26 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
+                    color: AppColors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.3),
+                      color: AppColors.orange.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.warning_amber_rounded,
                         size: 14,
-                        color: Colors.orange[700],
+                        color: AppColors.orange,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           l10n.feishuMarkdownDowngradeHint,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
-                            color: Colors.orange[700],
+                            color: AppColors.orange,
                           ),
                         ),
                       ),
@@ -608,7 +608,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
         name: l10n.urlEmpty,
         desc: l10n.urlPlaceholder,
         icon: Icons.link_off,
-        color: const Color(0xFF8E8E93),
+        color: AppColors.secondaryLabel(context),
       );
     }
     final visual = _typeVisual(_effectiveSlug);

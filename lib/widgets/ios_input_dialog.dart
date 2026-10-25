@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
-import '../widgets/app_text_selection_menu.dart';
+import 'app_input_style.dart';
+import 'app_text_selection_menu.dart';
 
 /// 「打一行字 + 取消 / 保存」那一类弹层的**全站唯一装配点**（T90 片7）。
 ///
@@ -178,11 +179,7 @@ class _IosInputDialogState extends State<_IosInputDialog> {
               color: AppColors.primaryLabel(context),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.inputBg(context),
-              border: Border.all(color: AppColors.separator(context)),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: appCupertinoInputDecoration(context),
             onChanged: (_) {
               // 改一个字就把旧错误擦掉：留着会让人以为"还是不行"，于是停在已改对的值上不敢保存。
               if (_error != null) setState(() => _error = null);

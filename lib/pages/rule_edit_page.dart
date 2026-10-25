@@ -9,6 +9,7 @@ import '../models/notification_rule.dart';
 import '../services/installed_apps_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_input_style.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
@@ -351,11 +352,11 @@ class _RuleEditPageState extends State<RuleEditPage> {
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withAlpha(5),
+            color: AppColors.shadowFaint,
             blurRadius: 4,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -752,7 +753,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
                   ),
                   CupertinoSwitch(
                     value: groupByTitle,
-                    activeTrackColor: AppColors.blue,
+                    activeTrackColor: AppColors.systemGreen(context),
                     onChanged: (v) => setDialogState(() => groupByTitle = v),
                   ),
                 ],
@@ -1094,7 +1095,7 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
               ),
               CupertinoSwitch(
                 value: _showSystemApps,
-                activeTrackColor: AppColors.blue,
+                activeTrackColor: AppColors.systemGreen(context),
                 onChanged: (v) => setState(() => _showSystemApps = v),
               ),
             ],

@@ -358,11 +358,11 @@ class _RemoteTriggerFilterPageState extends State<RemoteTriggerFilterPage>
             color: selected ? AppColors.cardBg(context) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             boxShadow: selected
-                ? [
+                ? const [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
+                      color: AppColors.shadowSoft,
                       blurRadius: 4,
-                      offset: const Offset(0, 1),
+                      offset: Offset(0, 1),
                     ),
                   ]
                 : null,

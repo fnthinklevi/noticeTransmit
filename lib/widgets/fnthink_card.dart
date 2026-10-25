@@ -286,7 +286,7 @@ class FnthinkFilledAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final foreground = onPressed == null
         ? AppColors.tertiaryLabel(context)
-        : Colors.white;
+        : AppColors.onAccent;
     return CupertinoButton(
       onPressed: onPressed,
       // 留白在这层定：交给 CupertinoButton 的默认 padding，"按内容宽"这件事会在下一张页重商量一遍。
@@ -517,7 +517,7 @@ class FnthinkEntryRow extends StatelessWidget {
                 color: iconColor,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 18, color: Colors.white),
+              child: Icon(icon, size: 18, color: AppColors.onAccent),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -618,7 +618,7 @@ class FnthinkPeerRow extends StatelessWidget {
                 color: iconColor,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 18, color: Colors.white),
+              child: Icon(icon, size: 18, color: AppColors.onAccent),
             ),
             const SizedBox(width: 12),
             Expanded(

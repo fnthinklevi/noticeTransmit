@@ -175,7 +175,7 @@ class _KeywordsPageState extends State<KeywordsPage>
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.blue,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.onAccent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -194,12 +194,11 @@ class _KeywordsPageState extends State<KeywordsPage>
               decoration: BoxDecoration(
                 color: isWhitelist
                     ? AppColors.green.withValues(alpha: 0.1)
-                    : const Color(0xFFFF9500).withValues(alpha: 0.1),
+                    : AppColors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color:
-                      (isWhitelist ? AppColors.green : const Color(0xFFFF9500))
-                          .withValues(alpha: 0.3),
+                  color: (isWhitelist ? AppColors.green : AppColors.orange)
+                      .withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -207,9 +206,7 @@ class _KeywordsPageState extends State<KeywordsPage>
                 children: [
                   Icon(
                     isWhitelist ? Icons.check_circle : Icons.info_outline,
-                    color: isWhitelist
-                        ? AppColors.green
-                        : const Color(0xFFFF9500),
+                    color: isWhitelist ? AppColors.green : AppColors.orange,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -220,9 +217,7 @@ class _KeywordsPageState extends State<KeywordsPage>
                           : l10n.keywordBlacklistDesc,
                       style: TextStyle(
                         fontSize: 13,
-                        color: isWhitelist
-                            ? AppColors.green
-                            : const Color(0xFFFF9500),
+                        color: isWhitelist ? AppColors.green : AppColors.orange,
                         height: 1.3,
                       ),
                     ),
@@ -282,15 +277,14 @@ class _KeywordsPageState extends State<KeywordsPage>
                             decoration: BoxDecoration(
                               color: isWhitelist
                                   ? AppColors.green.withValues(alpha: 0.12)
-                                  : const Color(0xFFFF9500)
-                                        .withValues(alpha: 0.12),
+                                  : AppColors.orange.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
                               isWhitelist ? Icons.check : Icons.block,
                               color: isWhitelist
                                   ? AppColors.green
-                                  : const Color(0xFFFF9500),
+                                  : AppColors.orange,
                               size: 18,
                             ),
                           ),

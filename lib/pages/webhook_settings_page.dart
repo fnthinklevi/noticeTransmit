@@ -206,7 +206,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message, style: const TextStyle(color: Colors.white)),
+          content: Text(
+            message,
+            style: const TextStyle(color: AppColors.onAccent),
+          ),
           backgroundColor: ok ? AppColors.green : AppColors.red,
           duration: const Duration(seconds: 2),
         ),
@@ -366,7 +369,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           .timeout(
             kTestWebhookBudget,
             onTimeout: () => throw TimeoutException(
-              '原生 ${kTestWebhookBudget.inSeconds}s 未回复 testWebhook',
+              l10n.webhookTestTimeout(kTestWebhookBudget.inSeconds),
             ),
           );
       final success = result['success'] as bool? ?? false;

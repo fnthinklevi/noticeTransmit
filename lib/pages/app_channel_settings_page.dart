@@ -299,7 +299,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
               const Spacer(),
               CupertinoSwitch(
                 value: enabled,
-                activeTrackColor: AppColors.blue,
+                activeTrackColor: AppColors.systemGreen(context),
                 onChanged: (v) =>
                     setState(() => _channels[index]['enabled'] = v),
               ),
@@ -518,7 +518,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                                  color: AppColors.onAccent,
                                 ),
                               ),
                             ),
@@ -642,6 +642,14 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: AppColors.separator(context)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: AppColors.separator(context)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.blue),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       isDense: true,
@@ -891,7 +899,10 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
+        content: Text(
+          message,
+          style: const TextStyle(color: AppColors.onAccent),
+        ),
         backgroundColor: ok ? AppColors.green : AppColors.red,
         duration: const Duration(seconds: 2),
       ),

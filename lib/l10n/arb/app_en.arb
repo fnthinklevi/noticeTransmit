@@ -187,7 +187,7 @@
   "widgetGuideDesc": "One-tap start/pause push from home screen",
   "widgetGuideIntro": "After adding the \"Push Toggle\" widget to your home screen, you can start or pause push with one tap without opening the app.",
   "widgetGuideStep1": "1. Long-press an empty area of the home screen",
-  "widgetGuideStep2": "2. Tap \"Widgets\" (小部件 / 插件)",
+  "widgetGuideStep2": "2. Tap \"Widgets\" (or \"Plugins\")",
   "widgetGuideStep3": "3. Find \"NoticeTransmit\" and drag \"Push Toggle\" to the home screen",
   "widgetGuideBrand": "Add widget by brand",
   "widgetBrandXiaomi": "Xiaomi / Redmi: long-press home screen → Add widgets → NoticeTransmit",
@@ -1005,7 +1005,7 @@
   "backupSectionShort": "Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.",
   "backupSectionDesc": "Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.\n\nIncludes: Webhook and email channels (with credentials), notification rules, SMS monitoring toggle, app filter and keyword lists.\nExcludes: notification history that has already been pushed.\n\nThe file is password-protected — you will need the same password to restore, so keep it safe.",
   "restoreSectionTitle": "Restore Configuration",
-  "restoreSectionDesc": "Pick a .nbackup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.",
+  "restoreSectionDesc": "Pick a backup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.",
   "backupCreate": "Create Backup File",
   "restorePick": "Choose Backup File",
   "backupPasswordTitle": "Set Backup Password",
@@ -1467,7 +1467,7 @@
   "ruleTemplateImportPasswordTitle": "Template File Password",
   "ruleTemplateImportPasswordHint": "This file is encrypted; enter the password set at export time",
   "ruleTemplateExportPasswordTitle": "Export Password (optional)",
-  "ruleTemplateExportPasswordHint": "Leave empty for plain export; with a password the file is AES-256 encrypted",
+  "ruleTemplateExportPasswordHint": "Leave empty for plain export; with a password the file is password-protected",
   "ruleTemplateImportEmpty": "No templates in the file",
   "ruleTemplateInvalidFile": "Not a valid template file",
   "ruleTemplateExportOk": "Templates exported",
@@ -2717,7 +2717,7 @@
       }
     }
   },
-  "remoteExecPendingBanner": "Remote command 「{item}」 runs in {seconds}s unless you cancel",
+  "remoteExecPendingBanner": "Remote command \"{item}\" runs in {seconds}s unless you cancel",
   "@remoteExecPendingBanner": {
     "placeholders": {
       "item": {
@@ -3258,6 +3258,60 @@
   "@remoteTriggerBlockModeSelected": {
     "placeholders": {
       "n": {
+        "type": "int"
+      }
+    }
+  },
+  "testerSampleAppName": "WeChat",
+  "testerSampleTitle": "Alex",
+  "testerSampleContent": "Are you there?",
+  "errorWithDetail": "Something went wrong: {e}",
+  "@errorWithDetail": {
+    "placeholders": {
+      "e": {
+        "type": "String"
+      }
+    }
+  },
+  "webhookTestTimeout": "The native side did not return a test result within {seconds}s",
+  "@webhookTestTimeout": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "testerRuleHitSummary": "{name} (P{priority})",
+  "@testerRuleHitSummary": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "priority": {
+        "type": "int"
+      }
+    }
+  },
+  "deviceStateThresholdSummary": "Threshold {value}%",
+  "@deviceStateThresholdSummary": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "updateCheckCdnBlocked": "Update check blocked by the CDN (HTTP {code}). Try again later, or download the latest build from GitHub Releases.",
+  "@updateCheckCdnBlocked": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "updateCheckHttpStatus": "Update check failed: the server returned HTTP {code}",
+  "@updateCheckHttpStatus": {
+    "placeholders": {
+      "code": {
         "type": "int"
       }
     }

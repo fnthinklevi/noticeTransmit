@@ -136,7 +136,7 @@ const Map<String, ChannelVisual> _channelVisuals = {
   ),
   'generic': ChannelVisual(
     icon: Icons.code,
-    color: Color(0xFFFF9500),
+    color: AppColors.orange,
     labelKey: 'channelTypeGeneric',
     hintLabelKey: 'platformGeneric',
     descKey: 'platformGenericDesc',
@@ -177,7 +177,7 @@ const Map<String, ChannelVisual> _channelVisuals = {
 /// 取名字请走 [channelDisplayNameFor]。
 const ChannelVisual _fallback = ChannelVisual(
   icon: Icons.code,
-  color: Color(0xFFFF9500),
+  color: AppColors.orange,
   labelKey: 'channelTypeGeneric',
 );
 

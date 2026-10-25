@@ -6,8 +6,6 @@ class AppTheme {
   static ThemeData _buildTheme({
     required Brightness brightness,
     required AppThemeColors colors,
-    required Color switchThumbUnselected,
-    required Color switchTrackUnselected,
     required Color indicatorColor,
   }) {
     return ThemeData(
@@ -57,6 +55,7 @@ class AppTheme {
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         minLeadingWidth: 32,
+        minTileHeight: 44,
         iconColor: colors.systemBlue,
       ),
       dividerTheme: DividerThemeData(
@@ -64,23 +63,14 @@ class AppTheme {
         space: 1,
         thickness: 0.5,
       ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return Colors.white;
-          }
-          return switchThumbUnselected;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colors.systemGreen;
-          }
-          return switchTrackUnselected;
-        }),
+      dialogTheme: DialogThemeData(
+        backgroundColor: colors.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
+          foregroundColor: colors.systemBlue,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -119,15 +109,23 @@ class AppTheme {
         fillColor: colors.inputBg,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: colors.separator),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: colors.separator),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: colors.systemBlue),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colors.systemRed),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colors.systemRed),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
@@ -159,8 +157,6 @@ class AppTheme {
     return _buildTheme(
       brightness: Brightness.light,
       colors: colors,
-      switchThumbUnselected: Colors.grey.shade200,
-      switchTrackUnselected: Colors.grey.shade300,
       indicatorColor: colors.systemBlue.withValues(alpha: 0.1),
     );
   }
@@ -170,8 +166,6 @@ class AppTheme {
     return _buildTheme(
       brightness: Brightness.dark,
       colors: colors,
-      switchThumbUnselected: Colors.grey.shade800,
-      switchTrackUnselected: Colors.grey.shade700,
       indicatorColor: colors.systemBlue.withValues(alpha: 0.2),
     );
   }

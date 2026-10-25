@@ -196,11 +196,11 @@ class _RuleListPageState extends State<RuleListPage> {
                 decoration: BoxDecoration(
                   color: AppColors.cardBg(context),
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
-                      color: Colors.black.withAlpha(5),
+                      color: AppColors.shadowFaint,
                       blurRadius: 4,
-                      offset: const Offset(0, 2),
+                      offset: Offset(0, 2),
                     ),
                   ],
                 ),
@@ -556,7 +556,7 @@ class _RuleListPageState extends State<RuleListPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _addRule,
         backgroundColor: AppColors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add, color: AppColors.onAccent),
       ),
     );
   }

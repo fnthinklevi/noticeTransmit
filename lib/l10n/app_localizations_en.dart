@@ -334,7 +334,7 @@ class AppLocalizationsEn extends AppLocalizations {
       '1. Long-press an empty area of the home screen';
 
   @override
-  String get widgetGuideStep2 => '2. Tap \"Widgets\" (小部件 / 插件)';
+  String get widgetGuideStep2 => '2. Tap \"Widgets\" (or \"Plugins\")';
 
   @override
   String get widgetGuideStep3 =>
@@ -2132,7 +2132,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get restoreSectionDesc =>
-      'Pick a .nbackup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.';
+      'Pick a backup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.';
 
   @override
   String get backupCreate => 'Create Backup File';
@@ -2899,7 +2899,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ruleTemplateExportPasswordHint =>
-      'Leave empty for plain export; with a password the file is AES-256 encrypted';
+      'Leave empty for plain export; with a password the file is password-protected';
 
   @override
   String get ruleTemplateImportEmpty => 'No templates in the file';
@@ -5050,7 +5050,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String remoteExecPendingBanner(String item, int seconds) {
-    return 'Remote command 「$item」 runs in ${seconds}s unless you cancel';
+    return 'Remote command \"$item\" runs in ${seconds}s unless you cancel';
   }
 
   @override
@@ -5875,4 +5875,43 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkRemoteNeedsSwitch =>
       'Remote execution is off by default - open it here';
+
+  @override
+  String get testerSampleAppName => 'WeChat';
+
+  @override
+  String get testerSampleTitle => 'Alex';
+
+  @override
+  String get testerSampleContent => 'Are you there?';
+
+  @override
+  String errorWithDetail(String e) {
+    return 'Something went wrong: $e';
+  }
+
+  @override
+  String webhookTestTimeout(int seconds) {
+    return 'The native side did not return a test result within ${seconds}s';
+  }
+
+  @override
+  String testerRuleHitSummary(String name, int priority) {
+    return '$name (P$priority)';
+  }
+
+  @override
+  String deviceStateThresholdSummary(int value) {
+    return 'Threshold $value%';
+  }
+
+  @override
+  String updateCheckCdnBlocked(int code) {
+    return 'Update check blocked by the CDN (HTTP $code). Try again later, or download the latest build from GitHub Releases.';
+  }
+
+  @override
+  String updateCheckHttpStatus(int code) {
+    return 'Update check failed: the server returned HTTP $code';
+  }
 }

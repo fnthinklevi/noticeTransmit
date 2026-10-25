@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/fnthink_shortcut_registry.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_input_style.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/help_note_button.dart';
@@ -118,6 +119,7 @@ class _FnthinkShortcutsPageState extends State<FnthinkShortcutsPage> {
                   key: const ValueKey('fnthink-shortcut-name'),
                   controller: name,
                   autocorrect: false,
+                  decoration: appCupertinoInputDecoration(dialogContext),
                   onChanged: (_) => setDialogState(() => problem = check()),
                 ),
                 const SizedBox(height: 12),
@@ -135,6 +137,7 @@ class _FnthinkShortcutsPageState extends State<FnthinkShortcutsPage> {
                   key: const ValueKey('fnthink-shortcut-target'),
                   controller: target,
                   autocorrect: false,
+                  decoration: appCupertinoInputDecoration(dialogContext),
                   onChanged: (_) => setDialogState(() => problem = check()),
                 ),
                 if (problem != null) ...[

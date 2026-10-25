@@ -176,6 +176,24 @@ class AppColors {
   static const Color teal = Color(0xFF00C7BE);
   static const Color pink = Color(0xFFFF2D55);
 
+  /// 铺在品牌色/系统色实底上的前景色。白色不是主题色，单独收在这里，
+  /// 页面里不写 `Colors.white`。
+  static const Color onAccent = Color(0xFFFFFFFF);
+
+  /// 实底上的次级前景（副标题/辅助说明）。
+  static const Color onAccentSecondary = Color(0xB3FFFFFF);
+
+  /// 分组卡/浮层的柔和阴影（8%）。偏移与模糊仍在调用点，按 base §9.1 取 (0,2)/4。
+  static const Color shadowSoft = Color(0x14000000);
+
+  /// 更淡的一层阴影（2%），只用于与页面主背景同色的卡片。
+  static const Color shadowFaint = Color(0x05000000);
+
+  /// 通知来源应用的品牌色（与通道品牌表分开：这里说的是「哪类应用发的通知」）。
+  static const Color brandWeChat = Color(0xFF07C160);
+  static const Color brandQQ = Color(0xFF12B7F5);
+  static const Color brandAlipay = Color(0xFF1677FF);
+
   /// 应用头像/渠道标识的固定色板（按名称哈希取色，不随明暗模式变化）。
   /// 集中在此而非散落在页面里：满足「颜色一律取自 AppColors」的规范，
   /// 且顺序即取色结果，改动会让既有记录的颜色跳变。

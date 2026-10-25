@@ -298,7 +298,7 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
         ),
         trailing: CupertinoSwitch(
           value: enabled,
-          activeTrackColor: AppColors.purple,
+          activeTrackColor: AppColors.systemGreen(context),
           onChanged: (v) => _setEnabled(channel, v),
         ),
         onTap: () => _openDetail(channel: channel),

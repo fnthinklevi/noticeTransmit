@@ -15,6 +15,7 @@ import '../services/fnthink_remote_action_categories.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_input_style.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/fnthink_outcome.dart';
 import '../widgets/help_note_button.dart';
@@ -573,7 +574,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           _targetCard(l10n),
           const SizedBox(height: 12),
           if (_tier == FnthinkSendTier.notice)
-            _noticeCard(l10n)
+            _noticeCard(context, l10n)
           else if (_contract != null) ...[
             _levelCard(l10n),
             const SizedBox(height: 12),
@@ -769,7 +770,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     );
   }
 
-  Widget _noticeCard(AppLocalizations l10n) {
+  Widget _noticeCard(BuildContext context, AppLocalizations l10n) {
     final empty = _body.text.trim().isEmpty;
     return FnthinkCard(
       title: l10n.fnthinkSendSheetTitle(_peerAddress ?? '—'),
@@ -778,6 +779,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           key: const ValueKey('fnthink-send-title'),
           controller: _title,
           placeholder: l10n.fnthinkSendTitleHint,
+          decoration: appCupertinoInputDecoration(context),
           textCapitalization: TextCapitalization.sentences,
         ),
         const SizedBox(height: 10),
@@ -785,6 +787,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           key: const ValueKey('fnthink-send-body'),
           controller: _body,
           placeholder: l10n.fnthinkSendBodyHint,
+          decoration: appCupertinoInputDecoration(context),
           minLines: 3,
           maxLines: 6,
           textCapitalization: TextCapitalization.sentences,
@@ -918,10 +921,10 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           ],
         if (needsArgument)
           ...(_needsReportArgument(contract)
-              ? _reportArgumentRows(l10n)
+              ? _reportArgumentRows(context, l10n)
               : _needsKeywordArgument(contract)
-              ? _keywordArgumentRows(l10n)
-              : _channelArgumentRows(l10n)),
+              ? _keywordArgumentRows(context, l10n)
+              : _channelArgumentRows(context, l10n)),
         if (needsL3Target) ...[
           const SizedBox(height: 10),
           _wantRow(
@@ -945,6 +948,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             controller: _key,
             obscureText: true,
             autocorrect: false,
+            decoration: appCupertinoInputDecoration(context),
           ),
           const SizedBox(height: 8),
           FnthinkNote(
@@ -956,6 +960,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             controller: _totp,
             keyboardType: TextInputType.number,
             autocorrect: false,
+            decoration: appCupertinoInputDecoration(context),
           ),
         ],
       ],
@@ -967,7 +972,10 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   /// 为什么不给默认值先填上：一个预填的数会被当成"就这样发"（用户看不出这是他自己
   /// 选的还是页面替他选的），而这一发的语义是"把对面那台的通知原文要过来"——
   /// 要几条应当是一次明确的表态。空着时主操作被挡并说清区间。
-  List<Widget> _reportArgumentRows(AppLocalizations l10n) {
+  List<Widget> _reportArgumentRows(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     final contract = _contract!;
     final min = contract.l2ReportMinItems(_item) ?? 1;
     final max = contract.l2ReportMaxItems(_item) ?? min;
@@ -983,6 +991,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         placeholder: '$min–$max',
         keyboardType: TextInputType.number,
         autocorrect: false,
+        decoration: appCupertinoInputDecoration(context),
         onChanged: (_) => setState(() {}),
       ),
       HelpNoteRow(
@@ -1001,7 +1010,10 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   ///
   /// ⚠ 提示里写着"对面那台的短信监听关着时这一发不会执行" —— 那件事**本机判不了**
   /// （开关在对面），所以它只能是一句说明，不是一道闸；真拦在对面那一格（执行器）。
-  List<Widget> _keywordArgumentRows(AppLocalizations l10n) {
+  List<Widget> _keywordArgumentRows(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     final contract = _contract!;
     final min = contract.l2ReportMinChars(_item) ?? 1;
     final max = contract.l2ReportMaxChars(_item) ?? min;
@@ -1028,6 +1040,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         controller: _keyword,
         placeholder: '$min–$max',
         autocorrect: false,
+        decoration: appCupertinoInputDecoration(context),
         onChanged: (_) => setState(() {}),
       ),
       FnthinkNote(keyName: 'remote-send-keyword-why', text: why),
@@ -1035,7 +1048,10 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   }
 
   /// `channel:toggle` 那三段的选法：族（选）＋ 对面那台的通道号（填）＋ 目标档（选）。
-  List<Widget> _channelArgumentRows(AppLocalizations l10n) {
+  List<Widget> _channelArgumentRows(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     return [
       const SizedBox(height: 10),
       FnthinkNote(
@@ -1067,6 +1083,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         controller: _argument,
         placeholder: l10n.remoteSendArgument,
         autocorrect: false,
+        decoration: appCupertinoInputDecoration(context),
       ),
       HelpNoteRow(
         noteKey: 'remote-send-channel-id-why',

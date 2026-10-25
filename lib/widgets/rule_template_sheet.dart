@@ -212,7 +212,10 @@ class _RuleTemplateSheetState extends State<RuleTemplateSheet> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
+        content: Text(
+          message,
+          style: const TextStyle(color: AppColors.onAccent),
+        ),
         backgroundColor: ok ? AppColors.green : AppColors.red,
         duration: const Duration(seconds: 2),
       ),

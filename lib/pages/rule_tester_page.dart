@@ -25,9 +25,10 @@ class RuleTesterPage extends StatefulWidget {
 
 class _RuleTesterPageState extends State<RuleTesterPage> {
   final _pkgController = TextEditingController(text: 'com.tencent.mm');
-  final _appNameController = TextEditingController(text: '微信');
-  final _titleController = TextEditingController(text: '张三');
-  final _contentController = TextEditingController(text: '在吗？');
+  final _appNameController = TextEditingController();
+  final _titleController = TextEditingController();
+  final _contentController = TextEditingController();
+  bool _samplesInitialized = false;
 
   /// 0=低 1=中 2=高（与原生 NotificationInfo.priority 同口径）
   int _priority = 1;
@@ -41,6 +42,17 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
       c.addListener(_recompute);
     }
     _init();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_samplesInitialized) return;
+    _samplesInitialized = true;
+    final l10n = AppLocalizations.of(context);
+    _appNameController.text = l10n.testerSampleAppName;
+    _titleController.text = l10n.testerSampleTitle;
+    _contentController.text = l10n.testerSampleContent;
   }
 
   @override
@@ -176,9 +188,14 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
                 context,
                 1,
                 l10n.testerPriorityMid,
-                const Color(0xFFFF9500),
+                AppColors.orange,
               ),
-              _priorityChip(context, 0, l10n.testerPriorityLow, Colors.grey),
+              _priorityChip(
+                context,
+                0,
+                l10n.testerPriorityLow,
+                AppColors.secondaryLabel(context),
+              ),
             ],
           ),
         ],
@@ -196,7 +213,10 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
     return ChoiceChip(
       label: Text(
         label,
-        style: TextStyle(fontSize: 13, color: selected ? Colors.white : color),
+        style: TextStyle(
+          fontSize: 13,
+          color: selected ? AppColors.onAccent : color,
+        ),
       ),
       selected: selected,
       selectedColor: color,
@@ -307,11 +327,11 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
         l10n.testerRuleMissed,
         AppColors.secondaryLabel(context),
       ),
-      TraceRuleMark.disabled => (l10n.testerRuleDisabled, Colors.grey),
-      TraceRuleMark.excluded => (
-        l10n.testerRuleExcluded,
-        const Color(0xFFFF9500),
+      TraceRuleMark.disabled => (
+        l10n.testerRuleDisabled,
+        AppColors.secondaryLabel(context),
       ),
+      TraceRuleMark.excluded => (l10n.testerRuleExcluded, AppColors.orange),
     };
     return Container(
       margin: const EdgeInsets.only(top: 6),
@@ -331,7 +351,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
         children: [
           Expanded(
             child: Text(
-              '${e.rule.name}（P${e.rule.priority}）',
+              l10n.testerRuleHitSummary(e.rule.name, e.rule.priority),
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.primaryLabel(context),
@@ -358,10 +378,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
     RuleTraceResult r,
   ) {
     final (text, color) = switch (r.action) {
-      TraceActionKind.silent => (
-        l10n.testerActionSilent,
-        const Color(0xFFFF9500),
-      ),
+      TraceActionKind.silent => (l10n.testerActionSilent, AppColors.orange),
       TraceActionKind.delay => (
         l10n.testerActionDelay(_formatFireAt(r.delayFireAtMs)),
         AppColors.blue,
@@ -574,7 +591,7 @@ class _AppPickBodyState extends State<_AppPickBody> {
                   ),
                   CupertinoSwitch(
                     value: _showSystem,
-                    activeTrackColor: AppColors.blue,
+                    activeTrackColor: AppColors.systemGreen(context),
                     onChanged: (v) => setState(() => _showSystem = v),
                   ),
                 ],

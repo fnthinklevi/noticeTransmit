@@ -109,4 +109,7 @@ class UpdateService {
   String get currentVersion => AppUpdateManager.instance.currentVersion;
   int get currentBuild => AppUpdateManager.instance.currentBuild;
   String? get lastError => AppUpdateManager.instance.lastError;
+  UpdateFailureKind? get lastFailureKind =>
+      AppUpdateManager.instance.lastFailureKind;
+  int? get lastFailureCode => AppUpdateManager.instance.lastFailureCode;
 }

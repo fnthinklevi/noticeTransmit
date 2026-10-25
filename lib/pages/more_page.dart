@@ -169,7 +169,7 @@ class MorePage extends StatelessWidget {
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.apps,
-              iconColor: const Color(0xFF00D3B6),
+              iconColor: AppColors.teal,
               title: l10n.appChannelTitle,
               subtitle: appSummary,
               onTap: onOpenAppChannels,
@@ -209,7 +209,7 @@ class MorePage extends StatelessWidget {
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.filter_list,
-              iconColor: const Color(0xFFFF9500),
+              iconColor: AppColors.orange,
               title: l10n.keywordFilter,
               subtitle: l10n.keywordWhitelistBlacklist(
                 whitelistCount,
@@ -221,7 +221,7 @@ class MorePage extends StatelessWidget {
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.rule,
-              iconColor: const Color(0xFFAF52DE),
+              iconColor: AppColors.purple,
               title: l10n.ruleEngine,
               subtitle: ruleCount > 0
                   ? l10n.ruleCount(ruleCount)
@@ -277,7 +277,7 @@ class MorePage extends StatelessWidget {
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.bar_chart,
-              iconColor: const Color(0xFF5856D6),
+              iconColor: AppColors.indigo,
               title: l10n.pushStats,
               subtitle: l10n.pushStatsDesc,
               onTap: () => Navigator.push(
@@ -313,7 +313,7 @@ class MorePage extends StatelessWidget {
             // 塞进它的弹层里 —— 一个决定（用哪台）与一次动作（现在查一次）不是一件事。
             _buildNavTile(
               icon: Icons.dns,
-              iconColor: const Color(0xFF5856D6),
+              iconColor: AppColors.indigo,
               title: l10n.updateServerTitle,
               subtitle: l10n.updateServerEntryDesc,
               onTap: onOpenUpdateServer,
@@ -322,7 +322,7 @@ class MorePage extends StatelessWidget {
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.backup_outlined,
-              iconColor: const Color(0xFF30B0C7),
+              iconColor: AppColors.cyan,
               title: l10n.backupRestoreTitle,
               subtitle: l10n.backupRestoreSubtitle,
               onTap: () => Navigator.push(
@@ -347,7 +347,7 @@ class MorePage extends StatelessWidget {
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.info_outline,
-              iconColor: const Color(0xFF8E8E93),
+              iconColor: AppColors.secondaryLabel(context),
               title: l10n.aboutTitle,
               subtitle: l10n.aboutDesc,
               onTap: onShowAboutDialog,
@@ -457,9 +457,9 @@ class MorePage extends StatelessWidget {
       ThemeMode.dark: Icons.dark_mode,
     };
     final themeIconColors = {
-      ThemeMode.system: const Color(0xFF8E8E93),
-      ThemeMode.light: const Color(0xFFFF9500),
-      ThemeMode.dark: const Color(0xFF5856D6),
+      ThemeMode.system: AppColors.secondaryLabel(context),
+      ThemeMode.light: AppColors.orange,
+      ThemeMode.dark: AppColors.indigo,
     };
     return InkWell(
       onTap: () async {
@@ -487,10 +487,14 @@ class MorePage extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: const Color(0xFF5AC8FA),
+                color: AppColors.cyan,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.dark_mode, color: Colors.white, size: 18),
+              child: const Icon(
+                Icons.dark_mode,
+                color: AppColors.onAccent,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -576,7 +580,11 @@ class MorePage extends StatelessWidget {
                 color: AppColors.blue,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.language, color: Colors.white, size: 18),
+              child: const Icon(
+                Icons.language,
+                color: AppColors.onAccent,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -651,7 +659,7 @@ class MorePage extends StatelessWidget {
                 color: iconColor,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 18, color: Colors.white),
+              child: Icon(icon, size: 18, color: AppColors.onAccent),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -759,7 +767,7 @@ class _CrashReportTileState extends State<_CrashReportTile> {
               child: const Icon(
                 Icons.bug_report,
                 size: 18,
-                color: Colors.white,
+                color: AppColors.onAccent,
               ),
             ),
             const SizedBox(width: 12),

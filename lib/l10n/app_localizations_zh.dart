@@ -753,7 +753,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String verifyFailed(String msg) {
-    return '验证失败: $msg';
+    return '验证失败：$msg';
   }
 
   @override
@@ -1556,7 +1556,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get condRegex => '正则表达式';
 
   @override
-  String get hintPackage => '例如: com.example.app';
+  String get hintPackage => '例如：com.example.app';
 
   @override
   String get hintKeyword => '输入关键词';
@@ -1665,7 +1665,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String pageInitFailed(String e) {
-    return '页面初始化失败: $e';
+    return '页面初始化失败：$e';
   }
 
   @override
@@ -1673,7 +1673,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String testFailedMsg(String e) {
-    return '测试失败: $e';
+    return '测试失败：$e';
   }
 
   @override
@@ -2051,8 +2051,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restoreSectionTitle => '恢复配置';
 
   @override
-  String get restoreSectionDesc =>
-      '选择 .nbackup 备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。';
+  String get restoreSectionDesc => '选择备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。';
 
   @override
   String get backupCreate => '生成备份文件';
@@ -2777,8 +2776,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleTemplateExportPasswordTitle => '导出口令（可选）';
 
   @override
-  String get ruleTemplateExportPasswordHint =>
-      '留空则明文导出；设置口令后需凭口令导入（AES-256 加密）';
+  String get ruleTemplateExportPasswordHint => '留空则明文导出；设置口令后需凭口令导入（文件有密码保护）';
 
   @override
   String get ruleTemplateImportEmpty => '模板文件中没有模板';
@@ -5541,4 +5539,43 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkRemoteNeedsSwitch => '远程执行默认关 —— 进去把它打开';
+
+  @override
+  String get testerSampleAppName => '微信';
+
+  @override
+  String get testerSampleTitle => '张三';
+
+  @override
+  String get testerSampleContent => '在吗？';
+
+  @override
+  String errorWithDetail(String e) {
+    return '出错了：$e';
+  }
+
+  @override
+  String webhookTestTimeout(int seconds) {
+    return '原生 $seconds 秒未回复测试结果';
+  }
+
+  @override
+  String testerRuleHitSummary(String name, int priority) {
+    return '$name（P$priority）';
+  }
+
+  @override
+  String deviceStateThresholdSummary(int value) {
+    return '阈值 $value%';
+  }
+
+  @override
+  String updateCheckCdnBlocked(int code) {
+    return '检查更新被 CDN 拦截（HTTP $code），请稍后重试，或访问 GitHub Releases 手动下载最新版';
+  }
+
+  @override
+  String updateCheckHttpStatus(int code) {
+    return '检查更新失败：服务器返回 HTTP $code';
+  }
 }

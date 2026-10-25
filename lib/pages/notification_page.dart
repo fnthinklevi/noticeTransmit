@@ -134,14 +134,14 @@ class NotificationPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(toneIcon, size: 48, color: Colors.white),
+                    Icon(toneIcon, size: 48, color: AppColors.onAccent),
                     const SizedBox(height: 8),
                     Text(
                       toneLabel,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: AppColors.onAccent,
                       ),
                     ),
                   ],

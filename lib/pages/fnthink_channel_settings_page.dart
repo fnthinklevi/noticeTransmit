@@ -676,7 +676,7 @@ class _FnthinkChannelSettingsPageState
                     CupertinoSwitch(
                       key: const ValueKey('fnthink-channel-enabled'),
                       value: _enabled,
-                      activeTrackColor: AppColors.purple,
+                      activeTrackColor: AppColors.systemGreen(context),
                       onChanged: _busy
                           ? null
                           : (v) => setState(() => _enabled = v),

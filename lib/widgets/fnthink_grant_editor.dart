@@ -8,6 +8,7 @@ import '../services/fnthink_l2_actions.dart';
 import '../services/fnthink_remote_action_categories.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../theme/app_colors.dart';
+import 'app_input_style.dart';
 import 'fnthink_card.dart';
 
 /// 逐项授权编辑器（T174）：设备详情 → 权限那一页用的那一张表。
@@ -245,11 +246,13 @@ class _FnthinkGrantEditorState extends State<FnthinkGrantEditor> {
           ),
         ),
       ),
-      if (row.needsArgument) ..._argumentControls(l10n, row, item, problem),
+      if (row.needsArgument)
+        ..._argumentControls(context, l10n, row, item, problem),
     ];
   }
 
   List<Widget> _argumentControls(
+    BuildContext context,
     AppLocalizations l10n,
     FnthinkGrantItemRow row,
     String item,
@@ -276,6 +279,8 @@ class _FnthinkGrantEditorState extends State<FnthinkGrantEditor> {
                 : TextInputType.text,
             placeholder: _argumentHint(row),
             autocorrect: false,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: appCupertinoInputDecoration(context),
             onChanged: (_) => edit(() {}),
           ),
         ),
@@ -314,6 +319,8 @@ class _FnthinkGrantEditorState extends State<FnthinkGrantEditor> {
             controller: draft.text,
             placeholder: l10n.fnthinkPairChannelIdLabel,
             autocorrect: false,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: appCupertinoInputDecoration(context),
             onChanged: (_) => edit(() {}),
           ),
         ),

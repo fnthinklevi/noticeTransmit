@@ -96,7 +96,7 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                   color: iconColor,
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: Icon(icon, size: 20, color: Colors.white),
+                child: Icon(icon, size: 20, color: AppColors.onAccent),
               ),
               const SizedBox(width: 12),
               Text(
@@ -142,7 +142,7 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                 buttonLabel,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.onAccent,
                 ),
               ),
             ),
@@ -323,7 +323,10 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
+        content: Text(
+          message,
+          style: const TextStyle(color: AppColors.onAccent),
+        ),
         backgroundColor: color,
         duration: const Duration(seconds: 3),
       ),

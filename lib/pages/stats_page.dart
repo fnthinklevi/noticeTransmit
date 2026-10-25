@@ -165,7 +165,7 @@ class _StatsPageState extends State<StatsPage> {
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFAF52DE),
+                    color: AppColors.purple,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -395,7 +395,9 @@ class _StatsPageState extends State<StatsPage> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : AppColors.secondaryLabel(context),
+            color: selected
+                ? AppColors.onAccent
+                : AppColors.secondaryLabel(context),
           ),
         ),
       ),
@@ -681,19 +683,8 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Color _getAppColor(String appName) {
-    if (appName.isEmpty) return const Color(0xFF5856D6);
+    if (appName.isEmpty) return AppColors.indigo;
     final hash = appName.hashCode;
-    final colors = [
-      AppColors.blue,
-      const Color(0xFFFF9500),
-      AppColors.green,
-      AppColors.red,
-      const Color(0xFFAF52DE),
-      const Color(0xFF5856D6),
-      const Color(0xFF00C7BE),
-      const Color(0xFFFF2D55),
-      const Color(0xFFFFCC00),
-    ];
-    return colors[hash.abs() % colors.length];
+    return AppColors.avatarPalette[hash.abs() % AppColors.avatarPalette.length];
   }
 }

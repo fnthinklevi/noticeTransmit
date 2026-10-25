@@ -1457,7 +1457,7 @@ abstract class AppLocalizations {
   /// No description provided for @verifyFailed.
   ///
   /// In zh, this message translates to:
-  /// **'验证失败: {msg}'**
+  /// **'验证失败：{msg}'**
   String verifyFailed(String msg);
 
   /// No description provided for @testing.
@@ -2987,7 +2987,7 @@ abstract class AppLocalizations {
   /// No description provided for @hintPackage.
   ///
   /// In zh, this message translates to:
-  /// **'例如: com.example.app'**
+  /// **'例如：com.example.app'**
   String get hintPackage;
 
   /// No description provided for @hintKeyword.
@@ -3203,7 +3203,7 @@ abstract class AppLocalizations {
   /// No description provided for @pageInitFailed.
   ///
   /// In zh, this message translates to:
-  /// **'页面初始化失败: {e}'**
+  /// **'页面初始化失败：{e}'**
   String pageInitFailed(String e);
 
   /// No description provided for @unknownError.
@@ -3215,7 +3215,7 @@ abstract class AppLocalizations {
   /// No description provided for @testFailedMsg.
   ///
   /// In zh, this message translates to:
-  /// **'测试失败: {e}'**
+  /// **'测试失败：{e}'**
   String testFailedMsg(String e);
 
   /// No description provided for @iconDefault.
@@ -3893,7 +3893,7 @@ abstract class AppLocalizations {
   /// No description provided for @restoreSectionDesc.
   ///
   /// In zh, this message translates to:
-  /// **'选择 .nbackup 备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。'**
+  /// **'选择备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。'**
   String get restoreSectionDesc;
 
   /// No description provided for @backupCreate.
@@ -5195,7 +5195,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleTemplateExportPasswordHint.
   ///
   /// In zh, this message translates to:
-  /// **'留空则明文导出；设置口令后需凭口令导入（AES-256 加密）'**
+  /// **'留空则明文导出；设置口令后需凭口令导入（文件有密码保护）'**
   String get ruleTemplateExportPasswordHint;
 
   /// No description provided for @ruleTemplateImportEmpty.
@@ -9960,6 +9960,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'远程执行默认关 —— 进去把它打开'**
   String get fnthinkRemoteNeedsSwitch;
+
+  /// No description provided for @testerSampleAppName.
+  ///
+  /// In zh, this message translates to:
+  /// **'微信'**
+  String get testerSampleAppName;
+
+  /// No description provided for @testerSampleTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'张三'**
+  String get testerSampleTitle;
+
+  /// No description provided for @testerSampleContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'在吗？'**
+  String get testerSampleContent;
+
+  /// No description provided for @errorWithDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'出错了：{e}'**
+  String errorWithDetail(String e);
+
+  /// No description provided for @webhookTestTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'原生 {seconds} 秒未回复测试结果'**
+  String webhookTestTimeout(int seconds);
+
+  /// No description provided for @testerRuleHitSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name}（P{priority}）'**
+  String testerRuleHitSummary(String name, int priority);
+
+  /// No description provided for @deviceStateThresholdSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'阈值 {value}%'**
+  String deviceStateThresholdSummary(int value);
+
+  /// No description provided for @updateCheckCdnBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新被 CDN 拦截（HTTP {code}），请稍后重试，或访问 GitHub Releases 手动下载最新版'**
+  String updateCheckCdnBlocked(int code);
+
+  /// No description provided for @updateCheckHttpStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新失败：服务器返回 HTTP {code}'**
+  String updateCheckHttpStatus(int code);
 }
 
 class _AppLocalizationsDelegate

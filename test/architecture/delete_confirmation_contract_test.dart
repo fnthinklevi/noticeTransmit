@@ -252,7 +252,7 @@ void main() {
       // 切片而不是 blockAfter：参数表里那个 `{`（命名参数）会先被配对上，
       // 用花括号计数取块只会取到参数表结尾 —— 那不是我们要断的那一段。
       final start = helper.indexOf('static Future<bool> askConfirm(');
-      final end = helper.indexOf('static List<Widget> confirm(', start);
+      final end = helper.indexOf('\n  static ', start + 1);
       expect(start, greaterThanOrEqualTo(0), reason: 'askConfirm 不在了 ⇒ 本条在空转');
       expect(end, greaterThan(start), reason: '下一个方法没找到，切片边界不成立');
       final ask = helper.substring(start, end);

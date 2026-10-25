@@ -216,7 +216,7 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
         ),
         trailing: CupertinoSwitch(
           value: enabled,
-          activeTrackColor: AppColors.blue,
+          activeTrackColor: AppColors.systemGreen(context),
           onChanged: (v) => _setEnabled(index, v),
         ),
         onTap: () => _openDetail(channelId: id),

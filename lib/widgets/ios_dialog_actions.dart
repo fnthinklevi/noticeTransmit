@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
@@ -25,9 +24,6 @@ enum ConflictChoice { fillGaps, overwrite }
 /// - [showUpdatePrompt] / [showForceUpdatePrompt]：**有更新**那一枚（T90 片21）——
 ///   三颗等分档位（含「忽略」＝写进忽略名单）与强制更新那颗「只有一条出路」的，形状不同，
 ///   各是一颗入口；两者的内容（徽标 / 版本行 / 更新日志）由调用方往 [body] 塞。
-/// - [confirm]：给仍在自己搭 `AlertDialog` 的历史页面当 actions 构建器（台账见
-///   `test/architecture/ui_style_guards_test.dart`，只许缩短）。布局：0.5px 竖分割线 +
-///   两等分按钮（取消 = 次要文字色；确认 = 蓝色，破坏性 = 红色）。
 ///
 /// ⚠ 换根组件之后 `_modalUp()` 那类"有没有模态盖在上面"的判据不能再只认 Material 四类 ——
 /// `CupertinoAlertDialog` 走 `DialogRoute`，不是 `Dialog` 的子类。
@@ -143,7 +139,7 @@ class IosDialogActions {
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 17,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryLabel(context),
                 ),
@@ -414,52 +410,5 @@ class IosDialogActions {
         ],
       ),
     );
-  }
-
-  static List<Widget> confirm(
-    BuildContext context, {
-    required String cancelText,
-    required String confirmText,
-    VoidCallback? onCancel,
-    required VoidCallback onConfirm,
-    bool destructive = false,
-  }) {
-    final confirmColor = destructive ? AppColors.red : AppColors.blue;
-    return [
-      Row(
-        children: [
-          Expanded(
-            child: TextButton(
-              onPressed: onCancel ?? () => Navigator.pop(context),
-              child: Text(
-                cancelText,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: 0.5,
-            height: 20,
-            color: AppColors.separator(context),
-          ),
-          Expanded(
-            child: TextButton(
-              onPressed: onConfirm,
-              child: Text(
-                confirmText,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: confirmColor,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ];
   }
 }

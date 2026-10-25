@@ -51,11 +51,29 @@ extension _MainPageUpdate on _MainPageState {
         _showInfo(_l10n.updateAlreadyLatest);
       }
     } else if (isManual) {
-      final error = _updateService.lastError;
-      final errorMsg = error != null && error.isNotEmpty
-          ? _l10n.updateCheckFailedWithError(error)
-          : _l10n.updateCheckFailed;
-      _showInfo(errorMsg);
+      _showInfo(_updateCheckFailureText(_l10n));
+    }
+  }
+
+  /// 检查更新失败的界面措辞（服务层只给码与外部原文，见 `UpdateFailureKind`）。
+  String _updateCheckFailureText(AppLocalizations l10n) {
+    final code = _updateService.lastFailureCode;
+    switch (_updateService.lastFailureKind) {
+      case UpdateFailureKind.cdnBlocked:
+        return code == null
+            ? l10n.updateCheckFailed
+            : l10n.updateCheckCdnBlocked(code);
+      case UpdateFailureKind.httpStatus:
+        return code == null
+            ? l10n.updateCheckFailed
+            : l10n.updateCheckHttpStatus(code);
+      case UpdateFailureKind.serverMessage:
+      case UpdateFailureKind.network:
+      case null:
+        final error = _updateService.lastError;
+        return error == null || error.isEmpty
+            ? l10n.updateCheckFailed
+            : l10n.updateCheckFailedWithError(error);
     }
   }
 
@@ -130,7 +148,7 @@ extension _MainPageUpdate on _MainPageState {
         child: Text(
           _l10n.updateForceBadge,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.onAccent,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),

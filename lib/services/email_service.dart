@@ -167,15 +167,16 @@ class EmailService {
         channel.toMap(includePassword: true),
       );
       if (result is Map) {
+        final message = result['message']?.toString();
         return {
           'success': result['success'] == true,
-          'message': result['message']?.toString() ?? '未知结果',
+          if (message != null && message.isNotEmpty) 'message': message,
         };
       }
-      return {'success': false, 'message': '未收到服务端响应'};
+      return {'success': false};
     } catch (e) {
       debugPrint('EmailService: 测试邮件失败: $e');
-      return {'success': false, 'message': '测试异常: $e'};
+      return {'success': false, 'exception': e.toString()};
     }
   }
 }

@@ -183,7 +183,7 @@ class EngineSwitchRow extends StatelessWidget {
               color: iconColor,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 18, color: Colors.white),
+            child: Icon(icon, size: 18, color: AppColors.onAccent),
           ),
           const SizedBox(width: 12),
           Expanded(

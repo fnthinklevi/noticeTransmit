@@ -13,6 +13,7 @@ import '../services/channel_probe_service.dart';
 import '../services/email_service.dart';
 import '../services/template_variables.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_input_style.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
@@ -382,7 +383,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
         SlidableAction(
           onPressed: (_) => _toggleChannel(channel.id, !enabled),
           backgroundColor: enabled ? AppColors.orange : AppColors.green,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.onAccent,
           icon: enabled ? Icons.toggle_off : Icons.toggle_on,
           label: enabled ? l10n.turnOff : l10n.turnOn,
         ),
@@ -490,12 +491,20 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     await _refresh();
   }
 
+  String _testMessage(AppLocalizations l10n, Map<String, dynamic>? result) {
+    final exception = result?['exception']?.toString();
+    if (exception != null && exception.isNotEmpty) {
+      return l10n.testFailedMsg(exception);
+    }
+    return result?['message']?.toString() ?? l10n.testUnknownResult;
+  }
+
   Future<void> _saveAndTest({required EmailChannel channel}) async {
     final l10n = AppLocalizations.of(context);
     final watch = Stopwatch()..start();
     final result = await _emailService.testEmail(channel);
     final success = result?['success'] == true;
-    final message = result?['message']?.toString() ?? l10n.testUnknownResult;
+    final message = _testMessage(l10n, result);
     await _emailService.saveTestResult(
       channel.id,
       success,
@@ -521,7 +530,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
       latencyMs: watch.elapsedMilliseconds,
     );
     if (!mounted) return;
-    _toast(result?['message']?.toString() ?? l10n.testUnknownResult);
+    _toast(_testMessage(l10n, result));
   }
 
   Future<void> _testChannel(EmailChannel channel) async {
@@ -540,7 +549,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     );
     if (!mounted) return;
     setState(() => _testingId = null);
-    _toast(result?['message']?.toString() ?? l10n.testUnknownResult);
+    _toast(_testMessage(l10n, result));
   }
 
   /// 邮件族的描述符（T08-C2 起：这一页表单事实的唯一来源）。
@@ -900,11 +909,13 @@ class _EmailEditorPageState extends State<_EmailEditorPage> {
         hintText: hint,
         // P5：必填未填时标红（点名在 snackbar 里，见 _validate()）
         errorText: invalid ? AppLocalizations.of(context).fieldRequired : null,
-        // P6：显式填充 cardBg（浅色纯白/深色 #1C1C1E）。全局主题的 inputBg
-        // 浅色下与页面底色完全相同，导致输入框与页面融为一体
         filled: true,
-        fillColor: AppColors.cardBg(context),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        fillColor: AppColors.inputBg(context),
+        border: appInputBorder(context),
+        enabledBorder: appInputBorder(context),
+        focusedBorder: appInputBorder(context, color: AppColors.blue),
+        errorBorder: appInputBorder(context, color: AppColors.red),
+        focusedErrorBorder: appInputBorder(context, color: AppColors.red),
       ),
     );
   }

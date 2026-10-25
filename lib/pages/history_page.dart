@@ -30,7 +30,9 @@ import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution_state_words.dart';
 import '../services/fnthink_remote_reason_words.dart';
 import '../widgets/app_info_note_box.dart';
+import '../widgets/app_input_style.dart';
 import '../widgets/card_action_sheet.dart';
+import '../widgets/channel_visuals.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
 import '../widgets/fnthink_card.dart'
@@ -846,29 +848,29 @@ class _HistoryPageState extends State<HistoryPage> {
     return historyRowTime(ms);
   }
 
-  Color _getTypeColor(String? type) {
+  Color _getTypeColor(BuildContext context, String? type) {
     switch (type) {
       case 'sms':
-        return const Color(0xFFFF9500);
+        return AppColors.orange;
       case 'call_incoming':
       case 'call_answered':
       case 'call_ended':
         return AppColors.green;
       case 'wechat':
-        return const Color(0xFF07C160);
+        return AppColors.brandWeChat;
       case 'qq':
-        return const Color(0xFF12B7F5);
+        return AppColors.brandQQ;
       case 'alipay':
-        return const Color(0xFF1677FF);
+        return AppColors.brandAlipay;
       case 'system':
-        return const Color(0xFF8E8E93);
+        return AppColors.secondaryLabel(context);
       case 'battery_charging':
       case 'battery_full':
       case 'battery_low_30':
       case 'battery_low_20':
         return AppColors.blue;
       default:
-        return const Color(0xFF5856D6);
+        return AppColors.indigo;
     }
   }
 
@@ -897,23 +899,13 @@ class _HistoryPageState extends State<HistoryPage> {
     return AppColors.avatarPalette[hash.abs() % AppColors.avatarPalette.length];
   }
 
-  Color _getChannelColor(String channel) {
+  Color _getChannelColor(BuildContext context, String channel) {
     // channel 是送达键（chan:<slug>），早期记录也可能是本地化显示名——channelKey
-    // 两种都认，因此品牌色不再依赖"显示名里含品牌词"这种字符串巧合。
-    switch (channelKey(channel)) {
-      case 'wechat_work':
-      case 'wecom_app':
-        return const Color(0xFF2BAA3E);
-      case 'feishu':
-      case 'feishu_app':
-        return const Color(0xFF3370FF);
-      case 'dingtalk':
-        return const Color(0xFF0089FF);
-      case 'email':
-        return AppColors.orange;
-      default:
-        return Colors.grey;
-    }
+    // 两种都认。品牌色只从 `channel_visuals` 那张唯一表取：这里是第二个作者时，
+    // 同一家企业微信在通道卡与历史行就会是两种绿（本仓实测过）。
+    final slug = channelKey(channel);
+    if (!hasChannelVisual(slug)) return AppColors.secondaryLabel(context);
+    return channelVisual(slug).color;
   }
 
   /// 送达那一行（T154 片2）：**一行统计 + 一枚「查看详情」**。
@@ -1074,7 +1066,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     runSpacing: 8,
                     children: [
                       for (final c in ordered)
-                        _buildChannelDetailRow(record, c, l10n),
+                        _buildChannelDetailRow(context, record, c, l10n),
                     ],
                   ),
                 ),
@@ -1146,6 +1138,7 @@ class _HistoryPageState extends State<HistoryPage> {
   /// ⚠ 走 `FnthinkInlineAction`：这是"对行里那一格做点什么"，与页脚那一枚全宽主操作
   /// 不同族（那一族是"这一页要办的事"）。两枚别混用，否则一高一矮。
   Widget _buildChannelDetailRow(
+    BuildContext context,
     NotificationRecord record,
     String channel,
     AppLocalizations l10n,
@@ -1156,7 +1149,7 @@ class _HistoryPageState extends State<HistoryPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildChannelChipFor(record, channel, l10n),
+        _buildChannelChipFor(context, record, channel, l10n),
         FnthinkInlineAction(
           key: ValueKey('history-channel-repush-${record.id}-$channel'),
           tone: FnthinkActionTone.action,
@@ -1170,6 +1163,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildChannelChipFor(
+    BuildContext context,
     NotificationRecord record,
     String channel,
     AppLocalizations l10n,
@@ -1177,7 +1171,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final statusInfo = record.deliveryStatus[channel];
     return _buildChannelChip(
       channel,
-      _getChannelColor(channel),
+      _getChannelColor(context, channel),
       statusInfo is Map
           ? (statusInfo['status']?.toString() ?? '')
           // T175 ③：快照有这一族、送达表没有这一格 ⇒ 说「未入账」，不静默省掉。
@@ -1547,8 +1541,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   decoration: InputDecoration(
                     labelText: l10n.filterAppName,
                     isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    border: appInputBorder(context),
+                    enabledBorder: appInputBorder(context),
+                    focusedBorder: appInputBorder(
+                      context,
+                      color: AppColors.blue,
                     ),
                   ),
                   style: TextStyle(
@@ -1563,8 +1560,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   decoration: InputDecoration(
                     labelText: l10n.filterPackageName,
                     isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    border: appInputBorder(context),
+                    enabledBorder: appInputBorder(context),
+                    focusedBorder: appInputBorder(
+                      context,
+                      color: AppColors.blue,
                     ),
                   ),
                   style: TextStyle(
@@ -1774,7 +1774,7 @@ class _HistoryPageState extends State<HistoryPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text(l10n.errorWithDetail(e.toString())),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2889,7 +2889,7 @@ class _HistoryPageState extends State<HistoryPage> {
               ListTile(
                 leading: const Icon(
                   Icons.playlist_remove,
-                  color: Color(0xFFFF9500),
+                  color: AppColors.orange,
                 ),
                 title: Text(
                   l10n.historyActionBlockContentShort,
@@ -3102,7 +3102,9 @@ class _HistoryPageState extends State<HistoryPage> {
     final appName = record.appName;
     final time = _formatTime(record.postTime);
     final isKnownType = _isKnownType(type);
-    final color = isKnownType ? _getTypeColor(type) : _getAppColor(appName);
+    final color = isKnownType
+        ? _getTypeColor(context, type)
+        : _getAppColor(appName);
     final label = isKnownType ? _getTypeLabel(l10n, type) : appName;
 
     // 推送渠道标签 + 各通道送达状态（T133 片2：排法与折法走唯一作者，
@@ -3126,7 +3128,11 @@ class _HistoryPageState extends State<HistoryPage> {
         if (record.priority == 2)
           _tagBadge(context, l10n.priorityBadgeHigh, AppColors.red)
         else if (record.priority == 0)
-          _tagBadge(context, l10n.priorityBadgeLow, Colors.grey),
+          _tagBadge(
+            context,
+            l10n.priorityBadgeLow,
+            AppColors.secondaryLabel(context),
+          ),
       ],
       leadingLabel: label.isNotEmpty
           ? label.substring(0, 1)

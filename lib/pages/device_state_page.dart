@@ -7,6 +7,7 @@ import '../models/device_snapshot.dart';
 import '../services/device_info_service.dart';
 import '../services/device_state_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_input_style.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/engine_page_sections.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -167,7 +168,9 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
     final label = title.isNotEmpty ? title : _typeLabel(l10n, type);
     // 副标题只放"这一条还带什么信息"：亮度型是阈值，网络型没有第二个数字可写。
     // 拿类型名当副标题会让同一句话在一张卡里出现两遍（列表里就是两行同样的字）。
-    final subtitle = isBrightness ? '阈值 ${rule['value'] ?? 0}%' : null;
+    final subtitle = isBrightness
+        ? l10n.deviceStateThresholdSummary((rule['value'] as int?) ?? 0)
+        : null;
     return Material(
       // 底色由 [EngineSection] 的分组卡统一提供，这里只保证每行自己是 Material：
       // ListTile 的 ink 只画在最近的**不透明 Material** 上（本仓库撞过两次，
@@ -200,7 +203,7 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
               ),
         trailing: CupertinoSwitch(
           value: enabled,
-          activeTrackColor: AppColors.blue,
+          activeTrackColor: AppColors.systemGreen(context),
           onChanged: (v) => _service.toggleRule(id, v),
         ),
       ),
@@ -362,6 +365,7 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
                       DeviceStateService.maxBrightness -
                       DeviceStateService.minBrightness,
                   label: '$selectedValue%',
+                  activeColor: AppColors.blue,
                   onChanged: (v) =>
                       setDialogState(() => selectedValue = v.round()),
                 ),
@@ -381,7 +385,11 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
                   hintStyle: TextStyle(
                     color: AppColors.secondaryLabel(context),
                   ),
-                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: AppColors.inputBg(context),
+                  border: appInputBorder(context),
+                  enabledBorder: appInputBorder(context),
+                  focusedBorder: appInputBorder(context, color: AppColors.blue),
                 ),
               ),
             ],

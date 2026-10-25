@@ -202,14 +202,14 @@ class _TemperaturePageState extends State<TemperaturePage> {
             onPressed: (_) =>
                 _confirmDeleteRule(id, title.isNotEmpty ? title : dimLabel),
             backgroundColor: AppColors.red,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onAccent,
             icon: Icons.delete_outline,
             label: l10n.delete,
           ),
           SlidableAction(
             onPressed: (_) => _service.toggleRule(id, !enabled),
             backgroundColor: AppColors.blue,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onAccent,
             icon: enabled ? Icons.pause : Icons.play_arrow,
             label: enabled ? l10n.disable : l10n.enable,
           ),
@@ -238,7 +238,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
         ),
         trailing: CupertinoSwitch(
           value: enabled,
-          activeTrackColor: AppColors.blue,
+          activeTrackColor: AppColors.systemGreen(context),
           onChanged: (v) => _service.toggleRule(id, v),
         ),
       ),
@@ -634,7 +634,9 @@ class _TemperaturePageState extends State<TemperaturePage> {
           label,
           style: TextStyle(
             fontSize: 13,
-            color: isSelected ? Colors.white : AppColors.primaryLabel(context),
+            color: isSelected
+                ? AppColors.onAccent
+                : AppColors.primaryLabel(context),
           ),
         ),
       ),

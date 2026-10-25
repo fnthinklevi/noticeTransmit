@@ -13,10 +13,9 @@ class AppIconPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bool isDefault = option.isDefault;
     final Color bg = isDefault
-        ? (isDark ? const Color(0xFF1C1C1E) : Colors.white)
+        ? AppColors.cardBg(context)
         : Color(option.color);
     final String bell = isDefault
         ? 'assets/icons/bell_blue.png'
@@ -171,7 +170,7 @@ class _IconPickerTileState extends State<IconPickerTile> {
                           child: Icon(
                             Icons.check,
                             size: 12,
-                            color: Colors.white,
+                            color: AppColors.onAccent,
                           ),
                         ),
                       ),

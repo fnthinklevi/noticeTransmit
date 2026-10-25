@@ -527,7 +527,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
                         CupertinoSwitch(
                           key: const ValueKey('backup-auto-switch'),
                           value: _autoBackup,
-                          activeTrackColor: AppColors.blue,
+                          activeTrackColor: AppColors.systemGreen(context),
                           onChanged: (v) =>
                               _setAutoBackup(v, () => setSheetState(() {})),
                         ),

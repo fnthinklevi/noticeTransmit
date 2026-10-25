@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Colors;
 
 import '../theme/app_colors.dart';
 
@@ -46,8 +45,8 @@ class PrimaryActionButton extends StatelessWidget {
             Text(
               label,
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
+                color: AppColors.onAccent,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -55,7 +54,10 @@ class PrimaryActionButton extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle!,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: const TextStyle(
+                  color: AppColors.onAccentSecondary,
+                  fontSize: 12,
+                ),
               ),
             ],
           ],
@@ -69,7 +71,7 @@ class PrimaryActionButton extends StatelessWidget {
 ///
 /// 存在的理由是页脚那一对：「仅探测」与「探测并保存」是**同一个决定的两个档**，
 /// 一实一虚、一高一矮会让人以为它们是两个不相干的动作。所以形状与
-/// [PrimaryActionButton] 对齐（圆角 12、左右 16、上下 12、字号 15／w600），只换底色为描边。
+/// [PrimaryActionButton] 对齐（圆角 12、左右 16、上下 12、字号 16／w600），只换底色为描边。
 ///
 /// ⚠ 不要复用 `FnthinkInlineAction`（那枚是"对行里那个值做点什么"：复制、重置）——
 ///   它与"这一页要办的事"不是同一件事，贴在主操作旁边会一高一矮。
@@ -109,7 +111,7 @@ class SecondaryActionButton extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
             color: dim ? AppColors.tertiaryLabel(context) : AppColors.blue,
           ),

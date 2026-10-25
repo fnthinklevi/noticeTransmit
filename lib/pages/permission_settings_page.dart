@@ -769,11 +769,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 color: isOn
                     ? AppColors.green
                     : isWarning
-                    ? const Color(0xFFFF9500)
+                    ? AppColors.orange
                     : AppColors.blue,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 18, color: Colors.white),
+              child: Icon(icon, size: 18, color: AppColors.onAccent),
             ),
             const SizedBox(width: 12),
             Expanded(

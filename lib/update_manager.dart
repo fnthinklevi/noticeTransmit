@@ -34,6 +34,9 @@ final _updateHttpClient = PinnedHttpClient.create(
   pinnedFingerprints: _pinnedFingerprints,
 );
 
+/// 检查更新失败的那一档（措辞归界面，服务层只存码与外部原文）。
+enum UpdateFailureKind { serverMessage, cdnBlocked, httpStatus, network }
+
 class AppUpdateManager {
   /// 更新服务器分大陆／国际两档（T95，档位表见 `services/update_server_regions.dart`）。
   ///
@@ -71,6 +74,8 @@ class AppUpdateManager {
   String _currentVersion = _fallbackVersion;
   int _currentBuild = _fallbackBuild;
   String? _lastError;
+  UpdateFailureKind? _lastFailureKind;
+  int? _lastFailureCode;
 
   /// 最近一次安装被完整性校验阻止的结论；null = 没被阻止过。
   ///
@@ -95,6 +100,8 @@ class AppUpdateManager {
 
   bool get autoCheck => _autoCheck;
   String? get lastError => _lastError;
+  UpdateFailureKind? get lastFailureKind => _lastFailureKind;
+  int? get lastFailureCode => _lastFailureCode;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -265,6 +272,8 @@ class AppUpdateManager {
     http.Client? client,
   }) async {
     _lastError = null;
+    _lastFailureKind = null;
+    _lastFailureCode = null;
     if (!force && !(await shouldCheckNow())) return null;
 
     final httpClient = client ?? _updateHttpClient;
@@ -338,14 +347,14 @@ class AppUpdateManager {
             await _markChecked();
             return result;
           }
-          _lastError = '服务器返回错误：${data['message'] ?? '未知错误'}';
+          _lastFailureKind = UpdateFailureKind.serverMessage;
+          _lastError = data['message']?.toString();
         }
         // Cloudflare/CDN 拦截（Bot Fight Mode / WAF）：同一域别的路径也在同一套
         // 防护后面，重试与换路径都救不了 ⇒ 直接给出可操作提示。
         if (_isCloudflareBlocked(response.statusCode, response.headers)) {
-          _lastError =
-              '检查更新被 CDN 拦截（HTTP ${response.statusCode}），'
-              '请稍后重试，或访问 GitHub Releases 手动下载最新版';
+          _lastFailureKind = UpdateFailureKind.cdnBlocked;
+          _lastFailureCode = response.statusCode;
           debugPrint('检查更新：被 CDN 拦截，直接给出可操作提示');
           await report(
             reachable: false,
@@ -366,8 +375,11 @@ class AppUpdateManager {
         // 原来这一发之后还要去拉 `/api/version.json`（所谓“静态回退”），而服务端
         // **没有那个路由** —— 两台实测都是 Express 自己回的 `Cannot GET /api/version.json`
         // （维护者 2026-10-07 确认：故意没做）。留着它只多做一件事：让用户白等第二个 15 秒
-        // 超时，然后仍然报同一个 HTTP 码。故此处直接收尾；措辞沿用原先那条（用户看到的没变）。
-        _lastError ??= '服务器响应错误：HTTP ${response.statusCode}';
+        // 超时，然后仍然报同一个 HTTP 码。故此处直接收尾；措辞由界面按 kind 组
+        // （「检查更新失败：服务器返回 HTTP N」），服务层只留状态码。
+        _lastFailureKind = UpdateFailureKind.httpStatus;
+        _lastFailureCode = response.statusCode;
+        _lastError = 'HTTP ${response.statusCode}';
         return null;
       } catch (e) {
         // 网络异常 → 重试一次后仍失败就报这一发的原话
@@ -379,8 +391,9 @@ class AppUpdateManager {
         // 两发都没发出去：httpCode 留 null（"没回话"与"回了 500"不是一件事，
         // 用户在界面上要能看出该等一会还是该换一台）。
         await report(reachable: false, latencyMs: watch.elapsedMilliseconds);
-        // 两发都没发出去：错误原话留给界面（与静态那发抛出来时同一份字符串，
-        // 用户看到的措辞没变）。之前它被静态回退的 catch 覆盖，那条路今天走不通。
+        // 错误原话留给界面（与静态那发抛出来时同一份字符串）；
+        // 网络异常与"服务器回了错"在界面上是两个不同的下一步。
+        _lastFailureKind = UpdateFailureKind.network;
         _lastError ??= e.toString();
         return null;
       }

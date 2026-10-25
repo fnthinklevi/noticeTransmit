@@ -389,7 +389,7 @@
   "testPassed": "✅ 验证通过",
   "testFailed": "❌ 验证失败",
   "testPassedSaved": "测试通过，配置已保存",
-  "verifyFailed": "验证失败: {msg}",
+  "verifyFailed": "验证失败：{msg}",
   "@verifyFailed": {
     "placeholders": {
       "msg": {
@@ -763,7 +763,7 @@
   "mergeWindowHint": "默认 60，同应用通知在此窗口内合并为一条推送",
   "condTimeRange": "时间范围",
   "condRegex": "正则表达式",
-  "hintPackage": "例如: com.example.app",
+  "hintPackage": "例如：com.example.app",
   "hintKeyword": "输入关键词",
   "hintPriority": "高/中/低",
   "hintTimeRange": "09:00-18:00",
@@ -799,7 +799,7 @@
   "initFailed": "应用启动失败",
   "initFailedMsg": "依赖注入初始化失败，请重启应用",
   "retry": "重试",
-  "pageInitFailed": "页面初始化失败: {e}",
+  "pageInitFailed": "页面初始化失败：{e}",
   "@pageInitFailed": {
     "placeholders": {
       "e": {
@@ -808,7 +808,7 @@
     }
   },
   "unknownError": "未知错误",
-  "testFailedMsg": "测试失败: {e}",
+  "testFailedMsg": "测试失败：{e}",
   "@testFailedMsg": {
     "placeholders": {
       "e": {
@@ -1005,7 +1005,7 @@
   "backupSectionShort": "把你的所有设置打包成一个文件，换手机或重装后一键恢复。",
   "backupSectionDesc": "把你的所有设置打包成一个文件，换手机或重装后可以一键恢复。\n\n包含：Webhook 和邮件通道（含密钥）、通知规则、短信监听开关、应用筛选和黑白名单关键词。\n不含：已经推送过的通知历史。\n\n文件有密码保护，恢复时需要输入同一个密码，请务必记住。",
   "restoreSectionTitle": "恢复配置",
-  "restoreSectionDesc": "选择 .nbackup 备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。",
+  "restoreSectionDesc": "选择备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。",
   "backupCreate": "生成备份文件",
   "restorePick": "选择备份文件恢复",
   "backupPasswordTitle": "设置备份口令",
@@ -1467,7 +1467,7 @@
   "ruleTemplateImportPasswordTitle": "输入模板文件口令",
   "ruleTemplateImportPasswordHint": "该文件已加密，请输入导出时设置的口令",
   "ruleTemplateExportPasswordTitle": "导出口令（可选）",
-  "ruleTemplateExportPasswordHint": "留空则明文导出；设置口令后需凭口令导入（AES-256 加密）",
+  "ruleTemplateExportPasswordHint": "留空则明文导出；设置口令后需凭口令导入（文件有密码保护）",
   "ruleTemplateImportEmpty": "模板文件中没有模板",
   "ruleTemplateInvalidFile": "不是有效的模板文件",
   "ruleTemplateExportOk": "模板已导出",
@@ -3279,6 +3279,60 @@
   "@remoteTriggerBlockModeSelected": {
     "placeholders": {
       "n": {
+        "type": "int"
+      }
+    }
+  },
+  "testerSampleAppName": "微信",
+  "testerSampleTitle": "张三",
+  "testerSampleContent": "在吗？",
+  "errorWithDetail": "出错了：{e}",
+  "@errorWithDetail": {
+    "placeholders": {
+      "e": {
+        "type": "String"
+      }
+    }
+  },
+  "webhookTestTimeout": "原生 {seconds} 秒未回复测试结果",
+  "@webhookTestTimeout": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "testerRuleHitSummary": "{name}（P{priority}）",
+  "@testerRuleHitSummary": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "priority": {
+        "type": "int"
+      }
+    }
+  },
+  "deviceStateThresholdSummary": "阈值 {value}%",
+  "@deviceStateThresholdSummary": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "updateCheckCdnBlocked": "检查更新被 CDN 拦截（HTTP {code}），请稍后重试，或访问 GitHub Releases 手动下载最新版",
+  "@updateCheckCdnBlocked": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "updateCheckHttpStatus": "检查更新失败：服务器返回 HTTP {code}",
+  "@updateCheckHttpStatus": {
+    "placeholders": {
+      "code": {
         "type": "int"
       }
     }

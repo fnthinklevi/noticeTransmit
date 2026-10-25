@@ -436,7 +436,7 @@ class _FnthinkReadCapsPageState extends State<FnthinkReadCapsPage>
           CupertinoSwitch(
             key: ValueKey('fnthink-read-${spec.id}-switch'),
             value: st.value ?? false,
-            activeTrackColor: AppColors.green,
+            activeTrackColor: AppColors.systemGreen(context),
             onChanged: st.value == null ? null : (v) => _toggle(spec, v),
           ),
         ],
