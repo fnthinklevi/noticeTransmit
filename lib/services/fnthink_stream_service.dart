@@ -79,7 +79,14 @@ class FnthinkStreamService {
     if (!_running) return;
     final spec = contract.streamSpec;
     if (spec == null) return;
-    final ticket = await requestTicket();
+    FnthinkStreamTicket? ticket;
+    try {
+      ticket = await requestTicket();
+    } catch (e) {
+      debugPrint('[fnthink] SSE 换票抛了（退回长轮询并重试）：$e');
+      _scheduleRetry();
+      return;
+    }
     if (!_running) return;
     if (ticket == null) {
       _scheduleRetry();
