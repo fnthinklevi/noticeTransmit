@@ -154,6 +154,7 @@ The usual convention for notification tools is "you hand your content to a third
 - 🌐 **Two regions** — Chengdu `*.fnthink.com` and Los Angeles `*.fnthink.top`; pick one from the More page. Fully self-hostable
 - 📨 **Forward onward** — after receiving a message, forward it through your configured **Fnthink channels** to a bound device or a webhook address
 - ⚡ **Receiving behind a locked screen** — idle polls are long-polled for 25 s; when the SSE doorbell is healthy the server wakes the device instantly, and a dropped stream falls back to long polling automatically. No permanent wake lock while the doorbell is healthy — an order of magnitude less battery than 5-second polling
+- ⚙️ **Automatic cadence** — the poll-interval slider is gone; idle cadence is decided by long polling / the SSE doorbell. An old backup can still restore that setting, but it no longer affects receiving
 
 ### Capability levels
 
@@ -445,16 +446,16 @@ counts / file numbers / LOC / versions are no longer copied by hand; the last st
 <!-- readings:v1 (generated & checked by tools/gen_readings.py; CI --check blocks manual edits)
 | Reading | Value |
 |---|---|
-| Dart unit tests (flutter test) | 3435 <!--k:dart_tests--> |
+| Dart unit tests (flutter test) | 3424 <!--k:dart_tests--> |
 | Dart test files (test/) | 302 <!--k:dart_test_files--> |
 | fnthink_push package tests | 593 <!--k:push_tests--> |
 | Kotlin JVM unit tests | 629 <!--k:kotlin_tests--> |
 | Kotlin test classes | 77 <!--k:kotlin_classes--> |
 | Server contract tests (jest) | 825 <!--k:jest_tests--> |
 | Server test suites | 46 <!--k:jest_suites--> |
-| l10n keys (zh; en locked to same count) | 1652 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 87422 <!--k:dart_loc_lib--> |
-| Dart test lines (test/) | 87340 <!--k:dart_loc_test--> |
+| l10n keys (zh; en locked to same count) | 1643 <!--k:l10n_keys--> |
+| Dart lines (lib/) | 87051 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 87061 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 21565 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 12908 <!--k:kotlin_loc_test--> |
 | App version (pubspec) | 1.6.1+161 <!--k:app_version--> |

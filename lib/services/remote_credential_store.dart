@@ -289,7 +289,7 @@ class RemoteTotpIssue {
   final String uri;
 }
 
-/// 设置页那一格要显示的全部内容（**一次读齐**，理由同 `FnthinkPollSetting`）。
+/// 设置页那一格要显示的全部内容（**一次读齐**，分几次读就会出现"某次抛了只画半格"）。
 class RemoteCredentialState {
   const RemoteCredentialState({
     required this.enabled,

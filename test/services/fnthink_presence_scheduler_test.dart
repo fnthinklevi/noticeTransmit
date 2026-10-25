@@ -115,10 +115,8 @@ void main() {
       expect((schedule.arguments as Map)['seconds'], isNot(realDefault));
     });
 
-    test('用户选过那一档（T88）⇒ 交下去的是他选的那档，而不是契约 default', () async {
-      // 合成处只有一个（`FnthinkSettings.effectivePollSeconds`）：闹钟这一层拿到的
-      // 就该是"用户档位，没选过才落回 default"。这里断两次，正反面都在：
-      // 存了 45 ⇒ 45；抹掉 ⇒ 回到契约 default。
+    test('T192：旧版本选过的档位不再影响闹钟，固定用契约 default', () async {
+      // 滑杆已下线：旧 prefs 里哪怕写着 45，也不许再改变兜底节奏。
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyPollSeconds}': 45,
       });
@@ -131,14 +129,13 @@ void main() {
       final schedule = calls.firstWhere(
         (c) => c.method == 'scheduleFnthinkPresence',
       );
-      expect((schedule.arguments as Map)['seconds'], 45);
       expect(
-        45,
-        isNot(realDefault),
-        reason: '锚点：注入的档位必须与 default 不同，否则这条断不出"谁在起作用"',
+        (schedule.arguments as Map)['seconds'],
+        realDefault,
+        reason: '旧档位已下线 ⇒ 交下去的必须是契约 default，不是 prefs 里那个 45',
       );
 
-      // 契约副本改了 default 也不该把用户那一档盖掉（用户的选择优先，范围才是协议的）
+      // 契约副本改了 default ⇒ 交下去的跟着改（证明读数仍只有契约一个作者）
       final second = FnthinkPresenceScheduler(
         contracts: loaderFrom(mutatedContract(realDefault + 1)),
       );
@@ -149,26 +146,14 @@ void main() {
                 .firstWhere((c) => c.method == 'scheduleFnthinkPresence')
                 .arguments
             as Map)['seconds'],
-        45,
-        reason: '协议 default 变了 ⇒ 用户明确选过的那一档不该被悄悄改走',
-      );
-
-      SharedPreferences.setMockInitialValues({});
-      calls.clear();
-      await scheduler.notice(keepAwake: true);
-      expect(
-        (calls
-                .firstWhere((c) => c.method == 'scheduleFnthinkPresence')
-                .arguments
-            as Map)['seconds'],
-        realDefault,
-        reason: '抹掉那一档 ⇒ 落回协议 default（"没选过"不等于"选了某个数"）',
+        realDefault + 1,
+        reason: '旧档位不参与之后，唯一作者就是契约 default',
       );
     });
 
-    test('存着一档协议不允许的值 ⇒ 这一发闹钟直接抛，不排一个怪节奏', () async {
-      // 备份恢复可能灌回越界值。闹钟这一层的判据与协调者一致：**不猜**，
-      // 把"这一档协议不允许"原话抛给调用方（那里会转成界面上的一句话）。
+    test('旧 prefs 里存着协议不允许的值 ⇒ 被忽略，不挡闹钟', () async {
+      // 备份恢复可能灌回越界值。T192 之后生产不再读这个键，
+      // 因此它既不该抛错，也不该把这一发闹钟挡掉。
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyPollSeconds}': 99999,
       });
@@ -176,15 +161,11 @@ void main() {
       final scheduler = FnthinkPresenceScheduler(
         contracts: loaderFrom(realContractText),
       );
-      await expectLater(
-        scheduler.notice(keepAwake: true),
-        throwsA(isA<FnthinkSettingsInvalid>()),
+      await scheduler.notice(keepAwake: true);
+      final schedule = calls.firstWhere(
+        (c) => c.method == 'scheduleFnthinkPresence',
       );
-      expect(
-        calls.where((c) => c.method == 'scheduleFnthinkPresence'),
-        isEmpty,
-        reason: '抛之前也不排 —— 排了就等于明知范围不对还让用户为一次白跑的唤醒付电',
-      );
+      expect((schedule.arguments as Map)['seconds'], realDefault);
     });
 
     test('契约不可用 ⇒ 不排，也不许补一个默认值（原话抛给调用方）', () async {

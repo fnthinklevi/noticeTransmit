@@ -389,14 +389,13 @@ void main() {
     });
 
     test('间隔不许有第二个作者：Dart 这一层一个数字都不写', () {
-      // T88 之后"用户选的那一档 + 契约的 default"这两件事在一个地方合成：
-      // `FnthinkSettings.effectivePollSeconds()`。调度这一层因此不再自己念契约那个字段名 ——
-      // 这里断的仍是同一件事（只有一个合成处、且不写数），只是换了那个合成处的名字。
+      // T192 起「收取间隔」滑杆下线：旧用户档位不再参与，兜底节奏固定为契约 default。
+      // 合成处仍只有一个：`FnthinkSettings.fallbackPollSeconds`。
       expect(
         scheduler,
-        contains('effectivePollSeconds'),
+        contains('fallbackPollSeconds'),
         reason:
-            '唯一的读数处：契约 presence.pollIntervalSeconds 经 FnthinkSettings 合成之后交下来。'
+            '唯一的读数处：契约 presence.pollIntervalSeconds 经 FnthinkSettings 交下来。'
             '调度这一层自己再去读一次契约字段 ⇒ 就有了第二个作者',
       );
       expect(
@@ -404,7 +403,7 @@ void main() {
         isNot(contains('pollIntervalSeconds')),
         reason: '出现契约字段名就是"这一层自己算了一遍节奏"，与 settings 那一份会互相追',
       );
-      // 合成处全 lib 只许一处（页面上的滑杆读的是范围，不是这个合成值）
+      // 合成处全 lib 只许一处（T192 后页面已不读这一档，只剩调度这一处）
       final scanned = Directory('$root/lib')
           .listSync(recursive: true)
           .whereType<File>()
@@ -449,7 +448,7 @@ void main() {
       }
     });
 
-    test('页面那一行只读不排：它不许自己算间隔、也不许自己排闹钟（§4-9 片1d）', () {
+    test('页面那一行只读不排：它不许自己算间隔、也不许自己排闹钟（§4-9 片1d / T192）', () {
       // 负向断言 ⇒ 按整个 library 读并剥注释（页面若被拆出 part，写进 part 的那份也要被看见）。
       final page = stripComments(
         librarySource(root, 'lib/pages/fnthink_receive_page.dart'),
@@ -464,18 +463,21 @@ void main() {
         contains('cadenceSeconds'),
         reason: '显示的那一档秒数必须是原生读回来的那一份，不是页面自己拿契约默认值顶上',
       );
-      // T88 开放了"多久问一次货"这一格 ⇒ 页面确实要能**改**它，但仍然不能**算**它。
-      // 所以这里补的是正向的一半：这一格必须整个走 FnthinkSettings（范围、生效值、写盘、
-      // 越界那句话都在那一层），页面只负责画与提交。
+      // T192：滑杆下线 ⇒ 页面不再读、也不许再写这一档；节奏由长轮询 / 门铃自动决定。
       expect(
         page,
-        contains('pollSetting()'),
-        reason: '这一格的数据必须一次从设置层读齐（分三次读就有"某次抛了只画半格"那种形状）',
+        isNot(contains('pollSetting()')),
+        reason: '「收取间隔」滑杆已删，页面再读这一格就是把已下线的设置又画回来',
       );
       expect(
         page,
-        contains('setPollSeconds'),
-        reason: '写入走设置层那一道校验；页面自己 prefs.setInt 就是绕过范围判据',
+        isNot(contains('setPollSeconds')),
+        reason: 'T192 起页面不再写这一档；写口只留给旧数据兼容层，不留在界面',
+      );
+      expect(
+        page,
+        isNot(contains('fnthink-poll-slider')),
+        reason: '滑杆已下线：页面里不该再有这个 key',
       );
       for (final forbidden in const [
         'pollIntervalSeconds', // 页面自己读契约算节奏

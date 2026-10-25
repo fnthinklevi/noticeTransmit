@@ -2542,25 +2542,8 @@
   "fnthinkInboxSelfCheckRebuilt": "Switched to a new high-priority channel: {id}",
   "fnthinkInboxSelfCheckTestSent": "Test notification sent: check the lock screen for sound and vibration",
   "fnthinkInboxSelfCheckTestFailed": "Test notification was not shown (check system notification permission first)",
-  "fnthinkPollIntervalTitle": "Poll interval",
-  "fnthinkPollIntervalUsingDefault": "Asks every {seconds}s (the protocol default)",
   "fnthinkRegisterRateLimited": "Registration is rate-limited; retrying automatically in {minutes} min {seconds} s",
   "fnthinkRegisterDayQuota": "Today's registration quota is used up; it resets tomorrow. This device retries automatically.",
-  "fnthinkPollIntervalChosen": "Asks every {seconds}s (your choice)",
-  "@fnthinkPollIntervalUsingDefault": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "@fnthinkPollIntervalChosen": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
   "@fnthinkRegisterRateLimited": {
     "placeholders": {
       "minutes": {
@@ -2568,29 +2551,6 @@
       },
       "seconds": {
         "type": "int"
-      }
-    }
-  },
-  "fnthinkPollIntervalRange": "Allowed range {min}–{max}s, set by the protocol, not a local preference",
-  "@fnthinkPollIntervalRange": {
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "max": {
-        "type": "int"
-      }
-    }
-  },
-  "fnthinkPollIntervalShort": "Shorter: messages arrive sooner, battery drains faster. Longer: saves power, but a new message can wait a whole interval.",
-  "fnthinkPollIntervalTradeoffTitle": "What each end of this slider costs",
-  "fnthinkPollIntervalTradeoff": "Shorter: messages arrive sooner, but every extra poll costs battery. Longer saves power and pays twice at once — the worst-case delay before you even see a new message is one full interval (the server only polls faster while it already has something queued for you, which does not help the very first discovery), and the 'are you online' answer other devices see goes stale by the same number. Under battery saver the OS merges wake-ups, so these are approximations: even the shortest interval the protocol allows does not guarantee a poll exactly that often.",
-  "fnthinkPollIntervalReset": "Use the protocol default",
-  "fnthinkPollIntervalInvalid": "Poll interval not applied: {reason}",
-  "@fnthinkPollIntervalInvalid": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
       }
     }
   },

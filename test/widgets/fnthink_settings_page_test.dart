@@ -4881,164 +4881,20 @@ void main() {
     });
   });
 
-  group('收取间隔那一格（T88）', () {
-    testWidgets('那句长权衡搬进了问号弹窗：界面上不再占一段，点开仍一字不少', (tester) async {
+  group('收取节奏（T192：滑杆已下线）', () {
+    testWidgets('页面不再画「收取间隔」那一格，节奏由长轮询 / 门铃自动决定', (tester) async {
       stubChannels();
       final h = harness();
-      final l10n = await pumpReceive(tester, h);
+      await pumpReceive(tester, h);
       await tester.pumpAndSettle();
 
-      // 维护者 2026-10-06 的口径：页面里不许成段堆小字说明。这一格现在只留一行短说。
-      expect(find.text(l10n.fnthinkPollIntervalShort), findsOneWidget);
-      // ⚠ 两头都比的是**同一个词条**，不抄字面量：抄文案的话，改了词条这条会假红，
-      //    而"长文被删掉"这件事反倒没人喊（钉的是位置，不是某串字）。
       expect(
-        find.text(l10n.fnthinkPollIntervalTradeoff),
+        find.byKey(const ValueKey('fnthink-poll-slider')),
         findsNothing,
-        reason: '长文还画在滑杆下面 ⇒ 这一格又变回一段论文',
+        reason: 'T192 起滑杆下线：节奏由长轮询 / SSE 门铃自动决定，不再让用户调',
       );
-
-      await tester.tap(
-        find.byKey(const ValueKey('fnthink-poll-tradeoff-help')),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.text(l10n.fnthinkPollIntervalTradeoff),
-        findsOneWidget,
-        reason: '问号点开看不见那句原话 ⇒ 长文是被**删掉**了，不是被搬进弹窗',
-      );
-    });
-
-    testWidgets('滑杆画出来，两端与那句范围话都来自契约', (tester) async {
-      stubChannels();
-      final h = harness();
-      final l10n = await pumpReceive(tester, h);
-      await tester.pumpAndSettle();
-      final range = contract.pollIntervalRange;
-
-      final slider = find.byType(CupertinoSlider);
-      expect(
-        find.text(l10n.fnthinkPollIntervalTitle),
-        findsOneWidget,
-        reason: '那一格的标题行没画 ⇒ 设置层那一发没读回来（或整格被藏进了某个条件里）',
-      );
-      await revealTo(tester, slider);
-      final w = tester.widget<CupertinoSlider>(slider);
-      expect(
-        (w.min, w.max),
-        (range.min.toDouble(), range.max.toDouble()),
-        reason:
-            '两端必须来自契约那对 min/max。界面自己写一对数字 ⇒ 契约调档后'
-            '还能选到协议不许的那一档，而代价是这台被服务端持续 429（不会有任何报错）',
-      );
-      expect(w.divisions, range.max - range.min);
-      expect(
-        find.text(l10n.fnthinkPollIntervalRange(range.min, range.max)),
-        findsOneWidget,
-      );
-      // 从没选过 ⇒ 说"协议默认那一档"，不是"你选了 20"
-      expect(
-        find.text(
-          l10n.fnthinkPollIntervalUsingDefault(contract.pollIntervalSeconds),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text(l10n.fnthinkPollIntervalReset), findsNothing);
-    });
-
-    testWidgets('松手落盘 + 重启循环；越界那一档不写也不重启', (tester) async {
-      // ⚠ 这里直接调 handler（`onChangeEnd`），验的是"这一档会写进 prefs、并让循环重起来"
-      // 这条接线；拖动手势本身那一层要真机/模拟器才验得到（本批没跑）。
-      stubChannels();
-      final h = harness();
-      final l10n = await pumpReceive(tester, h);
-      await tester.pumpAndSettle();
-      final slider = find.byType(CupertinoSlider);
-      await revealTo(tester, slider);
-      final before = h.builds();
-      // 先把接收开关翻开：关着的时候根本没有循环在跑，"重启"那一发是空转 ——
-      // 这里要断的是"改完间隔，正在跑的那条循环真的换了 spec"。
-      await revealTo(tester, find.byType(CupertinoSwitch));
-      await tester.tap(find.byType(CupertinoSwitch));
-      await tester.pumpAndSettle();
-      expect(h.builds(), greaterThan(before), reason: '锚点：先确认真的有一条循环被建起来');
-      final running = h.builds();
-
-      final chosen = contract.pollIntervalRange.max;
-      tester.widget<CupertinoSlider>(slider).onChangeEnd!(chosen.toDouble());
-      await tester.pumpAndSettle();
-
-      final prefs = await SharedPreferences.getInstance();
-      expect(
-        prefs.getInt(FnthinkSettings.keyPollSeconds),
-        chosen,
-        reason: '松手没落盘 ⇒ 屏幕上的那一档重启后就回到默认，用户以为设好了',
-      );
-      expect(
-        h.builds(),
-        greaterThan(running),
-        reason: 'spec 是启动那一刻的快照：不换循环，新那一档要等下一次进程才生效',
-      );
-      expect(
-        find.text(l10n.fnthinkPollIntervalChosen(chosen)),
-        findsOneWidget,
-        reason: '重读之后要说"你选的"，与"协议默认"是两件事',
-      );
-      expect(find.text(l10n.fnthinkPollIntervalReset), findsOneWidget);
-
-      // 越界：不写、不重启（悄悄夹掉是最坏的那种"看起来成功了"）
-      final slider2 = find.byType(CupertinoSlider);
-      await revealTo(tester, slider2);
-      final buildsNow = h.builds();
-      tester.widget<CupertinoSlider>(slider2).onChangeEnd!(
-        (contract.pollIntervalRange.max + 7).toDouble(),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        prefs.getInt(FnthinkSettings.keyPollSeconds),
-        chosen,
-        reason: '越界那一档不许盖掉本机已经合法的那一份',
-      );
-      expect(h.builds(), buildsNow, reason: '什么都没改成就重启 ⇒ 用户为一次没生效的改动断了一次线');
-      // 那句"没有生效"要留在屏幕上（不带参数的那一段就是这句话的开头）
-      expect(
-        find.textContaining(l10n.fnthinkPollIntervalInvalid('')),
-        findsOneWidget,
-        reason: '越界被拒之后不给一句话，用户只会以为"滑杆坏了"',
-      );
-    });
-
-    testWidgets('prefs 里存着一档协议不许的值 ⇒ 那句话出现在这一格里，滑杆仍可改', (tester) async {
-      // 备份恢复灌回来的那一种。这一格的判据是"能在这里改回来"：
-      // 只报一句"设置坏了"而把滑杆藏掉，用户就没有出口了。
-      SharedPreferences.setMockInitialValues({
-        'flutter.${FnthinkSettings.keyConsentVersion}': 1,
-        'flutter.${FnthinkSettings.keyPollSeconds}': 99999,
-      });
-      stubChannels();
-      final h = harness();
-      final l10n = await pumpReceive(tester, h);
-      await tester.pumpAndSettle();
-
-      final range = contract.pollIntervalRange;
-      final slider = find.byType(CupertinoSlider);
-      await revealTo(tester, slider);
-      expect(slider, findsOneWidget, reason: '坏值不该把整格藏掉');
-      expect(
-        tester.widget<CupertinoSlider>(slider).max,
-        range.max.toDouble(),
-        reason: '范围仍然来自契约 ⇒ 那一格还能被改回合法的一档',
-      );
-      expect(
-        find.text(
-          l10n.fnthinkPollIntervalUsingDefault(contract.pollIntervalSeconds),
-        ),
-        findsOneWidget,
-        reason: '坏的那一档按"没选过"处理，生效值仍是协议默认',
-      );
-      // 那句"没有生效"必须出现，且带上了范围（用户看得懂自己该选到哪一档）
-      final notes = find.textContaining('${range.max}');
-      expect(notes, findsWidgets);
+      expect(find.text('收取间隔'), findsNothing);
+      expect(find.text('改用协议默认'), findsNothing);
     });
   });
 
@@ -5076,7 +4932,7 @@ void main() {
 /// ⚠ 两种"在下面"要分开处理：① 根本没 build 出来 ⇒ 只能 `scrollUntilVisible` 一格一格滚到；
 /// ② 已经被 cacheExtent build 出来、但落在视口外 ⇒ `scrollUntilVisible` 认为"已经找到了"
 /// 而不再滚，`tap()` 就会打在视口外（表现为一句 hitTest 警告 + 点了个空）。
-/// 页面往下加了一格（T88 的收取间隔）之后，下面那些格子整批从 ① 变成了 ②。
+/// 页面往下有多格之后，下面那些格子整批从 ① 变成了 ②。
 Future<void> revealTo(WidgetTester tester, Finder target) async {
   if (target.evaluate().isEmpty) {
     await tester.scrollUntilVisible(

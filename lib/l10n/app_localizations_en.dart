@@ -4710,14 +4710,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Test notification was not shown (check system notification permission first)';
 
   @override
-  String get fnthinkPollIntervalTitle => 'Poll interval';
-
-  @override
-  String fnthinkPollIntervalUsingDefault(int seconds) {
-    return 'Asks every ${seconds}s (the protocol default)';
-  }
-
-  @override
   String fnthinkRegisterRateLimited(int minutes, int seconds) {
     return 'Registration is rate-limited; retrying automatically in $minutes min $seconds s';
   }
@@ -4725,36 +4717,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkRegisterDayQuota =>
       'Today\'s registration quota is used up; it resets tomorrow. This device retries automatically.';
-
-  @override
-  String fnthinkPollIntervalChosen(int seconds) {
-    return 'Asks every ${seconds}s (your choice)';
-  }
-
-  @override
-  String fnthinkPollIntervalRange(int min, int max) {
-    return 'Allowed range $min–${max}s, set by the protocol, not a local preference';
-  }
-
-  @override
-  String get fnthinkPollIntervalShort =>
-      'Shorter: messages arrive sooner, battery drains faster. Longer: saves power, but a new message can wait a whole interval.';
-
-  @override
-  String get fnthinkPollIntervalTradeoffTitle =>
-      'What each end of this slider costs';
-
-  @override
-  String get fnthinkPollIntervalTradeoff =>
-      'Shorter: messages arrive sooner, but every extra poll costs battery. Longer saves power and pays twice at once — the worst-case delay before you even see a new message is one full interval (the server only polls faster while it already has something queued for you, which does not help the very first discovery), and the \'are you online\' answer other devices see goes stale by the same number. Under battery saver the OS merges wake-ups, so these are approximations: even the shortest interval the protocol allows does not guarantee a poll exactly that often.';
-
-  @override
-  String get fnthinkPollIntervalReset => 'Use the protocol default';
-
-  @override
-  String fnthinkPollIntervalInvalid(String reason) {
-    return 'Poll interval not applied: $reason';
-  }
 
   @override
   String get fnthinkReply => 'Reply';

@@ -236,16 +236,16 @@ Do not copy numbers by hand, and do not keep a second readings list anywhere els
 <!-- readings:v1 (generated & checked by tools/gen_readings.py; CI --check blocks manual edits)
 | Reading | Value |
 |---|---|
-| Dart unit tests (flutter test) | 3435 <!--k:dart_tests--> |
+| Dart unit tests (flutter test) | 3424 <!--k:dart_tests--> |
 | Dart test files (test/) | 302 <!--k:dart_test_files--> |
 | fnthink_push package tests | 593 <!--k:push_tests--> |
 | Kotlin JVM unit tests | 629 <!--k:kotlin_tests--> |
 | Kotlin test classes | 77 <!--k:kotlin_classes--> |
 | Server contract tests (jest) | 825 <!--k:jest_tests--> |
 | Server test suites | 46 <!--k:jest_suites--> |
-| l10n keys (zh; en locked to same count) | 1652 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 87422 <!--k:dart_loc_lib--> |
-| Dart test lines (test/) | 87340 <!--k:dart_loc_test--> |
+| l10n keys (zh; en locked to same count) | 1643 <!--k:l10n_keys--> |
+| Dart lines (lib/) | 87051 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 87061 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 21565 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 12908 <!--k:kotlin_loc_test--> |
 | App version (pubspec) | 1.6.1+161 <!--k:app_version--> |

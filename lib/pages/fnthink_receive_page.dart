@@ -119,16 +119,6 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   /// T60（approach B）：这一台对着当前服务器最近一次发送通没通过。
   ChannelHealth? _serverHealth;
 
-  /// 「多久问一次货」那一格（T88）。整格从 `settings.pollSetting()` 一次读齐 ——
-  /// 范围来自契约，页面不写任何一个节奏数字。
-  FnthinkPollSetting? _poll;
-
-  /// 拖拽中的那一档（只有拖动过程用，松手才落盘）。null = 没在拖。
-  double? _pollDrag;
-
-  /// 保存这一格失败时那句"协议不允许"（写了 `_poll.problem` 之外的另一种失败：用户刚犯的）。
-  String? _pollError;
-
   /// 「下一次自己醒」那一行读回来的那一份（null = 还没读到，或读口抛了）。
   ///
   /// ⚠ null 与 `armed == false` 是**两件事**：前者是"不知道"，后者是"确实没排"。
@@ -188,65 +178,7 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
       _settings = settings;
       _running = _coordinator.isRunning;
     });
-    await Future.wait<void>([_readEnabled(), _readPresence(), _readPoll()]);
-  }
-
-  /// 读「收取间隔」那一格（T88）。
-  ///
-  /// 范围与生效值都从 `FnthinkSettings` 那一个合成处来，页面自己不碰契约那个字段 ——
-  /// 那是守卫钉的（页面成为第二个节奏作者时，改契约那一刀不会有任何东西报错）。
-  /// 读失败时**整格不画**并留下那句原话，而不是退到一个猜出来的秒数上。
-  Future<void> _readPoll() async {
-    final settings = _settings;
-    if (settings == null) return;
-    final poll = await settings.pollSetting();
-    if (!mounted) return;
-    setState(() => _poll = poll);
-  }
-
-  /// 改节奏。越界不写、也**不重启**：什么都没改变断一次线，等于把「改了没反应」做成
-  /// 「每改一次断一次」（那一句话要留在屏幕上，所以这里不重读、只把忙态摘掉）。
-  Future<void> _savePollSeconds(int seconds) async {
-    final settings = _settings;
-    if (settings == null) return;
-    setState(() => _busy = true);
-    var saved = false;
-    try {
-      await settings.setPollSeconds(seconds);
-      _pollError = null;
-      saved = true;
-    } on FnthinkSettingsInvalid catch (e) {
-      _pollError = e.reason;
-    }
-    if (!saved) {
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-    await _restartLoopAndReread();
-  }
-
-  /// 抹掉「用户选过」这件事 ⇒ 回到协议默认那一档（不是把默认值写进去，见 `clearPollSeconds`）。
-  Future<void> _resetPollSeconds() async {
-    final settings = _settings;
-    if (settings == null) return;
-    setState(() => _busy = true);
-    await settings.clearPollSeconds();
-    _pollError = null;
-    await _restartLoopAndReread();
-  }
-
-  /// 改完节奏必须**重启**循环：循环握的是启动那一刻定型的间隔，继续跑等于还在按旧档问货。
-  /// 重启完把这一格重读回来 —— 界面上的数必须来自 prefs，而不是刚敲进去的那个值。
-  Future<void> _restartLoopAndReread() async {
-    _coordinator.stop();
-    await _coordinator.startIfEnabled();
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _pollDrag = null;
-      _running = _coordinator.isRunning;
-    });
-    await Future.wait<void>([_readPoll(), _readPresence()]);
+    await Future.wait<void>([_readEnabled(), _readPresence()]);
   }
 
   /// 「下一次自己醒」那一行（§4-9 片1d）—— 读的是**原生那份排程**，不是本机自己算的。
@@ -811,74 +743,6 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
             dot: _serverHealth?.reachable == true,
             text: _serverHealthText(l10n),
           ),
-        // 「多久问一次货」那一格（T88）。范围与生效值都来自契约经 `FnthinkSettings` 合成后的
-        // 那一份 —— 页面一个节奏数字都不写。契约那边给不出范围时**整格不画**：画一根没有
-        // 范围的滑杆等于任用户选到协议不许的那一档，而那一档的代价是这台被服务端按额度持续 429。
-        if (_poll case final FnthinkPollSetting poll) ...[
-          FnthinkNote(
-            keyName: 'fnthink-poll-title',
-            text: l10n.fnthinkPollIntervalTitle,
-          ),
-          FnthinkNote(
-            keyName: 'fnthink-poll-value',
-            text: poll.chosen == null
-                ? l10n.fnthinkPollIntervalUsingDefault(poll.effective)
-                : l10n.fnthinkPollIntervalChosen(poll.effective),
-          ),
-          CupertinoSlider(
-            key: const ValueKey('fnthink-poll-slider'),
-            value: (_pollDrag ?? poll.effective.toDouble()).clamp(
-              poll.range.min.toDouble(),
-              poll.range.max.toDouble(),
-            ),
-            min: poll.range.min.toDouble(),
-            max: poll.range.max.toDouble(),
-            divisions: poll.range.max - poll.range.min,
-            // 这一版本 SDK 的 `CupertinoSlider` 没有 `label`（拖动时那颗气泡），
-            // 所以拖动过程中界面上那句话仍是**已生效**的那一档 —— 松手落盘并重读之后才跟上。
-            // 只由"这一格正在忙"把关，**不由接收开关把关**：这是设置而不是运行状态 ——
-            // 开着关着的设备都该能在换机后先把这一档配好。（关掉时下面那发重启本身就是空转。）
-            onChanged: _busy ? null : (v) => setState(() => _pollDrag = v),
-            onChangeEnd: _busy ? null : (v) => _savePollSeconds(v.round()),
-          ),
-          FnthinkNote(
-            keyName: 'fnthink-poll-range',
-            text: l10n.fnthinkPollIntervalRange(poll.range.min, poll.range.max),
-          ),
-          // 原来这里直接画一句 172 字的「往短/往长各付什么」—— 就是被点名的那种
-          // "页面里成段小字"。现在只留一行短说，**长文原样搬进问号弹窗、一个字不删**。
-          HelpNoteRow(
-            noteKey: 'fnthink-poll-tradeoff',
-            helpKey: 'fnthink-poll-tradeoff-help',
-            text: l10n.fnthinkPollIntervalShort,
-            helpTitle: l10n.fnthinkPollIntervalTradeoffTitle,
-            helpBody: l10n.fnthinkPollIntervalTradeoff,
-          ),
-          // prefs 里存着协议不许的那一档（备份恢复灌回来的那一种）与"刚刚那一盘被拒"是两处，
-          // 分开画：前者是历史留下的、后者是这一次做的，用户的下一步动作不一样。
-          if (poll.problem case final String problem)
-            FnthinkNote(
-              keyName: 'fnthink-poll-problem',
-              text: l10n.fnthinkPollIntervalInvalid(problem),
-            ),
-          if (_pollError case final String reason)
-            FnthinkNote(
-              keyName: 'fnthink-poll-error',
-              text: l10n.fnthinkPollIntervalInvalid(reason),
-            ),
-          if (poll.chosen != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              // T108 片②：这一枚是"对行里那个值做点什么"（把收取间隔恢复成契约默认），
-              // 形状归 `FnthinkInlineAction`；可逆 ⇒ neutral 档（不是蓝、也不是红）。
-              child: FnthinkInlineAction(
-                key: const ValueKey('fnthink-poll-reset'),
-                label: l10n.fnthinkPollIntervalReset,
-                tone: FnthinkActionTone.neutral,
-                onPressed: _busy ? null : _resetPollSeconds,
-              ),
-            ),
-        ],
         // 「被杀之后还有没有人去问一次货」（T33 第二片 / §4-9）：这一行读的是**原生那份排程**。
         // 收货循环活着 ≠ 闹钟排着（进程被杀之后正是"循环没了而闹钟还在"），所以两行必须分开说。
         // 还没有读到（读口抛过、或这一页刚起来）时**不画这一行** —— 画一句"没在醒着"是假话。
