@@ -544,6 +544,7 @@ server {
 
 **④ SSL**：在同一站点里给两个域名一起申请（Let's Encrypt 支持多域名 SAN；面板申请界面把两行都填）。
 **申请完复查 ① 的那三行 `proxy_set_header`** —— 面板重写 443 段时可能重排配置。
+⚠ **证书分三层，均已配置自动续期**：`.top` 的边缘证书由 Cloudflare 托管/自动续期；`.com` 的边缘证书由 EdgeOne 托管/自动续期。源站宝塔的 Let's Encrypt 是第三层（8.3/8.4 已写勾自动续期），别把三层混成一张。项目内不内置证书（维护者 2026-10-25 确认）。
 
 **配对自检（四条，能把"哪一层答的 404/502"分开）**
 
@@ -594,8 +595,9 @@ curl -sk -o /dev/null -w '%{http_code}\n' https://push.fnthink.top/api/fnthink/s
 1. **两个端点分处两个 CDN** ⇒ "切域名"在客户端侧不是中性的：边缘不同、回源链路不同、`X-Forwarded-For` 的语义也不同
    （#140 未修前，两域名各自的"每 IP 桶"里装的是各自 CDN 的回源地址）。
    客户端**不许**把"切到 mainland 失败"当成"网络有问题"去重试到对面域名上——那会同时消耗两把桶。
-2. **边缘证书 2026-11-22 到期**（`CN=fnthink.com`，SAN `*.fnthink.com, fnthink.com`，Let's Encrypt）。通配符只能走 DNS-01，
-   所以续期路径**要么自动（acme.sh + DNS API），要么手动重签再传边缘** —— 这一条要在面板确认是哪一种；
+2. **证书已确认自动续期（2026-10-25 维护者）**：`.top` 在 Cloudflare 后面，边缘证书由 Cloudflare 托管/自动续期，不在此列；
+   `2026-11-22` 是 `.com`/EdgeOne 对外那张 `CN=fnthink.com`、SAN `*.fnthink.com, fnthink.com` 的 Let's Encrypt 通配符证书到期日；
+   维护者 2026-10-25 已确认：全部证书配置自动更新，项目内不内置证书，由外部 CDN 托管；源站宝塔证书也在自动续期内。
    到期没续上的表现是**整面对外断连**（客户端直接拒连，不是某个接口报错）。
 
 ### 8.5 启动进程（Node 项目 / PM2）
@@ -1082,7 +1084,7 @@ proxy_set_header X-Forwarded-For $http_cf_connecting_ip;      # ① 覆盖 XFF�
 | 探测 | 结果 | 判定 |
 | --- | --- | --- |
 | DNS `push.fnthink.com` | CNAME → `*.eo.dnse1.com`（**腾讯云 EdgeOne**，不是 CF）；实测对端 `113.142.27.122`（电信），另有 AAAA `240e:bf:c800:2915::45` | ✅ 已解析；⚠ 与 `.top` 不是同一个 CDN |
-| TLS | 握手通过（`ssl_verify=0`）；`CN=fnthink.com`，SAN `*.fnthink.com, fnthink.com`，Let's Encrypt，**notAfter 2026-11-22** | ✅ 通配符覆盖到了；⚠ 到期见 8.4 |
+| TLS | 握手通过（`ssl_verify=0`）；`CN=fnthink.com`，SAN `*.fnthink.com, fnthink.com`，Let's Encrypt，**notAfter 2026-11-22** | ✅ 通配符覆盖到了；⚠ 已配置自动续期（2026-10-25 维护者） |
 | `POST /api/fnthink/{message,poll,ack,register,pair-arm,pair,pair-confirm}`（`-d '{}'`） | **七条一律 403 + `{"receipt":"rejected_unsigned"}`** | ✅ 协议面活着，**前缀没被削**（对比第十一轮之前那批 `Cannot POST /poll`） |
 | `GET /api/fnthink/poll` | 404 + Express 的 `Cannot GET /api/fnthink/poll` | ✅ 路径**完整**到达上游（只挂 POST，符合设计） |
 | 大 body：70010 字节 → `POST /api/fnthink/poll` | **413 且 body 是 `{}`**，`content-type: application/json` | ✅ 体积闸在服务端（不是 Nginx 的 HTML 413）；对照 60000 字节 → 403 ⇒ 闸门确实卡在 64 KiB 上 |
@@ -1140,7 +1142,7 @@ EdgeOne 自己是追加还是覆盖 XFF 决定最后一串长什么样 —— �
 | `duplicate server_name` | 手工 conf 与宝塔 conf 同时存在 | 8.0，二者留一 |
 | 全员 429 | 反代共用出口 + `TRUST_PROXY` 未设 | `.env` 设 `TRUST_PROXY=1` 并重启 |
 | 改动只在一个推送域名上生效 | `.top` 与 `.com` 可能分属两个站点 / 两份边缘配置（前面还是两个 CDN：CF 与 EdgeOne） | 8.4「是不是两个站点」、8.9 第十三轮 |
-| 客户端"网络明明好的却连不上"，且只在大陆 | 切到了 mainland 端点，而**边缘证书到期**（通配符，2026-11-22） | 8.4 第 2 条待确认项 |
+| 客户端"网络明明好的却连不上"，且只在大陆 | 切到了 mainland 端点，而**`.com`/EdgeOne 边缘证书到期**（2026-11-22；`.top` 的 Cloudflare 边缘证书不在此列） | 8.4 第 2 条待确认项 |
 
 ---
 
@@ -1495,7 +1497,7 @@ expiresAt receipt receiptSentAt hasBody targetLastSeenAt trail trailDropped`。
   大 body 413+`{}`（60000 字节对照是 403）、`GET` 回 `Cannot GET /api/fnthink/poll`（前缀完整）、暴露七条一律 404、
   `/` 302 跳主站、`/health` 200 且 `EO-Cache-Status: MISS`（真回源）、`notice.*` 回归通过。
   **两条新事实写进 8.0 与 8.4**：① `.top` 在 Cloudflare、`.com` 在腾讯云 EdgeOne ⇒ #140 要各判定各修；
-  ② 边缘证书是 `*.fnthink.com` 通配符（Let's Encrypt），**2026-11-22 到期**，续期路径待确认。
+  ② `.com`/EdgeOne 的 `*.fnthink.com` Let's Encrypt 通配符证书 **2026-11-22 到期**，维护者已确认自动续期（2026-10-25）；项目内不内置证书；`.top` 的 Cloudflare 边缘证书由 CF 托管，不在此列。
   ⚠ 同时如实登记**没验的四条**（按 IP 限流/真实 IP —— 故意不从外网撞 429，见第十三轮说明；验签全链路；IPv6；3456 是否裸露）。
   #137 由此收口（走的是当时列的第 1 个选择，契约不动）；8.8 加"两个推送域名各跑一遍"；排障表加两行。
   本机侧一条实操坑：README 那条内联 70000 字节的 `-d` 在 Windows/git-bash 上先撞 `Argument list too long`，改用 `--data-binary @file`。
