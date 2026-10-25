@@ -788,11 +788,7 @@ void main() {
         );
         await _type(
           tester,
-          find.byWidgetPredicate(
-            (w) =>
-                w is TextField &&
-                (w.decoration?.hintText ?? '').startsWith('通道名称'),
-          ),
+          find.byKey(const ValueKey('webhook-name-field')),
           '闸门钉钉',
           'Webhook 名称输入框',
         );

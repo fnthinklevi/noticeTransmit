@@ -46,6 +46,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
             const SizedBox(height: 12),
             _buildFieldLabel(context, l10n.channelName),
             TextField(
+              key: const ValueKey('webhook-name-field'),
               contextMenuBuilder: AppTextSelectionMenu.editableText,
               controller: _nameController,
               decoration: _inputDecoration(
