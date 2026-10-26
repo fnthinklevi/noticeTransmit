@@ -7,6 +7,8 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../database/database_helper.dart';
+import '../database/database_open_triage.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -56,7 +58,6 @@ import 'privacy_policy_page.dart';
 import 'sms_monitor_settings_page.dart';
 import 'app_channel_list_page.dart';
 import 'update_server_page.dart';
-import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_progress_dialog.dart';
 import '../widgets/update_dialog_body.dart';
@@ -341,6 +342,46 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // 就是这个形状）。所以必须让用户看见"这一步没成"，而不是只在日志里留一行。
       // ⚠ 只在 mounted 时说：页面已销毁时 context 不可用，这正是 ㊽ 的原始病灶。
       if (mounted) {
+        if (e is DatabaseUnavailableException) {
+          // T199 ④：打不开库时不再只留一行日志，也不允许把“已保留的原库”说成损坏。
+          unawaited(_showDatabaseUnavailable(e));
+        } else {
+          _showInfo(AppLocalizations.of(context).pageInitFailed('$e'));
+        }
+      }
+    }
+  }
+
+  /// T199 ④：库打不开时的显式出口 —— 原库保留、可重试，不把异常伪装成“页面初始化失败”。
+  Future<void> _showDatabaseUnavailable(
+    DatabaseUnavailableException error,
+  ) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    debugPrint(
+      '[db] open failed (original kept, not rebuilt): ${error.cause}; '
+      'diag=${DatabaseHealth.snapshot()}',
+    );
+    // 走公共确认框：标题/按钮色/barrier 只有一位作者（T199 不新造第二枚弹层）。
+    final retry = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.databaseUnavailableTitle,
+      message: l10n.databaseUnavailableBody,
+      confirmText: l10n.retry,
+      cancelText: l10n.cancel,
+      destructive: false,
+      barrierDismissible: false,
+    );
+    if (!retry || !mounted) return;
+    try {
+      await DatabaseHelper().retryOpen();
+      if (!mounted) return;
+      unawaited(_postInit());
+    } catch (e) {
+      if (!mounted) return;
+      if (e is DatabaseUnavailableException) {
+        await _showDatabaseUnavailable(e);
+      } else {
         _showInfo(AppLocalizations.of(context).pageInitFailed('$e'));
       }
     }

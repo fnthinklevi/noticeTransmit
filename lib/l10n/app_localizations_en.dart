@@ -1757,6 +1757,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get databaseUnavailableTitle => 'Database unavailable';
+
+  @override
+  String get databaseUnavailableBody =>
+      'The encrypted database could not be opened. Your data was kept; tap Retry to try again.';
+
+  @override
   String pageInitFailed(String e) {
     return 'Page init failed: $e';
   }

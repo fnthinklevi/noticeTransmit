@@ -812,6 +812,8 @@
   "initFailed": "App startup failed",
   "initFailedMsg": "DI initialization failed, please restart the app",
   "retry": "Retry",
+  "databaseUnavailableTitle": "Database unavailable",
+  "databaseUnavailableBody": "The encrypted database could not be opened. Your data was kept; tap Retry to try again.",
   "pageInitFailed": "Page init failed: {e}",
   "@pageInitFailed": {
     "placeholders": {

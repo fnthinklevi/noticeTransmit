@@ -3236,6 +3236,18 @@ abstract class AppLocalizations {
   /// **'重试'**
   String get retry;
 
+  /// No description provided for @databaseUnavailableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据库打不开'**
+  String get databaseUnavailableTitle;
+
+  /// No description provided for @databaseUnavailableBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。'**
+  String get databaseUnavailableBody;
+
   /// No description provided for @pageInitFailed.
   ///
   /// In zh, this message translates to:

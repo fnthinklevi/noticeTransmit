@@ -1684,6 +1684,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重试';
 
   @override
+  String get databaseUnavailableTitle => '数据库打不开';
+
+  @override
+  String get databaseUnavailableBody => '加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。';
+
+  @override
   String pageInitFailed(String e) {
     return '页面初始化失败：$e';
   }

@@ -16,6 +16,7 @@ import '../models/fnthink_remote_execution_record.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'database_open_triage.dart';
 import '../services/channel_display.dart';
 import '../services/engine_rule_codec.dart';
 import '../services/fnthink_remote_execution.dart';
@@ -165,19 +166,63 @@ class DatabaseHelper
         onUpgrade: _onUpgrade,
       );
     } catch (e) {
-      // 打开失败（密钥不符 / 库文件损坏）：先备份原文件再重建，避免数据被静默清空。
+      // T199：只有“文件本身坏了”才允许改名重建。旧写法把任何异常（含一次
+      // SqfliteSqlCipherOpenDatabaseOptions 类型转换错误）都当成库损坏，
+      // 健康库被改成 .corrupt-*、再重建空库，整库历史就此清零。
+      DatabaseHealth.recordOpenFailure(e);
+      if (!DatabaseOpenTriage.isCorruption(e)) {
+        throw DatabaseUnavailableException(e);
+      }
+      // 打开失败（确认为密钥不符 / 库文件损坏）：先备份原文件再重建，避免数据被静默清空。
       // 备份文件保留在磁盘上，作为人工恢复路径。
       await _backupDatabaseFile(encryptedPath);
       await _backupDatabaseFile(oldPath);
-
-      return await openDatabase(
-        encryptedPath,
-        password: password,
-        version: dbVersion,
-        onCreate: _onCreate,
-        onUpgrade: _onUpgrade,
-      );
+      try {
+        return await openDatabase(
+          encryptedPath,
+          password: password,
+          version: dbVersion,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+        );
+      } catch (retryError) {
+        // 备份之后仍打不开：原库已保留，不许再改名第二次；交给页面显式报错/重试。
+        DatabaseHealth.recordOpenFailure(retryError);
+        throw DatabaseUnavailableException(retryError);
+      }
     }
+  }
+
+  /// T199 ④：写库失败的诊断计数只有这一处作者。
+  ///
+  /// 不改调用方的语义（异常原样上抛），只把“写失败了几次、最后一次是什么”记下来，
+  /// 供页面/日志与 T196 那批自检同屏读。包在**已拿到句柄之后**的写动作上，
+  /// 不把“打不开”重复记成一次写失败。
+  Future<T> _write<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } catch (e) {
+      DatabaseHealth.recordWriteFailure(e);
+      rethrow;
+    }
+  }
+
+  /// T199 ④：清掉坏句柄并重开一次（页面「重试」按钮的唯一入口）。
+  ///
+  /// 只在**打开失败**路径用：先把可能半开的句柄 close 掉、把静态缓存清空，
+  /// 再走同一套 `_initDatabase`。打开成功与否仍由同一个作者回答，不另写判据。
+  Future<Database> retryOpen() async {
+    final old = _database;
+    _database = null;
+    if (old != null && old.isOpen) {
+      try {
+        await old.close();
+      } catch (_) {
+        // 半坏句柄关不掉不改变重试结论；_database 已清空。
+      }
+    }
+    DatabaseHealth.clearOpenFailure();
+    return database;
   }
 
   /// 把指定数据库文件重命名为带时间戳的备份文件（保留原数据供恢复）。
@@ -1267,10 +1312,12 @@ class DatabaseHelper
       'timestamp': record['timestamp'] ?? 0,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     };
-    await db.insert(
-      'notifications',
-      dbMap,
-      conflictAlgorithm: ConflictAlgorithm.replace,
+    await _write(
+      () => db.insert(
+        'notifications',
+        dbMap,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      ),
     );
   }
 
@@ -1559,19 +1606,21 @@ class DatabaseHelper
   /// 失去记忆，于是同一条结果报第二遍，服务端的回执计数跟着翻倍。
   Future<bool> insertFnthinkInbox(FnthinkInboxMessage message) async {
     final db = await database;
-    return await db.transaction((txn) async {
-      await txn.insert(
-        FnthinkInboxMessage.table,
-        message.toDbRow(),
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      // "被忽略"时 insert 的返回值在不同后端不可信（0 或上一次的 rowid），
-      // 所以问 changes() —— 它数的是本连接上刚跑完那条语句真改了几行。
-      final changed = Sqflite.firstIntValue(
-        await txn.rawQuery('SELECT changes()'),
-      );
-      return (changed ?? 0) > 0;
-    });
+    return _write(
+      () => db.transaction((txn) async {
+        await txn.insert(
+          FnthinkInboxMessage.table,
+          message.toDbRow(),
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+        // "被忽略"时 insert 的返回值在不同后端不可信（0 或上一次的 rowid），
+        // 所以问 changes() —— 它数的是本连接上刚跑完那条语句真改了几行。
+        final changed = Sqflite.firstIntValue(
+          await txn.rawQuery('SELECT changes()'),
+        );
+        return (changed ?? 0) > 0;
+      }),
+    );
   }
 
   /// 收件列表，新到的在前。
@@ -2149,15 +2198,17 @@ class DatabaseHelper
     Map<String, dynamic> delivery,
   ) async {
     final db = await database;
-    await db.update(
-      'notifications',
-      {
-        'delivery_info': delivery.isEmpty ? null : jsonEncode(delivery),
-        // 与上面那份同一次写入：判据调唯一作者（见 `lib/models/delivery_status.dart`）
-        'delivery_bucket': deliveryBucketOf(delivery),
-      },
-      where: 'id = ?',
-      whereArgs: [id],
+    await _write(
+      () => db.update(
+        'notifications',
+        {
+          'delivery_info': delivery.isEmpty ? null : jsonEncode(delivery),
+          // 与上面那份同一次写入：判据调唯一作者（见 `lib/models/delivery_status.dart`）
+          'delivery_bucket': deliveryBucketOf(delivery),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      ),
     );
   }
 

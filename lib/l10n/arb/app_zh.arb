@@ -812,6 +812,8 @@
   "initFailed": "应用启动失败",
   "initFailedMsg": "依赖注入初始化失败，请重启应用",
   "retry": "重试",
+  "databaseUnavailableTitle": "数据库打不开",
+  "databaseUnavailableBody": "加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。",
   "pageInitFailed": "页面初始化失败：{e}",
   "@pageInitFailed": {
     "placeholders": {
