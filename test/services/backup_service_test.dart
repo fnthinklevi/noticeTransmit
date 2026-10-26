@@ -278,4 +278,20 @@ void main() {
       expect(restored['preferences'], data['preferences']);
     });
   });
+
+  group('T205 call_sms_forwarding 备份归一', () {
+    test('缺键补 false；显式 true 原样保留', () {
+      final (missing, _) = service.validatePayload({
+        'smsSettings': {'sms_monitor_enabled': false},
+      });
+      final missingSms = missing['smsSettings'] as Map;
+      expect(missingSms['call_sms_forwarding'], isFalse);
+
+      final (explicit, _) = service.validatePayload({
+        'smsSettings': {'call_sms_forwarding': true},
+      });
+      final explicitSms = explicit['smsSettings'] as Map;
+      expect(explicitSms['call_sms_forwarding'], isTrue);
+    });
+  });
 }

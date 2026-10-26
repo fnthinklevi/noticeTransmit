@@ -102,6 +102,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get serviceStopped => 'Notification service is stopped, tap to start';
 
   @override
+  String get serviceStoppedCallSmsOnly =>
+      'Notifications are off; only calls and SMS are forwarded';
+
+  @override
+  String get callSmsForwarding => 'Forward calls and SMS only';
+
+  @override
+  String get callSmsForwardingDesc =>
+      'Keep forwarding calls and SMS while listening is off';
+
+  @override
+  String get callSmsOnlyShort => 'Calls & SMS';
+
+  @override
   String get pushPausedShort => 'Paused';
 
   @override

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/notification_page.dart';
@@ -18,7 +18,12 @@ void main() {
   var stopTaps = 0;
   var resumeTaps = 0;
 
-  Widget page({required bool running, required bool? pushActive}) {
+  Widget page({
+    required bool running,
+    required bool? pushActive,
+    bool callSmsForwarding = false,
+    ValueChanged<bool>? onToggleCallSmsForwarding,
+  }) {
     startTaps = 0;
     stopTaps = 0;
     resumeTaps = 0;
@@ -30,6 +35,8 @@ void main() {
         foregroundServiceRunning: running,
         pushActive: pushActive,
         notificationCount: 3,
+        callSmsForwarding: callSmsForwarding,
+        onToggleCallSmsForwarding: onToggleCallSmsForwarding,
         onStartService: () => startTaps++,
         onStopService: () => stopTaps++,
         onResumePush: () => resumeTaps++,
@@ -113,6 +120,51 @@ void main() {
     await tapCircle(tester);
     expect(startTaps, 1);
     expect(resumeTaps, 0);
+  });
+
+  testWidgets('T205 监听没跑但仅电话/短信开着 ⇒ 不许再说“已停止”', (tester) async {
+    await tester.pumpWidget(
+      page(
+        running: false,
+        pushActive: false,
+        callSmsForwarding: true,
+        onToggleCallSmsForwarding: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(NotificationPage)),
+    );
+
+    expect(circleColor(tester), AppColors.orange);
+    expect(find.text(l10n.callSmsOnlyShort), findsOneWidget);
+    expect(find.text(l10n.serviceStoppedCallSmsOnly), findsOneWidget);
+    expect(find.text(l10n.stopped), findsNothing);
+    expect(find.text(l10n.serviceStopped), findsNothing);
+    expect(
+      find.byKey(const ValueKey('call-sms-forwarding-switch')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('T205 新开关拨一下就回传（默认关时也必须看得见这一格）', (tester) async {
+    var toggled = false;
+    await tester.pumpWidget(
+      page(
+        running: false,
+        pushActive: false,
+        onToggleCallSmsForwarding: (v) => toggled = v,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sw = tester.widget<CupertinoSwitch>(
+      find.byKey(const ValueKey('call-sms-forwarding-switch')),
+    );
+    expect(sw.value, isFalse);
+    await tester.tap(find.byKey(const ValueKey('call-sms-forwarding-switch')));
+    await tester.pumpAndSettle();
+    expect(toggled, isTrue);
   });
 
   testWidgets('读不到推送开关 ⇒ 不凭空宣布暂停（通道没接上时按原来两态走）', (tester) async {

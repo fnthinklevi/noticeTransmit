@@ -35,6 +35,7 @@ void main() {
       expect(service.smsMonitorEnabled, isFalse);
       expect(service.simFilter, 'all');
       expect(service.codeMonitorEnabled, isFalse);
+      expect(service.callSmsForwarding, isFalse);
     });
 
     test('saveSmsMonitorEnabled(false)：内存生效 + prefs 持久化 + 原生同步', () async {
@@ -67,6 +68,18 @@ void main() {
       expect(synced, [
         {'key': 'sms_code_monitor_enabled', 'value': false},
       ]);
+    });
+
+    test('saveCallSmsForwarding(true)：独立开关持久化并同步', () async {
+      final service = SmsService();
+      await service.saveCallSmsForwarding(true);
+
+      expect(service.callSmsForwarding, isTrue);
+      expect(synced, [
+        {'key': 'call_sms_forwarding', 'value': true},
+      ]);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('call_sms_forwarding'), isTrue);
     });
 
     test('重新实例化后 loadSettings 读回持久化配置', () async {

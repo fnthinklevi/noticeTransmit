@@ -58,6 +58,9 @@ internal object WidgetLiveness {
 
         /** 用户在应用里关闭了监听 */
         LISTENER_DISABLED,
+
+        /** T205：监听关着，但「仅电话与短信」开着 —— 不能再说“已关闭” */
+        CALL_SMS_ONLY,
     }
 
     data class Verdict(val state: State, val reason: Reason) {
@@ -88,9 +91,13 @@ internal object WidgetLiveness {
         serviceRunning: Boolean,
         heartbeatAt: Long,
         now: Long,
+        callSmsForwarding: Boolean = false,
     ): Verdict {
         if (!monitoringEnabled) {
-            return Verdict.of(State.CLOSED, Reason.LISTENER_DISABLED)
+            return Verdict.of(
+                State.CLOSED,
+                if (callSmsForwarding) Reason.CALL_SMS_ONLY else Reason.LISTENER_DISABLED,
+            )
         }
         if (heartbeatAt <= 0L) {
             return Verdict.of(State.CLOSED, Reason.NEVER_STARTED)

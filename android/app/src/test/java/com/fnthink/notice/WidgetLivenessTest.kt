@@ -22,12 +22,14 @@ class WidgetLivenessTest {
         push: Boolean = true,
         running: Boolean = true,
         heartbeat: Long = fresh,
+        callSms: Boolean = false,
     ) = WidgetLiveness.resolve(
         monitoringEnabled = monitoring,
         pushActive = push,
         serviceRunning = running,
         heartbeatAt = heartbeat,
         now = now,
+        callSmsForwarding = callSms,
     )
 
     @Test
@@ -74,6 +76,14 @@ class WidgetLivenessTest {
         val v = resolve(monitoring = false, push = true, running = true, heartbeat = fresh)
         assertEquals(WidgetLiveness.State.CLOSED, v.state)
         assertEquals(WidgetLiveness.Reason.LISTENER_DISABLED, v.reason)
+    }
+
+    @Test
+    fun listenerDisabledButCallSmsOnly_isNotPlainClosed() {
+        // T205：监听关掉、独立开关开着 ⇒ 不能仍说「已关闭」，那会让用户以为电话/短信也停了
+        val v = resolve(monitoring = false, callSms = true)
+        assertEquals(WidgetLiveness.State.CLOSED, v.state)
+        assertEquals(WidgetLiveness.Reason.CALL_SMS_ONLY, v.reason)
     }
 
     @Test

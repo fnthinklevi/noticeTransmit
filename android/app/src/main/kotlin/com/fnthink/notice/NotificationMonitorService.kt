@@ -42,7 +42,7 @@ class NotificationMonitorService : NotificationListenerService() {
         const val ACTION_SET_MONITORING = "com.fnthink.notice.SET_MONITORING"
         const val EXTRA_MONITORING_ENABLED = "monitoring_enabled"
         const val PREFS_NAME = "FlutterSharedPreferences"
-        const val PREF_MONITORING_ENABLED = "flutter.monitoring_enabled"
+        const val PREF_MONITORING_ENABLED = ForwardingPrefs.MONITORING_ENABLED
         // 服务存活心跳 / 补扫水位（持久化：进程被回收时内存字段会随进程消失，
         // 只有落盘才能判定「服务中断过 → 期间事件可能丢失 → 需补扫」）
         const val PREF_LAST_ALIVE = "flutter.notif_last_alive_at"

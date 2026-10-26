@@ -439,6 +439,8 @@ object I18n {
     // 每句都必须短到一行放得下：加长一个字就会被省略号截断，
     // 渲染取证 WidgetRenderSnapshotTest 的 collectClipped 正是钉这一点的。
     fun widgetClosedText(): String = if (isEn) "Off" else "已关闭"
+    fun widgetCallSmsOnlyText(): String = if (isEn) "Calls & SMS" else "仅电话短信"
+    fun widgetCallSmsOnlyHint(): String = if (isEn) "Notifications off" else "通知转发已停止"
     fun widgetClosedKilled(): String = if (isEn) "App closed" else "应用已被清理"
     fun widgetClosedStopped(): String = if (isEn) "Service off" else "服务已停止"
     fun widgetClosedListenerOff(): String = if (isEn) "Listener off" else "监听未开启"

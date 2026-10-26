@@ -25,12 +25,19 @@ class SmsService {
   /// ⚠ 默认关，与总开关同一口径：这是同一族读取短信正文的权限，不预授权。
   bool _codeMonitorEnabled = false;
 
+  /// T205：监听总开关关掉时，是否仍只转发电话与短信（独立开关，默认关）。
+  ///
+  /// ⚠ 它不是第二把总开关：只在 `monitoring_enabled == false` 那一刻起作用，
+  /// 通知管道仍被监听总开关挡住；短信自己那枚 `smsMonitorEnabled` 继续独立生效。
+  bool _callSmsForwarding = false;
+
   /// 当前可用 SIM 卡数量（<=1 时"监听卡"选项置灰；读取失败默认 2 不误伤双卡用户）
   int _simCardCount = 2;
 
   bool get smsMonitorEnabled => _smsMonitorEnabled;
   String get simFilter => _simFilter;
   bool get codeMonitorEnabled => _codeMonitorEnabled;
+  bool get callSmsForwarding => _callSmsForwarding;
   int get simCardCount => _simCardCount;
 
   Future<void> loadSettings() async {
@@ -38,6 +45,7 @@ class SmsService {
     _smsMonitorEnabled = prefs.getBool('sms_monitor_enabled') ?? false;
     _simFilter = prefs.getString('sms_sim_filter') ?? 'all';
     _codeMonitorEnabled = prefs.getBool('sms_code_monitor_enabled') ?? false;
+    _callSmsForwarding = prefs.getBool('call_sms_forwarding') ?? false;
     try {
       _simCardCount = await _channel.invokeMethod<int>('getSimCardCount') ?? 2;
     } catch (e) {
@@ -64,6 +72,13 @@ class SmsService {
     await prefs.setBool('sms_code_monitor_enabled', value);
     _codeMonitorEnabled = value;
     await _sync('sms_code_monitor_enabled', value);
+  }
+
+  Future<void> saveCallSmsForwarding(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('call_sms_forwarding', value);
+    _callSmsForwarding = value;
+    await _sync('call_sms_forwarding', value);
   }
 
   Future<void> _sync(String key, dynamic value) async {

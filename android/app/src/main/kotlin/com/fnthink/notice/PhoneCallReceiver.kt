@@ -27,6 +27,19 @@ class PhoneCallReceiver : BroadcastReceiver() {
         // 冷启动入口：先恢复推送暂停状态，否则已暂停仍会推来电通知
         PushToggleManager.ensureInit(context)
 
+        // T205：监听总开关管不到这条广播链（它不依赖服务活着、也不依赖通知使用权）。
+        // 判据读盘：广播冷启动时服务里的 @Volatile 字段还是默认 true，用它判就是本行的病根。
+        // 闸必须在任何发送/留痕之前 —— 放在发送口会造出“历史落了、对面没收到”的第三种形状。
+        val monitoringEnabled = ForwardingPrefs.monitoringEnabled(context)
+        val callSmsForwarding = ForwardingPrefs.callSmsForwarding(context)
+        if (!CallSmsForwardingGate.allowChain(monitoringEnabled, callSmsForwarding)) {
+            Log.d(TAG, "监听已关闭且「仅电话与短信」未开，忽略来电")
+            lastState = TelephonyManager.CALL_STATE_IDLE
+            lastIncomingNumber = ""
+            callStartTime = 0L
+            return
+        }
+
         try {
             val configManager = ConfigManager(context)
             val channelConfigs = configManager.getWebhookChannelConfigs()

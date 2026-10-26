@@ -23,6 +23,9 @@ class NotificationPage extends StatelessWidget {
   /// 所以这一格必须说得出"少掉的那些去了哪"，而不是让首页安静地少几行。
   final int hiddenChannelCount;
   final bool smsMonitorEnabled;
+
+  /// T205：监听关掉时，是否仍转发电话与短信（独立开关，默认关）。
+  final bool callSmsForwarding;
   final VoidCallback onStartService;
   final VoidCallback onStopService;
 
@@ -34,6 +37,9 @@ class NotificationPage extends StatelessWidget {
   final VoidCallback onOpenChannelStatus;
   final ValueChanged<bool> onToggleSmsMonitor;
   final VoidCallback onOpenSmsMonitorSettings;
+
+  /// T205：null = 这一页没有接这一格（旧测试/旧调用点），整行不画。
+  final ValueChanged<bool>? onToggleCallSmsForwarding;
 
   /// 首页「幻念收件」入口卡：未读数由外层注入，**页面不数**（数法只有一处，
   /// `FnthinkInboxService.unreadCount`）。这一格与历史页收件档、详情里那个点必须是同一个数，
@@ -52,6 +58,7 @@ class NotificationPage extends StatelessWidget {
     this.activeChannels = const [],
     this.hiddenChannelCount = 0,
     this.smsMonitorEnabled = false,
+    this.callSmsForwarding = false,
     required this.onStartService,
     required this.onStopService,
     required this.onResumePush,
@@ -61,6 +68,7 @@ class NotificationPage extends StatelessWidget {
     required this.onOpenChannelStatus,
     required this.onToggleSmsMonitor,
     required this.onOpenSmsMonitorSettings,
+    this.onToggleCallSmsForwarding,
     this.fnthinkInboxUnread = 0,
     this.onOpenInbox,
   });
@@ -74,26 +82,31 @@ class NotificationPage extends StatelessWidget {
       listening: foregroundServiceRunning,
       pushActive: pushActive,
     );
+    // T205：监听关掉但「仅电话与短信」开着 —— 这一格既不是“运行中”也不是“已关闭”。
+    final callSmsOnly = tone == HomeServiceTone.stopped && callSmsForwarding;
     final toneColor = switch (tone) {
       HomeServiceTone.listening => AppColors.green,
       HomeServiceTone.paused => AppColors.orange,
-      HomeServiceTone.stopped => AppColors.red,
+      HomeServiceTone.stopped => callSmsOnly ? AppColors.orange : AppColors.red,
     };
     final toneIcon = switch (tone) {
       HomeServiceTone.listening => Icons.notifications_active,
       // 监听在跑、发送被暂停 —— Material 这枚图标画的正是"铃铛在、斜杠拦着"。
       HomeServiceTone.paused => Icons.notifications_paused,
-      HomeServiceTone.stopped => Icons.notifications_off,
+      HomeServiceTone.stopped =>
+        callSmsOnly ? Icons.phone_in_talk_outlined : Icons.notifications_off,
     };
     final toneLabel = switch (tone) {
       HomeServiceTone.listening => l10n.running,
       HomeServiceTone.paused => l10n.pushPausedShort,
-      HomeServiceTone.stopped => l10n.stopped,
+      HomeServiceTone.stopped =>
+        callSmsOnly ? l10n.callSmsOnlyShort : l10n.stopped,
     };
     final toneHint = switch (tone) {
       HomeServiceTone.listening => l10n.serviceRunning,
       HomeServiceTone.paused => l10n.servicePausedWhileListening,
-      HomeServiceTone.stopped => l10n.serviceStopped,
+      HomeServiceTone.stopped =>
+        callSmsOnly ? l10n.serviceStoppedCallSmsOnly : l10n.serviceStopped,
     };
     final toneTap = switch (tone) {
       // ⚠ 暂停态那一下是"恢复推送"，**不是**"停止监听"：用户此刻要的是把发送打开，
@@ -159,6 +172,63 @@ class NotificationPage extends StatelessWidget {
               ),
             ),
           ),
+          // T205：监听关掉那一刻才有意义的一格。放在服务卡片同一屏，不藏进设置深处。
+          if (onToggleCallSmsForwarding != null) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg(context),
+                  boxShadow: appCardShadows(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.separator(context)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.phone_in_talk_outlined,
+                      size: 18,
+                      color: AppColors.blue,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.callSmsForwarding,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryLabel(context),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l10n.callSmsForwardingDesc,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.secondaryLabel(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    CupertinoSwitch(
+                      key: const ValueKey('call-sms-forwarding-switch'),
+                      value: callSmsForwarding,
+                      onChanged: onToggleCallSmsForwarding,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           // 通道卡**常驻**（不再只在监听运行时才显示）：
           // 「配了哪些通道、最近探到过不通」与"服务此刻在不在跑"是两件事，
           // 服务停着的时候反而更需要看到这两行；入口也才稳定可点。

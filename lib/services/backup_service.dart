@@ -99,6 +99,7 @@ class BackupService {
         'sms_monitor_enabled': sms.smsMonitorEnabled,
         'sms_code_monitor_enabled': sms.codeMonitorEnabled,
         'sms_sim_filter': sms.simFilter,
+        'call_sms_forwarding': sms.callSmsForwarding,
       },
       'appFilter': {
         'mode': filter.appFilterMode,
@@ -287,6 +288,8 @@ class BackupService {
           false,
         ),
         'sms_sim_filter': _text(sms['sms_sim_filter'], 'all'),
+        // T205：缺键取 false —— 导入不能替用户把“监听关着还转发电话/短信”打开。
+        'call_sms_forwarding': _bool(sms['call_sms_forwarding'], false),
       };
     }
 
@@ -404,6 +407,7 @@ class BackupService {
       'smsSettings':
           sms.smsMonitorEnabled ||
           sms.codeMonitorEnabled ||
+          sms.callSmsForwarding ||
           sms.simFilter != 'all',
       'appFilter': filter.enabledPackages.isNotEmpty,
       'blacklistKeywords': filter.blacklistKeywords.isNotEmpty,
@@ -519,6 +523,11 @@ class BackupService {
         if (sms['sms_code_monitor_enabled'] is bool) {
           await smsService.saveCodeMonitorEnabled(
             sms['sms_code_monitor_enabled'] as bool,
+          );
+        }
+        if (sms['call_sms_forwarding'] is bool) {
+          await smsService.saveCallSmsForwarding(
+            sms['call_sms_forwarding'] as bool,
           );
         }
         if (sms['sms_sim_filter'] is String) {

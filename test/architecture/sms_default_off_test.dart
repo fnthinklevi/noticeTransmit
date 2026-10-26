@@ -143,4 +143,56 @@ void main() {
       expect(ktLine, contains('"flutter.sms_monitor_enabled"'));
     });
   });
+
+  group('T205 仅电话/短信开关｜默认也必须关（缺键 = 不发）', () {
+    test('① Dart 字段初值与 prefs 缺键回退都是 false', () {
+      final field = lineOf(
+        'lib/services/sms_service.dart',
+        'bool _callSmsForwarding =',
+        why: '新开关字段初值',
+      );
+      final read = lineOf(
+        'lib/services/sms_service.dart',
+        "getBool('call_sms_forwarding')",
+        why: '新开关缺键回退',
+      );
+      expect(field, contains('= false'), reason: '新开关字段初值不是关：$field');
+      expect(read, contains('?? false'), reason: '新开关缺键仍回退到开：$read');
+    });
+
+    test('② 首页那一格的默认参数是关', () {
+      final l = lineOf(
+        'lib/pages/notification_page.dart',
+        'this.callSmsForwarding =',
+        why: '首页新开关默认参数',
+      );
+      expect(l, contains('= false'), reason: '首页新开关默认参数是开：$l');
+    });
+
+    test('③ 备份恢复缺键回退是 false（导入不能替用户打开）', () {
+      final l = lineOf(
+        'lib/services/backup_service.dart',
+        "'call_sms_forwarding': _bool(",
+        why: '新开关恢复回退',
+      );
+      final src = File('${projectRoot()}/lib/services/backup_service.dart')
+          .readAsStringSync();
+      final at = src.indexOf("'call_sms_forwarding': _bool(");
+      expect(
+        RegExp(r"_bool\(\s*sms\['call_sms_forwarding'\]\s*,\s*false\s*\)")
+            .hasMatch(src.substring(at, at + 160)),
+        isTrue,
+        reason: '缺键回退不是 false：$l',
+      );
+    });
+
+    test('④ 原生共享键的缺键回退也是 false', () {
+      final l = lineOf(
+        'android/app/src/main/kotlin/com/fnthink/notice/ForwardingPrefs.kt',
+        'getBoolean(CALL_SMS_FORWARDING,',
+        why: '原生新开关默认值',
+      );
+      expect(l, contains(', false)'), reason: '原生新开关缺键回退不是 false：$l');
+    });
+  });
 }

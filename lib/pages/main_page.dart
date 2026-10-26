@@ -178,6 +178,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         activeChannels: homeChannels.rows,
         hiddenChannelCount: homeChannels.hiddenOthers,
         smsMonitorEnabled: _smsService.smsMonitorEnabled,
+        callSmsForwarding: _smsService.callSmsForwarding,
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,
         onResumePush: _resumePush,
@@ -193,6 +194,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           setState(() {});
         },
         onOpenSmsMonitorSettings: _openSmsMonitorSettingsPage,
+        onToggleCallSmsForwarding: (v) async {
+          await _smsService.saveCallSmsForwarding(v);
+          if (!mounted) return;
+          setState(() {});
+        },
         fnthinkInboxUnread: _fnthinkInboxUnread,
         onOpenInbox: _openFnthinkInboxPage,
       ),

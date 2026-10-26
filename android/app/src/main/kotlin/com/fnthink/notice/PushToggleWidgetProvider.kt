@@ -46,7 +46,8 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
         /** 状态判定的盘源：与 Dart/服务共用同一份 prefs（读盘不读内存缓存，见 [WidgetLiveness]） */
         private const val PREFS_FLUTTER = "FlutterSharedPreferences"
         private const val PREFS_TOGGLE = "push_toggle_state"
-        private const val KEY_MONITORING = "flutter.monitoring_enabled"
+        private const val KEY_MONITORING = ForwardingPrefs.MONITORING_ENABLED
+        private const val KEY_CALL_SMS_FORWARDING = ForwardingPrefs.CALL_SMS_FORWARDING
         private const val KEY_SERVICE_RUNNING = "flutter.notif_service_running"
         private const val KEY_HEARTBEAT = "flutter.notif_heartbeat_at"
         private const val KEY_PUSH_ACTIVE = "push_active"
@@ -82,6 +83,7 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
                 serviceRunning = flutter.getBoolean(KEY_SERVICE_RUNNING, false),
                 heartbeatAt = flutter.getLong(KEY_HEARTBEAT, 0L),
                 now = System.currentTimeMillis(),
+                callSmsForwarding = flutter.getBoolean(KEY_CALL_SMS_FORWARDING, false),
             )
         }
 
@@ -174,7 +176,7 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             val strong = context.getColor(onColorFor(state)) // 主信息：状态字、大数字
             val weak = context.getColor(accentColorFor(state)) // 辅助：提示行、面板标签
 
-            views.setTextViewText(R.id.widget_status, statusText(state))
+            views.setTextViewText(R.id.widget_status, statusText(verdict))
             views.setTextColor(R.id.widget_status, strong)
 
             // 底部小字。CLOSED 给「为什么」而不是「怎么办」：大字已经说了"已关闭"，
@@ -289,10 +291,15 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             WidgetLiveness.State.CLOSED -> R.color.widget_closed_accent
         }
 
-        private fun statusText(state: WidgetLiveness.State): String = when (state) {
+        private fun statusText(verdict: WidgetLiveness.Verdict): String = when (verdict.state) {
             WidgetLiveness.State.PUSHING -> I18n.widgetActiveText()
             WidgetLiveness.State.PAUSED -> I18n.widgetPausedText()
-            WidgetLiveness.State.CLOSED -> I18n.widgetClosedText()
+            WidgetLiveness.State.CLOSED ->
+                if (verdict.reason == WidgetLiveness.Reason.CALL_SMS_ONLY) {
+                    I18n.widgetCallSmsOnlyText()
+                } else {
+                    I18n.widgetClosedText()
+                }
         }
 
         /**
@@ -307,6 +314,7 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             WidgetLiveness.State.PUSHING -> I18n.widgetTapPause()
             WidgetLiveness.State.PAUSED -> I18n.widgetTapResume()
             WidgetLiveness.State.CLOSED -> when (verdict.reason) {
+                WidgetLiveness.Reason.CALL_SMS_ONLY -> I18n.widgetCallSmsOnlyHint()
                 WidgetLiveness.Reason.LISTENER_DISABLED -> I18n.widgetClosedListenerOff()
                 WidgetLiveness.Reason.NEVER_STARTED -> I18n.widgetClosedNeverStarted()
                 WidgetLiveness.Reason.STOPPED -> I18n.widgetClosedStopped()

@@ -101,6 +101,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get serviceStopped => '通知监听服务未启动，点击可启动';
 
   @override
+  String get serviceStoppedCallSmsOnly => '通知转发已停止，仅电话与短信在转发';
+
+  @override
+  String get callSmsForwarding => '仅转发电话与短信';
+
+  @override
+  String get callSmsForwardingDesc => '监听关闭时仍转发来电与短信';
+
+  @override
+  String get callSmsOnlyShort => '仅电话短信';
+
+  @override
   String get pushPausedShort => '已暂停';
 
   @override

@@ -104,9 +104,15 @@ object SmsDispatcher {
         // 验证码闸门需要先解析出 code，故此处只做「总开关 + 卡槽」两段；
         // 验证码段在下方 extractCode 之后调用 allowCode（同属 SmsMonitorGate）。
         val configManager = ConfigManager(context)
+        val monitoringEnabled = ForwardingPrefs.monitoringEnabled(context)
+        val callSmsForwarding = ForwardingPrefs.callSmsForwarding(context)
         val smsMonitorEnabled = configManager.getSmsMonitorEnabled()
         val filterSlot = configManager.getSmsSimFilterSlot()
-        if (!SmsMonitorGate.shouldProcessSms(
+        // T205：监听总开关先于短信子开关；它读盘，不读服务里的 @Volatile 字段。
+        // 合成式只有 CallSmsForwardingGate.allowSms 一个作者，新开关不许盖过短信子开关。
+        if (!CallSmsForwardingGate.allowSms(
+                monitoringEnabled = monitoringEnabled,
+                callSmsForwarding = callSmsForwarding,
                 smsMonitorEnabled = smsMonitorEnabled,
                 filterSlot = filterSlot,
                 simSlot = simInfo?.slotIndex,
@@ -115,10 +121,13 @@ object SmsDispatcher {
                 extractedCode = null
             )
         ) {
-            if (!smsMonitorEnabled) {
-                Log.d(TAG, "[$source] 短信监听已关闭，忽略")
-            } else {
-                Log.d(TAG, "[$source] 短信来自未监听的卡(slot=${simInfo?.slotIndex})，忽略")
+            when {
+                !CallSmsForwardingGate.allowChain(monitoringEnabled, callSmsForwarding) ->
+                    Log.d(TAG, "[$source] 监听已关闭且「仅电话与短信」未开，忽略")
+                !smsMonitorEnabled ->
+                    Log.d(TAG, "[$source] 短信监听已关闭，忽略")
+                else ->
+                    Log.d(TAG, "[$source] 短信来自未监听的卡(slot=${simInfo?.slotIndex})，忽略")
             }
             return false
         }

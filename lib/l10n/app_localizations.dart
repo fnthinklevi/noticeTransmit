@@ -272,6 +272,30 @@ abstract class AppLocalizations {
   /// **'通知监听服务未启动，点击可启动'**
   String get serviceStopped;
 
+  /// No description provided for @serviceStoppedCallSmsOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知转发已停止，仅电话与短信在转发'**
+  String get serviceStoppedCallSmsOnly;
+
+  /// No description provided for @callSmsForwarding.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅转发电话与短信'**
+  String get callSmsForwarding;
+
+  /// No description provided for @callSmsForwardingDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'监听关闭时仍转发来电与短信'**
+  String get callSmsForwardingDesc;
+
+  /// No description provided for @callSmsOnlyShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅电话短信'**
+  String get callSmsOnlyShort;
+
   /// No description provided for @pushPausedShort.
   ///
   /// In zh, this message translates to:
