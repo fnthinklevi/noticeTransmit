@@ -91,6 +91,7 @@ object EmailManager {
 
     /** 加载启用的通道配置（含密码），供通知分发使用 */
     fun getEnabledConfigs(context: Context): List<EmailSender.EmailConfig> {
+        if (ChannelMirrorInvalidator.isPending(context)) return emptyList()
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val pwdPrefs = context.getSharedPreferences(PREFS_PASSWORDS, Context.MODE_PRIVATE)
 

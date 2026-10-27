@@ -1,9 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/services/fnthink_channel_mirror.dart';
 import 'package:notice_transmit/services/fnthink_fanout_entrypoint.dart';
+import 'package:notice_transmit/services/native_channel_invalidator.dart';
+
+import '../support/source_guards.dart';
 
 /// T94 片4：跨端镜像与后台排队的**跨语言契约**。
 ///
@@ -221,6 +225,35 @@ void main() {
         kFnthinkFanoutChannel,
         'com.fnthink.notice/fanout',
         reason: '与 FnthinkFanoutWorker.FANOUT_CHANNEL 同串；不同串 = fanoutDone 送不出去',
+      );
+    });
+  });
+
+  group('失效键与重启归位', () {
+    test('原生待发行清理键与 Dart 读取键只差 shared_preferences 前缀', () {
+      expect(
+        'flutter.$kFnthinkFanoutPendingKey',
+        contains('fnthink_fanout_pending'),
+      );
+      expect(
+        kChannelMirrorInvalidationPendingKey,
+        isNot(startsWith('flutter.')),
+      );
+    });
+
+    test('主页面每次从库读到幻念通道后都重新发布镜像', () {
+      final root = projectRoot();
+      final src = stripComments(
+        File('$root/lib/pages/main_page.dart').readAsStringSync(),
+      );
+      final refresh = blockAfter(
+        src,
+        'Future<void> _refreshFnthinkChannels() async',
+      );
+      expect(refresh.contains('await _fnthinkChannelStore.list()'), isTrue);
+      expect(
+        refresh.contains('await publishFnthinkChannelMirror(rows)'),
+        isTrue,
       );
     });
   });

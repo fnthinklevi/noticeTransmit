@@ -141,6 +141,56 @@ void main() {
       );
     });
 
+    test('两条重建分支都先让原生通道失效，普通重试不失效', () {
+      final src = stripComments(
+        File('$root/lib/database/database_helper.dart').readAsStringSync(),
+      );
+      final init = blockAfter(src, 'Future<Database> _initDatabase() async');
+      expect('_invalidateNativeChannels();'.allMatches(init).length, 2);
+
+      final keyLost = init.indexOf('on DatabaseKeyLostException');
+      final keyInvalidate = init.indexOf(
+        '_invalidateNativeChannels();',
+        keyLost,
+      );
+      final keyBackup = init.indexOf(
+        '_backupDatabaseFile(encryptedPath)',
+        keyLost,
+      );
+      expect(keyLost, greaterThan(0));
+      expect(keyInvalidate, greaterThan(keyLost));
+      expect(keyBackup, greaterThan(keyInvalidate));
+
+      final triage = init.indexOf('DatabaseOpenTriage.isCorruption(e)');
+      final corruptInvalidate = init.indexOf(
+        '_invalidateNativeChannels();',
+        triage,
+      );
+      final corruptBackup = init.indexOf(
+        '_backupDatabaseFile(encryptedPath)',
+        triage,
+      );
+      expect(triage, greaterThan(0));
+      expect(corruptInvalidate, greaterThan(triage));
+      expect(corruptBackup, greaterThan(corruptInvalidate));
+
+      final retry = blockAfter(src, 'Future<Database> retryOpen() async');
+      expect(retry.contains('_invalidateNativeChannels'), isFalse);
+    });
+
+    test('原生失效失败必须按 DatabaseUnavailable 中止重建', () {
+      final src = stripComments(
+        File('$root/lib/database/database_helper.dart').readAsStringSync(),
+      );
+      final helper = blockAfter(
+        src,
+        'Future<void> _invalidateNativeChannels() async',
+      );
+      expect(helper.contains('await invalidateNativeChannelMirrors()'), isTrue);
+      expect(helper.contains('DatabaseHealth.recordOpenFailure(e)'), isTrue);
+      expect(helper.contains('throw DatabaseUnavailableException(e)'), isTrue);
+    });
+
     test('主页面把 DatabaseUnavailable 显式弹出来并给重试入口', () {
       final src = File('$root/lib/pages/main_page.dart').readAsStringSync();
       expect(src.contains('e is DatabaseUnavailableException'), isTrue);

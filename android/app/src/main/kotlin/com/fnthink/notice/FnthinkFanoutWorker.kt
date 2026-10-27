@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.fnthink.notice.channels.ChannelDispatcher
+import com.fnthink.notice.channels.ChannelMirrorInvalidationHandler
 import com.fnthink.notice.channels.FnthinkChannelHandler
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -47,6 +48,7 @@ class FnthinkFanoutWorker(appContext: Context, params: WorkerParameters) :
     private val finished = CountDownLatch(1)
 
     override fun doWork(): Result {
+        if (ChannelMirrorInvalidator.isPending(applicationContext)) return Result.success()
         // 待发项**不**在这里取走：那份队列落在 FlutterSharedPreferences 就是为了让后台
         // isolate 用现成的 SharedPreferences 读到手，而"读 + 清"必须由同一侧连着做完
         // （本工程的 `DartExecutor.DartCallback` 只有三个构造参数，也没有入口参数位可交）。
@@ -141,7 +143,12 @@ class FnthinkFanoutWorker(appContext: Context, params: WorkerParameters) :
     /** 把 App 自己的通道分发给这台引擎（MainActivity 那份分发器不在这儿，也不该在）。 */
     private inner class DispatcherChannel : io.flutter.plugin.common.MethodChannel.MethodCallHandler {
         private val dispatcher =
-            ChannelDispatcher(listOf(FnthinkChannelHandler(applicationContext)))
+            ChannelDispatcher(
+                listOf(
+                    FnthinkChannelHandler(applicationContext),
+                    ChannelMirrorInvalidationHandler(applicationContext),
+                ),
+            )
 
         override fun onMethodCall(
             call: io.flutter.plugin.common.MethodCall,

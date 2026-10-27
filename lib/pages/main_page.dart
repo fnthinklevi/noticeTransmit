@@ -37,6 +37,7 @@ import '../update_manager.dart';
 import '../models/notification_rule.dart';
 import '../models/email_channel.dart';
 import '../models/fnthink_channel.dart';
+import '../services/fnthink_channel_mirror.dart';
 import '../services/fnthink_channel_service.dart';
 import '../theme/app_colors.dart';
 import 'notification_page.dart';
@@ -434,6 +435,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     try {
       final rows = await _fnthinkChannelStore.list();
       if (mounted) setState(() => _fnthinkChannels = rows);
+      await publishFnthinkChannelMirror(rows);
     } catch (e) {
       debugPrint('[fnthink] 通道条数没读到，沿用上一份: $e');
     }

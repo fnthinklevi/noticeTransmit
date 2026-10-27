@@ -72,6 +72,7 @@ class ConfigManager(private val context: Context) {
     )
 
     fun getWebhookUrls(): List<String> {
+        if (ChannelMirrorInvalidator.isPending(context)) return emptyList()
         val json = prefs.getString(KEY_WEBHOOK_URLS, "[]")
         return try {
             val array = JSONArray(json)
@@ -100,6 +101,7 @@ class ConfigManager(private val context: Context) {
      *      新版本明文副本已脱敏、无 secret）
      */
     fun getWebhookChannelConfigs(): List<WebhookChannelConfig> {
+        if (ChannelMirrorInvalidator.isPending(context)) return emptyList()
         val json = getEncryptedWebhookChannels()
             ?: prefs.getString(KEY_WEBHOOK_URLS, "[]")
         return try {
@@ -157,8 +159,10 @@ class ConfigManager(private val context: Context) {
      * **要推的**应用通道：已启用且角色不是 `NONE`（T12）。
      * 需要"包含不参与"的全量视图时用 [parseAppChannelConfigs]（例如「测试」按 id 找通道）。
      */
-    fun getAppChannelConfigs(): List<AppChannelConfig> =
-        parseAppChannelConfigs().filter { it.role != ChannelRole.NONE }
+    fun getAppChannelConfigs(): List<AppChannelConfig> {
+        if (ChannelMirrorInvalidator.isPending(context)) return emptyList()
+        return parseAppChannelConfigs().filter { it.role != ChannelRole.NONE }
+    }
 
     /** 全量解析（不按角色过滤）：读不到 / 解析失败时返回空表。 */
     private fun parseAppChannelConfigs(): List<AppChannelConfig> {
@@ -215,6 +219,7 @@ class ConfigManager(private val context: Context) {
      * 猜出来的目标就是"往一个用户没配的地方发通知"。
      */
     fun getFnthinkChannelConfigs(): List<FnthinkChannelConfig> {
+        if (ChannelMirrorInvalidator.isPending(context)) return emptyList()
         val json = prefs.getString(KEY_FNTHINK_CHANNELS, null) ?: return emptyList()
         return try {
             val array = JSONArray(json)

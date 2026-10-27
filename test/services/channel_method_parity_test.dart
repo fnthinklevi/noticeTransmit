@@ -133,10 +133,10 @@ void main() {
     // 与持锁。Dart 侧每轮续一次、关接收时撤一次；原生那一头对应 `FnthinkLiveMode`。
     // 127 → 128（T197 片2）：`refreshFnthinkScreenLock` —— 用户在本页翻「锁屏持续接收」
     // 或总开关时，让服务按此刻屏幕/开关立刻对一次锁；不主动叫就要等 5 分钟续期。
-    test('原生方法总数 == 128（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 129（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        128,
+        129,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -148,6 +148,7 @@ void main() {
       final dist = _distribution(native);
       expect(dist, {
         'ConfigChannelHandler': 34,
+        'ChannelMirrorInvalidationHandler': 1,
         // T55：提升/悬浮通知那一族 +3；T124 片C-1：通话记录那两发（读权限 + 申请）+2；
         // 片C-2：定位那两发（FINE||COARSE 的读权限 + 一次'精确／大致'申请）+2。
         // T137 验收③：收件渠道的系统设置跳转那一发。30 → 31。

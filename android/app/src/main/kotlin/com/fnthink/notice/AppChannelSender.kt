@@ -202,6 +202,7 @@ class AppChannelSender(private val context: Context) {
      * 用重放时新鲜的 token 重新发送队列中保存的载荷。
      */
     fun replayStored(item: RetryItem) {
+        if (ChannelMirrorInvalidator.isPending(context)) return
         val cfg = ConfigManager(context).findAppChannelById(item.appChannelId)
         if (cfg == null) {
             Log.w(TAG, "重放跳过：应用通道已删除 id=${item.appChannelId}")

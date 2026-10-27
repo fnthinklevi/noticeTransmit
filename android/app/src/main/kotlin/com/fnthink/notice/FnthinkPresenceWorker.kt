@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.fnthink.notice.channels.ChannelDispatcher
+import com.fnthink.notice.channels.ChannelMirrorInvalidationHandler
 import com.fnthink.notice.channels.FnthinkChannelHandler
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -154,7 +155,12 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
     /** 把 App 自己的通道分发给这台引擎（MainActivity 那份分发器不在这儿，也不该在）。 */
     private inner class DispatcherChannel : io.flutter.plugin.common.MethodChannel.MethodCallHandler {
         private val dispatcher =
-            ChannelDispatcher(listOf(FnthinkChannelHandler(applicationContext)))
+            ChannelDispatcher(
+                listOf(
+                    FnthinkChannelHandler(applicationContext),
+                    ChannelMirrorInvalidationHandler(applicationContext),
+                ),
+            )
 
         override fun onMethodCall(
             call: io.flutter.plugin.common.MethodCall,

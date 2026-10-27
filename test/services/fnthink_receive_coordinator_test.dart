@@ -16,6 +16,7 @@ import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_receive_loop.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
+import 'package:notice_transmit/services/native_channel_invalidator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test_setup.dart';
@@ -2111,6 +2112,28 @@ void main() {
       expect(asked.single.url.path, contract.apiPath('message'));
       expect(c.isRunning, isFalse, reason: '发一条不该顺手把收货循环也起来（那是替用户点了"开始接收"）');
       expect(rec.specs, isEmpty);
+    });
+
+    test('原生通道失效阻断期间一句都不离机', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.$kChannelMirrorInvalidationPendingKey': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+
+      final result = await c.sendNotice(
+        peer: '7YD4RKQPBM8XZ3VHNT',
+        title: 't',
+        text: 'b',
+      );
+
+      expect(result.status, FnthinkSendStatus.preconditionFailed);
+      expect(result.reason, 'channel-mirror-invalidation-pending');
+      expect(asked, isEmpty);
     });
 
     test('前置不满足时一句都没离机，而说的是"本机还没就绪"而不是"网络不好"', () async {

@@ -19,6 +19,7 @@ import 'fnthink_receive_loop.dart';
 import 'fnthink_receiver_service.dart';
 import 'fnthink_settings.dart';
 import 'fnthink_stream_service.dart';
+import 'native_channel_invalidator.dart';
 
 /// 一次启动请求的结论。**reason 总是有值**：started 之外每一种都要能被界面原样说给用户 ——
 /// "为什么没在收货"是这类后台功能最常被问的一句，而答案是"不知道"就等于没做。
@@ -1630,6 +1631,12 @@ class FnthinkReceiveCoordinator {
     String appName = '',
     bool viaBackup = false,
   }) async {
+    if (await isChannelMirrorInvalidationPending()) {
+      return const FnthinkSendResult(
+        status: FnthinkSendStatus.preconditionFailed,
+        reason: 'channel-mirror-invalidation-pending',
+      );
+    }
     final resolved = await _resolveSpec(requireEnabled: false);
     if (resolved.reason != null) {
       return FnthinkSendResult(

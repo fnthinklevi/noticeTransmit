@@ -12,6 +12,7 @@ import '../models/delivery_status.dart';
 import 'channel_display.dart';
 import 'fnthink_delivery_link_store.dart';
 import 'fnthink_receive_coordinator.dart';
+import 'native_channel_invalidator.dart';
 
 /// 后台入口 handle 在 prefs 里的键（**不带** `flutter.` 前缀：那是 shared_preferences 落盘时
 /// 加的，原生读的是 `flutter.fnthink_fanout_handle` —— 这一对关系与收货那一轮
@@ -55,7 +56,9 @@ Future<void> fnthinkFanoutEntrypoint(List<String>? args) async {
   DartPluginRegistrant.ensureInitialized();
   const channel = MethodChannel(kFnthinkFanoutChannel);
   try {
-    await runFnthinkFanoutRound(await claimPendingFanoutBatch());
+    if (!await isChannelMirrorInvalidationPending()) {
+      await runFnthinkFanoutRound(await claimPendingFanoutBatch());
+    }
   } catch (e) {
     // 后台 isolate 里没有 UI 也没有崩溃上报入口：留一行可 grep 的日志，不悄悄吞。
     debugPrint('[fnthink] 后台转发那一轮失败：$e');

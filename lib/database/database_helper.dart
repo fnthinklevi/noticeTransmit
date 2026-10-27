@@ -21,6 +21,7 @@ import '../services/channel_display.dart';
 import '../services/engine_rule_codec.dart';
 import '../services/fnthink_remote_execution.dart';
 import '../services/fnthink_sms_retention.dart';
+import '../services/native_channel_invalidator.dart';
 import '../services/secure_storage_service.dart';
 
 /// 数据库加密密钥丢失/损坏异常。
@@ -148,6 +149,7 @@ class DatabaseHelper
     try {
       password = await _getEncryptionKey();
     } on DatabaseKeyLostException {
+      await _invalidateNativeChannels();
       await _backupDatabaseFile(encryptedPath);
       await _backupDatabaseFile(oldPath);
       password = _generateRandomHexKey();
@@ -173,6 +175,7 @@ class DatabaseHelper
       if (!DatabaseOpenTriage.isCorruption(e)) {
         throw DatabaseUnavailableException(e);
       }
+      await _invalidateNativeChannels();
       // 打开失败（确认为密钥不符 / 库文件损坏）：先备份原文件再重建，避免数据被静默清空。
       // 备份文件保留在磁盘上，作为人工恢复路径。
       await _backupDatabaseFile(encryptedPath);
@@ -190,6 +193,15 @@ class DatabaseHelper
         DatabaseHealth.recordOpenFailure(retryError);
         throw DatabaseUnavailableException(retryError);
       }
+    }
+  }
+
+  Future<void> _invalidateNativeChannels() async {
+    try {
+      await invalidateNativeChannelMirrors();
+    } catch (e) {
+      DatabaseHealth.recordOpenFailure(e);
+      throw DatabaseUnavailableException(e);
     }
   }
 

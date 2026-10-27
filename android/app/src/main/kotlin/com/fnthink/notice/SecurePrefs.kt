@@ -30,6 +30,7 @@ object SecurePrefs {
     // 裸 HashMap 并发读写会丢条目甚至抛 ConcurrentModificationException——
     // 表现为偶发「读到空通道配置」。构建可能重复一次，但返回值一律取已入表的那个。
     private val cache = java.util.concurrent.ConcurrentHashMap<Context, SharedPreferences>()
+    private val encryptedCache = java.util.concurrent.ConcurrentHashMap<Context, Boolean>()
 
     /** 与 flutter_secure_storage 的 initializeEncryptedSharedPreferencesManager 参数一致 */
     private fun buildMasterKey(context: Context): MasterKey {
@@ -50,19 +51,27 @@ object SecurePrefs {
     fun get(context: Context): SharedPreferences {
         cache[context.applicationContext]?.let { return it }
         val prefs = try {
-            EncryptedSharedPreferences.create(
+            val created = EncryptedSharedPreferences.create(
                 context.applicationContext,
                 FILE_NAME,
                 buildMasterKey(context.applicationContext),
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
             )
+            encryptedCache[context.applicationContext] = true
+            created
         } catch (e: Exception) {
             // API < 23 或 KeyStore 异常时降级为明文，避免功能不可用
             Log.w(TAG, "EncryptedSharedPreferences 不可用，降级明文", e)
+            encryptedCache[context.applicationContext] = false
             context.applicationContext.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
         }
         cache[context.applicationContext] = prefs
         return prefs
+    }
+
+    fun isEncrypted(context: Context): Boolean {
+        get(context)
+        return encryptedCache[context.applicationContext] == true
     }
 }

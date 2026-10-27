@@ -250,6 +250,7 @@ object RetryQueue {
     /** 重放所有可重放条目：推送暂停时保持队列不动（与「用户主动暂停」语义一致） */
     fun replayIfEligible() {
         val context = appContext ?: return
+        if (ChannelMirrorInvalidator.isPending(context)) return
         if (!PushToggleManager.isPushActive()) {
             Log.d(TAG, "推送暂停中，重试队列保持不动")
             return
@@ -298,6 +299,7 @@ object RetryQueue {
     }
 
     private fun sendOne(context: Context, item: RetryItem) {
+        if (ChannelMirrorInvalidator.isPending(context)) return
         // 应用通道（自建应用）：重放必须重取 token（旧 token 已失效），
         // 载荷与凭据保留，由 AppChannelSender 走两阶段重发
         if (item.appChannelId.isNotEmpty()) {

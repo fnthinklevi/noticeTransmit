@@ -28,6 +28,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.fnthink.notice.channels.ChannelDispatcher
+import com.fnthink.notice.channels.ChannelMirrorInvalidationHandler
 import com.fnthink.notice.channels.ConfigChannelHandler
 import com.fnthink.notice.channels.DeviceChannelHandler
 import com.fnthink.notice.channels.FileChannelHandler
@@ -437,6 +438,7 @@ class MainActivity : FlutterActivity() {
             listOf(
                 PermissionChannelHandler(this),
                 ConfigChannelHandler(this),
+                ChannelMirrorInvalidationHandler(applicationContext),
                 DeviceChannelHandler(this),
                 FileChannelHandler(this),
                 StatsChannelHandler(this),
