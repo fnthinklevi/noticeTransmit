@@ -3096,6 +3096,10 @@ Future<void> _step(
     await body().timeout(
       _stepBudgetEffective,
       onTimeout: () {
+        // ⚠ 这行必须在 `debugDumpApp()` **之前**打：2026-10-27/28 两轮实测，dump 之后打的那条
+        // `GATE-STEP-FAIL` 一行都没进日志（输出被那棵树截断），而 `case_hang_only` 只认它 ⇒
+        // 自动重试门永远打不开，抬 `GATE_HANG_RETRIES` 也没用。判据锚在这条更早的标记上。
+        debugPrint('GATE-STEP-HANG ▸ $name ▸ 最后动作：$_lastAction');
         // 挂住那一刻先打一帧状态再抛：这是本轮唯一能拿到"谁在排帧"的时机 ——
         // body 还卡在那句 await 上，而它的调用栈我们拿不到（ isolate 级 TimeoutException）。
         _frameProbe('节挂住：$name');
@@ -3108,6 +3112,8 @@ Future<void> _step(
         } catch (e) {
           debugPrint('GATE-DUMP-FAIL ▸ $name ▸ $e');
         }
+        // 收尾标记：它出现说明 dump 之后日志还在；不出现说明 dump 就是那截断点。
+        debugPrint('GATE-STEP-HANG-END ▸ $name');
         throw TimeoutException(
           '本节在 $_stepBudgetEffective 内没跑完 ⇒ 挂住，不是断言失败；'
           '最后动作：$_lastAction',

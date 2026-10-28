@@ -1485,6 +1485,45 @@ void main() {
       );
     });
 
+    test('挂住的第二枚信号必须活得下来：标记打在 dump 之前，判据认它', () {
+      // 2026-10-27/28 两轮实测：挂住那节的 `GATE-STEP-FAIL` 被 `debugDumpApp()` 的输出
+      // 整段吃掉（日志停在树的中途）⇒ `case_hang_only` 判不出"只有挂住"，重试门永远打不开，
+      // 抬 `GATE_HANG_RETRIES` 也没用。修法是再加一枚**在 dump 之前**打的标记，
+      // 并让它只加宽"什么算挂住"，不碰"只数 GATE-STEP-FAIL"那一半。
+      final sh = stripShellComments(
+        read('.github/scripts/release_emulator.sh'),
+      );
+      final hangOnly = blockAfter(sh, 'case_hang_only() {');
+      expect(
+        hangOnly.contains('GATE-STEP-HANG'),
+        isTrue,
+        reason: '挂住判据不认 dump 之前的标记 ⇒ dump 一冲，重试门又变回摆设',
+      );
+      expect(
+        RegExp("grep -a 'GATE-STEP-FAIL'").hasMatch(hangOnly),
+        isTrue,
+        reason: '加宽挂住不许动功能红那一半：它仍必须只数 GATE-STEP-FAIL',
+      );
+      final walk = read('integration_test/release_walkthrough_test.dart');
+      // ⚠ 两处坑：① 不能按 `onTimeout: () {` 直接取块——这个文件里它不止一处，取到的是第一处；
+      // ② 必须**先剥注释**——注释里正好写着 `debugDumpApp()` 这个词，不剥就会把注释当成语句，
+      //   顺序断言当场倒序（实测 244 vs 36）。
+      final stepBlock = stripComments(
+        blockAfter(walk, 'await body().timeout('),
+      );
+      final onTimeoutAt = stepBlock.indexOf('onTimeout: () {');
+      expect(onTimeoutAt, greaterThanOrEqualTo(0), reason: '_step 的超时闭包不见了');
+      final onTimeout = stepBlock.substring(onTimeoutAt);
+      final markerAt = onTimeout.indexOf("debugPrint('GATE-STEP-HANG ▸");
+      final dumpAt = onTimeout.indexOf('debugDumpApp();');
+      expect(markerAt, greaterThanOrEqualTo(0), reason: 'onTimeout 里没有挂住标记');
+      expect(
+        markerAt,
+        lessThan(dumpAt),
+        reason: '标记必须在 debugDumpApp() 之前打——之后打的那些行实测活不下来',
+      );
+    });
+
     test('挂住可以重试一次，功能红永远不重试；重试前必须先清设备', () {
       // 口径由维护者 2026-09-27 定：本机每轮总有一两处 `TimeoutException`（不是断言失败），
       // 拆成独立用例之后允许"只把挂住的那一条重跑一次"，换取一轮里四条用例都有结论。

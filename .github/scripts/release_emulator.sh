@@ -253,6 +253,10 @@ run_case() {  # $1=日志标签，其余=flutter test 的文件与参数
 # 判据用 `GATE-STEP-FAIL` 那行的异常名，不用"有没有 Expected:"：`_verdict` 把挂住也
 # 汇总成一条 `Expected: empty`，看 Expected 会把挂住误判成功能红 ⇒ 永远不重试。
 # 反向也一样：只看"非挂住"的 GATE-STEP-FAIL，一条断言失败就把重试的门关掉。
+# ⚠ `GATE-STEP-HANG` 是 2026-10-28 补的第二枚"挂住"信号：挂住时 `debugDumpApp()` 会把
+# 后面的输出整段吃掉（两轮实测里 `GATE-STEP-FAIL` 一行都没进日志）⇒ 只认 FAIL 那行，
+# 重试门就永远打不开。这枚标记由 walkthrough 在 dump **之前**打，所以它活得下来。
+# 它只加宽"什么算挂住"，不加宽次数，也不碰"功能红"那一半（仍锚在 GATE-STEP-FAIL 上）。
 case_hang_only() {  # $1=日志标签
     local seg hangs funcs
     seg=$(awk -v n="──── 独立调用：$1" '
@@ -261,7 +265,7 @@ case_hang_only() {  # $1=日志标签
         f && /^──── 结束：/ { exit }
     ' "$LOG")
     hangs=$(printf '%s' "$seg" | grep -ac \
-        'GATE-STEP-FAIL.*\(TimeoutException\|Guarded function conflict\)')
+        'GATE-STEP-FAIL.*\(TimeoutException\|Guarded function conflict\)\|GATE-STEP-HANG')
     funcs=$(printf '%s' "$seg" | grep -a 'GATE-STEP-FAIL' | grep -avc \
         'TimeoutException\|Guarded function conflict')
     [ "${hangs:-0}" -gt 0 ] && [ "${funcs:-0}" -eq 0 ]
