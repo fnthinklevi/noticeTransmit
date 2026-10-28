@@ -16,7 +16,7 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.2/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.3/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
 
 🌐 **Official site**: [notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — introduction, client download and admin console
@@ -65,6 +65,7 @@ Fully bilingual (zh / en ARB; key count in the readings table under "Quality & C
 - 📱 **Multi-type Recognition** — smart recognition of WeChat, QQ, SMS, phone calls, system notifications, etc.
 - 📩 **SMS dual-path** — `SMS_RECEIVED` broadcast is the primary path, with an SMS-database ContentObserver catching messages the broadcast misses; both paths are deduplicated by content fingerprint so nothing is pushed twice; verification codes are extracted automatically and delivered as a dedicated field
 - 📞 **Call recognition** — incoming-call state is monitored and pushed, optionally with a bilingual "SIM 1, Carrier" info line
+- 🎛️ **Separate listener / call-SMS switches** — turning monitoring off now stops call and SMS forwarding; a "forward calls and SMS only" switch (off by default) keeps just those two chains
 - 🎚️ **SIM filtering** — SIM-slot filtering shared by the SMS and call paths; auto-disabled on single-SIM devices
 - 🛡️ **Listener Reliability** — fallback content extraction for conversation-style notifications whose body only exists in MessagingStyle; the dedup key includes the notification tag to avoid missed reads; warns "listener disconnected · notifications may be missed" and auto-rebinds when notification access is revoked; **after the OS recycles the service, startup re-scans still-visible notifications against a persisted watermark** (up to 6 hours back), greatly reducing missed notifications during long screen-off / background periods
 - 🔋 **Custom Battery Reminders** — fully customizable battery rules (charging / discharging / level thresholds), add / edit / delete, swipe-left and long-press to delete
@@ -225,14 +226,14 @@ The usual convention for notification tools is "you hand your content to a third
 | State Management / DI | get_it (^9.3.0) + Service classes |
 | Local Database | sqflite_sqlcipher (^3.4.1) · SQLCipher AES-256 · schema v26 / 12 tables |
 | Key-Value Storage | shared_preferences (^2.5.6) · flutter_secure_storage (^10.3.1, ships a vendored crypto implementation) · native SecurePrefs uses androidx.security 1.1.0 |
-| Native Service | Kotlin 2.4.21 (Android), 93 Kotlin files in the main sourceset |
+| Native Service | Kotlin 2.4.21 (Android), 98 Kotlin files in the main sourceset |
 | HTTP Client | http (Dart) / OkHttp 5.5.0 (Kotlin) |
 | Email Sending | com.sun.mail:android-mail 1.6.7 (SMTP) |
 | Notification Listening | NotificationListenerService |
 | Background Survival | Android native Foreground Service + long polling / SSE doorbell (idle `/poll` holds 25 s; polling falls back to 300 s while `/stream` is healthy; the service holds a `PARTIAL_WAKE_LOCK` while the screen is off and "keep receiving while locked" is on) + battery whitelist + boot auto-start |
 | Background Tasks | workmanager ^0.10.10 (daily archive + wake-up fallback) |
 | Coroutines | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
-| Cross-platform Communication | MethodChannel `com.fnthink.notice/notification` (128 methods · 7 native handlers + 2 workers) |
+| Cross-platform Communication | MethodChannel `com.fnthink.notice/notification` (129 methods · 8 native handlers + 2 workers) |
 | **Protocol Contract** | `protocol/fnthink-v1.json` (single source of truth) + `protocol/fnthink-vectors-v1.json` (cross-side vectors) |
 | **Shared Protocol Package** | `packages/fnthink_push` (29 Dart files; both ends and the CLI read one contract and one vector table) |
 | **Identity & Signature** | Ed25519 (AndroidKeyStore-backed, API 33+; 30–32 use a KeyStore-wrapped software key) |
@@ -318,7 +319,7 @@ noticeTransmit/
 │   ├── fnthink-v1.json                   # Fnthink protocol (capability table, limits, privacy boundary, …)
 │   └── fnthink-vectors-v1.json           # Cross-side vector table (asserted on both ends)
 ├── android/app/src/
-│   ├── main/kotlin/com/fnthink/notice/   # Main sourceset (89 Kotlin files)
+│   ├── main/kotlin/com/fnthink/notice/   # Main sourceset (98 Kotlin files)
 │   │   ├── MainActivity.kt               # Main Activity (MethodChannel dispatch entry)
 │   │   ├── NotificationMonitorService.kt  # Listener service (incl. primary/backup routing + forwarding for the Fnthink family)
 │   │   ├── NotificationProcessor.kt · BatteryMonitor.kt
@@ -330,8 +331,8 @@ noticeTransmit/
 │   │   ├── SmsReceiver.kt · SmsObserver.kt · PhoneCallReceiver.kt
 │   │   ├── PushToggleWidgetProvider.kt · PushToggleWidgetWideProvider.kt
 │   │   ├── BootReceiver.kt · NetworkClient.kt · ConfigManager.kt · SecurePrefs.kt
-│   │   └── channels/                     # 7 handlers (config 34 / permission 29 / device 17 / file 12
-│   │                                     #   / Fnthink 15 / stats 8 / remote-exec 5  = 120 methods; +2 workers = 122)
+│   │   └── channels/                     # 8 handlers (config 34 / permission 29 / device 17 / file 12
+│   │                                     #   / Fnthink 21 / stats 8 / remote-exec 5 / mirror-invalidation 1 = 127 methods; +2 workers = 129)
 │   ├── test/                             # Kotlin JVM unit tests + golden snapshots
 │   └── androidTest/                      # Instrumented tests
 ├── server/                               # Server (update service + TOTP console + Fnthink protocol surface)
@@ -447,19 +448,19 @@ committed back (`--fix`), while PR / fork runs fail the build and ask for a loca
 <!-- readings:v1 (generated & checked by tools/gen_readings.py; CI --check blocks manual edits)
 | Reading | Value |
 |---|---|
-| Dart unit tests (flutter test) | 3481 <!--k:dart_tests--> |
-| Dart test files (test/) | 306 <!--k:dart_test_files--> |
+| Dart unit tests (flutter test) | 3492 <!--k:dart_tests--> |
+| Dart test files (test/) | 307 <!--k:dart_test_files--> |
 | fnthink_push package tests | 593 <!--k:push_tests--> |
-| Kotlin JVM unit tests | 659 <!--k:kotlin_tests--> |
-| Kotlin test classes | 83 <!--k:kotlin_classes--> |
+| Kotlin JVM unit tests | 668 <!--k:kotlin_tests--> |
+| Kotlin test classes | 85 <!--k:kotlin_classes--> |
 | Server contract tests (jest) | 825 <!--k:jest_tests--> |
 | Server test suites | 46 <!--k:jest_suites--> |
 | l10n keys (zh; en locked to same count) | 1674 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 88374 <!--k:dart_loc_lib--> |
-| Dart test lines (test/) | 88349 <!--k:dart_loc_test--> |
-| Kotlin lines (android main) | 22148 <!--k:kotlin_loc_main--> |
-| Kotlin test lines (android test) | 13544 <!--k:kotlin_loc_test--> |
-| App version (pubspec) | 1.6.2+162 <!--k:app_version--> |
+| Dart lines (lib/) | 88429 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 88597 <!--k:dart_loc_test--> |
+| Kotlin lines (android main) | 22336 <!--k:kotlin_loc_main--> |
+| Kotlin test lines (android test) | 13778 <!--k:kotlin_loc_test--> |
+| App version (pubspec) | 1.6.3+163 <!--k:app_version--> |
 | Database schema version | 27 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK floor (pubspec) | 3.13.0 <!--k:dart_sdk--> |

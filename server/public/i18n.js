@@ -85,7 +85,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['内置适配企业微信群机器人、钉钉自定义机器人、飞书群机器人、Telegram Bot、Bark 服务、Server酱、PushPlus 的消息格式；支持 SMTP 邮件推送（SSL/STARTTLS）；也支持任意自定义 Webhook 地址，可对接兼容的第三方平台或你自己的服务端。'] = 'Built-in support for WeCom group bots, DingTalk custom bots, Feishu group bots, Telegram Bot, Bark service, ServerChan, and PushPlus. Also supports SMTP email push (SSL/STARTTLS) and any custom Webhook URL for third-party services or your own backend.';
   // footer — updated v1.5.48
   D['后台保活 · 在线更新'] = 'Background Persistence & Updates';
-  D['前台服务 + 长轮询 / 实时门铃（SSE）+ 电量白名单 + 开机自启，稳定常驻；被系统回收或划掉最近任务后 1 秒自动尝试重启；支持版本更新，无需重装。'] = 'Foreground service + long polling / real-time doorbell (SSE) + battery whitelist + auto-start for reliable persistence; automatically attempts a restart 1 second after the system reclaims the service or you swipe the task away; OTA updates supported.';
+  D['前台服务 + 长轮询 / 实时门铃（SSE）+ 电量白名单 + 开机自启，稳定常驻；被系统回收或划掉最近任务后 1 秒自动尝试重启；锁屏可持续保持唤醒以更及时收货；关闭监听后来电与短信不再转发，也可单独开启「仅转发电话与短信」；支持版本更新，无需重装。'] = 'Foreground service + long polling / real-time doorbell (SSE) + battery whitelist + auto-start for reliable persistence; automatically attempts a restart 1 second after the system reclaims the service or you swipe the task away; optionally keeps the CPU awake behind a locked screen for more timely delivery; turning monitoring off stops call and SMS forwarding, while a separate "forward calls and SMS only" switch is available; OTA updates supported.';
   D['通知，如何抵达你想要的地方'] = 'How Notifications Reach You';
   D['捕获通知'] = 'Capture';
   D['系统通知栏产生消息，监听服务实时捕获'] = 'System notification bar generates message, listener captures in real time';

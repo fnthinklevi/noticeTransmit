@@ -1,28 +1,28 @@
 {
-  "latestVersion": "1.6.2",
-  "latestBuild": 162,
+  "latestVersion": "1.6.3",
+  "latestBuild": 163,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.75",
   "forceUpdateBuild": 115,
-  "changelog": "收取节奏自动化与后台保活（1.6.2）\n\n🔔 空闲改用长轮询，服务端有货即返回；新增实时唤醒通道，锁屏后台也能尽快收到。\n🔋 实时唤醒健康时不再常驻唤醒锁，空闲请求与耗电明显下降。\n🛠️ 被系统回收或划掉最近任务后 1 秒自动尝试重启；保活引导新增「允许关联启动」。\n⚙️ 移除「收取间隔」滑杆：节奏自动决定；旧备份可恢复但不再生效。\n⚠️ 实时唤醒需最新服务端；旧服务端自动退回长轮询，不影响收消息。",
-  "changelogEn": "Automatic receiving cadence and background delivery (1.6.2)\n\n🔔 Idle receiving now uses long polling and returns as soon as the server has mail; a real-time wake-up channel keeps messages arriving promptly behind a locked screen.\n🔋 No permanent wake lock while the wake-up channel is healthy — idle requests and battery use drop noticeably.\n🛠️ Automatically attempts a restart 1 second after the system reclaims the service or you swipe the task away; the keep-alive guide now includes \"allow associated start\".\n⚙️ The poll-interval slider is gone; cadence is automatic. An old backup can restore it, but it no longer takes effect.\n⚠️ The wake-up channel needs the latest server; older servers fall back to long polling automatically, so delivery still works.",
+  "changelog": "后台收货与稳定性修复（1.6.3）\n\n🔔 锁屏且「锁屏持续接收」开启时保持 CPU 唤醒；实时唤醒断流 50 秒内自动重连，锁屏消息到达更稳定。\n⚙️ 接收页新增「锁屏持续接收（更耗电）」开关（默认开），可关闭以省电。\n🛡️ 关闭监听后不再转发来电与短信；新增「仅转发电话与短信」独立开关（默认关）。\n🧯 数据库打不开时不再一律当作损坏重建：只有确认损坏才恢复，其它错误明确报错并可重试，历史不再被误清空。\n🎨 统一弹窗、取消色、卡片阴影、底栏、输入框与开关等细节。",
+  "changelogEn": "Background delivery and reliability fixes (1.6.3)\n\n🔔 While the screen is off and \"keep receiving while locked\" is on, the CPU stays awake; a silent real-time channel reconnects within 50 seconds, so lock-screen delivery is steadier.\n⚙️ New \"keep receiving while locked (more battery)\" switch in the receiving page, on by default; turn it off to save power.\n🛡️ Turning monitoring off now stops call and SMS forwarding; a separate \"forward calls and SMS only\" switch (off by default) is available.\n🧯 An unopenable database is no longer treated as corrupt and rebuilt: only confirmed corruption enters recovery, other errors are reported with Retry, so history is not silently wiped.\n🎨 Unified dialogs, cancel colour, card shadows, bottom bar, inputs and switches.",
   "downloads": {
-    "all": "https://cdn.fnthink.com/app/notice/update/1.6.2/notice_all_1.6.2+162.apk",
-    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.2/notice_arm32_1.6.2+162.apk",
-    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.2/notice_arm64_1.6.2+162.apk",
-    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.2/notice_x86_1.6.2+162.apk"
+    "all": "https://cdn.fnthink.com/app/notice/update/1.6.3/notice_all_1.6.3+163.apk",
+    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.3/notice_arm32_1.6.3+163.apk",
+    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.3/notice_arm64_1.6.3+163.apk",
+    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.3/notice_x86_1.6.3+163.apk"
   },
   "fileSizes": {
-    "all": 82982115,
-    "arm32": 26298425,
-    "arm64": 30074837,
-    "x86_64": 32189786
+    "all": 83031491,
+    "arm32": 26347823,
+    "arm64": 30091462,
+    "x86_64": 32206400
   },
   "sha256": {
-    "all": "ae3d408845310dee781c077c14d65f98e2841d134dbaccd6aceddf1ef7fc7966",
-    "arm32": "7c662847a2001e3042f381a9690529ef3ec7c249a98290027a8c815b2b70466f",
-    "arm64": "6e6059454e7fcca364c41f0fe4f7676e20494b4177aaea9e05fd75873b7d7e02",
-    "x86_64": "d016d6e6fa6889f3c95862f3bc624b72267f96b4835d8d0a2d65235907e6029a"
+    "all": "1fde8d19b95af1078ba5038a0af6576b97e2d39db40fe1e9925cc5a2f605d990",
+    "arm32": "5fb2c5f13894132a518a0cb31acc657c1528e00c4e0c5150abc1975ec9aeaeb2",
+    "arm64": "6b28d2401a3344eb53148ed675ba7ddcf685c4d1c326fe5415e6c3bf94561f58",
+    "x86_64": "90a90d36c5fe36cf3b1ff8e2af53ab2176d36d925ceaa3e981448487fcf07765"
   },
   "minSupportedVersion": "1.0.0"
 }

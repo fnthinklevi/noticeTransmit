@@ -16,7 +16,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.2/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.3/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — 软件介绍、客户端下载与后台管理入口
@@ -65,6 +65,7 @@
 - 📱 **多类型识别** —— 智能识别微信、QQ、短信、来电、系统通知等类型
 - 📩 **短信双链路** —— `SMS_RECEIVED` 广播为主链路，短信库 ContentObserver 兜底捕获广播漏掉的短信；两条链路按内容指纹去重不会重复推送；支持自动提取验证码并以独立字段下发
 - 📞 **来电识别** —— 监听来电状态并推送，正文可带"卡 1，运营商"双语信息行
+- 🎛️ **监听与电话短信独立开关** —— 关闭监听后来电与短信不再转发；另有一枚「仅转发电话与短信」开关（默认关），可只保留这两条链
 - 🎚️ **卡槽过滤** —— 短信与电话链路共用卡槽过滤，单卡设备自动灰化
 - 🛡️ **监听可靠性增强** —— 会话类通知正文仅存在于 MessagingStyle 时自动兜底读取；去重键含通知 tag 防误判漏读；通知使用权被系统回收时前台显示"监听已断开 · 可能漏读通知"并自动重连；**服务被回收后重启时按持久化水位自动补扫**未处理的驻留通知（最长回溯 6 小时）
 - 🔋 **自定义电量提醒** —— 充电/断开/指定电量阈值等规则完全自定义，支持增删改与左滑删除
@@ -230,14 +231,14 @@
 | 状态管理 / 依赖注入 | get_it (^9.3.0) + Service 类 |
 | 本地数据库 | sqflite_sqlcipher (^3.4.1) · SQLCipher AES-256 · schema v27 / 12 张表 |
 | 键值存储 | shared_preferences (^2.5.6) · flutter_secure_storage (^10.3.1，自带 vendored 加密实现) · 原生 SecurePrefs 走 androidx.security 1.1.0 |
-| 原生服务 | Kotlin 2.4.21（Android），主源码 93 个 Kotlin 文件 |
+| 原生服务 | Kotlin 2.4.21（Android），主源码 98 个 Kotlin 文件 |
 | 网络请求 | http（Dart） / OkHttp 5.5.0（Kotlin） |
 | 邮件发送 | com.sun.mail:android-mail 1.6.7（SMTP） |
 | 通知监听 | NotificationListenerService |
 | 后台保活 | Foreground Service + 长轮询 / SSE 门铃（空闲 `/poll` hold 25s；`/stream` 健康时轮询空闲退到 300s；屏幕灭且「锁屏持续接收」开启时由服务持 `PARTIAL_WAKE_LOCK`）；电量白名单 + 开机自启 |
 | 后台任务 | workmanager ^0.10.10（每日归档 + 兜底唤醒） |
 | 协程 | kotlinx.coroutines（SupervisorJob + Dispatchers.IO） |
-| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（128 个方法 · 7 个原生 handler + 2 个 Worker） |
+| 跨端通信 | MethodChannel `com.fnthink.notice/notification`（129 个方法 · 8 个原生 handler + 2 个 Worker） |
 | **协议契约** | `protocol/fnthink-v1.json`（单一真值）＋ `protocol/fnthink-vectors-v1.json`（跨端向量表） |
 | **共享协议包** | `packages/fnthink_push`（29 个 Dart 文件，两端与 CLI 共读同一份契约与向量） |
 | **身份与签名** | Ed25519（AndroidKeyStore 硬件背书，API 33+；30–32 走 KeyStore 包裹软件密钥） |
@@ -323,7 +324,7 @@ noticeTransmit/
 │   ├── fnthink-v1.json                   # 幻念协议（能力表、限流、私信边界…）
 │   └── fnthink-vectors-v1.json           # 跨端向量表（两端各断言一遍）
 ├── android/app/src/
-│   ├── main/kotlin/com/fnthink/notice/   # 原生主源码（89 个 Kotlin 文件）
+│   ├── main/kotlin/com/fnthink/notice/   # 原生主源码（98 个 Kotlin 文件）
 │   │   ├── MainActivity.kt               # MethodChannel 分发入口
 │   │   ├── NotificationMonitorService.kt  # 通知监听服务（含幻念族的主备路由与转发）
 │   │   ├── NotificationProcessor.kt · BatteryMonitor.kt
@@ -333,8 +334,8 @@ noticeTransmit/
 │   │   ├── RuleEngine.kt · FilterEngine.kt · TemplateEngine.kt
 │   │   ├── RetryQueue.kt · DelayedPushManager.kt · MergePushManager.kt
 │   │   ├── ConfigManager.kt · SecurePrefs.kt · NetworkClient.kt
-│   │   └── channels/                     # 7 个 handler（配置 34 / 权限 29 / 设备 17 / 文件 12
-│   │                                     #   / 幻念 18 / 统计 8 / 远程执行 5 ＝ 123 个方法；+2 个 Worker 各 1 ＝ 125）
+│   │   └── channels/                     # 8 个 handler（配置 34 / 权限 29 / 设备 17 / 文件 12
+│   │                                     #   / 幻念 21 / 统计 8 / 远程执行 5 / 镜像失效 1 ＝ 127 个方法；+2 个 Worker 各 1 ＝ 129）
 │   ├── test/                             # Kotlin JVM 单测
 │   └── androidTest/                      # 仪器测试
 ├── server/                               # 服务端（更新服务 + TOTP 后台 + 幻念协议面）
@@ -444,19 +445,19 @@ push 到仓库本体时漂移由 CI 自动校平并回写（`--fix`），PR / fo
 <!-- readings:v1（tools/gen_readings.py 生成与校验；手改会被 CI --check 拦下）
 | 读数 | 值 |
 |---|---|
-| App 全量测试（flutter test） | 3481 例 <!--k:dart_tests--> |
-| App 测试文件数（test/） | 306 个 <!--k:dart_test_files--> |
+| App 全量测试（flutter test） | 3492 例 <!--k:dart_tests--> |
+| App 测试文件数（test/） | 307 个 <!--k:dart_test_files--> |
 | 幻念推送包测试（fnthink_push） | 593 例 <!--k:push_tests--> |
-| Kotlin JVM 单元测试 | 659 例 <!--k:kotlin_tests--> |
-| Kotlin 测试类数 | 83 类 <!--k:kotlin_classes--> |
+| Kotlin JVM 单元测试 | 668 例 <!--k:kotlin_tests--> |
+| Kotlin 测试类数 | 85 类 <!--k:kotlin_classes--> |
 | 服务端契约测试（jest） | 825 例 <!--k:jest_tests--> |
 | 服务端测试套件数 | 46 套件 <!--k:jest_suites--> |
 | l10n 词条（zh；en 同数锁定） | 1674 条 <!--k:l10n_keys--> |
-| Dart 源码行数（lib/） | 88374 行 <!--k:dart_loc_lib--> |
-| Dart 测试行数（test/） | 88349 行 <!--k:dart_loc_test--> |
-| Kotlin 源码行数（android main） | 22148 行 <!--k:kotlin_loc_main--> |
-| Kotlin 测试行数（android test） | 13544 行 <!--k:kotlin_loc_test--> |
-| 应用版本（pubspec） | 1.6.2+162 <!--k:app_version--> |
+| Dart 源码行数（lib/） | 88429 行 <!--k:dart_loc_lib--> |
+| Dart 测试行数（test/） | 88597 行 <!--k:dart_loc_test--> |
+| Kotlin 源码行数（android main） | 22336 行 <!--k:kotlin_loc_main--> |
+| Kotlin 测试行数（android test） | 13778 行 <!--k:kotlin_loc_test--> |
+| 应用版本（pubspec） | 1.6.3+163 <!--k:app_version--> |
 | 数据库 schema 版本 | 27 v <!--k:db_version--> |
 | Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK 地板（pubspec） | 3.13.0 <!--k:dart_sdk--> |
