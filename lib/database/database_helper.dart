@@ -1684,6 +1684,35 @@ class DatabaseHelper
     return affected > 0;
   }
 
+  /// 批量标已读的两个唯一作者（T208）。**都回受影响行数**，页面据此如实报"标了几条"：
+  /// 调用方拿列表长度当成功数，被保留策略裁掉的那几条就会变成"显示已读、其实没这行"。
+  ///
+  /// `read = 0` 写进 WHERE 是判据的一半：已经读过的行**不算受影响**（否则"选了 5 条、
+  /// 其实 2 条本来就已读"会报成 5），且方向条件与 [countFnthinkInboxUnread] 逐字同源
+  /// （发出的一条没有"未读"这回事，批量也不许把它翻成已读）。
+  Future<int> markFnthinkInboxReadAll() async {
+    final db = await database;
+    return db.update(FnthinkInboxMessage.table, {
+      'read': 1,
+    }, where: "read = 0 AND direction = '$kFnthinkDirectionIn'");
+  }
+
+  /// 多选那一路：id 全进 `IN (…)`（**一次 update**，不在这里循环调单条 ——
+  /// 循环版一条失败就是半截，且"哪些算一条"会长出第二份判据）。
+  Future<int> markFnthinkInboxReadMany(List<String> messageIds) async {
+    if (messageIds.isEmpty) return 0;
+    final db = await database;
+    final marks = List.filled(messageIds.length, '?').join(',');
+    return db.update(
+      FnthinkInboxMessage.table,
+      {'read': 1},
+      where:
+          "read = 0 AND direction = '$kFnthinkDirectionIn' "
+          'AND message_id IN ($marks)',
+      whereArgs: messageIds,
+    );
+  }
+
   /// 记下本机对这一条报过的结果（T45 状态视图与"我报过没有"都读它）。
   Future<bool> recordFnthinkInboxAck({
     required String messageId,

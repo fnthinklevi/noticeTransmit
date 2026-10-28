@@ -32,48 +32,49 @@ void main() {
         body.contains(shell),
         isFalse,
         reason:
-            '函数体里出现 $shell ⇒ 这一页 13 枚芯片同时变回私有形状，'
+            '函数体里出现 $shell ⇒ 这一页 12 枚芯片同时变回私有形状，'
             '而公共件与它只差底色那几像素（屏幕上没人看得见这次退化）',
       );
     }
     expect(body.contains('FnthinkChoiceChip('), isTrue);
   });
 
-  test('② 13 枚调用点各有唯一抓手，一枚不多一枚不少', () {
+  test('② 12 枚调用点各有唯一抓手，一枚不多一枚不少', () {
     final keys = chipKeys(
       stripComments(librarySource(root, 'lib/pages/history_page.dart')),
     );
     expect(
       keys,
-      hasLength(13),
+      hasLength(12),
       reason:
-          '筛选芯片应当是 13 枚（时间段 6 + 送达状态 3 + 方向 4）；'
+          '筛选芯片应当是 12 枚（时间段 6 + 送达状态 3 + 方向 3；T193 取消了「全部」那一枚）；'
           '少一枚通常是那枚的 keyName 被摘掉了 ⇒ 测试与闸门只能按文本点，'
           '而这一页「转发」两个字会出现三次',
     );
   });
 
-  test('③ 这 13 枚的 keyName 互不重复（共用一枚等于按 key 点中第一个）', () {
+  test('③ 这 12 枚的 keyName 互不重复（共用一枚等于按 key 点中第一个）', () {
     final keys = chipKeys(
       stripComments(librarySource(root, 'lib/pages/history_page.dart')),
     );
     expect(
       keys.toSet(),
-      hasLength(13),
+      hasLength(12),
       reason: '两枚共用一个 keyName ⇒ 按 key 点会点中第一个，"筛不出东西"被读成数据问题',
     );
   });
 
-  test('④ 方向那四枚的 key 字符串不许漂（闸门与两张页面级用例按它定位）', () {
+  test('④ 方向那三枚的 key 字符串不许漂（闸门与页面级用例按它定位）', () {
     final keys = chipKeys(
       stripComments(librarySource(root, 'lib/pages/history_page.dart')),
     );
-    for (final kind in ['forwarded', 'received', 'sent', 'all']) {
+    // T193 取消了「全部」档：方向只剩三档。
+    for (final kind in ['forwarded', 'received', 'sent']) {
       expect(
         keys,
         contains('direction-chip-$kind'),
         reason:
-            '方向档的抓手改了名 ⇒ 闸门 5.14 那一格与 all_tab 那组点不到东西，'
+            '方向档的抓手改了名 ⇒ 闸门 4.4 那一格点不到东西，'
             '而屏幕上看起来一切正常',
       );
     }

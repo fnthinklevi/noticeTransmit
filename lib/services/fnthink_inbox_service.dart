@@ -90,4 +90,12 @@ class FnthinkInboxService {
   /// 表现就是未读数被凭空减掉。
   Future<bool> markRead(String messageId) =>
       _db.markFnthinkInboxRead(messageId);
+
+  /// T208 批量两路：**回受影响行数**（不是"请求了几条"）。
+  /// 页面据此说"标了几条"，而"选中的 N 条里有几条早已读/已被裁"这件事由这个数如实暴露 ——
+  /// 拿 `ids.length` 报成功数，就是在替一次没命中的写编一句"已读"。
+  Future<int> markReadAll() => _db.markFnthinkInboxReadAll();
+
+  Future<int> markReadMany(List<String> messageIds) =>
+      _db.markFnthinkInboxReadMany(messageIds);
 }

@@ -249,14 +249,16 @@ const List<RowAffordance> kRowAffordanceLedger = [
     start: '    final peer = m.sender.isEmpty ? l10n.unknown : _senderText(m.sender);',
     end: '  Widget _buildInboxView(AppLocalizations l10n) {',
     tapRow: true,
-    tapWhat: '打开收件详情（全文可读 + 对端在册时给回复／重发）；收件档点开即标已读',
-    longPressRow: false,
-    longPressWhat: '不给：这一行的动作全住在详情弹层里，摊到行上就是同一件事两个入口',
+    tapWhat:
+        '打开收件详情（全文可读 + 对端在册时给回复／重发）；收件档点开即标已读；'
+        '选项态下点行只切勾选（T208）',
+    longPressRow: true,
+    longPressWhat:
+        '收件行长按进入多选（T208）—— 出的是「取消 · 已选 N · 确认已读」那一套，'
+        '不是第二个详情入口；发出行不长这一格（那本账没有"未读"这回事）',
     inlineProbe: null,
     inlineWhat: '不给：行上没有动作件（未读点与「备用」是徽标，不是动作）',
-    gap:
-        '⚠ 待拍（2026-10-13 登记）：要不要给这一类补长按菜单。补之前要先回答"长按出什么"'
-        '—— 本机今天只有详情里那两枚（回复／重发），所以这一格欠的是产品判断，不是搬运。',
+    gap: 'T208 起三格齐 —— 长按那一格补上的正是当初登记的那条"产品判断"（长按出什么＝批量标已读）。',
   ),
   RowAffordance(
     kind: '规则扇出组行（T147②）',

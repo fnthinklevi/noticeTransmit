@@ -173,4 +173,68 @@ void main() {
       );
     });
   });
+
+  // ── T208：批量标已读（两个写口都回**受影响行数**）────────────────────────────
+  group('批量标已读', () {
+    test('markReadMany：只动收件方向，已读与不存在的 id 不计入行数', () async {
+      await helper.insertFnthinkInbox(row('m_a'));
+      await helper.insertFnthinkInbox(row('m_b'));
+      await helper.insertFnthinkInbox(row('m_c', read: true));
+      await helper.insertFnthinkInbox(
+        row('m_out', direction: kFnthinkDirectionOut),
+      );
+
+      // 选 4 条：两条真未读、一条本来就已读、一条是"发出"、还有两个已被裁掉的 id。
+      final done = await service.markReadMany([
+        'm_a',
+        'm_b',
+        'm_c',
+        'm_out',
+        'm_gone_1',
+        'm_gone_2',
+      ]);
+      expect(
+        done,
+        2,
+        reason:
+            '回的不是"请求了几条"而是**affected**：已读 / 发出 / 不存在都不算命中'
+            '（拿 ids.length 当成功数就是在替没发生的写编一句"已读"）',
+      );
+
+      final inbox = await service.list();
+      expect(
+        inbox.where((m) => m.messageId == 'm_a' || m.messageId == 'm_b'),
+        everyElement(predicate<FnthinkInboxMessage>((m) => m.read)),
+        reason: '两条真未读没被标上',
+      );
+      final out = await service.listSent();
+      expect(out.single.read, isFalse, reason: '发出的一条被标成已读 ⇒ 首页未读数会被自己发的消息减掉');
+    });
+
+    test('markReadMany([]) 不碰库、回 0（空集合不是"全选"）', () async {
+      await helper.insertFnthinkInbox(row('m_a'));
+      expect(await service.markReadMany(const []), 0);
+      expect((await service.list()).single.read, isFalse);
+    });
+
+    test('markReadAll：收件档全清，发出档原样；再点一次回 0', () async {
+      await helper.insertFnthinkInbox(row('m_a'));
+      await helper.insertFnthinkInbox(row('m_b'));
+      await helper.insertFnthinkInbox(
+        row('m_out', direction: kFnthinkDirectionOut),
+      );
+      expect(await service.unreadCount(), 2);
+
+      expect(await service.markReadAll(), 2);
+      expect(await service.unreadCount(), 0);
+      final out = await service.listSent();
+      expect(out.single.read, isFalse, reason: '发出档不该被"一键已读"碰到');
+
+      expect(
+        await service.markReadAll(),
+        0,
+        reason: '第二次没有可标的行 ⇒ 回 0（条数是写口说的，不是页面猜的）',
+      );
+    });
+  });
 }

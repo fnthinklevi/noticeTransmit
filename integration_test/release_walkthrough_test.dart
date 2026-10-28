@@ -587,11 +587,11 @@ void main() {
     await _step(
       tester,
       gateFailures,
-      '4.4 历史页「全部」档：三段并排、每行有来源标识、返回不炸',
+      '4.4 历史页三档：转发/收件/发出可切，全部档已取消、收件可批量已读',
       () async {
-        // T84 的形状是"三段各自翻页"，不是拼成一条时间线。闸门要证的恰恰是
-        // **第三段没有安静地消失**：收件与发出这两段此前从没在设备上同过屏（4.1/4.2 只看单档）。
-        // 用真库注入（这台模拟器没有服务端可连），事后清干净 —— 闸门不留余温。
+        // T193：维护者 2026-10-25 拍板**取消「全部」档** —— 它在转发那本账分页的前提下
+        // 必然把收件/发出两段无限推后（每翻一页都把新的转发页插到前面）。所以这一节先钉
+        // "那一档确实不在了"，再逐档进一次，最后验 T208 的收件批量已读入口在设备上存在。
         const inId = 'gate_all_in';
         const outId = 'gate_all_out';
         final helper = DatabaseHelper();
@@ -602,8 +602,8 @@ void main() {
           whereArgs: ['gate_all_%'],
         );
         for (final (id, title, dir) in const [
-          (inId, '闸门全部档收件一', kFnthinkDirectionIn),
-          (outId, '闸门全部档发出一', kFnthinkDirectionOut),
+          (inId, '闸门三档收件一', kFnthinkDirectionIn),
+          (outId, '闸门三档发出一', kFnthinkDirectionOut),
         ]) {
           final inserted = await helper.insertFnthinkInbox(
             FnthinkInboxMessage(
@@ -612,81 +612,106 @@ void main() {
               type: 'notice',
               item: '',
               title: title,
-              body: '闸门注入：全部档里属于它的那一段',
+              body: '闸门注入：三档里属于它的那一段',
               receivedAt: 1767223200000,
               direction: dir,
             ),
           );
           expect(inserted, isTrue, reason: '注入没落库（$id）⇒ 后面每一条断言都是在演一场空');
         }
-        await _tap(tester, find.text('推送历史'), '首页→推送历史（要看全部档的那一次）');
+        await _tap(tester, find.text('推送历史'), '首页→推送历史（三档那一次）');
         await _settle(tester, seconds: 2);
+        expect(
+          _in(HistoryPage, find.byKey(const ValueKey('direction-chip-all'))),
+          findsNothing,
+          reason: '「全部」档芯片又出现了 ⇒ T193 取消的那一档被装回来了',
+        );
+        for (final key in const [
+          'direction-chip-forwarded',
+          'direction-chip-received',
+          'direction-chip-sent',
+        ]) {
+          expect(
+            _in(HistoryPage, find.byKey(ValueKey(key))),
+            findsOneWidget,
+            reason: '三档少了 `$key`',
+          );
+        }
+
+        // 收件档：注入的那一行在，且带着未读点；长按进选择态 → 顶栏说"已选 1 条" → 取消。
         await _tap(
           tester,
-          _in(HistoryPage, find.byKey(const ValueKey('direction-chip-all'))),
-          '历史页→全部档',
+          _in(HistoryPage, find.byKey(const ValueKey('direction-chip-received'))),
+          '历史页→收件档',
         );
-        await _settle(tester, seconds: 2);
-        // ⚠ 先滚到那一段再断言：ListView 懒建，视口外的标题根本没 build，
-        //    那时"找不到"是闸门自己的红（5.15 与冒烟 2 各这样红过一次，本仓记过几次）。
-        for (final kind in const ['forwarded', 'inbox', 'sent']) {
-          final header = find.byKey(ValueKey('history-all-header-$kind'));
-          await _scrollUntil(tester, header);
-          expect(
-            header,
-            findsOneWidget,
-            reason:
-                '全部档少了「$kind」那一段的标题 ⇒ 三段里有一段被安静地吞掉了。'
-                '少一段与三段都在，用户看到的是同一句"这就是全部"',
-          );
-          // 判据③：段标题**不带数字**（第四种计数会让人以为全部档另有一本账）。
-          // ⚠ 那一枚 key 以前挂在外层 `Padding` 上、T146 片4 之后挂在**画出来的那一格**上，
-          //   所以这里必须走 `_keyedTitle`（两种宿主都读）并**先断非空**：
-          //   只按 descendant 读会拼出恒空串，而"不许有数字"对空串恒真 ⇒ 闸门绿着什么都没量到。
-          final title = _keyedTitle(tester, header);
-          expect(
-            title,
-            isNotEmpty,
-            reason:
-                '「$kind」那一段的标题读出来是空的 ⇒ 要么那一格被搬走了，'
-                '要么下面那句"不许有数字"正在对空串恒真（那是假绿，不是通过）',
-          );
-          expect(
-            find.ancestor(of: header, matching: find.byType(FnthinkRowLabel)),
-            findsOneWidget,
-            reason:
-                '那一格还在、画它的却不是组标题那枚公共件 ⇒ 这一族又长出第二个作者，'
-                '字号与字重各漂各的（T146 片4 治的就是这件事）',
-          );
-          expect(
-            RegExp(r'\d').hasMatch(title),
-            isFalse,
-            reason: '段标题里冒出数字 ⇒ 这一档开始自己计数，而它没有那份数据源',
-          );
-        }
-        for (final id in const [inId, outId]) {
-          final row = find.byKey(ValueKey('fnthink-inbox-row-$id'));
-          await _scrollUntil(tester, row);
-          expect(
-            row,
-            findsOneWidget,
-            reason: '切到全部档看不到注入的那一行（$id）⇒ 它读的不是同一张表的那份账',
-          );
-        }
-        for (final tag in const ['收', '发']) {
-          final badge = find.byKey(ValueKey('history-all-tag-$tag'));
-          expect(badge, findsWidgets, reason: '行首没有来源标识 ⇒ 三段并排变成一屏看不出归属的流水账');
-        }
+        // 切档之后**等那一行自己出现**（墙钟计时有界），不用裸 settle 等它 —— 这台机上
+        // 「settle 等真帧」是记录在案的一种挂住形状（transient=0 scheduled=false 那一型）。
+        final inRow = find.byKey(const ValueKey('fnthink-inbox-row-$inId'));
+        await _waitUntil(tester, inRow, '切到收件档后注入的那一行没出现');
+        await _scrollUntil(tester, inRow);
+        expect(inRow, findsOneWidget, reason: '收件档看不到注入的那一行');
+        expect(
+          find.byKey(const ValueKey('fnthink-inbox-unread-$inId')),
+          findsOneWidget,
+          reason: '收件行没有未读点 ⇒ 后面「标已读」就没有可验的东西',
+        );
+        await tester.longPress(inRow);
+        await _settle(tester, seconds: 1);
+        expect(
+          find.textContaining('已选 1 条'),
+          findsOneWidget,
+          reason: '长按没有进入选项态（顶栏那句"已选 N 条"没出现）',
+        );
+        expect(
+          find.byKey(const ValueKey('history-inbox-mark-read')),
+          findsOneWidget,
+          reason: '选项态顶栏缺「确认已读」',
+        );
+        // 取消：不写库，回到普通列表
+        await _tap(tester, find.byTooltip('取消'), '选项态→取消');
+        await _settle(tester, seconds: 1);
+        expect(
+          find.textContaining('已选 1 条'),
+          findsNothing,
+          reason: '取消之后还停在选项态',
+        );
+        // 「⋯→一键已读」只在这一档出现
+        await _tap(tester, find.byIcon(Icons.more_horiz), '收件档→更多动作');
+        await _settle(tester, seconds: 1);
+        expect(
+          find.byKey(const ValueKey('history-inbox-mark-all')),
+          findsOneWidget,
+          reason: '收件档的「⋯」里没有「一键已读」',
+        );
+        await tester.tapAt(const Offset(10, 10));
+        await _settle(tester, seconds: 1);
+
+        // 发出档：那一本账里没有"未读"这个概念 ⇒ 既看不到批量已读，也看不到未读点。
+        await _tap(
+          tester,
+          _in(HistoryPage, find.byKey(const ValueKey('direction-chip-sent'))),
+          '历史页→发出档',
+        );
+        final outRow = find.byKey(const ValueKey('fnthink-inbox-row-$outId'));
+        await _waitUntil(tester, outRow, '切到发出档后注入的那一行没出现');
+        await _scrollUntil(tester, outRow);
+        expect(outRow, findsOneWidget, reason: '发出档看不到注入的那一行');
+        expect(
+          find.byKey(const ValueKey('fnthink-inbox-unread-$outId')),
+          findsNothing,
+          reason: '发出档画了未读点 ⇒ 那一列对它不存在',
+        );
         await db.delete(
           FnthinkInboxMessage.table,
           where: 'message_id LIKE ?',
           whereArgs: ['gate_all_%'],
         );
-        // 「返回不炸」不是废话：这一档是三段叠在一个可滚容器里，返回时若还有在途的一轮读，
-        // 页面销毁之后 setState 就会红在这一发上。
+        // 「返回不炸」不是废话：这一档在返回时可能还有在途的一轮读，页面销毁之后
+        // setState 就会红在这一发上。
         await _backToHome(tester);
       },
     );
+
     await _step(
       tester,
       gateFailures,
@@ -2781,20 +2806,6 @@ Finder _appBarText(String label) => find.descendant(
 Finder _in(Type page, Finder f) =>
     find.descendant(of: find.byType(page), matching: f);
 
-/// 按 key 读出"那一格画出来的文字"。⚠ **两把宿主都要读**：那枚 `ValueKey` 可能挂在**容器**上，
-/// 也可能挂在**画出来的 `Text` 自己身上** —— T146 片4 把组标题交给公共件 `FnthinkRowLabel`
-/// 之后就是后者（key 从外层 Padding 挪到了那一格上，字符串逐字没动）。
-/// 只按 `find.descendant` 读的话，key 落在 `Text` 上时 descendant 集合是**空的**、拼出来恒为 `''`，
-/// 而"标题里不许有数字"这类判据对空串恒真 ⇒ 闸门绿着什么都没量到（本仓记过的那类假绿形状）。
-/// 所以调用方必须再断一句非空：这把尺读不到字的时候要喊出来，不许替它说"读到了，没数字"。
-String _keyedTitle(WidgetTester t, Finder keyed) {
-  final onCell = t.widgetList<Text>(keyed).map((w) => w.data ?? '').join();
-  final underCell = t
-      .widgetList<Text>(find.descendant(of: keyed, matching: find.byType(Text)))
-      .map((w) => w.data ?? '')
-      .join();
-  return onCell + underCell;
-}
 
 /// Webhook 详情页里输入框的顺序是「名称 → URL →（密钥/模板，随通道类型的描述符能力位变化）」，
 /// 按下标取会随类型漂移；URL 输入框在**为空时**必定显示占位文案，

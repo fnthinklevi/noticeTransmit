@@ -4580,22 +4580,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkDirSent => '发出（幻念）';
 
   @override
-  String get fnthinkDirAll => '全部';
-
-  @override
-  String get fnthinkTagForwarded => '转发';
-
-  @override
-  String get fnthinkTagInbox => '收';
-
-  @override
-  String get fnthinkTagSent => '发';
-
-  @override
-  String get fnthinkAllScopeNote =>
-      '全部档是把三个来源并排看，不是拼成同一条时间线：搜索与筛选只作用于「转发」那一段（收件与发出在另一张表里，翻页口径不同，混排会出现同一条重复或整条不出现）';
-
-  @override
   String get fnthinkSentEmpty => '还没有发过。这一档只记本机发出去的（对方收到与否要看回执）';
 
   @override
@@ -5663,4 +5647,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String updateCheckHttpStatus(int code) {
     return '检查更新失败：服务器返回 HTTP $code';
   }
+
+  @override
+  String get inboxMarkAllRead => '一键已读';
+
+  @override
+  String get inboxMarkReadAction => '确认已读';
+
+  @override
+  String inboxMarkAllConfirmMsg(int n) {
+    return '将把收件档里的 $n 条未读标为已读。';
+  }
+
+  @override
+  String inboxMarkReadDone(int n) {
+    return '已标记 $n 条为已读';
+  }
+
+  @override
+  String get fnthinkAppLabel => '应用';
 }

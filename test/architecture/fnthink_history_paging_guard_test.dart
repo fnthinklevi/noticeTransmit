@@ -68,8 +68,10 @@ void main() {
   });
 
   group('三个档的生产读口都续到取尽', () {
+    // T193 取消了「全部」档（它同时读收件 + 发出两本账 ⇒ 那两处续拉点随它一起删了）：
+    // 4 → 2（收件档 1 + 发出档 1）。
     const drainSites = <String, int>{
-      'pages/history_page.dart': 4,
+      'pages/history_page.dart': 2,
       'di/service_locator.dart': 1,
     };
 
@@ -80,7 +82,7 @@ void main() {
           e.value,
           reason:
               '${e.key} 的续拉点实际与台账不等：少一处就是某一档退回"读一页就收场"，'
-              '多一处就是有人另开了一条读径（两本账 × 两档 = 4，DI 那一档 = 1）',
+              '多一处就是有人另开了一条读径（收件 / 发出各一档 = 2，DI 那一档 = 1）',
         );
       }
       expect(

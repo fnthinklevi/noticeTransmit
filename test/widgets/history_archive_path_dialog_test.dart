@@ -110,7 +110,7 @@ void main() {
         locale: const Locale('zh'),
         dark: false,
         home: HistoryPage(
-          initialDirection: 'all',
+          initialDirection: 'forwarded',
           forwardedLoader: fakeForwardedLoader(const []),
           forwardedCountLoader: () async => 0,
           onClear: () async {},
@@ -118,7 +118,7 @@ void main() {
           onClearToday: () async => 0,
           onClearLastN: (n) async => 0,
           // ⚠ 收件那本账走 GetIt 的 [FnthinkInboxService]（不登记就在 `initState` 里抛），
-          // 所以这里必须把两个读口换成页面构造参数 —— 与 `history_page_all_tab_test` 同一套做法。
+          // 所以这里必须把两个读口换成页面构造参数 —— 与其它历史页用例同一套做法。
           inboxLoader: () async => const [],
           sentLoader: () async => const [],
           inboxMarkRead: (id) async => false,

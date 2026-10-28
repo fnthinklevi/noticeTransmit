@@ -46,6 +46,9 @@ void main() {
     'lib/pages/history_page.dart': [
       'Future<void> _runBatchPush(',
       'Future<void> _showClearOptions(',
+      // T208：「一键已读」是**一次改掉整档的读状态**（收件那本账全标已读），
+      // 而且它没有逐条撤销的口子 ⇒ 与「清空全部」同一条理由：多点一下比点错好。
+      'Future<void> _runMarkAllRead(',
     ],
     // 幻念推送页：换一枚地址码 = 这台设备在所有对端白名单里那一串当场作废，
     // 后果与删一条通道同级（而更不可逆：对面不会报错，只是再也推不进来）。

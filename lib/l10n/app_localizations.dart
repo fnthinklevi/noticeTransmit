@@ -8274,36 +8274,6 @@ abstract class AppLocalizations {
   /// **'发出（幻念）'**
   String get fnthinkDirSent;
 
-  /// No description provided for @fnthinkDirAll.
-  ///
-  /// In zh, this message translates to:
-  /// **'全部'**
-  String get fnthinkDirAll;
-
-  /// No description provided for @fnthinkTagForwarded.
-  ///
-  /// In zh, this message translates to:
-  /// **'转发'**
-  String get fnthinkTagForwarded;
-
-  /// No description provided for @fnthinkTagInbox.
-  ///
-  /// In zh, this message translates to:
-  /// **'收'**
-  String get fnthinkTagInbox;
-
-  /// No description provided for @fnthinkTagSent.
-  ///
-  /// In zh, this message translates to:
-  /// **'发'**
-  String get fnthinkTagSent;
-
-  /// No description provided for @fnthinkAllScopeNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'全部档是把三个来源并排看，不是拼成同一条时间线：搜索与筛选只作用于「转发」那一段（收件与发出在另一张表里，翻页口径不同，混排会出现同一条重复或整条不出现）'**
-  String get fnthinkAllScopeNote;
-
   /// No description provided for @fnthinkSentEmpty.
   ///
   /// In zh, this message translates to:
@@ -10151,6 +10121,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'检查更新失败：服务器返回 HTTP {code}'**
   String updateCheckHttpStatus(int code);
+
+  /// No description provided for @inboxMarkAllRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'一键已读'**
+  String get inboxMarkAllRead;
+
+  /// No description provided for @inboxMarkReadAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认已读'**
+  String get inboxMarkReadAction;
+
+  /// No description provided for @inboxMarkAllConfirmMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'将把收件档里的 {n} 条未读标为已读。'**
+  String inboxMarkAllConfirmMsg(int n);
+
+  /// No description provided for @inboxMarkReadDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已标记 {n} 条为已读'**
+  String inboxMarkReadDone(int n);
+
+  /// No description provided for @fnthinkAppLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用'**
+  String get fnthinkAppLabel;
 }
 
 class _AppLocalizationsDelegate

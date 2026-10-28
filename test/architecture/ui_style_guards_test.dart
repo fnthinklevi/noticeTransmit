@@ -1068,14 +1068,6 @@ class FnthinkStatusMark extends StatelessWidget {
           );
         }
       }
-      // 底部那一句（圆点行 = §1 的「底部无序列表」）：话一字未改，形状换了。
-      expect(
-        codeByPath['lib/pages/history_page.dart']!.contains(
-          "'\u2022 \${l10n.fnthinkAllScopeNote}'",
-        ),
-        isTrue,
-        reason: '全部档那句说明又变回裸小字 ⇒ 底部无序列表那一形状没挂住',
-      );
     });
 
     test('那三页的成段说明：边界句两处都在、只许走「问号弹层」那一形状', () {
@@ -1487,7 +1479,7 @@ class FnthinkStatusMark extends StatelessWidget {
         'lib/pages/privacy_policy_page.dart',
         'lib/pages/permission_settings_page.dart',
         'lib/pages/rule_tester_page.dart',
-        'lib/pages/history_page.dart',
+        // T193：取消「全部」档时，历史页那唯一一枚 AppInfoNoteBox（三源并排那句说明）随它删除。
         'lib/pages/fnthink_receive_page.dart',
         'lib/pages/fnthink_settings_page.dart',
         'lib/pages/channel_status_page.dart',
@@ -1843,7 +1835,6 @@ class FnthinkStatusMark extends StatelessWidget {
         'test/widgets/widget_guide_page_test.dart',
         'test/widgets/fnthink_settings_page_test.dart',
         'test/widgets/rule_edit_page_test.dart',
-        'test/widgets/history_page_all_tab_test.dart',
         'test/widgets/history_page_backup_chip_test.dart',
         'test/widgets/history_page_fnthink_inbox_test.dart',
         'test/widgets/history_offline_drop_test.dart',
@@ -1983,7 +1974,8 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/pages/device_snapshot_page.dart': 1,
   'lib/pages/email_settings_page.dart': 2,
   'lib/pages/fnthink_channel_list_page.dart': 1,
-  'lib/pages/history_page.dart': 11,
+  // T208：+2（批量标已读的两条结论：多选确认 / 一键已读）。
+  'lib/pages/history_page.dart': 13,
   'lib/pages/main_page.dart': 1,
   'lib/pages/main_page_update.dart': 2,
   'lib/pages/more_page.dart': 2,

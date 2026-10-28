@@ -29,7 +29,6 @@ import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution_state_words.dart';
 import '../services/fnthink_remote_reason_words.dart';
-import '../widgets/app_info_note_box.dart';
 import '../widgets/app_input_style.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_visuals.dart';
@@ -42,7 +41,6 @@ import '../widgets/fnthink_card.dart'
         FnthinkFilledAction,
         FnthinkInlineAction,
         FnthinkMarkRole,
-        FnthinkRowLabel,
         FnthinkStatusMark,
         FnthinkSubMark;
 import '../widgets/primary_action_button.dart';
@@ -115,6 +113,16 @@ class HistoryPage extends StatefulWidget {
 
   /// 标已读的那一斧子。同上：默认走收件服务，测试注入替身。
   final Future<bool> Function(String messageId)? inboxMarkRead;
+
+  /// T208：批量标已读的两个写口＋未读数读口。都可注入 —— 与 `inboxMarkRead` 同一条理由
+  /// （widget 测试不开真库）。判据不在页面里：**回的是受影响行数**，页面只负责如实说出来。
+  final Future<int> Function(List<String> messageIds)? inboxMarkReadMany;
+  final Future<int> Function()? inboxMarkReadAll;
+  final Future<int> Function()? inboxUnreadCount;
+
+  /// 批量标已读之后的通知（T208）：首页那张「幻念收件」卡要用**同一个算法**重算未读，
+  /// 页面不许自己减（它手上只有分页过的列表，数出来永远偏小）。
+  final VoidCallback? onInboxChanged;
 
   /// 「我发过的」那一档的数据来源（T43）。默认走 `FnthinkInboxService.listSent`，
   /// 测试注入内存列表 —— 与 `inboxLoader` 同一条理由（不开真库）。
@@ -200,6 +208,10 @@ class HistoryPage extends StatefulWidget {
     this.inboxLoader,
     this.sentLoader,
     this.inboxMarkRead,
+    this.inboxMarkReadMany,
+    this.inboxMarkReadAll,
+    this.inboxUnreadCount,
+    this.onInboxChanged,
     this.inboxFindPeer,
     this.inboxSendTo,
     this.inboxListPeers,
@@ -304,6 +316,33 @@ class _HistoryPageState extends State<HistoryPage> {
                   _enterBatchMode();
                 },
               ),
+              // T208：「一键已读」**只在收件档出现** —— 发出档那本账没有"未读"这一列
+              // （见 `_inboxRow` 上面那段判据②），转发行更没有。
+              if (_direction == 'received')
+                ListTile(
+                  key: const ValueKey('history-inbox-mark-all'),
+                  leading: Icon(
+                    Icons.mark_email_read_outlined,
+                    color: _inboxUnread > 0
+                        ? AppColors.blue
+                        : AppColors.secondaryLabel(sheetContext),
+                  ),
+                  title: Text(
+                    l10n.inboxMarkAllRead,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: _inboxUnread > 0
+                          ? AppColors.primaryLabel(sheetContext)
+                          : AppColors.secondaryLabel(sheetContext),
+                    ),
+                  ),
+                  enabled: _inboxUnread > 0,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _runMarkAllRead();
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.ios_share, color: AppColors.blue),
                 title: Text(
@@ -529,12 +568,6 @@ class _HistoryPageState extends State<HistoryPage> {
       // 点通知跳进来（T83）：详情只能在那张表**读完之后**才展开得了 ——
       // 列表还没到手，"要展开的那一行"根本无从找起。
       unawaited(_loadInbox().then((_) => _applyPendingFocus()));
-    }
-    if (_direction == 'all') {
-      // 预置到全部档（T84）：读法与"切过去"完全同一条，不另写一份。
-      // ⚠ 这一档**不兑现** focusMessageId：通知只可能由收件那一档产生，跳转的落点也是收件档
-      //   （见 `main_page_actions.dart` 那两路）。在这里兑现就是让"全部"猜一次那一条属于哪本账。
-      unawaited(_loadAll());
     }
     if (_direction == 'forwarded') {
       // T133 量级①：转发那本账的第一页当场取 —— 内存镜像退役后，它不再有
@@ -1999,6 +2032,15 @@ class _HistoryPageState extends State<HistoryPage> {
   List<FnthinkInboxMessage> _inbox = const [];
   bool _inboxLoaded = false;
 
+  /// T208：收件档的选项态（长按进入）。**只对收件行有意义** —— 发出与转发没有 `read` 那一列，
+  /// 给它们长出一个"标已读"就是把"我发的"也画成"别人推给我的、我还没看"。
+  bool _inboxSelectMode = false;
+  final Set<String> _inboxSelected = {};
+
+  /// 收件未读数（「一键已读」那一格的可用性与确认框里的 N）。**只是缓存一个读数**：
+  /// 数法只有 `FnthinkInboxService.unreadCount` 一处，页面不自己数列表（列表有 limit）。
+  int _inboxUnread = 0;
+
   /// 「进来就要展开的那一条」还欠着的那一次兑现（T83，只在**这一次进入**里有效）。
   /// 兑现一次就清空（见 [_applyPendingFocus]）；把它落盘则会变成"下次冷启动还跳去三天前那条通知"。
   String? _pendingFocusMessageId;
@@ -2007,13 +2049,6 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 转发档不用它。**它和 `_direction` 不是一件事**：`_direction` 是界面上哪一格亮着，
   /// 这个是"手上这份 `_inbox` 是哪本账"—— 切档时两本账的读法与空态都不一样。
   String _inboxDirection = kFnthinkDirectionIn;
-
-  /// 「全部」档手里那两本幻念账（T84）。**不复用 `_inbox`**：`_inbox` 的含义是
-  /// "当前挂在哪本账上的那几行"，而全部档要**同时**拿着收件与发出 ——
-  /// 用一份状态装两本账，就是"切档时把另一本洗成这一本"那类错的新写法。
-  List<FnthinkInboxMessage> _allIn = const [];
-  List<FnthinkInboxMessage> _allOut = const [];
-  bool _allLoaded = false;
 
   /// 指令行的状态账（T141①）：消息号 → 判定层落的执行记录。
   /// 只在装载收件行时刷新；读失败保持旧值/空 —— 界面上那格不画，不编话。
@@ -2076,11 +2111,17 @@ class _HistoryPageState extends State<HistoryPage> {
     // 期间用户可能又切了档：只把结果交给它属于的那一档。否则"读回来的是发出、画在收件档上"
     // —— 那正是两本账混起来的形状，而它看起来就像一条真的收件。
     if (direction != _inboxDirection) return;
+    final unread = direction == kFnthinkDirectionIn
+        ? await _readInboxUnread()
+        : 0;
+    if (!mounted) return;
+    if (direction != _inboxDirection) return;
     setState(() {
       _inbox = rows;
       _inboxLoaded = true;
       _senderMode = mode;
       _rosterByAddress = byAddress;
+      _inboxUnread = unread;
     });
     // 发出档没有指令行：传空把上一档的账清掉，免得切档后旧状态还挂在同号消息上。
     unawaited(
@@ -2088,37 +2129,92 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  /// 「全部」档的读法（T84）：**两本账各读各的**，读径与收件档/发出档完全同一条
-  /// （同一对注入点、同样续到取尽、同样"注入优先、生产走服务层"）。
-  /// 这里不做任何合并或排序 —— 合起来的口径是假的（见 [_buildAllView] 上面那段）。
-  Future<void> _loadAll() async {
-    // 转发那本账的头一页也要在位（T133 量级①）：全部档的转发段画的就是这份
-    // 分页读数 —— 镜像退役后它没有"启动时已经在内存里"可以吃，没读过就当场补。
-    if (_searchResults == null) {
-      unawaited(_loadSearch(reset: true));
-      unawaited(_refreshTotal());
+  // ── T208：收件档多选 +「确认已读」＋「⋯→一键已读」 ──────────────────────────
+  //
+  // 三件事的分工写死在这里，别往别处挪：
+  //  · **能标哪些**由 DB 那两个写口的 WHERE 决定（`read = 0 AND direction = 'in'`）；
+  //  · **标了几条**由写口回的受影响行数说；
+  //  · **未读数**只由 `unreadCount` 那一处算，页面不自己减（列表有 limit，减着减着就错）。
+
+  Future<int> _readInboxUnread() async {
+    try {
+      return await (widget.inboxUnreadCount ?? _inboxService.unreadCount)();
+    } catch (e) {
+      // 读失败沿用上一个数（0 在这张卡上的意思是"没有未读"，与"没读到"是两件事）。
+      debugPrint('[fnthink] 收件未读数没取到，沿用上一个数: $e');
+      return _inboxUnread;
     }
-    final inRows =
-        await (widget.inboxLoader ??
-            () => drainAllPages(
-              (limit, offset) =>
-                  _inboxService.list(limit: limit, offset: offset),
-            ))();
-    final outRows =
-        await (widget.sentLoader ??
-            () => drainAllPages(
-              (limit, offset) =>
-                  _inboxService.listSent(limit: limit, offset: offset),
-            ))();
-    if (!mounted) return;
-    // 期间被切走了档：这两本就是别档的账本了，交出去会画在错的档位上。
-    if (_direction != 'all') return;
+  }
+
+  void _enterInboxSelect(FnthinkInboxMessage m) {
+    if (_inboxDirection != kFnthinkDirectionIn) return;
     setState(() {
-      _allIn = inRows;
-      _allOut = outRows;
-      _allLoaded = true;
+      _inboxSelectMode = true;
+      _inboxSelected
+        ..clear()
+        ..add(m.messageId);
     });
-    unawaited(_loadCommandRecords(inRows));
+  }
+
+  void _toggleInboxSelect(FnthinkInboxMessage m) {
+    setState(() {
+      if (!_inboxSelected.remove(m.messageId)) {
+        _inboxSelected.add(m.messageId);
+      }
+    });
+  }
+
+  /// 退出选项态。`inSetState: false` 给"已经在 setState 里"的调用点（切档那一处）。
+  void _exitInboxSelect({bool inSetState = true}) {
+    if (!_inboxSelectMode && _inboxSelected.isEmpty) return;
+    void clear() {
+      _inboxSelectMode = false;
+      _inboxSelected.clear();
+    }
+
+    if (inSetState) {
+      setState(clear);
+    } else {
+      clear();
+    }
+  }
+
+  Future<void> _runMarkReadSelected() async {
+    final ids = _inboxSelected.toList(growable: false);
+    if (ids.isEmpty) return;
+    final l10n = AppLocalizations.of(context);
+    final mark = widget.inboxMarkReadMany ?? _inboxService.markReadMany;
+    final done = await mark(ids);
+    if (!mounted) return;
+    _exitInboxSelect();
+    // 写完之后**重新读表**：未读点、列表、首页那个数全部由读决定。
+    await _loadInbox();
+    widget.onInboxChanged?.call();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.inboxMarkReadDone(done))));
+  }
+
+  Future<void> _runMarkAllRead() async {
+    final l10n = AppLocalizations.of(context);
+    // 确认框里的 N 走同一个算法现读一次（不用 `_inboxUnread` 那份可能已经旧了的缓存）。
+    final total = await _readInboxUnread();
+    if (!mounted || total == 0) return;
+    final ok = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.inboxMarkAllRead,
+      message: l10n.inboxMarkAllConfirmMsg(total),
+      confirmText: l10n.inboxMarkReadAction,
+    );
+    if (!ok || !mounted) return;
+    final mark = widget.inboxMarkReadAll ?? _inboxService.markReadAll;
+    final done = await mark();
+    if (!mounted) return;
+    await _loadInbox();
+    widget.onInboxChanged?.call();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.inboxMarkReadDone(done))));
   }
 
   /// 指令行的状态账（T141①）：按这批收件行的消息号一发批量查。
@@ -2151,7 +2247,6 @@ class _HistoryPageState extends State<HistoryPage> {
   void _setDirection(String value) {
     if (_direction == value) return;
     final nextIsFnthink = value == 'received' || value == 'sent';
-    final nextIsAll = value == 'all';
     setState(() {
       _direction = value;
       if (nextIsFnthink) {
@@ -2163,16 +2258,11 @@ class _HistoryPageState extends State<HistoryPage> {
         _inboxLoaded = false;
         _commandRecords = const {};
       }
-      if (nextIsAll) {
-        // 同一条纪律：全部档也是"换账本"，只是它一次拿两本（收件 + 发出）。
-        _allIn = const [];
-        _allOut = const [];
-        _allLoaded = false;
-        _commandRecords = const {};
-      }
+      // T193：选项态只属于收件档 —— 切走就退出（带着一批勾选走去发出档，
+      // 那个"已选 N"既没有动作可做，也会把别的档的行当成同一批）。
+      _exitInboxSelect(inSetState: false);
     });
     if (nextIsFnthink) unawaited(_loadInbox());
-    if (nextIsAll) unawaited(_loadAll());
     if (value == 'forwarded' && _searchResults == null) {
       // 切回转发档而头一页还没读过（进页时停在别的档）：当场补读 ——
       // 与 initState 那一下同一条路，不另写一份。
@@ -2182,8 +2272,8 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _directionBar(AppLocalizations l10n) {
-    // 四格一排，窄屏必然放不下 ⇒ 横着可滚。不是装饰：写死 Row 的下一幕就是
-    // RenderFlex overflow 半条芯片（T84 加第四档时量出来的）。
+    // 三格一排，窄屏仍可能放不下 ⇒ 横着可滚（T84 加档时量出来过：写死 Row 的下一幕
+    // 就是 RenderFlex overflow 半条芯片）。T193 撤掉了第四档「全部」。
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -2208,14 +2298,6 @@ class _HistoryPageState extends State<HistoryPage> {
             _direction == 'sent',
             () => _setDirection('sent'),
             keyName: 'direction-chip-sent',
-          ),
-          const SizedBox(width: 8),
-          // T84：一次同看三张账。每行仍带来源标识，未读数与各档口径一个都不改。
-          _filterChip(
-            l10n.fnthinkDirAll,
-            _direction == 'all',
-            () => _setDirection('all'),
-            keyName: 'direction-chip-all',
           ),
         ],
       ),
@@ -2246,7 +2328,9 @@ class _HistoryPageState extends State<HistoryPage> {
     // 不编一句「还没执行」—— 存量行与刚落库未判定的那一瞬都是这个形状。
     final command = outgoing ? null : RemoteCommandEnvelope.decode(m.body);
     final record = command == null ? null : _commandRecords[m.messageId];
-    return HistoryRowTile(
+    // T208：选项态只对**收件行**开（发出档那本账没有"未读"这一列，见上面那段判据②）。
+    final selectable = !outgoing && _inboxDirection == kFnthinkDirectionIn;
+    final tile = HistoryRowTile(
       keyNamespace: 'fnthink-inbox',
       identity: m.messageId,
       title: command == null
@@ -2280,6 +2364,10 @@ class _HistoryPageState extends State<HistoryPage> {
         // 于是同一屏里出现"webhook 标了、幻念没标"，看起来像随机丢而不是一族的事。
         if (m.viaBackup)
           _tagBadge(context, l10n.deliveryViaBackupTag, AppColors.blue),
+        // T195：来源应用名（维护者 2026-10-25：状态栏看得到、进了收件历史就没了）。
+        // **非空才画** —— 空串＝手动发送／旧发送端／端点消息，画一枚空的徽标等于替它编一个来源。
+        if (m.appName.isNotEmpty)
+          _tagBadge(context, m.appName, AppColors.secondaryLabel(context)),
       ],
       // 本机报出去的那一串是**原话**（`delivered` / `rejected_*` / `failed_action`）：
       // 翻成人话属 T144 片2，那一版改的是这一格的来源，不改它的画法。
@@ -2295,7 +2383,26 @@ class _HistoryPageState extends State<HistoryPage> {
           : (index == total - 1
                 ? HistoryRowCorner.last
                 : HistoryRowCorner.middle),
-      onTap: () => _showInboxDetail(m, outgoing: outgoing),
+      // T208：选项态下点行**只切勾选**，不打开详情 —— 那一下要是不拦，勾第二条时就会
+      // 弹出它自己的详情页，选择态在用户眼里"看不见了"。长按进入（行件本来就有这个槽）。
+      onTap: selectable && _inboxSelectMode
+          ? () => _toggleInboxSelect(m)
+          : () => _showInboxDetail(m, outgoing: outgoing),
+      onLongPress: selectable && !_inboxSelectMode
+          ? () => _enterInboxSelect(m)
+          : null,
+    );
+
+    if (!selectable || !_inboxSelectMode) return tile;
+    return Row(
+      children: [
+        Checkbox(
+          value: _inboxSelected.contains(m.messageId),
+          activeColor: AppColors.blue,
+          onChanged: (_) => _toggleInboxSelect(m),
+        ),
+        Expanded(child: tile),
+      ],
     );
   }
 
@@ -2346,149 +2453,6 @@ class _HistoryPageState extends State<HistoryPage> {
         index: index,
         total: _inbox.length,
       ),
-    );
-  }
-
-  // ── T84「全部」档：三张账**并排**看，不拼成同一条时间线 ────────────────────
-  //
-  // ⚠ 为什么不合并排序：转发那张表是**分页**的（`_onScroll` 按 offset 往后要下一页），而收件 /
-  //   发出各是"一次读满 100 行"的 flat 读法。把三本拼进同一条时间线，表现正是 T48 那条判据点名的
-  //   两件事：翻页时同一条出现两次，或整条一次都不出现。并排的代价只是"不是按时间全序"——
-  //   而那个全序在分页口径下本来就是假的。
-  // ⚠ 判据①：每行前面一枚来源标识。分组标题会被滚出屏幕，"这条属于哪本账"不能只写在标题里。
-  // ⚠ 判据②：只有收件行有未读点与"标已读"那一下（`_inboxRow` 的 `outgoing` 分支已经给了），
-  //   转发行走它自己的详情，发出行不标已读 —— 全部档不给它们长出这个入口。
-  // ⚠ 判据③：**不新增第四种计数**。AppBar 上那个数仍是转发那本账的（与各档同一口径），
-  //   三个分组标题上也不写数字 —— "全部 = 三者之和"这个数在分页口径下当下就不准。
-  Widget _buildAllView(
-    AppLocalizations l10n,
-    List<NotificationRecord> records,
-  ) {
-    if (!_allLoaded) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: [
-        SliverToBoxAdapter(child: _allScopeNote(l10n)),
-        SliverToBoxAdapter(
-          child: _allSectionHeader('forwarded', l10n.fnthinkDirForwarded),
-        ),
-        if (records.isEmpty)
-          SliverToBoxAdapter(
-            // 与转发档那一屏同一句：搜不到与从来没有，是两件事。
-            child: _allSectionEmpty(
-              _hasActiveFilter ? l10n.noMatchRecords : l10n.noRecords,
-            ),
-          )
-        else
-          SliverList.builder(
-            itemCount: records.length,
-            itemBuilder: (context, index) => _withSourceTag(
-              l10n.fnthinkTagForwarded,
-              _buildRecordItem(context, records[index], index, records.length),
-            ),
-          ),
-        SliverToBoxAdapter(
-          child: _allSectionHeader('inbox', l10n.fnthinkDirInbox),
-        ),
-        if (_allIn.isEmpty)
-          SliverToBoxAdapter(child: _allSectionEmpty(l10n.fnthinkInboxEmpty))
-        else
-          SliverList.builder(
-            itemCount: _allIn.length,
-            itemBuilder: (context, index) => _withSourceTag(
-              l10n.fnthinkTagInbox,
-              _inboxRow(
-                l10n,
-                _allIn[index],
-                outgoing: false,
-                index: index,
-                total: _allIn.length,
-              ),
-            ),
-          ),
-        SliverToBoxAdapter(
-          child: _allSectionHeader('sent', l10n.fnthinkDirSent),
-        ),
-        if (_allOut.isEmpty)
-          SliverToBoxAdapter(child: _allSectionEmpty(l10n.fnthinkSentEmpty))
-        else
-          SliverList.builder(
-            itemCount: _allOut.length,
-            itemBuilder: (context, index) => _withSourceTag(
-              l10n.fnthinkTagSent,
-              _inboxRow(
-                l10n,
-                _allOut[index],
-                outgoing: true,
-                index: index,
-                total: _allOut.length,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// 顶部那一行说明：搜索与筛选只作用于「转发」那一段（判据③的另一半 —— 不假装一个筛子能筛三张表）。
-  Widget _allScopeNote(AppLocalizations l10n) {
-    return Padding(
-      key: const ValueKey<String>('history-all-note'),
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: AppInfoNoteBox(
-        // 圆点在前 = §1 的「底部无序列表」那一形状（与设置页 `fnthink-boundary`、
-        // 远程历史页那句边界句同一做法）；这句一字未改，只换了它挂的形状。
-        text: '• ${l10n.fnthinkAllScopeNote}',
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      ),
-    );
-  }
-
-  /// 分组标题。**刻意不带数字**：判据③要的正是"全部档不新增第四种计数"。
-  Widget _allSectionHeader(String kind, String title) {
-    // 组标题走公共件 `FnthinkRowLabel`（T146 片4）：画法（13px/w600/次要字色）与另外几张清单页同源，
-    // 这一页只交出「段与段之间的那点留白」。
-    // ⚠ key 逐字没动（`history-all-header-<kind>`），只是从外层 Padding 挪到了画出来的那一格上 ——
-    //   用例与闸门 4.2 仍按同一串定位，命中的从"那一行的容器"变成"那一行的文字"。
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: FnthinkRowLabel(keyName: 'history-all-header-$kind', label: title),
-    );
-  }
-
-  Widget _allSectionEmpty(String text) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 13, color: AppColors.tertiaryLabel(context)),
-      ),
-    );
-  }
-
-  /// 行首那一枚来源标识（判据①）。宽度固定 ⇒ 三段对得起同一条竖线，扫一眼就分得开类别。
-  Widget _withSourceTag(String tag, Widget row) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 34,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 14, left: 2),
-            child: Text(
-              tag,
-              key: ValueKey<String>('history-all-tag-$tag'),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.secondaryLabel(context),
-              ),
-            ),
-          ),
-        ),
-        Expanded(child: row),
-      ],
     );
   }
 
@@ -2628,6 +2592,18 @@ class _HistoryPageState extends State<HistoryPage> {
                       color: AppColors.secondaryLabel(sheetContext),
                     ),
                   ),
+                  // T195：来源应用名单列一行（非空才画）。与行上那枚徽标同一个判据 ——
+                  // 空串是"手动发送／旧发送端／端点"，不是"应用叫空字符串"。
+                  if (message.appName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '${l10n.fnthinkAppLabel}：${message.appName}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryLabel(sheetContext),
+                      ),
+                    ),
+                  ],
                   if (peer != null) ...[
                     const SizedBox(height: 4),
                     Row(
@@ -3314,16 +3290,21 @@ class _HistoryPageState extends State<HistoryPage> {
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        leading: _batchMode
+        // T208：收件档的选项态与转发档的批量补推**共用这套顶栏**（取消 / 已选 N / 右侧那一枚），
+        // 但两套状态各自独立（`_batchMode` 管转发行、`_inboxSelectMode` 管收件行）：
+        // 一份状态装两件事，就会出现"勾了收件行、按下去补推"那种串台的按钮。
+        leading: (_batchMode || _inboxSelectMode)
             ? IconButton(
                 icon: const Icon(Icons.close),
                 tooltip: l10n.cancel,
-                onPressed: _exitBatchMode,
+                onPressed: _batchMode ? _exitBatchMode : _exitInboxSelect,
               )
             : null,
         title: Text(
           _batchMode
               ? l10n.batchSelectedCount(_batchSelected.length)
+              : _inboxSelectMode
+              ? l10n.batchSelectedCount(_inboxSelected.length)
               : searchMode
               ? l10n.searchResultCount(records.length)
               // 无筛选的标题数是**全表总数**（读口注入）—— 分页之后 loaded.length
@@ -3341,6 +3322,17 @@ class _HistoryPageState extends State<HistoryPage> {
                   icon: const Icon(Icons.deselect),
                   tooltip: l10n.batchSelectNone,
                   onPressed: () => setState(_batchSelected.clear),
+                ),
+              ]
+            // 一条都没勾：置灰留着（藏掉用户读到的是"选了却没地方按"）。
+            : _inboxSelectMode
+            ? [
+                FnthinkInlineAction(
+                  key: const ValueKey('history-inbox-mark-read'),
+                  label: l10n.inboxMarkReadAction,
+                  onPressed: _inboxSelected.isEmpty
+                      ? null
+                      : _runMarkReadSelected,
                 ),
               ]
             : [
@@ -3449,9 +3441,7 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           _directionBar(l10n),
           Expanded(
-            child: _direction == 'all'
-                ? _buildAllView(l10n, records)
-                : _direction == 'received' || _direction == 'sent'
+            child: _direction == 'received' || _direction == 'sent'
                 ? _buildInboxView(l10n)
                 : _searchResults == null
                 ? // 头一页还没回来（T133 量级①：无筛选也要当场拉第一页）。

@@ -236,6 +236,9 @@ extension _MainPageActions on _MainPageState {
         onPushChannels: (record, channels) async {
           await _notificationService.repushChannels(record, channels);
         },
+        // T208：批量标已读之后当场把首页那个数重算一遍（同一个算法），
+        // 不等"退出历史页"那一下 —— 用户在页里连做两次批量时，第二次的 N 要读新的。
+        onInboxChanged: _refreshFnthinkInboxUnread,
       ),
       // 返回时重取未读数：在收件档里点开读过的那几条，未读数必须跟着下来，
       // 否则首页那一格会一直举着一个已经不存在的数字（"3 条未读"点进去一条都没有）。
