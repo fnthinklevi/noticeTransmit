@@ -8,6 +8,9 @@ analyzer:
     - "outputs/**"
     - "build/**"
     - android/**
+    # `third_party/` 是 vendored 依赖（目前只有 sqflite_common 的两处补丁），
+    # 它按上游风格写、不跟本仓库 lint；补丁形状由 test/architecture 守卫钉住。
+    - "third_party/**"
 
 linter:
   rules:

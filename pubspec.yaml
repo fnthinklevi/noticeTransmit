@@ -79,6 +79,10 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   sqflite_common_ffi: ^2.2.0
+  # 设备侧探针直接构造 vendored sqflite_common 的 helper/doOpen（绕开 Dart 层
+  # singleInstance 缓存，逼原生 recover 分支），所以它是直接 dev 依赖。
+  # 版本由上面 dependency_overrides 指到 third_party。
+  sqflite_common: ^2.5.11
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -87,6 +91,16 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.1
+
+# sqflite_common 2.5.11 在 `recoveredInTransaction` 分支硬转
+# `SqfliteOpenDatabaseOptions`，而 `sqflite_sqlcipher` 传入的是自己的 options
+# 实现（不是它的子类）⇒ CastError；且 ROLLBACK 排在 cast 之后，永远发不出去。
+# 表现是"后台引擎留下的悬挂事务"把前台开库永久卡死（真机 2026-10-29 实测）。
+# vendored 补丁只改两处 cast，详见 third_party/sqflite_common/PATCHES.md。
+# 上游修复后删除本 override 与 third_party 目录。
+dependency_overrides:
+  sqflite_common:
+    path: third_party/sqflite_common
 
 flutter_launcher_icons:
   android: "ic_launcher"
