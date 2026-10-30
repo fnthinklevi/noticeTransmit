@@ -16,7 +16,7 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.3/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.4/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
 
 🌐 **Official site**: [notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — introduction, client download and admin console
@@ -448,19 +448,19 @@ committed back (`--fix`), while PR / fork runs fail the build and ask for a loca
 <!-- readings:v1 (generated & checked by tools/gen_readings.py; CI --check blocks manual edits)
 | Reading | Value |
 |---|---|
-| Dart unit tests (flutter test) | 3492 <!--k:dart_tests--> |
-| Dart test files (test/) | 307 <!--k:dart_test_files--> |
+| Dart unit tests (flutter test) | 3506 <!--k:dart_tests--> |
+| Dart test files (test/) | 311 <!--k:dart_test_files--> |
 | fnthink_push package tests | 593 <!--k:push_tests--> |
 | Kotlin JVM unit tests | 668 <!--k:kotlin_tests--> |
 | Kotlin test classes | 85 <!--k:kotlin_classes--> |
-| Server contract tests (jest) | 825 <!--k:jest_tests--> |
+| Server contract tests (jest) | 827 <!--k:jest_tests--> |
 | Server test suites | 46 <!--k:jest_suites--> |
-| l10n keys (zh; en locked to same count) | 1674 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 88429 <!--k:dart_loc_lib--> |
-| Dart test lines (test/) | 88597 <!--k:dart_loc_test--> |
+| l10n keys (zh; en locked to same count) | 1675 <!--k:l10n_keys--> |
+| Dart lines (lib/) | 88624 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 88819 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 22336 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 13778 <!--k:kotlin_loc_test--> |
-| App version (pubspec) | 1.6.3+163 <!--k:app_version--> |
+| App version (pubspec) | 1.6.4+164 <!--k:app_version--> |
 | Database schema version | 27 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK floor (pubspec) | 3.13.0 <!--k:dart_sdk--> |

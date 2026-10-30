@@ -1,28 +1,28 @@
 {
-  "latestVersion": "1.6.3",
-  "latestBuild": 163,
+  "latestVersion": "1.6.4",
+  "latestBuild": 164,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.75",
   "forceUpdateBuild": 115,
-  "changelog": "后台收货与稳定性修复（1.6.3）\n\n🔔 锁屏且「锁屏持续接收」开启时保持 CPU 唤醒；实时唤醒断流 50 秒内自动重连，锁屏消息到达更稳定。\n⚙️ 接收页新增「锁屏持续接收（更耗电）」开关（默认开），可关闭以省电。\n🛡️ 关闭监听后不再转发来电与短信；新增「仅转发电话与短信」独立开关（默认关）。\n🧯 数据库打不开时不再一律当作损坏重建：只有确认损坏才恢复，其它错误明确报错并可重试，历史不再被误清空。\n🎨 统一弹窗、取消色、卡片阴影、底栏、输入框与开关等细节。",
-  "changelogEn": "Background delivery and reliability fixes (1.6.3)\n\n🔔 While the screen is off and \"keep receiving while locked\" is on, the CPU stays awake; a silent real-time channel reconnects within 50 seconds, so lock-screen delivery is steadier.\n⚙️ New \"keep receiving while locked (more battery)\" switch in the receiving page, on by default; turn it off to save power.\n🛡️ Turning monitoring off now stops call and SMS forwarding; a separate \"forward calls and SMS only\" switch (off by default) is available.\n🧯 An unopenable database is no longer treated as corrupt and rebuilt: only confirmed corruption enters recovery, other errors are reported with Retry, so history is not silently wiped.\n🎨 Unified dialogs, cancel colour, card shadows, bottom bar, inputs and switches.",
+  "changelog": "稳定性修复：数据库不再被误锁、实时唤醒判定更准（1.6.4）\n\n数据库：修复升级后打不开、历史与回执写不进去；原库保留，悬挂事务下次打开自动回滚。\n实时唤醒：心跳被吞时降级短轮询并每 5 分钟重探，不再每 50 秒断开；门铃健康时显示「实时唤醒已连接」。\n后台：进程被杀后接手间隔恢复 60 秒。\n投递：服务端响应未写到设备即退回队列，不再等 180 秒（需服务端部署）。",
+  "changelogEn": "Stability fixes: database no longer locks itself out, smarter real-time wake-up (1.6.4)\n\nDatabase: fixed the database failing to open after upgrade; the original file is kept and a dangling transaction rolls back on next open.\nReal-time wake-up: when heartbeats are swallowed, degrade to short polling and re-probe every 5 minutes instead of reconnecting every 50 seconds; the receiving card shows \"Real-time wake-up connected\".\nBackground: hand-off returns to 60 seconds after the process is killed.\nDelivery: the server requeues a response that never reached the device immediately instead of waiting 180 seconds (after server deployment).",
   "downloads": {
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.6.3/notice_all_1.6.3+163.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.6.3/notice_arm32_1.6.3+163.apk",
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.6.3/notice_arm64_1.6.3+163.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.6.3/notice_x86_1.6.3+163.apk"
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.6.4/notice_all_1.6.4+164.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.6.4/notice_arm32_1.6.4+164.apk",
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.6.4/notice_arm64_1.6.4+164.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.6.4/notice_x86_1.6.4+164.apk"
   },
   "fileSizes": {
-    "all": 83031491,
-    "arm32": 26347823,
-    "arm64": 30091462,
-    "x86_64": 32206400
+    "all": 83031544,
+    "arm32": 26347856,
+    "arm64": 30091499,
+    "x86_64": 32206453
   },
   "sha256": {
-    "all": "1fde8d19b95af1078ba5038a0af6576b97e2d39db40fe1e9925cc5a2f605d990",
-    "arm32": "5fb2c5f13894132a518a0cb31acc657c1528e00c4e0c5150abc1975ec9aeaeb2",
-    "arm64": "6b28d2401a3344eb53148ed675ba7ddcf685c4d1c326fe5415e6c3bf94561f58",
-    "x86_64": "90a90d36c5fe36cf3b1ff8e2af53ab2176d36d925ceaa3e981448487fcf07765"
+    "all": "0fd7bbe852d1d423b2e1ef495b3e4d320c5595d677bf9ebf703dbefb8f68ce52",
+    "arm32": "78ad15c366fe25904f6e4f3af65ef8fd0d642d9a04e642d9d5d237d40319cebb",
+    "arm64": "de77cf2c6de7acce1d2fe0aafc149c3a17275c6d1e79faa71fe1c1fb583bc662",
+    "x86_64": "4efe99cb58773213c8344abb57b054ada582e14950d67ea23cea263eaaf23c63"
   },
   "minSupportedVersion": "1.0.0"
 }
