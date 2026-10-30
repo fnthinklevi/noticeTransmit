@@ -393,6 +393,27 @@ void main() {
       expect(scheduledSeconds(), contract.pollIntervalRange.max);
     });
 
+    test('T212：后台那一轮同时读到门铃健康 ⇒ 仍按 60s 兜底（300s 不许压过后台）', () async {
+      mockAppChannel(reply: true);
+      fnthinkBackgroundIsolate = true;
+      fnthinkStreamHealthy = true;
+      final contract = FnthinkContract.parse(realContractText);
+      final scheduler = FnthinkPresenceScheduler(
+        contracts: loaderFrom(realContractText),
+      );
+
+      await scheduler.notice(keepAwake: true);
+
+      expect(
+        scheduledSeconds(),
+        contract.pollIntervalRange.max,
+        reason:
+            '进程被杀后 prefs 里的门铃健康位可能是旧真值；后台引擎只活一轮，'
+            '拿 300s 兜底等于把接手间隔拉长五倍',
+      );
+      expect(calls.where((c) => c.method == 'startFnthinkLive'), isEmpty);
+    });
+
     test('门铃没开（默认）⇒ 仍按 T181 B 常驻持锁', () async {
       mockAppChannel(reply: true);
       final contract = FnthinkContract.parse(realContractText);

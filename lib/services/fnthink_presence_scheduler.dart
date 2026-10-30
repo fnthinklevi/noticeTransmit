@@ -102,9 +102,13 @@ class FnthinkPresenceScheduler {
     final int alarmSeconds;
     if (backoff) {
       alarmSeconds = afterSeconds;
+    } else if (fnthinkBackgroundIsolate) {
+      // T212：后台引擎只活一轮；prefs 里的门铃健康位可能是主进程死前的旧真值。
+      // 它必须压过 `fnthinkStreamHealthy`，否则"被杀后 60s 接手"会变成 300s。
+      alarmSeconds = await _backstopSeconds();
     } else if (fnthinkStreamHealthy) {
       alarmSeconds = await _streamSafetySeconds();
-    } else if (fnthinkLiveModeActive || fnthinkBackgroundIsolate) {
+    } else if (fnthinkLiveModeActive) {
       alarmSeconds = await _backstopSeconds();
     } else {
       alarmSeconds = await _cadenceSeconds();
