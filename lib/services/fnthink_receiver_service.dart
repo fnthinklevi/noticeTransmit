@@ -110,6 +110,10 @@ class FnthinkReceiverService {
   /// `safetyPollSeconds`，让门铃负责即时性 —— 它只是**节奏加速器**，投递链仍是 poll。
   bool streamHealthy = false;
 
+  /// T218：degraded 态强制短轮询。此时门铃不可信，而长 hold 恰好是边缘超时（554）
+  /// 最容易掐的形状；由协调者按 `FnthinkStreamLinkState` 设置，手动轮询本来就是短轮询。
+  bool shortPollMode = false;
+
   /// 这台服务端支持门铃（来自普通 poll 的**支持位**响应头，T185 第二步）。
   ///
   /// ⚠ 换票请求是发在同一条 /poll 上的：旧服务端不认识换票头时会把它当普通取货，
@@ -358,7 +362,7 @@ class FnthinkReceiverService {
         nextDelay: kernel.currentDelay,
       );
     }
-    _holdPoll = hold;
+    _holdPoll = hold && !shortPollMode;
     final FnthinkPollResult result;
     try {
       result = await kernel.poll();

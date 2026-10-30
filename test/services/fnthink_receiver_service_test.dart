@@ -885,6 +885,23 @@ void main() {
       expect(outcome.nextDelay, isNot(Duration.zero));
     });
 
+    test('T218：shortPollMode 强制不带等待头（degraded 走短轮询）', () async {
+      final spec = contract.longPollSpec!;
+      final rec = _Recorder(
+        scripts: ['{"messages":[],"receipts":[],"pending":0}'],
+      );
+      final service = build(contract, rec, _Signer())..shortPollMode = true;
+      // hold 默认 true：只有 shortPollMode 能让它变成短轮询。
+      final outcome = await service.pollOnce();
+
+      expect(
+        rec.requests.single.headers.containsKey(spec.requestHeader),
+        isFalse,
+        reason: 'degraded 还发 hold ⇒ 又被边缘掐一次，等于没降级',
+      );
+      expect(outcome.nextDelay, isNot(Duration.zero));
+    });
+
     test('旧服务端（不认等待头、没有识别头）⇒ 仍按常态间隔，不拿零延迟追它', () async {
       final spec = contract.longPollSpec!;
       final rec = _Recorder(

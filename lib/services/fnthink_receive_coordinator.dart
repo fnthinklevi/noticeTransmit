@@ -35,6 +35,28 @@ String fnthinkPollDiagStatus(FnthinkLoopReport report) {
   return reason.isEmpty ? report.status.name : '${report.status.name}:$reason';
 }
 
+/// T218：SSE 静默时那一发短轮询，什么算"路径可达"。
+///
+/// 判据不是"这一轮有没有取到货"，而是"服务端/网络这一层还答不答话"：
+/// 只要拿到契约层响应（含 429／401／409 这类业务结论）就说明中间层没断，
+/// 门铃静默更可能是被吞了；只有 transport 失败才按离线处理。
+/// `signing-unavailable` 是本地钥匙问题，不许拿它把门铃判死。
+bool fnthinkStreamProbeSucceeded(FnthinkLoopReport report) {
+  if (report.skipped) return true; // 有在途轮次，没探成不等于离线
+  switch (report.status) {
+    case FnthinkPollStatus.ok:
+    case FnthinkPollStatus.rateLimited:
+    case FnthinkPollStatus.rejectedUnsigned:
+    case FnthinkPollStatus.replayed:
+    case FnthinkPollStatus.needsCalibration:
+      return true;
+    case FnthinkPollStatus.transportError:
+      return false;
+    case FnthinkPollStatus.failed:
+      return (report.reason ?? '') == 'signing-unavailable';
+  }
+}
+
 /// 「这台已经在这台服务器上登记过」的持久标记（T180）。
 ///
 /// 值 = `baseUri|地址码|公钥指纹`：换服务器、换地址码、换钥匙都会得到不同的值 ⇒ 自然重登；
@@ -235,8 +257,11 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
           // 门铃一响就跑一轮（不 hold）；与手动「立即收取」走同一条串行入口：
           // 若此刻有一发长轮询在飞，它会先被叫停。
           onWake: () => loop.runOnce(manual: true),
-          onHealthyChanged: (healthy) {
+          onLinkStateChanged: (state) {
+            final healthy = state == FnthinkStreamLinkState.healthy;
             service.streamHealthy = healthy;
+            // degraded：门铃不可信，但轮询路径还活着 ⇒ 短轮询（不 hold）。
+            service.shortPollMode = state == FnthinkStreamLinkState.degraded;
             fnthinkStreamHealthy = healthy;
             // 后台 isolate 从 prefs 读同一份：它不能因为"不知道门铃开着"去持锁。
             unawaited(() async {
@@ -247,13 +272,17 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
                 debugPrint('[fnthink] 门铃状态没落盘（后台那一轮会按 60 秒兜底）：$e');
               }
             }());
-            if (!healthy && loop.isRunning) {
-              // 流断了：立刻补一轮（不 hold）把断线期间的消息取回来；
-              // 这一轮之后 notice 会把常驻档重新打开。
-              // ⚠ 只在循环还开着时补：`stop()` 也会触发 healthy=false，
+            if (state == FnthinkStreamLinkState.offline && loop.isRunning) {
+              // 真离线：立刻补一轮（不 hold）把断线期间的消息取回来；
+              // degraded 的那一发短轮询探针已经在 `probeOnStale` 里跑过，不重复。
+              // ⚠ 只在循环还开着时补：`stop()` 也会触发 offline，
               //   那一刻再跑一轮就等于"用户刚关掉接收，又去问了一次货"。
               unawaited(loop.runOnce(manual: true));
             }
+          },
+          probeOnStale: () async {
+            final report = await loop.runOnce(manual: true);
+            return fnthinkStreamProbeSucceeded(report);
           },
         );
   loop = FnthinkReceiveLoop(

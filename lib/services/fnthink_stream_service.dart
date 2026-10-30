@@ -19,13 +19,19 @@ import 'fnthink_receiver_service.dart';
 ///     `safetyPollSeconds`、并决定要不要常驻持锁；
 ///  ② **断线退避**：5s → 120s 指数退避，连上就清零；
 ///  ③ **重连换新票**：票是一次性的、90 秒过期，旧票重连只会拿到 403。
+/// T218：门铃的三态。`healthy` = 门铃在岗；`degraded` = 中间层吞流但短轮询可达；
+/// `offline` = 短轮询也失败，按既有退避重连。
+enum FnthinkStreamLinkState { healthy, degraded, offline }
+
 class FnthinkStreamService {
   FnthinkStreamService({
     required this.contract,
     required this.baseUri,
     required this.requestTicket,
     required this.onWake,
-    required this.onHealthyChanged,
+    required this.onLinkStateChanged,
+    this.probeOnStale,
+    this.degradedProbeInterval,
     FnthinkSseOpen? open,
     List<Duration>? backoff,
     int Function()? nowMs,
@@ -50,13 +56,23 @@ class FnthinkStreamService {
   final Uri baseUri;
   final Future<FnthinkStreamTicket?> Function() requestTicket;
   final void Function() onWake;
-  final void Function(bool healthy) onHealthyChanged;
+
+  /// 三态的唯一出口。调用方据此决定轮询节奏、短轮询模式与是否补一轮。
+  final void Function(FnthinkStreamLinkState state) onLinkStateChanged;
+
+  /// 判死后先验的那一发 `hold:false` 短轮询；null = 直接按 offline 处理（旧装配/测试）。
+  /// 返回 true = 路径可达（degraded），false = 真离线（offline）。
+  final Future<bool> Function()? probeOnStale;
+
+  /// degraded 态重探门铃的间隔；null = 读契约 `stream.safetyPollSeconds`（300 秒）。
+  final Duration? degradedProbeInterval;
+
   final FnthinkSseOpen _open;
   final int Function() _nowMs;
   final List<Duration> _backoff;
 
   bool _running = false;
-  bool _healthy = false;
+  FnthinkStreamLinkState _state = FnthinkStreamLinkState.offline;
   int _attempt = 0;
 
   /// 连接代际：每次新连接/清理都递增；旧连接留下的 Timer 带着旧代际，
@@ -74,7 +90,16 @@ class FnthinkStreamService {
 
   int? get _heartbeatSeconds => contract.streamSpec?.heartbeatSeconds;
 
-  bool get isHealthy => _healthy;
+  FnthinkStreamLinkState get linkState => _state;
+
+  bool get isHealthy => _state == FnthinkStreamLinkState.healthy;
+
+  bool get isDegraded => _state == FnthinkStreamLinkState.degraded;
+
+  @visibleForTesting
+  Duration get degradedProbeIntervalForTest =>
+      degradedProbeInterval ??
+      Duration(seconds: contract.streamSpec?.safetyPollSeconds ?? 300);
 
   void start() {
     if (_running) return;
@@ -88,7 +113,7 @@ class FnthinkStreamService {
     _retryTimer?.cancel();
     _retryTimer = null;
     _cleanupConnection();
-    _setHealthy(false);
+    _setState(FnthinkStreamLinkState.offline);
     _buffer.clear();
   }
 
@@ -119,34 +144,35 @@ class FnthinkStreamService {
       }
       if (connection.status != 200) {
         connection.close?.call();
-        _setHealthy(false);
         _scheduleRetry();
         return;
       }
       _closeConnection = connection.close;
-      _setHealthy(true);
       _attempt = 0;
       _buffer.clear();
       // T196：连接建立/每一块字节都留一枚时刻，原生自检据此回答"门铃最后一次有动静是什么时候"。
       // T197 片1：同一枚时刻也是看门狗的起点 —— 只有字节能证明这条流还活着。
       _lastByteAtMs = _nowMs();
       _generation++;
-      _startWatchdog(_generation);
+      final generation = _generation;
+      _setState(FnthinkStreamLinkState.healthy);
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _startWatchdog(generation);
       unawaited(markFnthinkStreamByte(atMs: _nowMs()));
       _sub = connection.body
           .transform(utf8.decoder)
           .listen(
             _consume,
-            onDone: _onGone,
+            onDone: () => _onGone(generation),
             onError: (Object e) {
               debugPrint('[fnthink] SSE 流断了：$e');
-              _onGone();
+              _onGone(generation);
             },
             cancelOnError: true,
           );
     } catch (e) {
       debugPrint('[fnthink] SSE 连接没建成（退回长轮询）：$e');
-      _setHealthy(false);
       _scheduleRetry();
     }
   }
@@ -155,6 +181,15 @@ class FnthinkStreamService {
   void _consume(String chunk) {
     _lastByteAtMs = _nowMs();
     unawaited(markFnthinkStreamByte(atMs: _nowMs()));
+    // T218：degraded 只是"看门狗判它不响"，连接仍在。只要它又吐出一个字节
+    // （含心跳/`connected`），就说明流活着 —— 立刻回 healthy，并恢复看门狗。
+    if (_state != FnthinkStreamLinkState.healthy && _sub != null) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _attempt = 0;
+      _setState(FnthinkStreamLinkState.healthy);
+      _startWatchdog(_generation);
+    }
     // SSE 行尾允许 \r\n；去掉 \r 之后按 \n\n 分块。
     _buffer.write(chunk.replaceAll('\r', ''));
     var text = _buffer.toString();
@@ -176,9 +211,15 @@ class FnthinkStreamService {
       ..write(text);
   }
 
-  void _onGone() {
-    if (!_running) return;
-    _setHealthy(false);
+  void _onGone(int generation) {
+    // 旧连接（已 cleanup / 已换新连接）的收尾回调一律不认：它可能是我们主动关掉的。
+    if (!_running || generation != _generation) return;
+    _goOffline();
+  }
+
+  /// 真离线：门铃关掉，按既有退避重连；轮询由协调者那一侧继续。
+  void _goOffline() {
+    _setState(FnthinkStreamLinkState.offline);
     _cleanupConnection();
     _scheduleRetry();
   }
@@ -203,7 +244,7 @@ class FnthinkStreamService {
   @visibleForTesting
   void checkStaleForTest({int? generation}) {
     if (generation != null && generation != _generation) return;
-    if (!_running || !_healthy) return;
+    if (!_running || _state != FnthinkStreamLinkState.healthy) return;
     final last = _lastByteAtMs;
     if (last == null) return;
     final hb = _heartbeatSeconds;
@@ -216,9 +257,37 @@ class FnthinkStreamService {
       return;
     }
     debugPrint('[fnthink] SSE 超过 ${hb * 2.5}s 没有字节，判死不假装在线');
-    _setHealthy(false);
-    _cleanupConnection();
-    _scheduleRetry();
+    _onStale();
+  }
+
+  /// T218：判死不再等于断开。先降级（轮询继续），再让协调者跑一发短轮询探针；
+  /// 探针说路径可达 ⇒ 保持连接并每 `degradedProbeInterval` 再探一次；
+  /// 探针也说不可达 ⇒ 才是真离线，关连接走既有退避。
+  void _onStale() {
+    if (!_running || _state != FnthinkStreamLinkState.healthy) return;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
+    _setState(FnthinkStreamLinkState.degraded);
+    final probe = probeOnStale;
+    if (probe == null) {
+      _goOffline();
+      return;
+    }
+    unawaited(() async {
+      bool reachable;
+      try {
+        reachable = await probe();
+      } catch (e) {
+        debugPrint('[fnthink] 静默探针抛了（按不可达处理）：$e');
+        reachable = false;
+      }
+      if (!_running || _state != FnthinkStreamLinkState.degraded) return;
+      if (reachable) {
+        _scheduleDegradedProbe();
+      } else {
+        _goOffline();
+      }
+    }());
   }
 
   void _cleanupConnection() {
@@ -238,6 +307,10 @@ class FnthinkStreamService {
 
   void _scheduleRetry() {
     if (!_running) return;
+    if (_state == FnthinkStreamLinkState.degraded) {
+      _scheduleDegradedProbe();
+      return;
+    }
     _retryTimer?.cancel();
     final delay = _attempt < _backoff.length
         ? _backoff[_attempt]
@@ -249,13 +322,30 @@ class FnthinkStreamService {
     });
   }
 
-  void _setHealthy(bool value) {
-    if (_healthy == value) return;
-    _healthy = value;
+  /// degraded 态的低频重探：不是每 50 秒抖一次，而是每 `safetyPollSeconds`（默认 300s）
+  /// 换一次新票重连；连上后拿到任何字节就回 healthy，拿不到就继续留在 degraded。
+  void _scheduleDegradedProbe() {
+    if (!_running || _state != FnthinkStreamLinkState.degraded) return;
+    _retryTimer?.cancel();
+    _retryTimer = Timer(degradedProbeIntervalForTest, probeDegradedForTest);
+  }
+
+  @visibleForTesting
+  void probeDegradedForTest() {
+    if (!_running || _state != FnthinkStreamLinkState.degraded) return;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _cleanupConnection();
+    unawaited(_connect());
+  }
+
+  void _setState(FnthinkStreamLinkState next) {
+    if (_state == next) return;
+    _state = next;
     try {
-      onHealthyChanged(value);
+      onLinkStateChanged(next);
     } catch (e) {
-      debugPrint('[fnthink] SSE 健康状态回调失败：$e');
+      debugPrint('[fnthink] SSE 链路状态回调失败：$e');
     }
   }
 
