@@ -333,6 +333,20 @@ describe('POST /api/fnthink/poll 长轮询（T185）', () => {
     expect(res.body.messages).toEqual([]);
   });
 
+  test('T217-A：poll 的 close 处理器接在 requeueOnAbortedResponse 上（短 poll 也挂）', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../lib/fnthink/routes.js'), 'utf8');
+    const start = src.indexOf("router.post(\n  '/poll'");
+    const end = src.indexOf('// ── GET /stream', start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const poll = src.slice(start, end);
+    expect(poll).toContain('requeueOnAbortedResponse');
+    expect(poll).toContain('lastTaken = dispatched.taken.map');
+    expect(poll).toContain("res.on('close'");
+    // close 监听必须在 if (waitMs > 0) 之前：短 poll 也会丢响应。
+    expect(poll.indexOf("res.on('close'")).toBeLessThan(poll.indexOf('if (waitMs > 0)'));
+  });
+
   test('hold 期间来一条消息 ⇒ 立刻醒来并把它交回去（不等到超时）', async () => {
     const pending = (async () =>
       await request(app)

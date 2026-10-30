@@ -421,6 +421,54 @@ describe('重试与 poll 取货', () => {
     expect(message.attempts).toBe(2);
   });
 
+  test('T217-A：响应写完不退回；没写完只退回本设备本轮取走的那批', () => {
+    const messages = fresh();
+    const a = put(messages, 'DEV-1', 1, T0 + 1).message;
+    const b = put(messages, 'DEV-1', 2, T0 + 2).message;
+    const other = put(messages, 'DEV-2', 4, T0 + 4).message;
+    const taken = store.dispatchForDevice(contract, messages, 'DEV-1', T0 + 5);
+    // 取货之后才入队的这条：它没在本轮响应里，退回列表出现它也必须不动。
+    const notTaken = put(messages, 'DEV-1', 3, T0 + 5).message;
+    expect(taken.taken.map((x) => x.messageId).sort()).toEqual([a.messageId, b.messageId].sort());
+    store.dispatchForDevice(contract, messages, 'DEV-2', T0 + 6);
+
+    // 正常响应：writableFinished=true ⇒ 一个都不退。
+    expect(
+      store.requeueOnAbortedResponse(
+        contract,
+        messages,
+        'DEV-1',
+        [a.messageId, b.messageId, other.messageId],
+        { writableFinished: true },
+        T0 + 7,
+      ),
+    ).toEqual([]);
+    expect(a.state).toBe('delivering');
+    expect(b.state).toBe('delivering');
+
+    // 响应没写完：只退本设备的 a/b；同 id 列表里的 DEV-2 消息、以及没取走的 notTaken 都不动。
+    const requeued = store.requeueOnAbortedResponse(
+      contract,
+      messages,
+      'DEV-1',
+      [a.messageId, b.messageId, notTaken.messageId, other.messageId],
+      { writableFinished: false },
+      T0 + 8,
+    );
+    expect(requeued.map((x) => x.messageId).sort()).toEqual([a.messageId, b.messageId].sort());
+    expect(a.state).toBe(contract.delivery.initialState);
+    expect(b.state).toBe(contract.delivery.initialState);
+    expect(notTaken.state).toBe(contract.delivery.initialState);
+    expect(other.state).toBe('delivering');
+
+    // 退回后同一台设备下一轮真的能再取走（不是只改了个状态）。
+    const retake = store.dispatchForDevice(contract, messages, 'DEV-1', T0 + 9);
+    expect(retake.taken.map((x) => x.messageId).sort()).toEqual(
+      [a.messageId, b.messageId, notTaken.messageId].sort(),
+    );
+    expect(a.attempts).toBe(2);
+  });
+
   test('按排队顺序取走（先进先出，不是按 id）', () => {
     const messages = fresh();
     const late = store.enqueue(

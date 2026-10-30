@@ -99,6 +99,7 @@ const {
   loadMessages,
   pendingCountFor,
   receiptsForSender,
+  requeueOnAbortedResponse,
   requeueUnackedStale,
   saveMessages,
 } = require('./messagestore');
@@ -444,6 +445,9 @@ router.post(
       });
     }
 
+    // T217-A：本轮最后一次 collect 交给设备的 messageId。响应没写完就断开时，
+    // 只有这一批需要退回（更早的 collect 不可能带消息：一带消息 hasNews 就退出 hold）。
+    let lastTaken = [];
     // 取一次货。长轮询会重复调用它，每次用**当下**的时刻（过期扫描与回执都按它算）：
     // 一次 hold 25 秒之后还拿请求到达那一刻判过期，会把刚过期的货再交出去。
     const collect = (at) => {
@@ -455,6 +459,7 @@ router.post(
       // 正是"取走了却再也没人发"（见 messagestore.requeueUnackedStale 与 delivery.ackDeadlineSeconds）。
       requeueUnackedStale(contract, messages, auth.sender, at);
       const dispatched = dispatchForDevice(contract, messages, auth.sender, at);
+      lastTaken = dispatched.taken.map((taken) => taken.messageId);
 
       const out = [];
       for (const taken of dispatched.taken) {
@@ -512,17 +517,35 @@ router.post(
     };
 
     const waitMs = requestedWaitMs(req);
+    let closed = false;
+    // 客户端断开（用户关掉接收 / 进程被杀 / 边缘掐断）时：
+    // ① 长轮询别拖满；② 本轮已交给设备、但响应没写完的那批必须退回 queued。
+    // ⚠ 听 `res` 的 close 而不是 `req` 的：IncomingMessage 在请求体读完时就会发一次 close，
+    //   听它会让长轮询连等都等不了。
+    res.on('close', () => {
+      closed = true;
+      if (lastTaken.length === 0) return;
+      try {
+        const messages = loadMessages();
+        const requeued = requeueOnAbortedResponse(
+          contract,
+          messages,
+          auth.sender,
+          lastTaken,
+          res,
+          Date.now(),
+        );
+        if (requeued.length > 0) saveMessages(messages);
+      } catch (e) {
+        console.error(
+          `[fnthink:poll] 响应未写完，退回本轮取走的消息失败 device=${auth.sender}: ${e.message}`,
+        );
+      }
+    });
     let payload = collect(now);
     if (waitMs > 0) {
       const baseline = faceKeys(payload);
       const deadline = Date.now() + waitMs;
-      let closed = false;
-      // 客户端断开（用户关掉接收 / 进程被杀）时别把这次 hold 拖满：请求已经没人要了。
-      // ⚠ 听 `res` 的 close 而不是 `req` 的：Node 的 IncomingMessage 在请求体读完时就会
-      //   发一次 close，听它会让长轮询连等都等不了。
-      res.on('close', () => {
-        closed = true;
-      });
       while (!closed && !hasNews(payload, baseline)) {
         const left = deadline - Date.now();
         if (left <= 0) break;

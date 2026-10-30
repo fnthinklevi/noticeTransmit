@@ -436,6 +436,31 @@ function requeueUnackedStale(contract, messages, device, now) {
   return requeued;
 }
 
+/// T217-A：把「本轮 poll 已经交给设备、但响应没写完」的那批退回。
+///
+/// 只退**本轮自己取走**的 id，且只退仍属于这台设备、仍在 delivering 的那些；
+/// 推进仍走 `advanceMessage(no_ack)` 这一个咽喉（不直接改 state）。
+function requeueDispatched(contract, messages, device, messageIds, now) {
+  const requeued = [];
+  for (const messageId of messageIds || []) {
+    const message = messages[messageId];
+    if (!message || message.device !== device) continue;
+    const { step, message: moved } = advanceMessage(contract, messages, messageId, 'no_ack', {
+      now,
+    });
+    if (step.ignored) continue;
+    requeued.push({ messageId: moved.messageId, state: step.state });
+  }
+  return requeued;
+}
+
+/// 响应已经完整写出（`res.writableFinished === true`）时**不退回**：
+/// 那个边界之后的丢失由 T217-B 的回收窗负责，不属于 A 片。
+function requeueOnAbortedResponse(contract, messages, device, messageIds, res, now) {
+  if (!res || res.writableFinished) return [];
+  return requeueDispatched(contract, messages, device, messageIds, now);
+}
+
 /// 到期扫描：非终态且超过 maxRetentionDays 的全部走一遍 `ttl_elapsed`。
 /// 由路由侧在 poll 时顺手跑（服务端不主动探测设备），所以它必须是幂等的。
 function expireDueMessages(contract, messages, now) {
@@ -467,6 +492,8 @@ module.exports = {
   pendingCountFor,
   publicMessage,
   receiptsForSender,
+  requeueDispatched,
+  requeueOnAbortedResponse,
   requeueUnackedStale,
   saveMessages,
 };
