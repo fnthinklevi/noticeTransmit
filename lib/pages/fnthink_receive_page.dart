@@ -350,6 +350,17 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
 
   /// 没有 cadence 就没有「下一次」：只把 clock 那零点几秒写成「下一次」，
   /// 用户会以为这下一下随时都会发生。
+  /// T211：门铃健康时，这一行说的是"门铃在岗 + 兜底间隔"，不是"下一次自己醒"。
+  /// 只读唯一的健康位（`fnthinkStreamHealthy`）；不拿 `lastStreamByteAt` 自己推断。
+  bool get _showStreamHealthy =>
+      fnthinkStreamHealthy &&
+      _enabled &&
+      _consented &&
+      _presence != null &&
+      !_presence!.liveMode &&
+      _presence!.cadenceSeconds > 0 &&
+      _presenceLiveness() == FnthinkPresenceLiveness.armed;
+
   String _presenceText(AppLocalizations l10n) {
     final status = _presence!;
     // T181 B：常驻轮询档不是"下一次自己醒"，它就是"现在一直在收"。
@@ -358,6 +369,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
       return status.wakeLock
           ? l10n.fnthinkPresenceLive(status.liveSeconds)
           : l10n.fnthinkPresenceLiveNoLock(status.liveSeconds);
+    }
+    if (_showStreamHealthy) {
+      return l10n.fnthinkPresenceStreamHealthy(status.cadenceSeconds);
     }
     switch (_presenceLiveness()) {
       case FnthinkPresenceLiveness.dead:
@@ -814,7 +828,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
         // 还没有读到（读口抛过、或这一页刚起来）时**不画这一行** —— 画一句"没在醒着"是假话。
         if (_presence != null)
           FnthinkNote(
-            keyName: 'fnthink-presence-next',
+            keyName: _showStreamHealthy
+                ? 'fnthink-presence-stream'
+                : 'fnthink-presence-next',
             text: _presenceText(l10n),
           ),
         // T180：一次性退避单独一行，与上面的常设节奏分开说；倒计时由一秒一跳的计时器刷新。

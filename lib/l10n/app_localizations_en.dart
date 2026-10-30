@@ -4634,6 +4634,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String fnthinkPresenceStreamHealthy(int seconds) {
+    return 'Real-time wake-up connected · fallback every ${seconds}s';
+  }
+
+  @override
   String fnthinkPresenceNextNoCadence(String time) {
     return 'Next wake-up: $time (interval unknown)';
   }

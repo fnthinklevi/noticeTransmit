@@ -73,6 +73,22 @@ void main() {
     );
   });
 
+  test('T211：门铃健康档只读 fnthinkStreamHealthy，不拿 lastStreamByteAt 自算', () {
+    final healthy = blockAfter(dartPage, 'bool get _showStreamHealthy');
+    expect(healthy, contains('fnthinkStreamHealthy'));
+    expect(
+      healthy,
+      isNot(contains('lastStreamByteAt')),
+      reason: '页面拿 diag 读数自己推断健康，就是第二份"什么叫门铃健康"',
+    );
+    final text = blockAfter(
+      dartPage,
+      'String _presenceText(AppLocalizations l10n)',
+    );
+    expect(text, contains('fnthinkPresenceStreamHealthy'));
+    expect(dartPage, contains('fnthink-presence-stream'));
+  });
+
   test('四档判据只有一个作者：页面不自己比零、也不自己判 armed', () {
     expect(
       dartPage,

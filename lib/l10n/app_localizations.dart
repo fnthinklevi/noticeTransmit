@@ -7987,6 +7987,12 @@ abstract class AppLocalizations {
   /// **'下一次自己醒：{time}（每 {seconds} 秒）'**
   String fnthinkPresenceNext(String time, int seconds);
 
+  /// No description provided for @fnthinkPresenceStreamHealthy.
+  ///
+  /// In zh, this message translates to:
+  /// **'实时唤醒已连接 · 兜底每 {seconds} 秒'**
+  String fnthinkPresenceStreamHealthy(int seconds);
+
   /// No description provided for @fnthinkPresenceNextNoCadence.
   ///
   /// In zh, this message translates to:

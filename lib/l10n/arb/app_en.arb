@@ -2513,6 +2513,14 @@
       }
     }
   },
+  "fnthinkPresenceStreamHealthy": "Real-time wake-up connected · fallback every {seconds}s",
+  "@fnthinkPresenceStreamHealthy": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkPresenceNextNoCadence": "Next wake-up: {time} (interval unknown)",
   "@fnthinkPresenceNextNoCadence": {
     "placeholders": {

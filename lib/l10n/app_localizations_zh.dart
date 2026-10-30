@@ -4404,6 +4404,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String fnthinkPresenceStreamHealthy(int seconds) {
+    return '实时唤醒已连接 · 兜底每 $seconds 秒';
+  }
+
+  @override
   String fnthinkPresenceNextNoCadence(String time) {
     return '下一次自己醒：$time（间隔未知）';
   }

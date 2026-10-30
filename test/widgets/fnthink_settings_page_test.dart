@@ -4676,6 +4676,57 @@ void main() {
       );
     });
 
+    testWidgets('T211：门铃健康 ⇒ 走「实时唤醒已连接」档，不走「每 300 秒」', (tester) async {
+      final fireAt = DateTime(2026, 9, 30, 21, 34, 56).millisecondsSinceEpoch;
+      fnthinkStreamHealthy = true;
+      addTearDown(() => fnthinkStreamHealthy = false);
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyConsentVersion}': 1,
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      stubChannels(
+        presenceStatus: () => {'nextRoundAt': fireAt, 'cadenceSeconds': 300},
+      );
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('fnthink-presence-stream'));
+      await revealTo(tester, row);
+      expect(row, findsOneWidget);
+      expect(find.byKey(const ValueKey('fnthink-presence-next')), findsNothing);
+      expect(
+        find.text(l10n.fnthinkPresenceStreamHealthy(300)),
+        findsOneWidget,
+        reason: '门铃在岗时这一行说的是"实时唤醒＋兜底"，不是"下一次自己醒"',
+      );
+      expect(find.textContaining('下一次自己醒'), findsNothing);
+    });
+
+    testWidgets('T211：门铃不健康 ⇒ 维持「下一次自己醒」档', (tester) async {
+      final fireAt = DateTime(2026, 9, 30, 21, 34, 56).millisecondsSinceEpoch;
+      fnthinkStreamHealthy = false;
+      addTearDown(() => fnthinkStreamHealthy = false);
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyConsentVersion}': 1,
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      stubChannels(
+        presenceStatus: () => {'nextRoundAt': fireAt, 'cadenceSeconds': 27},
+      );
+      final h = harness();
+      await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-presence-stream')),
+        findsNothing,
+      );
+      final row = find.byKey(const ValueKey('fnthink-presence-next'));
+      await revealTo(tester, row);
+      expect(row, findsOneWidget);
+    });
+
     testWidgets('T196 自检：四格读数来自原生 diag；缺格不冒充有记录', (tester) async {
       final at = DateTime(2026, 10, 25, 9, 30, 0).millisecondsSinceEpoch;
       stubChannels(
