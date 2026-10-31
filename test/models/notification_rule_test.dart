@@ -12,6 +12,32 @@ void main() {
       expect(ConditionType.priority.value, 'priority');
       expect(ConditionType.timeRange.value, 'time_range');
       expect(ConditionType.regexMatch.value, 'regex_match');
+      expect(ConditionType.chargingState.value, 'charging_state');
+      expect(ConditionType.networkType.value, 'network_type');
+    });
+
+    // T186 片1 第②刀：设备态两型进词表。值域是**封闭**的（求值只认逐字相等），
+    // 所以这里的清单就是"用户能填什么"的唯一作者（条件弹层的 hint 由它现取）。
+    test('设备态两型可被选中，值域清单与 fixture 用的那一串一致', () {
+      expect(selectableConditionTypes, contains(ConditionType.chargingState));
+      expect(selectableConditionTypes, contains(ConditionType.networkType));
+      expect(chargingStateValues, ['charging', 'full', 'not_charging']);
+      expect(networkTypeValues, [
+        'none',
+        'vpn',
+        'wifi',
+        'ethernet',
+        'cellular',
+        'other',
+      ]);
+      expect(
+        ConditionTypeExtension.fromValue('charging_state'),
+        ConditionType.chargingState,
+      );
+      expect(
+        ConditionTypeExtension.fromValue('network_type'),
+        ConditionType.networkType,
+      );
     });
 
     test('fromValue parses correctly', () {

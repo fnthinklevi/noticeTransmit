@@ -42,6 +42,12 @@ enum ConditionType {
   timeRange,
   regexMatch,
 
+  /// 充电状态（`charging` / `full` / `not_charging`）—— T186 片1 第一批设备态条件。
+  chargingState,
+
+  /// 网络类型（`none` / `vpn` / `wifi` / `ethernet` / `cellular` / `other`）—— 同上。
+  networkType,
+
   /// 本机**不认得**的条件类型（来自更新的 App 写的备份／规则模板，或未来新增的类型）。
   ///
   /// 为什么必须有这一档：以前未知值被降级成 `titleContains`，于是「充电状态=full」这种
@@ -62,6 +68,27 @@ const List<ConditionType> selectableConditionTypes = [
   ConditionType.priority,
   ConditionType.timeRange,
   ConditionType.regexMatch,
+  ConditionType.chargingState,
+  ConditionType.networkType,
+];
+
+/// `charging_state` 这一型条件认的值（封闭词表，大小写不敏感）。
+///
+/// 三档来自原生 `DeviceSnapshot.chargingStateOf`（正在充／已充满／未插电充电关闭）。
+/// ⚠ 两端各写一份串：Dart 这一份是**给用户看的值域**（hint 文案、守卫比对用的集合），
+/// 换算只发生在原生那一处 ⇒ 这里不重新推"是不是在充"。
+const List<String> chargingStateValues = ['charging', 'full', 'not_charging'];
+
+/// `network_type` 这一型条件认的值 —— 直接采用原生 `DeviceSnapshot.networkTypeOf`
+/// 的**六枚原值**，不另造"三档"：造档要新定一条 `vpn`／`ethernet`／`other` 归谁的口径，
+/// 而那条口径既没人拍过、又会让"界面上填的串"和"本机实际的状态"长得不一样。
+const List<String> networkTypeValues = [
+  'none',
+  'vpn',
+  'wifi',
+  'ethernet',
+  'cellular',
+  'other',
 ];
 
 extension ConditionTypeExtension on ConditionType {
@@ -83,6 +110,10 @@ extension ConditionTypeExtension on ConditionType {
         return 'time_range';
       case ConditionType.regexMatch:
         return 'regex_match';
+      case ConditionType.chargingState:
+        return 'charging_state';
+      case ConditionType.networkType:
+        return 'network_type';
       case ConditionType.unknown:
         return '';
     }
@@ -106,6 +137,10 @@ extension ConditionTypeExtension on ConditionType {
         return ConditionType.timeRange;
       case 'regex_match':
         return ConditionType.regexMatch;
+      case 'charging_state':
+        return ConditionType.chargingState;
+      case 'network_type':
+        return ConditionType.networkType;
       default:
         // 不猜成任何一个认得的类型：降级会改变匹配结果（原生侧对同一串判 false，
         // 降级成 title_contains 就会去拿 value 比标题）。这里只记账，判不匹配交给求值那一层。

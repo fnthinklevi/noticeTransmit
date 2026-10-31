@@ -30,6 +30,8 @@ void main() {
     'network': 'wifi',
     'batteryLevel': 82,
     'batteryCharging': false,
+    // T186 片1：规则条件 charging_state 吃的那一档（与上面那枚布尔同一条事实：没在充）
+    'batteryChargingState': 'not_charging',
     'batteryTemperatureC': 31.5,
     'storageTotalMb': 122070.3,
     'storageFreeMb': 28610.2,
@@ -51,6 +53,7 @@ void main() {
       expect(s.network, 'wifi');
       expect(s.batteryLevel, 82);
       expect(s.batteryCharging, isFalse);
+      expect(s.batteryChargingState, 'not_charging');
       expect(s.batteryTemperatureC, 31.5);
       expect(s.memoryAvailableMb, 4291.5);
       expect(s.brightnessPercent, 50);
@@ -77,6 +80,9 @@ void main() {
       });
       expect(s.model, isNull);
       expect(s.batteryLevel, isNull, reason: '0% 是合法读数，兜 0 等于伪造');
+      // T186 片1：充电状态那一档同样不许兜成串 —— 兜成 'not_charging' 就等于
+      // 断言"没插电"，而设备态条件会把这条规则判成匹配（真机上是充着电的）。
+      expect(s.batteryChargingState, isNull);
       expect(s.storageFreeMb, isNull);
       expect(s.isMissing('batteryLevel'), isTrue);
       // 缺一侧就不算"已用"：否则"可用读不到"会显示成"几乎用满"

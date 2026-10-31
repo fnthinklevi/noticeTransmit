@@ -15,6 +15,8 @@ extension AppLocalizationsEnumHelpers on AppLocalizations {
     ConditionType.priority => condPriority,
     ConditionType.timeRange => condTimeRange,
     ConditionType.regexMatch => condRegex,
+    ConditionType.chargingState => condChargingState,
+    ConditionType.networkType => condNetworkType,
     ConditionType.unknown => condUnknown,
   };
 
@@ -27,6 +29,15 @@ extension AppLocalizationsEnumHelpers on AppLocalizations {
     ConditionType.priority => hintPriority,
     ConditionType.timeRange => hintTimeRange,
     ConditionType.regexMatch => hintRegex,
+    // 设备态两型的值域**由模型里那两份词表现取**（不在 ARB 里抄一份）：
+    // 用户在这里看到的串就是求值真正比的串，加一档只改 `chargingStateValues`／
+    // `networkTypeValues` 一处，文案自动跟着走。
+    ConditionType.chargingState => hintAllowedValues(
+      chargingStateValues.join(' / '),
+    ),
+    ConditionType.networkType => hintAllowedValues(
+      networkTypeValues.join(' / '),
+    ),
     ConditionType.unknown => hintUnknown,
   };
 

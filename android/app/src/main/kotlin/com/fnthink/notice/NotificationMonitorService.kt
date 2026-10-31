@@ -1900,7 +1900,13 @@ data class NotificationInfo(
     val priority: Int = 1,
     // F3 聚合深化：聚合推送专用模板变量（普通单条通知恒为 0/""，模板可用 %count% / %titles%）
     val mergeCount: Int = 0,
-    val mergeTitles: String = ""
+    val mergeTitles: String = "",
+    // T186 片1：设备态条件（`charging_state`／`network_type`）的读数，**通知到达那一刻**取的。
+    // 空串 = 读不到 ⇒ 那一型条件一律不匹配（不把未知伪装成某一档）。
+    // ⚠ 刻意**不进** toJson／fromJson：设备态是"那一刻"的事实，延迟队列恢复出来时它已经变了；
+    // 把陈旧读数持久化并顺着 webhook 正文带出去，比读不到更容易骗人。
+    val chargingState: String = "",
+    val networkType: String = ""
 ) {
     /** 序列化为 JSON（与 WebhookSender.sendBroadcast 字段保持一致，用于延迟推送队列持久化） */
     fun toJson(): org.json.JSONObject = org.json.JSONObject().apply {

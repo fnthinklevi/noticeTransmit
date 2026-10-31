@@ -49,6 +49,11 @@ class RuleEngineTest {
         type = "notification",
         deviceName = "dev",
         priority = n.optInt("priority", 1),
+        // T186 片1 设备态：fixture 里那两个键**必须在这里接住**。少接一枚不会有任何报错——
+        // 原生侧永远看到空串（那一型条件恒不匹配），Dart 侧却读得到 ⇒ 同一份 fixture 双端分叉，
+        // 而这条测试正好会因此红。写在这里并由 device_state_condition_guard_test 钉着。
+        chargingState = n.optString("chargingState"),
+        networkType = n.optString("networkType"),
     )
 
     @Test

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/device_info_service.dart';
 import '../services/filter_service.dart';
 import '../services/installed_apps_service.dart';
 import '../services/rule_trace.dart';
@@ -33,6 +34,11 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
 
   /// 0=低 1=中 2=高（与原生 NotificationInfo.priority 同口径）
   int _priority = 1;
+
+  /// T186 片1：设备态两型条件吃这两枚读数（原生 `DeviceSnapshot` 那一刻的快照）。
+  /// 空串 = 读不到 ⇒ 那一型条件不匹配，与原生 `NotificationInfo` 的空串同一条口径。
+  String _chargingState = '';
+  String _networkType = '';
   RuleTraceResult? _result;
   bool _loading = true;
 
@@ -70,6 +76,17 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
     await filter.loadSettings();
     _recompute();
     if (mounted) setState(() => _loading = false);
+    // T186 片1：设备态读数**排在首帧之后**。`getDeviceSnapshot` 最坏要等原生 8s 超时，
+    // 把它放在第一发 _recompute 之前等于让整页转圈 8 秒（T25 那类挂法）。
+    // 先按"读不到"画出来（那一型条件不匹配），读数到了再重算一次 ——
+    // 结果短暂偏保守，但页面永不卡住。
+    final snap = await GetIt.instance<DeviceInfoService>().getDeviceSnapshot();
+    if (!mounted) return;
+    setState(() {
+      _chargingState = snap?.batteryChargingState ?? '';
+      _networkType = snap?.network ?? '';
+    });
+    _recompute();
   }
 
   /// 实时重算（纯函数，规则数量级下开销可忽略）
@@ -82,6 +99,8 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
       title: _titleController.text,
       content: _contentController.text,
       notifyPriority: _priority,
+      chargingState: _chargingState,
+      networkType: _networkType,
     );
     setState(() => _result = result);
   }
@@ -200,8 +219,24 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          _deviceStateLine(context, l10n),
         ],
       ),
+    );
+  }
+
+  /// T186 片1：设备态两型条件吃的是**本机这一刻**的读数，不是用户在这里填的东西 ⇒
+  /// 那一行必须可见，否则「配了充电规则却测出不中」无从解释。
+  /// 读不到显示"读不到"（不显示空串，也不兜成某一档 —— 与求值口径一致）。
+  Widget _deviceStateLine(BuildContext context, AppLocalizations l10n) {
+    final dash = l10n.testerDeviceStateUnavailable;
+    return Text(
+      l10n.testerDeviceStateLine(
+        _chargingState.isEmpty ? dash : _chargingState,
+        _networkType.isEmpty ? dash : _networkType,
+      ),
+      style: TextStyle(fontSize: 12, color: AppColors.secondaryLabel(context)),
     );
   }
 

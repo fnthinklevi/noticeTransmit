@@ -135,7 +135,21 @@ class NotificationProcessor(private val context: Context) {
             time = timeStr,
             type = notifyType,
             deviceName = "",
-            priority = extractPriority(notification)
+            priority = extractPriority(notification),
+            // T186 片1：设备态条件按"到达那一刻"的读数求值。两枚读数**各自容错**：
+            // 读不到就留空串 ⇒ 那一型条件不匹配，而不是把未知伪装成某一档；
+            // 也不许让一次 sticky／Connectivity 异常把整条通知的转发链路带崩
+            // （这条函数跑在通知监听的 IO 协程里，抛出去就是这一发通知整个丢掉）。
+            chargingState = try {
+                DeviceSnapshot.readChargingState(context)
+            } catch (e: Exception) {
+                ""
+            },
+            networkType = try {
+                DeviceSnapshot.readNetworkType(context) ?: ""
+            } catch (e: Exception) {
+                ""
+            }
         )
     }
 

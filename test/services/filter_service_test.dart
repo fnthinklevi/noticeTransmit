@@ -464,4 +464,77 @@ void main() {
       );
     });
   });
+
+  // ── T186 片1 第②刀：设备态两型条件（Dart 侧的载体形状；语义由 golden 双端钉）────
+  group('evaluateRule – 设备态条件', () {
+    NotificationRule one(ConditionType type, String value) => NotificationRule(
+      id: 'r1',
+      name: 'device',
+      enabled: true,
+      priority: 10,
+      conditions: [Condition(id: 'c1', type: type, value: value)],
+    );
+
+    test('读数逐字相等才命中（charging_state=full 对 full）', () {
+      expect(
+        service.evaluateRule(one(ConditionType.chargingState, 'full'), {
+          'chargingState': 'full',
+          ...makeNotification(),
+        }),
+        isTrue,
+      );
+    });
+
+    test('大小写与前后空白都不参与比较（条件值 trim、读数折小写）', () {
+      expect(
+        service.evaluateRule(one(ConditionType.networkType, '  WiFi  '), {
+          'networkType': 'wifi',
+          ...makeNotification(),
+        }),
+        isTrue,
+      );
+    });
+
+    test('map 里**没有**这一枚键 ⇒ 判不匹配（求值器不猜、也不去读系统）', () {
+      expect(
+        service.evaluateRule(
+          one(ConditionType.chargingState, 'charging'),
+          makeNotification(),
+        ),
+        isFalse,
+        reason: '调用方没塞读数时，设备态条件必须静默落空而不是抛或当成通配',
+      );
+    });
+
+    test('读数给了非 String（如 null）也不抛，按读不到处理', () {
+      expect(
+        service.evaluateRule(one(ConditionType.networkType, 'none'), {
+          'networkType': null,
+          ...makeNotification(),
+        }),
+        isFalse,
+      );
+    });
+
+    test('条件值为空 ⇒ 判不匹配（走"空值不匹配"那条既有短路，不拿空串比读数）', () {
+      expect(
+        service.evaluateRule(one(ConditionType.chargingState, '   '), {
+          'chargingState': '',
+          ...makeNotification(),
+        }),
+        isFalse,
+      );
+    });
+
+    test('词表外的条件值不匹配（不是"忽略这条条件"）', () {
+      expect(
+        service.evaluateRule(one(ConditionType.networkType, '5g'), {
+          'networkType': 'cellular',
+          ...makeNotification(),
+        }),
+        isFalse,
+        reason: '当成"忽略"会把窄规则放宽成无约束 —— 与黄金用例同一条口径',
+      );
+    });
+  });
 }

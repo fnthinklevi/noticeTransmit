@@ -113,6 +113,12 @@ class RuleTracer {
     int notifyPriority = 1,
     String subText = '',
     String sourceType = 'notification',
+
+    // T186 片1：设备态两型的读数（`charging_state`／`network_type`）。
+    // 空串 = 读不到 ⇒ 那一型条件不匹配，与原生 `NotificationInfo` 的空串同一条口径。
+    // ⚠ 这是**调用方那一刻**的读数，不是求值器现取的（求值器是同步纯函数）。
+    String chargingState = '',
+    String networkType = '',
     DateTime? now,
   }) {
     final steps = <RuleTraceStep>[];
@@ -202,6 +208,9 @@ class RuleTracer {
           'content': content,
           'time': _formatTime(now ?? DateTime.now()),
           'priority': notifyPriority,
+          // T186 片1：设备态条件吃这两枚（键名与原生 NotificationInfo 的字段名同串）。
+          'chargingState': chargingState,
+          'networkType': networkType,
         });
         if (matched) {
           ruleEntries.add(TraceRuleEntry(rule: rule, mark: TraceRuleMark.hit));

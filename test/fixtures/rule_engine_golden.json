@@ -1,5 +1,5 @@
 {
-  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。另含 package_name 通配 \"*\" 用例（v1.5.67 起双端支持，用于预制聚合规则的作用域）。 v1.5.67 追加 priority p>=3 边界用例：原有用例只覆盖 priority ∈ {0,1,2}，恰好绕过 medium/low 的区间上界（Dart 用 1<=p<2、Kotlin 用 p==1，两者在 p>=2 上必须同时为 false）。若任一端改成区间重叠写法，本组用例立即分叉报警。 v1.5.68 追加 excludedPackages（规则级适用应用，排除制）双端用例：排除当前应用/排除其他/空数组/与通配共存/多应用排除/缺省兼容，锁定「排除优先于条件命中」与「缺省 = 全部适用」语义。 T186 片1 追加「认不出的条件类型」四条款项；示例串用 not_a_condition_type，刻意挑一枚不在计划词表里的名字——本任务随后要加 charging_state／network_type，示例串若与它们同名，加档当天这几条「未知类型判不匹配」会当场红成「unknown 处理坏了」。",
+  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。另含 package_name 通配 \"*\" 用例（v1.5.67 起双端支持，用于预制聚合规则的作用域）。 v1.5.67 追加 priority p>=3 边界用例：原有用例只覆盖 priority ∈ {0,1,2}，恰好绕过 medium/low 的区间上界（Dart 用 1<=p<2、Kotlin 用 p==1，两者在 p>=2 上必须同时为 false）。若任一端改成区间重叠写法，本组用例立即分叉报警。 v1.5.68 追加 excludedPackages（规则级适用应用，排除制）双端用例：排除当前应用/排除其他/空数组/与通配共存/多应用排除/缺省兼容，锁定「排除优先于条件命中」与「缺省 = 全部适用」语义。 T186 片1 追加「认不出的条件类型」四条款项；示例串用 not_a_condition_type，刻意挑一枚不在计划词表里的名字——本任务随后要加 charging_state／network_type，示例串若与它们同名，加档当天这几条「未知类型判不匹配」会当场红成「unknown 处理坏了」。 T186 片1 第②刀追加设备态两型（charging_state／network_type）11 条款项：notification 里新增 chargingState／networkType 两枚键（缺键=读不到，那一型条件判不匹配），覆盖三档分得开 charging/full、大小写不敏感、词表外的值判不匹配、以及设备态参与组内 AND／组间 OR。⚠ 这两枚键必须同时在 RuleEngineTest.info() 里接住，否则原生侧永远读到空串、双端在同一份 fixture 上分叉。",
   "cases": [
     {
       "name": "title_contains 半角精确命中",
@@ -1477,6 +1477,303 @@
         "priority": 1
       },
       "expected": false
+    },
+    {
+      "name": "T186 片1：charging_state=charging 命中读数为 charging 的那一刻",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "charging",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1,
+        "chargingState": "charging"
+      },
+      "expected": true
+    },
+    {
+      "name": "T186 片1：charging_state=charging 不匹配读数 full（正在充与已充满必须分得开）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "charging",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1,
+        "chargingState": "full"
+      },
+      "expected": false
+    },
+    {
+      "name": "T186 片1：charging_state 大小写不敏感（FULL 匹配 full）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "FULL",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1,
+        "chargingState": "full"
+      },
+      "expected": true
+    },
+    {
+      "name": "T186 片1：charging_state 在本机读不到这一项时判不匹配（未知不伪装成某一档）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "not_charging",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "T186 片1：charging_state 填了词表外的值（ful）判不匹配，而不是忽略这条条件",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "ful",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1,
+        "chargingState": "full"
+      },
+      "expected": false
+    },
+    {
+      "name": "T186 片1：network_type=wifi 命中读数 wifi",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "network_type",
+            "value": "wifi",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1,
+        "networkType": "wifi"
+      },
+      "expected": true
+    },
+    {
+      "name": "T186 片1：network_type=wifi 不匹配读数 cellular",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "network_type",
+            "value": "wifi",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1,
+        "networkType": "cellular"
+      },
+      "expected": false
+    },
+    {
+      "name": "T186 片1：network_type 大小写不敏感（VPN 匹配 vpn）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "network_type",
+            "value": "VPN",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1,
+        "networkType": "vpn"
+      },
+      "expected": true
+    },
+    {
+      "name": "T186 片1：network_type=none 命中读数 none（断网也是一个可表达的事实）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "network_type",
+            "value": "none",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "t",
+        "content": "",
+        "priority": 1,
+        "networkType": "none"
+      },
+      "expected": true
+    },
+    {
+      "name": "T186 片1：组内 AND 里设备态落空就整组落空（charging_state=full 但正在 charging）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "full",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "title_contains",
+            "value": "验证码",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "你的验证码 1234",
+        "content": "",
+        "priority": 1,
+        "chargingState": "charging"
+      },
+      "expected": false
+    },
+    {
+      "name": "T186 片1：组间 OR 里通知属性那一支命中即可（设备态那支读不到不拖垮整条）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "network_type",
+            "value": "cellular",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "title_contains",
+            "value": "验证码",
+            "logic": "or"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "你的验证码 1234",
+        "content": "",
+        "priority": 1,
+        "networkType": "wifi"
+      },
+      "expected": true
     }
   ]
 }

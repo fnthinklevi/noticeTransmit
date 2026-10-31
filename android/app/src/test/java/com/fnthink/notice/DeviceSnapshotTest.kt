@@ -1,6 +1,7 @@
 package com.fnthink.notice
 
 import android.net.NetworkCapabilities
+import android.os.BatteryManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -102,6 +103,32 @@ class DeviceSnapshotTest {
         assertEquals("other", DeviceSnapshot.networkTypeOf(true, emptySet()))
     }
 
+    /**
+     * T186 片1 第②刀：规则条件 `charging_state` 的换算口。
+     *
+     * 分得开 charging / full 是这一档存在的理由 —— `BatteryMonitor` 给告警用的那枚布尔把
+     * CHARGING 与 FULL 折成一起，于是"充满后不再转发"这类规则在布尔上根本表达不出来。
+     * UNKNOWN 与越界值给**空串**而不是某一档：未知不许伪装成已知（配合 RuleEngine 的
+     * 相等比较即恒不匹配）。常量取自系统 API，不在测试里另抄一份数字（同 networkTypeOf 那条纪律）。
+     */
+    @Test
+    fun chargingStateKeepsChargingAndFullApart() {
+        assertEquals(
+            "charging",
+            DeviceSnapshot.chargingStateOf(BatteryManager.BATTERY_STATUS_CHARGING),
+        )
+        assertEquals(
+            "full",
+            DeviceSnapshot.chargingStateOf(BatteryManager.BATTERY_STATUS_FULL),
+        )
+        assertEquals(
+            "not_charging",
+            DeviceSnapshot.chargingStateOf(BatteryManager.BATTERY_STATUS_NOT_CHARGING),
+        )
+        assertEquals("", DeviceSnapshot.chargingStateOf(BatteryManager.BATTERY_STATUS_UNKNOWN))
+        assertEquals("", DeviceSnapshot.chargingStateOf(-1))
+    }
+
     // ── normalize 的"未知"账 ────────────────────────────────────────────────
 
     @Test
@@ -111,7 +138,8 @@ class DeviceSnapshotTest {
         assertTrue("全空快照必须记账，不能静默", unavailable.isNotEmpty())
         for (key in listOf(
             "model", "brand", "manufacturer", "osVersion", "sdkInt", "network",
-            "batteryLevel", "batteryCharging", "batteryTemperatureC",
+            "batteryLevel", "batteryCharging", "batteryChargingState",
+            "batteryTemperatureC",
             "storageTotalMb", "storageFreeMb", "memoryTotalMb", "memoryAvailableMb",
             "brightnessPercent", "brightnessMode", "uptimeSeconds",
         )) {
@@ -133,6 +161,7 @@ class DeviceSnapshotTest {
                 "model" to "M", "brand" to "B", "manufacturer" to "MF",
                 "osVersion" to "14", "sdkInt" to 34, "network" to "wifi",
                 "batteryLevel" to 50, "batteryCharging" to true,
+                "batteryChargingState" to "charging",
                 "batteryTemperatureC" to 300, "storageTotalMb" to 1_000_000_000L,
                 "storageFreeMb" to 500_000_000L, "memoryTotalMb" to 8_000_000_000L,
                 "memoryAvailableMb" to 2_000_000_000L, "brightnessPercent" to 100,
@@ -142,7 +171,8 @@ class DeviceSnapshotTest {
         assertEquals(
             setOf(
                 "model", "brand", "manufacturer", "osVersion", "sdkInt", "network",
-                "batteryLevel", "batteryCharging", "batteryTemperatureC",
+                "batteryLevel", "batteryCharging", "batteryChargingState",
+                "batteryTemperatureC",
                 "storageTotalMb", "storageFreeMb", "memoryTotalMb", "memoryAvailableMb",
                 "brightnessPercent", "brightnessMode", "uptimeSeconds",
                 "capturedAtMs", "unavailable",
@@ -163,6 +193,7 @@ class DeviceSnapshotTest {
                 "network" to "wifi",
                 "batteryLevel" to 82,
                 "batteryCharging" to false,
+                "batteryChargingState" to "not_charging",
                 "batteryTemperatureC" to 315,
                 "storageTotalMb" to 128_000_000_000L,
                 "storageFreeMb" to 30_000_000_000L,
@@ -179,6 +210,8 @@ class DeviceSnapshotTest {
         assertEquals(34, out["sdkInt"])
         assertEquals(82, out["batteryLevel"])
         assertEquals(false, out["batteryCharging"])
+        // T186 片1：规则条件吃的是这一枚（三档），不是上面那枚布尔
+        assertEquals("not_charging", out["batteryChargingState"])
         assertEquals(31.5, out["batteryTemperatureC"] as Double, 0.0001)
         assertEquals(122070.3, out["storageTotalMb"] as Double, 0.2)
         assertEquals(4291.5, out["memoryAvailableMb"] as Double, 0.2)

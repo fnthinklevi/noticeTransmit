@@ -1646,6 +1646,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get condRegex => 'Regex';
 
   @override
+  String get condChargingState => 'Charging state';
+
+  @override
+  String get condNetworkType => 'Network type';
+
+  @override
   String get condUnknown => 'Unrecognized condition type';
 
   @override
@@ -1666,6 +1672,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get hintUnknown =>
       'This app does not know that condition type, so it never matches (it is not compared against the title). The raw type is kept as written when saving.';
+
+  @override
+  String hintAllowedValues(String values) {
+    return 'One of: $values (case-insensitive). Never matches when this device cannot read that value.';
+  }
 
   @override
   String get actionPush => 'Push Notification';
@@ -2289,6 +2300,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get testerPriorityLow => 'Low';
+
+  @override
+  String testerDeviceStateLine(String charging, String network) {
+    return 'This device right now: charging $charging · network $network';
+  }
+
+  @override
+  String get testerDeviceStateUnavailable => 'unavailable';
 
   @override
   String get testerStageFilter => '① Filter stage';

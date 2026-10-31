@@ -39,6 +39,7 @@ object DeviceSnapshot {
     private const val KEY_NETWORK = "network"
     private const val KEY_BATTERY_LEVEL = "batteryLevel"
     private const val KEY_BATTERY_CHARGING = "batteryCharging"
+    private const val KEY_BATTERY_CHARGING_STATE = "batteryChargingState"
     private const val KEY_BATTERY_TEMP = "batteryTemperatureC"
     private const val KEY_STORAGE_TOTAL = "storageTotalMb"
     private const val KEY_STORAGE_FREE = "storageFreeMb"
@@ -71,6 +72,11 @@ object DeviceSnapshot {
 
         put(out, KEY_BATTERY_LEVEL, (raw[KEY_BATTERY_LEVEL] as? Int)?.takeIf { it in 0..100 })
         put(out, KEY_BATTERY_CHARGING, raw[KEY_BATTERY_CHARGING] as? Boolean)
+        put(
+            out,
+            KEY_BATTERY_CHARGING_STATE,
+            nonBlank(raw[KEY_BATTERY_CHARGING_STATE] as? String),
+        )
         put(out, KEY_BATTERY_TEMP, temperatureC(raw[KEY_BATTERY_TEMP] as? Int))
 
         put(out, KEY_STORAGE_TOTAL, toMb(raw[KEY_STORAGE_TOTAL] as? Long))
@@ -178,6 +184,14 @@ object DeviceSnapshot {
                     it == BatteryManager.BATTERY_STATUS_FULL
             }
         }
+        // T186 片1：告警那一路只要"在不在充电"，规则要能分开 charging/full/not_charging
+        // ⇒ 同一份 sticky 里再带一档串。读不到（或 status=UNKNOWN）时是空串，
+        // 交给下面的 normalize 记进 `unavailable`，不兜成某一档。
+        grab(KEY_BATTERY_CHARGING_STATE) {
+            sticky?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)?.let {
+                chargingStateOf(it).ifEmpty { null }
+            }
+        }
         grab(KEY_BATTERY_TEMP) { sticky?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) }
 
         grab(KEY_STORAGE_TOTAL) { stat(context).totalBytes }
@@ -243,5 +257,38 @@ object DeviceSnapshot {
             NetworkCapabilities.TRANSPORT_CELLULAR,
         ).filter { caps.hasTransport(it) }.toSet()
         return networkTypeOf(true, transports)
+    }
+
+    /**
+     * T186 片1：系统电池 status → 规则条件 `charging_state` 用的那一档串。
+     *
+     * **换算只此一处**。`BatteryMonitor` 那边把 CHARGING／FULL 折成一枚布尔是给"在不在充电"
+     * 那类告警用的；规则要能分开"正在充"与"已充满"（充满后就不再转发是常见诉求），所以这里
+     * 保留三档。UNKNOWN ／读不到 ⇒ 空串，与 `RuleEngine` 的相等比较恒不匹配 ——
+     * 不把未知伪装成某一档（与设备快照"缺字段 + 记进 unavailable"那条既有纪律同向）。
+     * ⚠ 这三档串与 Dart 侧 `chargingStateValues` 各写一份，由
+     * `test/architecture/device_state_condition_guard_test.dart` 现取两端逐名比对钉住。
+     */
+    internal fun chargingStateOf(status: Int): String = when (status) {
+        BatteryManager.BATTERY_STATUS_CHARGING -> "charging"
+        BatteryManager.BATTERY_STATUS_FULL -> "full"
+        BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "not_charging"
+        else -> ""
+    }
+
+    /**
+     * 只读当前充电状态（sticky 电池广播，不注册 receiver）。
+     * 读不到返回**空串**而不是 null：调用方是通知到达那一条链路，拿不到就当"不匹配任何档"。
+     */
+    fun readChargingState(context: Context): String {
+        val sticky = try {
+            context.registerReceiver(
+                null,
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            )
+        } catch (e: Exception) {
+            null
+        } ?: return ""
+        return chargingStateOf(sticky.getIntExtra(BatteryManager.EXTRA_STATUS, -1))
     }
 }

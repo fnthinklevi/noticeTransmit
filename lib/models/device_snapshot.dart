@@ -18,6 +18,11 @@ class DeviceSnapshot {
 
   final int? batteryLevel;
   final bool? batteryCharging;
+
+  /// T186 片1：规则条件 `charging_state` 吃的那一档 ——
+  /// `charging` / `full` / `not_charging`（原生 `DeviceSnapshot.chargingStateOf` 换算，
+  /// 这里不重推）。[batteryCharging] 那枚布尔是给告警用的，分不出"正在充"与"已充满"。
+  final String? batteryChargingState;
   final double? batteryTemperatureC;
 
   final double? storageTotalMb;
@@ -45,6 +50,7 @@ class DeviceSnapshot {
     this.network,
     this.batteryLevel,
     this.batteryCharging,
+    this.batteryChargingState,
     this.batteryTemperatureC,
     this.storageTotalMb,
     this.storageFreeMb,
@@ -75,6 +81,7 @@ class DeviceSnapshot {
       network: str('network'),
       batteryLevel: intOf('batteryLevel'),
       batteryCharging: map['batteryCharging'] as bool?,
+      batteryChargingState: str('batteryChargingState'),
       batteryTemperatureC: doubleOf('batteryTemperatureC'),
       storageTotalMb: doubleOf('storageTotalMb'),
       storageFreeMb: doubleOf('storageFreeMb'),

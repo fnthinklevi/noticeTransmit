@@ -98,6 +98,19 @@ class FilterService {
           case ConditionType.regexMatch:
             conditionMatch = _evaluateRegexCondition(value, title, content);
             break;
+          case ConditionType.chargingState:
+            // 设备态两型：与**到达那一刻**的读数逐字相等（大小写不敏感），与原生
+            // `RuleEngine` 的 `equals(value, ignoreCase = true)` 同一条口径。
+            // 空串 = 读不到 ⇒ 与非空条件值都不相等，即不匹配（不把未知伪装成某一档）。
+            conditionMatch =
+                _deviceStateOf(notification, 'chargingState') ==
+                value.toLowerCase();
+            break;
+          case ConditionType.networkType:
+            conditionMatch =
+                _deviceStateOf(notification, 'networkType') ==
+                value.toLowerCase();
+            break;
           case ConditionType.unknown:
             // 认不出的类型一律判不匹配（与原生 `RuleEngine.evaluateCondition` 的
             // `else -> false` 同一条口径）。不许在这里猜成某个认得的类型：
@@ -134,6 +147,17 @@ class FilterService {
     }
 
     return [RuleAction(id: 'default', type: ActionType.push)];
+  }
+
+  /// 设备态读数（`chargingState`／`networkType`）。
+  ///
+  /// 这两枚由**调用方在通知到达那一刻**塞进 map（原生从 sticky 电池广播与 ConnectivityService
+  /// 取，Dart 侧从设备快照取），求值器自己不读系统 —— 它是同步纯函数，跨进程读会把它变成异步。
+  /// 缺键／null／空串一律归一成空串 ⇒ 那一型条件不匹配（未知不伪装成某一档，与原生同口径）。
+  static String _deviceStateOf(Map<String, dynamic> notification, String key) {
+    final raw = notification[key];
+    final v = raw is String ? raw : raw?.toString();
+    return (v ?? '').trim().toLowerCase();
   }
 
   bool _evaluatePriorityCondition(

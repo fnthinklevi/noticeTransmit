@@ -9,7 +9,7 @@ import 'package:notice_transmit/services/rule_trace.dart';
 /// F1 规则测试器追踪引擎的语义锁定测试。
 ///
 /// 追踪引擎镜像原生 `FilterEngine.filter` + `RuleEngine.decide/decideAction`；
-/// 本测试锁定「链路各阶段的分支与优先级」不被无意破坏（与双端 golden 51 条互补：
+/// 本测试锁定「链路各阶段的分支与优先级」不被无意破坏（与双端 golden 66 条互补：
 /// golden 锁条件语义，本测试锁链路编排）。
 void main() {
   late List<MethodCall> channelCalls;
@@ -143,6 +143,8 @@ void main() {
     String content = '内容',
     int priority = 1,
     String sourceType = 'notification',
+    String chargingState = '',
+    String networkType = '',
   }) => RuleTracer.trace(
     filter,
     packageName: packageName,
@@ -150,7 +152,33 @@ void main() {
     content: content,
     notifyPriority: priority,
     sourceType: sourceType,
+    chargingState: chargingState,
+    networkType: networkType,
   );
+
+  // ── T186 片1 第②刀：设备态读数要**穿过链路**抵达求值 ──
+  group('② 设备态读数透传（测试器与原生同吃那一刻的读数）', () {
+    test('规则要求 charging_state=full：给了 full 才命中', () async {
+      final filter = await buildFilter(
+        rules: [rule(conditionType: 'charging_state', conditionValue: 'full')],
+      );
+      expect(
+        run(filter, chargingState: 'full').hitRule,
+        isNotNull,
+        reason: '读数没透传到 evaluateRule ⇒ 设备态规则在测试器里永远测不出命中',
+      );
+      expect(run(filter, chargingState: 'charging').hitRule, isNull);
+      expect(run(filter).hitRule, isNull, reason: '读不到 ⇒ 不匹配，不许当成通配');
+    });
+
+    test('规则要求 network_type=wifi：读数 cellular 不命中，wifi 命中', () async {
+      final filter = await buildFilter(
+        rules: [rule(conditionType: 'network_type', conditionValue: 'wifi')],
+      );
+      expect(run(filter, networkType: 'wifi').hitRule, isNotNull);
+      expect(run(filter, networkType: 'cellular').hitRule, isNull);
+    });
+  });
 
   group('① 过滤阶段（镜像 FilterEngine.filter）', () {
     test('黑名单关键词优先于白名单关键词（同时命中仍拦截）', () async {

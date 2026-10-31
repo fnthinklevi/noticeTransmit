@@ -287,6 +287,12 @@ object RuleEngine {
             "priority" -> evaluatePriority(value.lowercase(), info.priority)
             "time_range" -> evaluateTimeRange(value)
             "regex_match" -> evaluateRegex(value, info.title, info.content)
+            // T186 片1 设备态两型：与**通知到达那一刻**的读数逐字相等（大小写不敏感，与 Dart 侧同口径）。
+            // 读不到 = 空串 ⇒ 与非空条件值都不相等 ⇒ 不匹配（不把未知伪装成某一档）。
+            // 值域不在这里再校验：词表由 `DeviceSnapshot.chargingStateOf`／`networkTypeOf` 那两处负责，
+            // 拼错的值（`ful`）自然匹配不上 —— 与"认不出的类型判不匹配"是同一条保守口径。
+            "charging_state" -> info.chargingState.equals(value, ignoreCase = true)
+            "network_type" -> info.networkType.equals(value, ignoreCase = true)
             else -> false
         }
     }

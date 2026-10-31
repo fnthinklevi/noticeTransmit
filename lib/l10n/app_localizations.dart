@@ -3020,6 +3020,18 @@ abstract class AppLocalizations {
   /// **'正则表达式'**
   String get condRegex;
 
+  /// No description provided for @condChargingState.
+  ///
+  /// In zh, this message translates to:
+  /// **'充电状态'**
+  String get condChargingState;
+
+  /// No description provided for @condNetworkType.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络类型'**
+  String get condNetworkType;
+
   /// No description provided for @condUnknown.
   ///
   /// In zh, this message translates to:
@@ -3061,6 +3073,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'本机不认得这一型条件 ⇒ 一律判不匹配（不会拿它去比标题）；保存时原样保留，不改写成别的类型'**
   String get hintUnknown;
+
+  /// No description provided for @hintAllowedValues.
+  ///
+  /// In zh, this message translates to:
+  /// **'填 {values} 之一（大小写不敏感）；本机读不到这一项时一律不匹配'**
+  String hintAllowedValues(String values);
 
   /// No description provided for @actionPush.
   ///
@@ -4171,6 +4189,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'低'**
   String get testerPriorityLow;
+
+  /// No description provided for @testerDeviceStateLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机此刻：充电 {charging} · 网络 {network}'**
+  String testerDeviceStateLine(String charging, String network);
+
+  /// No description provided for @testerDeviceStateUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'读不到'**
+  String get testerDeviceStateUnavailable;
 
   /// No description provided for @testerStageFilter.
   ///

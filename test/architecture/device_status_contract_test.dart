@@ -66,18 +66,39 @@ void main() {
       'unavailable': '就是"读不到"名单本身，不单独成行',
     };
 
+    /// 不在本页显示、但**确有消费方**的键 → 那个消费方（文件名）。
+    /// 这张表不是免责清单：下面那条用例会去消费方源码里验它真的读了这一枚，
+    /// 所以"登记一下就不显示"混不过去 —— 要么有人读并显示在别处，要么本页建行。
+    const consumedElsewhere = {
+      'batteryChargingState': 'lib/pages/rule_tester_page.dart',
+    };
+
     test('原生回的每一个键，页面要么有自己的行，要么写明并进哪一行', () {
       final unmapped = nativeKeys
           .difference(pageFields)
-          .difference(mergedInto.keys.toSet());
+          .difference(mergedInto.keys.toSet())
+          .difference(consumedElsewhere.keys.toSet());
       expect(
         unmapped,
         isEmpty,
         reason: '原生已经会回 $unmapped，而页面既没有这一行也没登记并进哪里 ⇒ 用户看不见，等于没读',
       );
       // 登记表自己也会过期：删掉原生某个键后，这里必须跟着删
-      final stale = mergedInto.keys.toSet().difference(nativeKeys);
+      final stale =
+          mergedInto.keys.toSet().union(consumedElsewhere.keys.toSet())
+              .difference(nativeKeys);
       expect(stale, isEmpty, reason: '登记表里 $stale 已经不是原生会回的键了');
+    });
+
+    test('登记成"在别处消费"的键，那个文件里真的读了它', () {
+      for (final e in consumedElsewhere.entries) {
+        final consumer = read(e.value);
+        expect(
+          consumer.contains(e.key),
+          isTrue,
+          reason: '${e.value} 没出现 ${e.key} ⇒ 这条登记是空的，键其实谁都没读',
+        );
+      }
     });
   });
 
