@@ -335,6 +335,7 @@ describe('端点的管理面（T38）', () => {
         'createdAt',
         'id',
         'ipAllowlist',
+        'kind',
         'lastUsedAt',
         'name',
         'owner',

@@ -811,9 +811,46 @@ function endpointConfigFromContract(contract) {
       } —— 正文一旦进日志，auditStoresMetadataOnly 就是空话`,
     );
   }
+  const kinds = Array.isArray(src.kinds) ? src.kinds.map(String) : [];
+  const defaultKind = String(src.defaultKind || '');
+  if (
+    kinds.length === 0 ||
+    kinds.some((kind) => kind === '') ||
+    new Set(kinds).size !== kinds.length ||
+    !kinds.includes(defaultKind)
+  ) {
+    throw shapeError(
+      `endpoint.kinds / defaultKind 不自洽（kinds=${kinds.join(',')} | defaultKind=${defaultKind}）：` +
+        '端点的用途必须是一份可枚举的白名单，缺省值必须在名单里',
+    );
+  }
+  const up = src.unifiedpush || {};
+  const upMax = Number(up.maxPayloadBytes);
+  const bodyChars = Number((src.ingress || {}).maxBodyChars);
+  if (!Number.isInteger(upMax) || upMax <= 0) {
+    throw shapeError(
+      `endpoint.unifiedpush.maxPayloadBytes 必须是正整数（实际 ${up.maxPayloadBytes}）：` +
+        '不透明入口没有长度上限时，一发大载荷就能把队列撑成攻击者驱动的存储',
+    );
+  }
+  if (!Number.isInteger(bodyChars) || bodyChars <= 0) {
+    throw shapeError(
+      'endpoint.ingress.maxBodyChars 必须是正整数：unifiedpush 的 base64 承载长度由它兜底',
+    );
+  }
+  if (Math.ceil((upMax * 4) / 3) > bodyChars) {
+    throw shapeError(
+      `endpoint.unifiedpush.maxPayloadBytes（${upMax}）按 base64 放大后超过 ` +
+        `endpoint.ingress.maxBodyChars（${bodyChars}）：合法的最大载荷会永远撞 400，` +
+        '而现场看起来像"UnifiedPush 发不进来"',
+    );
+  }
   return {
     usableStatus: String(src.usableStatus),
     revokedStatus: String(src.revokedStatus),
+    kinds,
+    defaultKind,
+    unifiedPushMaxPayloadBytes: upMax,
     perDeviceMax: intOf(src.perDeviceMax, 'perDeviceMax'),
     globalMax: intOf(src.globalMax, 'globalMax'),
     graceSeconds: intOf((src.rotation || {}).graceSeconds, 'rotation.graceSeconds', 86400),
@@ -842,6 +879,9 @@ function publicEndpoint(id, record) {
     name: record.name || '',
     owner: record.owner || null,
     status: record.status,
+    // 旧行没有 kind ⇒ 按 notification 读；契约的 defaultKind 管的是新建时的缺省，
+    // 不是已落盘记录的迁移（迁移存量需要一次写盘，而这里只读）。
+    kind: record.kind || 'notification',
     postOnly: record.postOnly === true,
     ipAllowlist: Array.isArray(record.ipAllowlist) ? [...record.ipAllowlist] : [],
     createdAt: record.createdAt === undefined ? null : record.createdAt,
@@ -885,10 +925,15 @@ function createEndpoint(contract, endpoints, input = {}, now, cfg) {
     secret = newEndpointSecret(contract);
   }
   const id = newEndpointId();
+  const kind = input.kind === undefined ? epc.defaultKind : String(input.kind);
+  if (!epc.kinds.includes(kind)) {
+    throw new Error(`端点 kind 不在契约 endpoint.kinds 里：${kind}`);
+  }
   const defaultPostOnly = !contract.transport || contract.transport.postOnlySwitch !== false;
   const record = {
     name: typeof input.name === 'string' ? input.name.slice(0, 60) : '',
     owner,
+    kind,
     status: epc.usableStatus,
     postOnly: input.postOnly === undefined ? defaultPostOnly : !!input.postOnly,
     ipAllowlist: Array.isArray(input.ipAllowlist) ? input.ipAllowlist.map(String) : [],

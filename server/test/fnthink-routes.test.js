@@ -2439,3 +2439,119 @@ describe('契约声明的路径 == 实际挂载的路径', () => {
     expect(src).toMatch(/'\/p\/:endpointId\/:secret'/);
   });
 });
+
+// ── T190：UnifiedPush 的不透明端点 ─────────────────────────────
+// 它复用 /p 的口令、IP、postOnly、owner 与配额，只换"载荷怎么读"这一处：
+// 不解析 JSON、不要求标题/正文、空 bytes 也合法（纯唤醒 ping）。
+describe('T190 UnifiedPush 不透明端点', () => {
+  const UPC = 'KP3FJ6QPTM9WZ4VHNS';
+  const upKey = keypair();
+
+  async function makeEndpoint(payload) {
+    return request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(eventBody('endpointCreate', upKey, UPC, { body: JSON.stringify(payload) }))
+      .expect(200);
+  }
+
+  function push(created, body, contentType) {
+    return request(app)
+      .post(`/api/fnthink/p/${created.body.endpointId}`)
+      .set({ Authorization: `Bearer ${created.body.secret}` })
+      .set({ 'x-forwarded-proto': 'https' })
+      .set({ 'Content-Type': contentType || 'application/octet-stream' })
+      .send(body);
+  }
+
+  beforeAll(() => {
+    register(UPC, upKey);
+  });
+
+  test('建端点时 kind=unifiedpush ⇒ 回显并在盘上落住', async () => {
+    const created = await makeEndpoint({ name: '生态 App', kind: 'unifiedpush' });
+    expect(created.body.kind).toBe('unifiedpush');
+    expect(devicestore.loadEndpoints()[created.body.endpointId].kind).toBe('unifiedpush');
+  });
+
+  test('任意字节 ⇒ 202；poll 拿到 base64、title 空；ack 后正文删', async () => {
+    const created = await makeEndpoint({ name: '收字节', kind: 'unifiedpush' });
+    const bytes = Buffer.from([0, 1, 2, 250, 251, 252]);
+    const pushed = await push(created, bytes);
+    expect(pushed.status).toBe(statusCode(contract, 'queued'));
+
+    const polled = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', upKey, UPC))
+      .expect(200);
+    const message = polled.body.messages.find(
+      (m) => m.sender === `endpoint:${created.body.endpointId}`,
+    );
+    expect(message).toBeTruthy();
+    expect(message.title).toBe('');
+    expect(message.body).toBe(bytes.toString('base64'));
+
+    await request(app)
+      .post('/api/fnthink/ack')
+      .send(
+        eventBody('ack', upKey, UPC, {
+          body: JSON.stringify({ messageId: message.messageId, result: 'delivered' }),
+        }),
+      )
+      .expect(200);
+    const record = messagestore.loadMessages()[message.messageId];
+    expect(record.state).toBe('delivered');
+    expect(record.body).toBeUndefined();
+  });
+
+  test('空 bytes 也收（UnifiedPush 的纯唤醒 ping）', async () => {
+    const created = await makeEndpoint({ name: '空 ping', kind: 'unifiedpush' });
+    const pushed = await push(created, Buffer.alloc(0));
+    expect(pushed.status).toBe(statusCode(contract, 'queued'));
+
+    const polled = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', upKey, UPC))
+      .expect(200);
+    const message = polled.body.messages.find(
+      (m) => m.sender === `endpoint:${created.body.endpointId}`,
+    );
+    expect(message).toBeTruthy();
+    expect(message.body).toBe('');
+  });
+
+  test('超过 maxPayloadBytes ⇒ 400 且不入队（不截断）', async () => {
+    const created = await makeEndpoint({ name: '超长', kind: 'unifiedpush' });
+    const over = Buffer.alloc(contract.endpoint.unifiedpush.maxPayloadBytes + 1, 7);
+    const before = Object.keys(messagestore.loadMessages()).length;
+    const pushed = await push(created, over);
+    expect(pushed.status).toBe(statusCode(contract, 'badRequest'));
+    expect(Object.keys(messagestore.loadMessages()).length).toBe(before);
+  });
+
+  test('GET 到不透明端点 ⇒ 405（字节只能走 POST）', async () => {
+    const created = await makeEndpoint({ name: '不做 GET', kind: 'unifiedpush' });
+    const res = await request(app)
+      .get(`/api/fnthink/p/${created.body.endpointId}/${created.body.secret}`)
+      .set({ 'x-forwarded-proto': 'https' });
+    expect(res.status).toBe(contract.endpoint.postOnlyMethodStatus);
+  });
+
+  test('通知端点收到 octet-stream ⇒ 400，不是 500', async () => {
+    const notify = await makeEndpoint({ name: '普通通知' });
+    expect(notify.body.kind).toBe('notification');
+    const res = await push(notify, Buffer.from([1, 2, 3]));
+    expect(res.status).toBe(statusCode(contract, 'badRequest'));
+  });
+
+  test('kind 不在 endpoint.kinds 里 ⇒ 拒（白名单）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(
+        eventBody('endpointCreate', upKey, UPC, {
+          body: JSON.stringify({ name: 'x', kind: 'nope' }),
+        }),
+      );
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+});

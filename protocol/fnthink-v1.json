@@ -297,6 +297,18 @@
       "active",
       "revoked"
     ],
+    "kinds": [
+      "notification",
+      "unifiedpush"
+    ],
+    "defaultKind": "notification",
+    "_kindWhy": "端点有两种用途，形状必须写在这里而不是靠『是谁建的』去猜：notification＝现有那套解析字段、按 L1 裁决的第三方通知入口；unifiedpush＝不透明字节入口（T190），服务端不解析、不渲染，只把原始 bytes 交给设备上的 distributor 再分发给生态 App。两种端点共用同一张表、同一把口令、同一套同形与限流规则 —— 差别只在『载荷怎么读』这一处，所以它只能是端点的一个字段，不能是第二张表。旧行没有这个键 ⇒ 按 defaultKind 读，不迁移存量。",
+    "unifiedpush": {
+      "maxPayloadBytes": 3000,
+      "_why": "UnifiedPush 的 app server 发到 endpoint 的是任意 bytes（常见是一个很短的唤醒 ping，也可能是短正文）。3000 不是产品档而是**换算出来的**：body 在设备 poll 的 JSON 里以 base64 承载，3000 bytes → 4000 个 ASCII 字符，正好等于 endpoint.ingress.maxBodyChars；再大就会在现有那条『超限明确拒、不截断』的闸上撞红。⚠ 这条关系由契约自洽测试盯着（maxPayloadBytes × 4/3 ≤ maxBodyChars），改一个不动另一个会让合法的 3000 字节载荷永远 400。",
+      "acceptsEmpty": true,
+      "_acceptsEmptyWhy": "UnifiedPush 规范允许零长度消息（consumer 用它当纯唤醒）；空 bytes 也必须能入队，否则『服务器只发 ping』这一类 consumer 永远收不到。落队时 body 存的是空串的密信封（非空密文），既有『可投递却没有正文』那条例外不会被触发。"
+    },
     "usableStatus": "active",
     "revokedStatus": "revoked",
     "_usableStatusWhy": "与 revocation 那四个键同一个教训：状态名一旦写死在实现里，契约加一档时它不报错，只会让「这一档没人认得，而端点照旧收信」。判定一律问「是不是 usableStatus」（白名单式），不许问「是不是 revoked」（黑名单式）。",
@@ -1094,9 +1106,13 @@
       "verifyAgainst": "device-table-public-key",
       "targetMustEqualSender": true,
       "fields": [
-        "name"
+        "name",
+        "kind"
       ],
-      "_why": "接收端给自己建一个接入端点（T42 那一格；端点语义见 endpoint 段）：NAS / 脚本 / 第三方平台往这台设备推东西时用的长期口令入口。这一发是**self-only**（建的是自己的端点，不是替别人建），载荷**只有 name**。⚠ 口令不在这里，也不许在这里：设备自带口令等于把「选一把多强的口令」这件事交给最不方便负责它的一端 —— 一旦有人抄了一把弱口令或复用过的口令，泄露的是这台实例，而服务端只会照单收下。口令一律服务端生成、只有摘要落盘、明文**只在这一次的响应里出现**（错过就得重建，不留副本）。上限从 `endpoint.perDeviceMax` / `globalMax` 读，到上限只拒新的、不挤掉已有端点（挤掉一次 = 某台 NAS 的定时任务从此静默失效）。",
+      "optionalFields": {
+        "kind": "notification"
+      },
+      "_why": "接收端给自己建一个接入端点（T42 那一格；端点语义见 endpoint 段）：NAS / 脚本 / 第三方平台往这台设备推东西时用的长期口令入口。这一发是**self-only**（建的是自己的端点，不是替别人建），载荷只有 name 与 kind。kind 缺省 notification（旧客户端只发 name ⇒ 行为不变），可选值只许取 endpoint.kinds；unifiedpush 档是 T190 的 distributor 端点，载荷按原始字节收、不进通知面。⚠ 口令不在这里，也不许在这里：设备自带口令等于把「选一把多强的口令」这件事交给最不方便负责它的一端 —— 一旦有人抄了一把弱口令或复用过的口令，泄露的是这台实例，而服务端只会照单收下。口令一律服务端生成、只有摘要落盘、明文**只在这一次的响应里出现**（错过就得重建，不留副本）。上限从 `endpoint.perDeviceMax` / `globalMax` 读，到上限只拒新的、不挤掉已有端点（挤掉一次 = 某台 NAS 的定时任务从此静默失效）。",
       "_targetMustEqualSenderWhy": "target 必须是本机地址码。放开这一条，任何一台登记过的设备都能替别人建端点、拿到别人那条入口的明文口令 —— 而它拿到的那句口令可以直接用来冒充那台设备。",
       "mayNotCarry": [
         "privateKey",

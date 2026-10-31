@@ -578,6 +578,9 @@ describe('数字只从契约读', () => {
       ...contract,
       endpoint: {
         ...contract.endpoint,
+        // T190：maxBodyChars 与 unifiedpush.maxPayloadBytes 有 base64 放大换算，
+        // 改前者必须同步后者 —— 这正是契约自洽校验要拦的那一对。
+        unifiedpush: { ...contract.endpoint.unifiedpush, maxPayloadBytes: 96 },
         ingress: {
           ...contract.endpoint.ingress,
           quota: { perMinute: 4, perDay: 40 },

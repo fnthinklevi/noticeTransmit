@@ -1411,6 +1411,26 @@ class FnthinkContract {
   /// 交给最不方便负责它的一端。这一条是设备侧唯一能判它的地方 —— 服务端只会照单收下形状对的键。
   List<String> get endpointCreateFields => clientEventFields('endpointCreate');
 
+  /// endpoint.kinds / defaultKind（T190）：端点用途白名单与新建缺省。
+  ///
+  /// `unifiedpush` 档是 distributor 端点（不透明字节）；`notification` 是现有通知入口。
+  /// 内核不自己写这两个词：白名单只在契约里长，服务端与设备读的是同一份。
+  List<String> get endpointKinds => strings(const ['endpoint', 'kinds']);
+
+  String get defaultEndpointKind =>
+      str(const ['endpoint', 'defaultKind']) ?? '';
+
+  /// endpointCreate 的可选字段与缺省值（T190：`kind` 缺省 `notification`）。
+  ///
+  /// 旧客户端只发 `name` 也能建通知端点 —— 缺省值由服务端与内核各补一次，但两处都从
+  /// 契约这一格读，不许在实现里写死 `'notification'`。
+  Map<String, String> get endpointCreateOptionalFields {
+    final raw =
+        map(const ['clientEvents', 'endpointCreate', 'optionalFields']) ??
+        const {};
+    return raw.map((key, value) => MapEntry(key, '$value'));
+  }
+
   /// endpointList 载荷的字段名单（今日 = `[]`，一条都不许带）。
   ///
   /// 空名单不是"这里忘了写"，它就是这一发的全部形状：读自己名下那几把入口不需要任何输入。

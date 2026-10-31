@@ -1573,7 +1573,7 @@ void main() {
     Future<FnthinkEndpointCreateResult> create(_Harness harness) =>
         harness.kernel().endpointCreate(name: '自家 NAS');
 
-    test('target 是**本机**地址码，载荷只有 name（名单里没有 secret 也不该有）', () async {
+    test('target 是**本机**地址码，载荷只有 name 与 kind（名单里没有 secret 也不该有）', () async {
       final harness = _Harness(contract, 1_800_000_000_000);
       harness.reply = const FnthinkReply(
         status: 200,
@@ -1598,6 +1598,29 @@ void main() {
         reason: '口令由服务端生成：设备自带等于把"选一把多强的口令"交给最不方便负责它的一端',
       );
       expect(body['name'], '自家 NAS');
+      expect(body['kind'], contract.defaultEndpointKind);
+    });
+
+    test('kind=unifiedpush 原样签出去；不在白名单里的 kind 当场抛、不发', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_1', 'secret': 'ABCDEFGHIJKLMNOP2345678901'},
+      );
+      await harness.kernel().endpointCreate(
+        name: '生态 App',
+        kind: 'unifiedpush',
+      );
+      final fields = harness.sent.single['fields']! as Map<String, Object?>;
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(body['kind'], 'unifiedpush');
+
+      final bad = _Harness(contract, 1_800_000_000_000);
+      await expectLater(
+        bad.kernel().endpointCreate(name: 'x', kind: 'nope'),
+        throwsArgumentError,
+      );
+      expect(bad.sent, isEmpty, reason: '白名单外的用途不许签出去换一句同形的 403');
     });
 
     test('建成 ⇒ id 与口令都在；postOnly 没回就是 null，不默认成某一种', () async {

@@ -1006,7 +1006,7 @@ router.post(
       created = createEndpoint(
         contract,
         endpoints,
-        { owner: auth.addressCode, name: auth.name },
+        { owner: auth.addressCode, name: auth.name, kind: auth.endpointKind },
         now,
       );
     } catch (e) {
@@ -1020,6 +1020,7 @@ router.post(
       endpointId: created.id,
       // ⚠ 明文口令只在这里出现这一次（表里只有摘要，之后任何口都拿不到它）。
       secret: created.secret,
+      kind: created.endpoint.kind,
       postOnly: created.endpoint.postOnly,
       serverTime: now,
     });
@@ -1235,7 +1236,10 @@ function bearerSecret(req) {
 function handleEndpointIngress(req, res, endpointId, secret, method) {
   const now = Date.now();
   const ip = req.ip || 'unknown';
-  const message = readIngress(contract, req.query, req.body);
+  // T190：unifiedpush 端点收原始字节，不解析 JSON。通知端点收到非 JSON body 时
+  // message 仍是默认形状，裁决按"空载荷"回 400 —— 不能把 Buffer 当对象读成 500。
+  const opaqueBody = Buffer.isBuffer(req.body) ? req.body : null;
+  const message = readIngress(contract, req.query, opaqueBody ? {} : req.body);
   const endpoints = loadEndpoints();
   const secure =
     req.secure === true || String(req.headers['x-forwarded-proto'] || '').toLowerCase() === 'https';
@@ -1244,6 +1248,7 @@ function handleEndpointIngress(req, res, endpointId, secret, method) {
     endpointId,
     secret,
     message,
+    opaqueBody,
     secure,
     ip,
     method,
@@ -1281,9 +1286,12 @@ function handleEndpointIngress(req, res, endpointId, secret, method) {
       // ⚠ `item` 必须留空串：本面的授权清单恒为空，第三方载荷里那个 `item` 只是它自己的字段名。
       type: message.type,
       item: '',
-      title: message.title,
-      body: message.body,
-      dedupeId: message.dedupeId,
+      // T190：不透明载荷走 body 这一格（base64），title 恒空。设备侧不靠 type 认它，
+      // 靠 sender 的 `endpoint:<id>` 去查本机 distributor 实例表 —— 普通通知端点没有那一行。
+      // 空 payload 也合法：空串经 sealContent 仍是非空密文，"可投递却没有正文"那条不变量不受影响。
+      title: verdict.opaque ? '' : message.title,
+      body: verdict.opaque ? verdict.payload.toString('base64') : message.body,
+      dedupeId: verdict.opaque ? '' : message.dedupeId,
     },
     now,
     process.env.ENCRYPTION_KEY,

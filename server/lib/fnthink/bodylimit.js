@@ -46,6 +46,13 @@ function createFnthinkBodyLimit() {
   const contract = assertSupported(loadContract());
   const max = bodyMaxBytes(contract);
   const parser = express.json({ limit: max });
+  // T190：端点入口还要接 UnifiedPush 的不透明字节。只对 `/p/` 生效 —— 别的面全是 JSON，
+  // 给它们套一层 raw 只会让"客户端发错 content-type"从 400 变成一段 Buffer 流到路由里。
+  // raw 排在 json 之后：body-parser 见 req._body 已置位会跳过，JSON 请求不会被二次解析。
+  const raw = express.raw({
+    type: (req) => /^\/p\//.test(String(req.path || '')) && !req.is('application/json'),
+    limit: max,
+  });
   const tooLarge = statusCode(contract, 'requestTooLarge');
   const badRequest = statusCode(contract, 'badRequest');
   const handler = (err, req, res, next) => {
@@ -60,7 +67,7 @@ function createFnthinkBodyLimit() {
     }
     return res.status(badRequest).json({});
   };
-  return { middlewares: [parser, handler], max, code: tooLarge, badCode: badRequest };
+  return { middlewares: [parser, raw, handler], max, code: tooLarge, badCode: badRequest };
 }
 
 module.exports = { createFnthinkBodyLimit, bodyMaxBytes };

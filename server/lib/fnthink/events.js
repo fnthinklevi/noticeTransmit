@@ -694,10 +694,19 @@ function authorizeEndpointCreate(contract, state, input) {
   const read = readPayload(spec, fields.body, 'endpointCreate');
   if (read.reason) return fail(read.reason);
   const name = String(read.payload.name === undefined ? '' : read.payload.name);
+  // 端点用途是白名单：缺省值由 readPayload 从 endpointCreate.optionalFields 补
+  // （旧客户端只发 name ⇒ notification），这里只负责"补上来的那个也得在名单里"。
+  const endpointKinds = Array.isArray(((contract || {}).endpoint || {}).kinds)
+    ? contract.endpoint.kinds.map(String)
+    : [];
+  const endpointKind = String(read.payload.kind === undefined ? '' : read.payload.kind);
+  if (!endpointKinds.includes(endpointKind)) {
+    return fail(`bad-endpoint-kind:${endpointKind}`);
+  }
 
   const fresh = checkFresh(contract, state, input, id.sender);
   if (fresh.outcome) return fresh.outcome;
-  return { ok: true, kind: 'endpointCreate', addressCode: id.sender, name };
+  return { ok: true, kind: 'endpointCreate', addressCode: id.sender, name, endpointKind };
 }
 
 /**

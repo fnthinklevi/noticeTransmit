@@ -1177,11 +1177,22 @@ class FnthinkReceiveKernel {
   /// `name`：多带一个键在内核这里就当场抛，而不是签出去换一句同形的 403。
   Map<String, Object?> endpointCreateFields({
     required String name,
+    String? kind,
     required String nonce,
     String? ts,
   }) {
     final declared = contract.endpointCreateFields;
-    final payload = {'name': name};
+    final effectiveKind =
+        kind ??
+        contract.endpointCreateOptionalFields['kind'] ??
+        contract.defaultEndpointKind;
+    if (!contract.endpointKinds.contains(effectiveKind)) {
+      throw ArgumentError(
+        'endpointCreate 的 kind 不在契约 endpoint.kinds 里（$effectiveKind）：'
+        '端点用途是一份白名单，不在名单里的值不许签出去换一句同形的拒绝',
+      );
+    }
+    final payload = {'name': name, 'kind': effectiveKind};
     if (payload.length != declared.length ||
         !declared.every(payload.containsKey)) {
       throw ArgumentError(
@@ -1210,12 +1221,13 @@ class FnthinkReceiveKernel {
   ///    （替别人建入口 = 拿到别人那条入口的明文口令，拿着它就能冒充那台设备）。
   Future<FnthinkEndpointCreateResult> endpointCreate({
     required String name,
+    String? kind,
   }) async {
     final nonce = (nonceFactory ?? _fallbackNonce)();
     final sentAt = _nowMs();
     final signedWhileUncalibrated = !calibrated;
     final envelope = await buildEnvelope(
-      fields: endpointCreateFields(name: name, nonce: nonce),
+      fields: endpointCreateFields(name: name, kind: kind, nonce: nonce),
       nonce: nonce,
     );
     final FnthinkReply reply;

@@ -158,6 +158,22 @@ function ingressFromContract(contract) {
         '字符数上限比字节闸还宽等于没有这条限制，而读契约的人会以为它管着什么',
     );
   }
+  // T190：不透明端点的载荷上限。它与 maxBodyChars 的关系是换算出来的（base64 放大 4/3），
+  // 装载时就断 —— 改一个不动另一个会让合法的最大载荷永远撞 400。
+  const up = ep.unifiedpush || {};
+  const upMax = Number(up.maxPayloadBytes);
+  if (!Number.isInteger(upMax) || upMax <= 0) {
+    throw shapeError(
+      `endpoint.unifiedpush.maxPayloadBytes 必须是正整数（实际 ${up.maxPayloadBytes}）：` +
+        '不透明入口没有上限时，一发大载荷就能把队列撑成攻击者驱动的存储',
+    );
+  }
+  if (Math.ceil((upMax * 4) / 3) > maxBodyChars) {
+    throw shapeError(
+      `endpoint.unifiedpush.maxPayloadBytes（${upMax}）按 base64 放大后超过 maxBodyChars` +
+        `（${maxBodyChars}）：合法的最大载荷会永远撞 400`,
+    );
+  }
   // 第三方载荷那枚 `type` 的折价目标（T120）。两条都是**方向性**判据，不是"键在不在"：
   //  ① 折成的词必须在协议词表上 —— 折成一个词表外的词，等于把 unknown-type 那道闸往后推给
   //     设备，而设备那条路是签名面的裁决（对端自称的值能一路走到 apply）；
@@ -201,6 +217,7 @@ function ingressFromContract(contract) {
     methodStatus: Number(src.postOnlyMethodStatus ?? ep.postOnlyMethodStatus),
     maxTitleChars: intOf(src.maxTitleChars, 'maxTitleChars'),
     maxBodyChars,
+    unifiedPushMaxPayloadBytes: upMax,
     endpointGrant: grant,
     capabilityReceipt: String(src.rejectedCapabilityReceipt || 'rejected_capability'),
     unknownTypeAs,
@@ -380,6 +397,41 @@ function decideIngress(contract, ingress, state, input) {
       logOutcome: 'rejected_method',
     };
   }
+  // T190：unifiedpush 端点只收 POST 原始字节，不走进通知面那两道（⑤ 能力、⑥ 标题正文）。
+  // 判定放在 ④ 之后：口令、IP、postOnly 与目标/配额仍复用同一套规则，差别只在载荷怎么读。
+  const opaque = found.kind === 'unifiedpush';
+  if (opaque) {
+    if (String(method).toUpperCase() !== 'POST') {
+      return {
+        ok: false,
+        status: ingress.methodStatus,
+        receipt: null,
+        endpointId: found.id,
+        logEndpointId: found.id,
+        logOutcome: 'rejected_method',
+      };
+    }
+    if (!Buffer.isBuffer(input.opaqueBody)) {
+      return {
+        ok: false,
+        status: statusCode(contract, 'badRequest'),
+        receipt: null,
+        endpointId: found.id,
+        logEndpointId: found.id,
+        logOutcome: 'opaque_requires_raw_body',
+      };
+    }
+    if (input.opaqueBody.length > ingress.unifiedPushMaxPayloadBytes) {
+      return {
+        ok: false,
+        status: statusCode(contract, 'badRequest'),
+        receipt: null,
+        endpointId: found.id,
+        logEndpointId: found.id,
+        logOutcome: 'payload_too_large',
+      };
+    }
+  }
   // ⑤ 能力边界（T41 + T120）：端点只能产 L1。**type 与 item 交给 capabilities.decideCapability 判**
   //    （那张档位表与词表只能有一份出处，这里再写一份 if 就是等着分叉）；而外部自称的 `level`
   //    是 decideCapability 不看的东西（它按 type 查 minLevel）⇒ 这一支必须单独判，否则
@@ -423,7 +475,8 @@ function decideIngress(contract, ingress, state, input) {
   //    ⚠ 干跑**整段跳过**：探针一个字段都不读，载荷永远是协议的默认形状（标题正文都空），
   //    按这一段的判据它必然"空载荷"——那不是结论而是"探针没在回答这个问题"。
   //    所以绿灯说的是「这条入口现在收得进一条默认形状的通知」，不是「我这一条具体的通知进得去」。
-  if (!dryRun) {
+  //    T190：unifiedpush 的载荷不是标题/正文，空 payload 也合法（纯唤醒），这一段整段跳过。
+  if (!dryRun && !opaque) {
     if (message.title.trim() === '' && message.body.trim() === '') {
       return {
         ok: false,
@@ -491,6 +544,8 @@ function decideIngress(contract, ingress, state, input) {
     logEndpointId: found.id,
     logOutcome: dryRun ? 'probe_ok' : 'queued',
     dryRun,
+    opaque,
+    payload: opaque ? input.opaqueBody : undefined,
     target,
     usedRotated: found.usedRotated === true,
   };
