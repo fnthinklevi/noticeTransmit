@@ -1,5 +1,5 @@
 {
-  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。另含 package_name 通配 \"*\" 用例（v1.5.67 起双端支持，用于预制聚合规则的作用域）。 v1.5.67 追加 priority p>=3 边界用例：原有用例只覆盖 priority ∈ {0,1,2}，恰好绕过 medium/low 的区间上界（Dart 用 1<=p<2、Kotlin 用 p==1，两者在 p>=2 上必须同时为 false）。若任一端改成区间重叠写法，本组用例立即分叉报警。 v1.5.68 追加 excludedPackages（规则级适用应用，排除制）双端用例：排除当前应用/排除其他/空数组/与通配共存/多应用排除/缺省兼容，锁定「排除优先于条件命中」与「缺省 = 全部适用」语义。",
+  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。另含 package_name 通配 \"*\" 用例（v1.5.67 起双端支持，用于预制聚合规则的作用域）。 v1.5.67 追加 priority p>=3 边界用例：原有用例只覆盖 priority ∈ {0,1,2}，恰好绕过 medium/low 的区间上界（Dart 用 1<=p<2、Kotlin 用 p==1，两者在 p>=2 上必须同时为 false）。若任一端改成区间重叠写法，本组用例立即分叉报警。 v1.5.68 追加 excludedPackages（规则级适用应用，排除制）双端用例：排除当前应用/排除其他/空数组/与通配共存/多应用排除/缺省兼容，锁定「排除优先于条件命中」与「缺省 = 全部适用」语义。 T186 片1 追加「认不出的条件类型」四条款项；示例串用 not_a_condition_type，刻意挑一枚不在计划词表里的名字——本任务随后要加 charging_state／network_type，示例串若与它们同名，加档当天这几条「未知类型判不匹配」会当场红成「unknown 处理坏了」。",
   "cases": [
     {
       "name": "title_contains 半角精确命中",
@@ -1368,7 +1368,7 @@
       "expected": true
     },
     {
-      "name": "T186 片1：认不出的类型（charging_state）单条件判不匹配，即便标题含那个值",
+      "name": "T186 片1：认不出的类型（not_a_condition_type）单条件判不匹配，即便标题含那个值",
       "rule": {
         "id": "r1",
         "name": "t",
@@ -1377,7 +1377,7 @@
         "conditions": [
           {
             "id": "c1",
-            "type": "charging_state",
+            "type": "not_a_condition_type",
             "value": "full",
             "logic": "and"
           }
@@ -1402,7 +1402,7 @@
         "conditions": [
           {
             "id": "c1",
-            "type": "charging_state",
+            "type": "not_a_condition_type",
             "value": "full",
             "logic": "and"
           },
@@ -1433,7 +1433,7 @@
         "conditions": [
           {
             "id": "c1",
-            "type": "charging_state",
+            "type": "not_a_condition_type",
             "value": "full",
             "logic": "and"
           },

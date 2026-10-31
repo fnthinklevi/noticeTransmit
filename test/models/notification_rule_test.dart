@@ -118,7 +118,7 @@ void main() {
     test('认不出的类型原样带回（不因为"这台不认得"就改写或丢掉）', () {
       final original = {
         'id': 'c1',
-        'type': 'charging_state',
+        'type': 'not_a_condition_type',
         'value': 'full',
         'logic': 'and',
       };
@@ -140,7 +140,7 @@ void main() {
     test('用户把一条认不出的条件改成认得的类型 ⇒ 原始串跟着换', () {
       final kept = Condition.fromMap({
         'id': 'c1',
-        'type': 'charging_state',
+        'type': 'not_a_condition_type',
         'value': 'full',
         'logic': 'and',
       });
@@ -149,7 +149,7 @@ void main() {
       expect(fixed.type, ConditionType.titleContains);
       expect(fixed.wireType, 'title_contains');
       // 没换类型时仍然原样带着那一串（编辑别的字段不该顺手改写类型）。
-      expect(kept.copyWith(value: 'charging').wireType, 'charging_state');
+      expect(kept.copyWith(value: 'charging').wireType, 'not_a_condition_type');
     });
 
     test('认得的类型用规范串，不用读进来时那一份', () {
