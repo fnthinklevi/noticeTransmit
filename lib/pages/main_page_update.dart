@@ -229,6 +229,9 @@ extension _MainPageUpdate on _MainPageState {
           final installed = await _updateService.installApk(
             filePath,
             sha256ByAbi: result.sha256,
+            // T203：这一发是「确认安装」的唯一落点 —— 待读的「这次更新带来了什么」
+            // 只有走这条路才有（侧载／外部链接下载的那批拿不到，首启什么都不弹）。
+            update: result,
           );
           if (!mounted || installed) return;
           // 完整性校验（签名不一致 / 版本降级）失败时必须告知用户，

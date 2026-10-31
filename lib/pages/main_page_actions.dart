@@ -501,6 +501,32 @@ extension _MainPageActions on _MainPageState {
     if (go) await _openChannelStatusPage();
   }
 
+  /// 大版本升级后首启弹一次「这次更新带来了什么」（T203；维护者 2026-10-18：只在**大版本**
+  /// 更新后的第一次打开显示）。
+  ///
+  /// 判据全在 `pickWhatsNewChangelog`（纯函数，能脱离界面逐分支测）：没有待读日志（侧载／
+  /// 没走过那次确认安装）、装上的并不是落盘那一版、这一版已经弹过 —— 三种都**什么都不弹**，
+  /// 不许弹空壳。正文那半份排版与「发现新版本」弹层同源（[UpdateChangelogBlock]），
+  /// 语言裁决也同源（`pickUpdateChangelog`），这里不新写一份。
+  /// 「以后再看」不另开入口：既有「检查更新」那一格本来就显示这一版的日志
+  /// （在首页顶栏加第三枚入口是 T43 被否过的那种形状）。
+  Future<void> _maybeShowWhatsNew() async {
+    final manager = AppUpdateManager.instance;
+    final text = await manager.readWhatsNewChangelog(
+      locale: Localizations.localeOf(context),
+    );
+    if (text == null || !mounted) return;
+
+    final l10n = AppLocalizations.of(context);
+    await IosDialogActions.showExplainer(
+      context,
+      title: l10n.whatsNewTitle,
+      body: UpdateChangelogBlock(changelog: text),
+    );
+    // 连"点外面关掉"也记成弹过：这一格的意思是一次性，不是"没读完就得再来一遍"。
+    await manager.markWhatsNewShown(manager.currentVersion);
+  }
+
   /// 通道状态页（T10）：从首页「当前推送通道」那张卡点进来。
   /// 点某一行按族进对应配置页 —— 直接复用上面那几个开页方法：
   /// webhook / email 都是"先把数据取进来、退出时把结果存回去"的形态，

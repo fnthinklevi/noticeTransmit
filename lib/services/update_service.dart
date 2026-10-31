@@ -74,15 +74,19 @@ class UpdateService {
 
   /// 安装已下载的安装包。
   /// [sha256ByAbi]：各架构安装包的期望 sha256（version.json 下发，N3 传输层校验）。
+  /// [update]：本次要装的那一版检查结果（T203：待读的「这次更新带来了什么」只从这里落盘，
+  /// 不传就是侧载／别的路径 —— 首启什么都不弹）。
   /// 返回是否成功启动安装；失败时可通过 [lastInstallBlock] 获取原因
   /// （如签名校验不通过、sha256 校验和不匹配、版本降级被拦截），UI 层应展示给用户。
   Future<bool> installApk(
     String filePath, {
     Map<String, String> sha256ByAbi = const {},
+    VersionCheckResult? update,
   }) async {
     return AppUpdateManager.instance.installApk(
       filePath,
       sha256ByAbi: sha256ByAbi,
+      update: update,
     );
   }
 

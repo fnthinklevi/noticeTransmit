@@ -453,6 +453,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       await prefs.setBool('has_launched', true);
     }
     await _maybeShowRoleGuide();
+    // T203：大版本升级后的那一句「这次更新带来了什么」——排在引导之后，
+    // 两枚都是一次性，叠着弹会把前一句顶掉。
+    await _maybeShowWhatsNew();
   }
 
   @override

@@ -1003,8 +1003,21 @@ class AppUpdateManager {
   Future<bool> installApk(
     String filePath, {
     Map<String, String> sha256ByAbi = const {},
+    VersionCheckResult? update,
   }) async {
     _lastInstallBlock = null;
+    // T203：待读的那一份日志**只在这里**落盘 —— 此刻本机还是旧版本，major/minor
+    // 那一判判得准；装完之后首启再按"落盘的目标版本 == 本机这版"决定弹不弹。
+    // 落不下只少弹一次，不许因此把安装这一发挡掉。
+    try {
+      await stageWhatsNewChangelog(
+        prefs: await SharedPreferences.getInstance(),
+        fromVersion: _currentVersion,
+        update: update,
+      );
+    } catch (e) {
+      debugPrint('落盘待读更新日志失败: $e');
+    }
     try {
       if (Platform.isAndroid) {
         final status = await Permission.requestInstallPackages.request();
@@ -1068,6 +1081,25 @@ class AppUpdateManager {
     } catch (e) {
       return false;
     }
+  }
+
+  /// 首启那一句的正文（null = 什么都不弹）。判据全在 [pickWhatsNewChangelog]（纯函数）。
+  Future<String?> readWhatsNewChangelog({required Locale locale}) async {
+    final prefs = await SharedPreferences.getInstance();
+    return pickWhatsNewChangelog(
+      pendingVersion: prefs.getString(kWhatsNewVersionKey),
+      changelogZh: prefs.getString(kWhatsNewZhKey),
+      changelogEn: prefs.getString(kWhatsNewEnKey),
+      shownVersion: prefs.getString(kWhatsNewShownKey),
+      currentVersion: _currentVersion,
+      locale: locale,
+    );
+  }
+
+  /// 弹过就记这一版（不是记布尔：每个大版本都还能再弹一次）。
+  Future<void> markWhatsNewShown(String version) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(kWhatsNewShownKey, version);
   }
 
   /// 记录本次下载的安装包路径与目标版本，供更新完成后自动清理
@@ -1163,6 +1195,94 @@ bool updateChangelogHasMore(String raw, {int maxLines = 4}) {
       .where((line) => line.trim().isNotEmpty)
       .length;
   return total > maxLines;
+}
+
+/// T203「这次更新带来了什么」那一份**待读**日志的三个键。
+///
+/// 为什么是"升级前落盘"而不是"装完再联网查一次"：查回来的是**最新**版的日志，用户隔两天
+/// 打开就可能读到"下一次的更新" —— 那是一句不实陈述（roadmap T203 把那一档否了）。
+/// 侧载／外部链接下载的那批拿不到这三枚键 ⇒ 默认什么都不弹（不许弹空壳）。
+const String kWhatsNewVersionKey = 'whats_new_version';
+const String kWhatsNewZhKey = 'whats_new_changelog_zh';
+const String kWhatsNewEnKey = 'whats_new_changelog_en';
+
+/// 弹过之后记的是**版本号**而不是布尔（与主备引导那枚同一条纪律）：每个大版本都还能再弹一次。
+const String kWhatsNewShownKey = 'whats_new_shown_version';
+
+/// 「这次更新带来了什么」的**唯一写入点**（T203；守卫钉这一处）。
+///
+/// 此刻本机装的还是旧版本，所以 major/minor 那一判在这里判得准（1.6.2→1.6.3 按
+/// 2026-10-26 的口径不落盘，build 级更不落）。返回**有没有真的落**，让调用方能留一行痕迹。
+/// `update` 为 null = 这次安装不是从"检查更新→确认安装"那条路来的（侧载），照原样不落。
+Future<bool> stageWhatsNewChangelog({
+  required SharedPreferences prefs,
+  required String fromVersion,
+  required VersionCheckResult? update,
+}) async {
+  if (update == null) return false;
+  if (!isMajorMinorUpgrade(from: fromVersion, to: update.latestVersion)) {
+    return false;
+  }
+  // 两份都是空白 ⇒ 落进去就是一句空话，首启那一枚会弹成空壳。
+  if (normalizeUpdateChangelog(update.changelog).trim().isEmpty &&
+      normalizeUpdateChangelog(update.changelogEn).trim().isEmpty) {
+    return false;
+  }
+  await prefs.setString(kWhatsNewVersionKey, update.latestVersion.trim());
+  await prefs.setString(kWhatsNewZhKey, update.changelog);
+  await prefs.setString(kWhatsNewEnKey, update.changelogEn);
+  return true;
+}
+
+/// 「大版本」口径（维护者 2026-10-26 拍：只看 major/minor 两档，build 级永不弹）。
+///
+/// 读不出前两节就返回 null —— 宁可不弹，也不拿一句猜出来的"这次更新"打扰人。
+/// 分隔符按 `.`／`-`／`+` 都切一刀：`1.7.0-beta1` 与 `1.7.0+170` 都是本仓会出现的写法，
+/// 而"读不出来"与"这一版确实小"必须分得开（返回 null 与返回 (1,7) 不是一回事）。
+({int major, int minor})? parseAppVersionHead(String version) {
+  final parts = version.trim().split(RegExp(r'[.\-+]'));
+  if (parts.length < 2) return null;
+  final major = int.tryParse(parts[0]);
+  final minor = int.tryParse(parts[1]);
+  if (major == null || minor == null) return null;
+  return (major: major, minor: minor);
+}
+
+/// 这一跳算不算"大版本"：1.6.2→1.7.0 算、1.6.2→1.6.3 不算、build 级不算。
+bool isMajorMinorUpgrade({required String from, required String to}) {
+  final a = parseAppVersionHead(from);
+  final b = parseAppVersionHead(to);
+  if (a == null || b == null) return false;
+  return a.major != b.major || a.minor != b.minor;
+}
+
+/// 首启该不该弹、弹什么（返回 null = **什么都不弹**，不许弹空壳）。
+///
+/// 三条判据各自都在防一句不实陈述：
+/// ① 没有待读日志（侧载／没走过那次确认安装）⇒ 无话可说；
+/// ② 落盘的目标版本与本机现在装的这版**对不上** ⇒ 那份日志说的不是"这次更新"
+///    （后来又升了一版，或那一次压根没装上去）；
+/// ③ 这一版已经弹过 ⇒ 别把"一次性"变成每次启动。
+String? pickWhatsNewChangelog({
+  required String? pendingVersion,
+  required String? changelogZh,
+  required String? changelogEn,
+  required String? shownVersion,
+  required String currentVersion,
+  required Locale locale,
+}) {
+  final pending = pendingVersion?.trim() ?? '';
+  if (pending.isEmpty) return null;
+  if (pending != currentVersion.trim()) return null;
+  if (shownVersion?.trim() == pending) return null;
+  final text = normalizeUpdateChangelog(
+    pickUpdateChangelog(
+      zh: changelogZh ?? '',
+      en: changelogEn ?? '',
+      locale: locale,
+    ),
+  ).trim();
+  return text.isEmpty ? null : text;
 }
 
 class VersionCheckResult {

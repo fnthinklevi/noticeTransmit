@@ -5793,4 +5793,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String remoteReasonMissSeen(int n) {
     return '本页有 $n 条理由本机还没写过说明（原文见各行）。';
   }
+
+  @override
+  String get whatsNewTitle => '这次更新带来了什么';
 }

@@ -3454,5 +3454,6 @@
   "remoteReasonHelpIntro": "These codes can appear in the Reason field. A code not listed here is one we have not written an explanation for yet; it is shown together with its raw text rather than replaced by a guess.",
   "remoteReasonHelpFamilyNote": "Codes shaped like \"family:detail\": the family states the cause and the detail is carried through verbatim (we do not rewrite it).",
   "remoteReasonMissSeen": "This page has {n} reason(s) with no explanation yet (raw codes are shown on each row).",
-  "@remoteReasonMissSeen": {"placeholders": {"n": {"type": "int"}}}
+  "@remoteReasonMissSeen": {"placeholders": {"n": {"type": "int"}}},
+  "whatsNewTitle": "What's new in this update"
 }

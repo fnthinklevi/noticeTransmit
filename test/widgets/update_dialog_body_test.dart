@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/update_manager.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/update_dialog_body.dart';
@@ -83,5 +84,60 @@ void main() {
     expect(find.byKey(const ValueKey('update-changelog-toggle')), findsNothing);
     expect(find.text('第一行'), findsOneWidget);
     expect(find.text('第二行'), findsOneWidget);
+  });
+
+  // ── T203：首启那枚弹层单独用这一半（弹层自己的标题已经说了同一件事）──────
+  Future<void> pumpBlock(
+    WidgetTester tester, {
+    required String changelog,
+    String? heading,
+  }) async {
+    await tester.pumpWidget(
+      AppRoot(
+        locale: const Locale('zh'),
+        dark: false,
+        home: CupertinoPageScaffold(
+          child: SingleChildScrollView(
+            child: UpdateChangelogBlock(changelog: changelog, heading: heading),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('给了小标题就画（「发现新版本」那一枚的形状没退化）', (tester) async {
+    final zh = lookupAppLocalizations(const Locale('zh'));
+    await pumpBlock(
+      tester,
+      changelog: '第一行\n第二行\n第三行\n第四行\n第五行',
+      heading: zh.updateChangelogTitle,
+    );
+    expect(find.text(zh.updateChangelogTitle), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('update-changelog-toggle')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('不给小标题就不画，但摘要与折叠照常（T203 首启那一枚）', (tester) async {
+    final zh = lookupAppLocalizations(const Locale('zh'));
+    await pumpBlock(tester, changelog: '第一行\n第二行\n第三行\n第四行\n第五行');
+    expect(
+      find.text(zh.updateChangelogTitle),
+      findsNothing,
+      reason: '弹层标题已经说了同一件事，正文再画一行就是同一格两个作者',
+    );
+    expect(find.text('第一行'), findsOneWidget);
+    expect(find.textContaining('第五行'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('update-changelog-toggle')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('update-changelog-full')),
+      findsOneWidget,
+      reason: '不画标题不等于不画折叠 —— 全文照样要点开才铺开',
+    );
+    expect(find.textContaining('第五行'), findsOneWidget);
   });
 }

@@ -6154,4 +6154,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String remoteReasonMissSeen(int n) {
     return 'This page has $n reason(s) with no explanation yet (raw codes are shown on each row).';
   }
+
+  @override
+  String get whatsNewTitle => 'What\'s new in this update';
 }

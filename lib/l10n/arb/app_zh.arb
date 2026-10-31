@@ -3477,5 +3477,6 @@
   "remoteReasonHelpIntro": "下面这些码会出现在「理由」那一格；没有列出的码属于本机还没写过说明的那一类，它会连同原文一起显示，不会变成一句猜出来的原因。",
   "remoteReasonHelpFamilyNote": "形如「族：细节」的码：族说明原因，细节原样带出（本机不替它改写）。",
   "remoteReasonMissSeen": "本页有 {n} 条理由本机还没写过说明（原文见各行）。",
-  "@remoteReasonMissSeen": {"placeholders": {"n": {"type": "int"}}}
+  "@remoteReasonMissSeen": {"placeholders": {"n": {"type": "int"}}},
+  "whatsNewTitle": "这次更新带来了什么"
 }

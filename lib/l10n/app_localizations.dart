@@ -10367,6 +10367,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'本页有 {n} 条理由本机还没写过说明（原文见各行）。'**
   String remoteReasonMissSeen(int n);
+
+  /// No description provided for @whatsNewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次更新带来了什么'**
+  String get whatsNewTitle;
 }
 
 class _AppLocalizationsDelegate
