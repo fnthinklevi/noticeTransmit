@@ -8,6 +8,7 @@
 
 const bcrypt = require('bcryptjs');
 
+const metrics = require('./metrics');
 const store = require('./store');
 
 // ========== 安全 HTTP 头 ==========
@@ -118,6 +119,9 @@ function ipBlockMiddleware(req, res, next) {
   const ip = store.getClientIp(req);
 
   if (store.isIpBlocked(ip)) {
+    // T187 片1：这一发"因封锁被拒"要留痕。两个拒绝点（这里 + `/api/admin/login` 的前置检查）
+    // 都记同一枚计数器 ⇒ 读数＝"封锁真的在拦人"的次数，而不只是"封锁表里有几个人"。
+    metrics.security.ipBlockRefusals.inc();
     const blockedIPs = store.getBlockedIPs();
     const entry = blockedIPs.find((item) => item.ip === ip);
     const remainingHours = Math.ceil((entry.unblockTime - Date.now()) / (1000 * 60 * 60));

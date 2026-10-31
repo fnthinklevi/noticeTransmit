@@ -285,6 +285,8 @@ Provided via `.env` (template: `server/.env.example`) or real environment variab
 | `RATE_LIMIT_FNTHINK_MAX` | Rate limit for the **whole** public face (`/api/fnthink/*`), per IP per minute — a flood brake only. The per-endpoint quotas (per IP: `register` = 30/min · 3000/day; per device address: the three pairing steps and `/message` = 60/min · 5000/day; `poll`/`ack` derived from `presence` = 14/min, no daily cap) all come from the contract's `limits` section and are **not** configured here — tune the contract for those; this knob only bounds "one IP fanning out across every endpoint" | `300` |
 | `FNTHINK_CONTRACT` | Override for the contract file path. The default is derived from the code location (`lib/fnthink`, three levels up, then `protocol/fnthink-v1.json` — the repo-root copy in the repository). **Set an absolute path explicitly when deploying**: the derived location changes with how deep you place the server code | auto-detected |
 | `ECHO_TOKEN` | Secret for `/api/echo` (the T09 generic intake echo). **If unset, the endpoint always returns 404**, indistinguishable from an unknown route | unset (endpoint off) |
+| `METRICS_ENABLED` | Master switch for the metrics surface (T187 slice 1). **On by default**; `0` / `false` / `no` / `off` (case-insensitive) stops both collection and the endpoint | on |
+| `METRICS_TOKEN` | Read secret for `GET /metrics` (Prometheus text surface). Only announced when set, via `Authorization: Bearer <token>`; **when unset the endpoint returns 404, indistinguishable from an unknown route** — a deliberate fail-closed default: a metrics page is operational read-out meant for the outside world. Surrounding whitespace is trimmed, so a trailing space in `.env` is not treated as unset | unset (endpoint off) |
 | `DISABLE_IP_BLOCKING` | `1` / `true` / `yes` disables IP blocking (failures are still counted, nothing is rejected) — emergency escape hatch for a wrongly blocked NAT egress | off |
 
 Generate the two secrets (after `npm install`; substitute real values, **never paste them into a doc or commit them**):
@@ -351,6 +353,7 @@ All endpoints (admin routes in `lib/routes/{auth,version,alerts,ops}.js`; public
 | `GET`  | `/api/version/region` | public (exempt from IP blocks) | Geo read-back `{country,source,edge}` — reports the country code the edge saw; **the client decides which host to use**. ⚠ whether that header is trustworthy must be declared by the deployment (`FNTHINK_GEO_TRUST`); undeclared means `country:null` |
 | `GET`  | `/health` | public (exempt from IP blocks) | Health check: `status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch` (`null` = no versioned request seen yet) |
 | `POST` | `/api/echo` | `ECHO_TOKEN` (404 when unset) | Generic intake echo (T09; used for generic stamping) |
+| `GET`  | `/metrics` | `METRICS_TOKEN` (404 when unset) | Prometheus text exposition, hand-written with zero new dependencies (T187 slice 1). Process / HTTP / security families; labels are route **templates** and bucket names only — never raw paths, bodies, credentials or address codes |
 | `POST/GET` | `/api/fnthink/*` | per route (signature / secret / rate limit) | Fnthink surface, **20 routes**: 16 protocol routes + 4 `/p/…` intake forms; full table below |
 | `POST` | `/api/admin/login` | Token (+ OTP / recovery code) | Login, returns `sessionId` |
 | `POST` | `/api/admin/logout` | Session/Token | Revoke the current session |
@@ -455,6 +458,45 @@ GET /health
 
 For monitoring service liveness; currently returns `status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch`. The last field is the T155 contract-version echo: `null` = no versioned request seen yet, otherwise `match` / `mismatch` / `unreadable`. **A mismatch is reported with HTTP 200 and never blocks service.** Exempt from IP blocking along with `/api/version/*`, so a wrong block never stops existing devices from checking for updates.
 
+### 5. Metrics surface (`GET /metrics`, T187 slice 1)
+
+```
+GET /metrics
+Authorization: Bearer <METRICS_TOKEN>
+```
+
+Prometheus text exposition (`text/plain; version=0.0.4`), **hand-written with zero new dependencies** — pulling in `prom-client` would contradict the deliberately tiny server dependency surface, and all this needs are counters, histograms and scrape-time gauges.
+
+Both gates read `process.env` **per request** (editing `.env` needs no restart):
+
+- `METRICS_ENABLED` off, or `METRICS_TOKEN` unset ⇒ the router calls `next()` and the app-level **404** answers, byte-identical to an unknown route. ⚠ When troubleshooting, do not go looking for a 401: that only appears when a token *is* configured and this request did not carry the right one.
+- Wrong or missing token while configured ⇒ `401 {"error":"unauthorized"}`, nothing else.
+- The secret travels **only** in a header, never `?token=` (a query string lands in the reverse proxy access log — the same rule as T89).
+
+Three families (all prefixed `notice_`):
+
+| Family | Metrics | Labels |
+|---|---|---|
+| process | `notice_process_up` / `notice_process_uptime_seconds` / `notice_process_heap_used_bytes` / `notice_process_heap_total_bytes` / `notice_process_rss_bytes` / `notice_process_event_loop_lag_ms` / `notice_process_build_info` | lag quantiles carry `quantile` (0.5 / 0.9 / 0.99 over the window since the previous scrape, reset each scrape; with no samples the family is simply absent for that scrape — no fabricated zero); `build_info` carries `node` |
+| HTTP | `notice_http_requests_total` / `notice_http_request_duration_ms` (`_bucket` / `_sum` / `_count`) / `notice_http_inflight_requests` | `route` / `method` / `status` |
+| security | `notice_security_auth_failures_total` / `notice_security_ip_block_refusals_total` / `notice_security_ip_blocks_applied_total` / `notice_metrics_series_overflow_total` | `kind` ∈ `admin_token` / `login_2fa` / `recovery_rebind` (closed vocabulary, each seeded with a 0 at startup); `family` only on the overflow counter |
+
+⚠ **Cardinality and privacy** (so the next person adding a metric does not have to guess): `route` is either a route **template** (e.g. `/api/fnthink/p/:endpointId/:secret` — parameter *names*, never their values) or one of the four `store.rateLimitBucket()` names; `method` goes through a nine-value whitelist and folds into `OTHER` otherwise. Raw paths, query strings, request bodies, credentials, tokens and address codes **never** reach the exposition — a random path used as a label is a permanent new time series (unbounded memory), and address codes happen to live in path segments. Beyond 500 series in one family new label sets are dropped **and counted** in `notice_metrics_series_overflow_total`: a drop must stay visible.
+
+⚠ This surface is **not** in the IP-blocking exemption list (unlike `/health`, `/api/version`, `/api/fnthink`; decided in slice 1): being flooded is exactly when you need the trace, and blocking it costs read-out only. It falls under the general rate limiter (`static` bucket, default 60 req/min/IP); a 15s Prometheus scrape is 4/min. Raise `RATE_LIMIT_GENERAL_MAX` for many scrapers or denser intervals.
+
+Scrape config sample (token read from a file, not pasted into yaml):
+
+```yaml
+scrape_configs:
+  - job_name: notice-server
+    metrics_path: /metrics
+    authorization:
+      credentials_file: /etc/prometheus/notice-metrics-token
+    static_configs:
+      - targets: ["127.0.0.1:3456"]
+```
+
 ### Error codes
 
 | HTTP | `code` | Meaning | What to do |
@@ -469,7 +511,7 @@ For monitoring service liveness; currently returns `status` / `timestamp` / `sup
 
 ### How rate limiting counts
 
-- The key is `IP:route-bucket`. `store.rateLimitBucket()` collapses the requester-controlled path into three buckets: `api-admin` (`/api/admin*`), `api` (other `/api/*`), `static` (everything else). Probing random 404 paths no longer creates one entry each.
+- The key is `IP:route-bucket`. `store.rateLimitBucket()` collapses the requester-controlled path into four buckets: `api-admin` (`/api/admin*`), `api-fnthink` (`/api/fnthink*`), `api` (other `/api/*`), `static` (everything else). Probing random 404 paths no longer creates one entry each.
 - 60-second window: `static` / `api` allow `RATE_LIMIT_GENERAL_MAX` (default 60) requests per IP per minute; `/api/admin` additionally gets `RATE_LIMIT_AUTH_MAX` (default 5).
 - Hard cap of 20 000 entries in the limit table: on overflow expired entries are purged first, and if still over the cap the request is *not* counted (pass-through rather than self-DoS).
 - Every 60 s the counters are cleaned up and flushed to `data/rate_limit.json` (only in-window entries; the file is deleted when everything expired).

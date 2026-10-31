@@ -12,6 +12,7 @@ const bcrypt = require('bcryptjs');
 const QRCode = require('qrcode');
 
 const store = require('../store');
+const metrics = require('../metrics');
 const { verifyOtp, generateSecret, generateURI } = require('../otp');
 const { asyncHandler, authMiddleware, verifyToken } = require('../middleware');
 
@@ -24,6 +25,9 @@ router.post(
     const ip = store.getClientIp(req);
 
     if (store.isIpBlocked(ip)) {
+      // T187 片1：与 `middleware.ipBlockMiddleware` 同一枚计数器——两个拒绝点合起来才是
+      // "封锁真的在拦人"的读数（封锁表里有条目 ≠ 有条目被用上）。
+      metrics.security.ipBlockRefusals.inc();
       const blockedIPs = store.getBlockedIPs();
       const entry = blockedIPs.find((item) => item.ip === ip);
       const remainingHours = Math.ceil((entry.unblockTime - Date.now()) / (1000 * 60 * 60));
@@ -39,6 +43,9 @@ router.post(
 
     const isValidToken = await verifyToken(token);
     if (!isValidToken) {
+      // T187 片1：管理口令猜错。⚠ 这一条**不**进 recordFailedAttempt（既有设计：只有 2FA
+      // 失败累计到 IP 封锁），所以它是指标面上唯一能看见"有人在猜管理口令"的地方。
+      metrics.security.authFailures.inc({ kind: 'admin_token' });
       return res.status(401).json({ code: -1, message: 'Token 错误' });
     }
 
@@ -106,6 +113,10 @@ router.post(
         recoveryCodeCount: Array.isArray(config.recoveryCodes) ? config.recoveryCodes.length : 0,
       });
       const isBlocked = store.recordFailedAttempt(ip);
+      // T187 片1：2FA 校验失败计数 + "这次真的落进了封锁"。⚠ 两个数不是一回事：
+      // 失败次数一直涨、封锁只在窗口内攒够那一次才发生，所以各记一枚。
+      metrics.security.authFailures.inc({ kind: 'login_2fa' });
+      if (isBlocked) metrics.security.ipBlocksApplied.inc();
       const remainingAttempts = store.getRemainingAttempts(ip);
 
       if (isBlocked) {
@@ -234,6 +245,10 @@ router.post(
       // 校验失败计入失败次数，受 IP 封锁保护（与登录路径语义一致）
       console.error('[rebind] 恢复码验证失败，IP:', ip);
       const isBlocked = store.recordFailedAttempt(ip);
+      // T187 片1：与 /login 的 2FA 失败同一条判据、不同 kind（两条路的处置完全不同：
+      // 一条是验证码猜错，一条是恢复码重放/口述错）。
+      metrics.security.authFailures.inc({ kind: 'recovery_rebind' });
+      if (isBlocked) metrics.security.ipBlocksApplied.inc();
       if (isBlocked) {
         return res.status(403).json({
           code: -3,

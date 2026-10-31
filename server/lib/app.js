@@ -12,6 +12,7 @@ const path = require('path');
 
 const store = require('./store');
 const { isContractAvailabilityError, CONTRACT_SHAPE } = require('./fnthink/contract');
+const metrics = require('./metrics');
 const middleware = require('./middleware');
 const authRoutes = require('./routes/auth');
 const alertRoutes = require('./routes/alerts');
@@ -28,6 +29,12 @@ app.disable('x-powered-by');
 // 否则 IP 封锁与限流看到的都是代理 IP；而未挂反代时若信任 X-Forwarded-For，
 // 攻击者伪造该头即可伪造 IP 绕过封锁/限流（fail-safe 默认）。
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0));
+
+// T187 片1：指标采集钩子挂在**整条链最前面**（连 CORS 都在它之后）。
+// 理由不是"顺手"：被 CORS 拒、被体积闸拒、被 IP 封锁、被限流的每一发都要留痕，
+// 而排障时最想看见的恰好是"被打爆的那一段"——它全发生在原有中间件之前。
+// ⚠ 它只加一个 finish 钩子和一次 hrtime，不改任何响应；关掉（METRICS_ENABLED=0）时直接 next()。
+app.use(metrics.createMetricsMiddleware({ bucketOf: store.rateLimitBucket }));
 
 // CORS 白名单：默认仅允许无 Origin 的请求（App 原生 http / curl 等服务端调用）与
 // ALLOWED_ORIGINS 中**逐条列出**的来源。多个来源用逗号分隔。
@@ -89,6 +96,11 @@ app.use('/api/admin', alertRoutes);
 // 这些是会动的写操作，而"一键全部失效"的误点代价是一整个设备群失联。
 app.use('/api/admin', opsRoutes);
 app.use('/', versionRoutes);
+// T187 片1：`/metrics`（Prometheus 文本面）。⚠ 两道门都在**请求时**读 env：
+// `METRICS_ENABLED` 关或 `METRICS_TOKEN` 没配 ⇒ 透传给应用级 404，与未知路由同形
+// （与下面 echo 同一条取向：新增对外读数面默认不存在，比"存在但拒绝"更稳）。
+// ⚠ 这里刻意**不**给它进 IP 封锁豁免名单，理由写在 lib/metrics.js 顶部。
+app.use('/metrics', metrics.createMetricsRouter());
 // T09：token 门控 echo 端点（generic 盖章用的收件方，维护者 2026-10-17 拍「加就行」）。
 // ⚠ `ECHO_TOKEN` 没配 ⇒ 请求进来一律 404，与未知路由同形 —— 新增公网入面默认
 //   不存在，比"存在但拒绝"更稳。token 在请求时读 env，测试逐条换环境不用重启。

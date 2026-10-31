@@ -27,6 +27,9 @@ services:
       - ADMIN_TOKEN_HASH=${ADMIN_TOKEN_HASH:?ADMIN_TOKEN_HASH 必须给出}
       # 反代（§14.5）后置时必给，否则限流/封锁按代理 IP 误伤全站
       - TRUST_PROXY=${TRUST_PROXY:-1}
+      # T187 片1 指标面：METRICS_ENABLED 缺省即开；METRICS_TOKEN 没配 ⇒ /metrics 与未知路由同形 404。
+      # 即使只在容器网络里被采集也照样配 token —— 只在内网不是不配的理由（#139 那次是静态根暴露）。
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
       # - UPDATE_REGION=global
     volumes:
       - ./data:/app/data

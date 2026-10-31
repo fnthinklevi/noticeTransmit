@@ -369,6 +369,28 @@ curl -sS -H 'cf-ipcountry: US' https://notice.fnthink.com/api/version/region
 
 ---
 
+### 4.5 指标面 `/metrics`（T187 片1，2026-10-31 起）
+
+自部署排障以前只有两条腿：日志 + `/health` 的二值位。这一面补上第三条（Prometheus 文本格式，
+手写输出、服务端零新依赖）。
+
+1. `.env` 里配读口令：`METRICS_TOKEN=<随机串>`。**没配就出声不了** —— `/metrics` 回 404，与未知路由
+   同形（刻意的 fail-closed 默认，与 `ECHO_TOKEN` 一条取向；⚠ 所以排障时别按 401 找它，401 只在
+   '配了 token 而这一发没带对'时出现）。要整条关掉写 `METRICS_ENABLED=0`。
+2. 本机验证（口令走请求头，**不要**写进 query —— 那会落进反代 access log）：
+
+   ```bash
+   curl -s -H "Authorization: Bearer $METRICS_TOKEN" http://127.0.0.1:3456/metrics | head -20
+   ```
+
+   看到 `notice_process_*` / `notice_http_*` / `notice_security_*` 三族即成立；`curl` 不带口令应回 401。
+3. 反代口径：`/metrics` **不加进** `notice.*` / `push.*` 两个 server block 的 location 白名单。
+   跨机器采集时只从内网那侧反代，或者继续让同机采集器打 `127.0.0.1:3456`。
+   ⚠ 它同时**不进 IP 封锁豁免名单**（`/health`、`/api/version`、`/api/fnthink` 三条豁免的理由都不适用于它：
+   被洪水打正是需要留痕的场景，而封掉指标面只损失读数）。
+4. Docker：`docker-compose.yml` 已透传 `METRICS_TOKEN=${METRICS_TOKEN:-}`，而容器 HEALTHCHECK
+   仍只打 `/health`（指标面挂了不影响容器存活判定 —— 这一条有用例钉着）。
+
 ## 5. 日常更新（每次改动上线）
 
 ```bash

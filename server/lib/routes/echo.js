@@ -13,19 +13,13 @@
 // 就是"服务器到底收到了什么"，预览截在 500 字符 —— 足够看懂一条通知，
 // 不会把一条大 payload 整个灌进日志。
 
-const crypto = require('crypto');
-
 const express = require('express');
 
-const PREVIEW_MAX = 500;
+// 比对规则的唯一作者是 `lib/token_compare.js`（T187 片1 抽出来的）：`/metrics` 的
+// Bearer 门需要同一条，两处各写一份的代价是下一个加 token 门的人照着错的那份抄。
+const { tokenMatches } = require('../token_compare');
 
-function tokenMatches(actual, expected) {
-  if (!actual || !expected) return false;
-  const a = Buffer.from(String(actual));
-  const b = Buffer.from(String(expected));
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
+const PREVIEW_MAX = 500;
 
 function bodyTextOf(req) {
   // express.json 已在全局挂（app.js）：JSON 进来是对象；发不出合法 JSON 的

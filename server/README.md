@@ -229,6 +229,8 @@ server/
 | `RATE_LIMIT_FNTHINK_MAX`     | 公网面（`/api/fnthink/*`）**整个面**每 IP 每分钟的上限，只当洪水闸用。各端点真正的额度（按 IP 的 `register`＝30/分·3000/天；按设备地址的配对三步与 `/message`＝60/分·5000/天；`poll`/`ack` 从 `presence` 节奏推导＝14/分、无日档）全部从契约 `limits` 段读，**不在这里配** —— 想调它们改契约，改这一项只影响"一个 IP 扇出打全部端点"的兜底 | `300` |
 | `FNTHINK_CONTRACT`           | 契约文件路径覆盖。默认从代码位置算：`lib/fnthink` 往上三级进 `protocol/fnthink-v1.json`（仓库里就是根目录那份）。**部署时建议显式写死一个绝对路径** —— 算出来的位置随"server 的内容放在哪一级"而变，写死最不容易错 | 自动定位 |
 | `ECHO_TOKEN`                 | `/api/echo` 的口令（T09 通用收件回声口）。**未配置时该端点一律 404**，与未知路由同形 | 未设（端点关闭） |
+| `METRICS_ENABLED`            | 指标面总开关（T187 片1）。**缺省＝开**；`0` / `false` / `no` / `off`（大小写不敏感）＝既不采集也不出声 | 开 |
+| `METRICS_TOKEN`              | `GET /metrics` 的读口令（Prometheus 文本面）。配了才出声，走 `Authorization: Bearer <token>`；**未配置时该端点一律 404，与未知路由同形** —— 刻意 fail-closed：指标面是给外面看的运维读数，不该因为顺手就默认挂到公网上。两侧空白会被吃掉，`.env` 里的尾随空格不算漏配 | 未设（端点关闭） |
 | `DISABLE_IP_BLOCKING`        | `1` / `true` / `yes` 时关闭 IP 封锁（仍统计失败次数，不执行拦截），用于 NAT 出口误封时应急 | 关闭 |
 
 生成两个密钥（先 `npm install`，占位符自行替换为真实值，**不要写进任何文档或提交**）：
@@ -399,6 +401,45 @@ GET /health
 
 用于监控服务是否存活；当前返回 `status` / `timestamp` / `supportedMajor` / `contractVersion` / `protocolVersion` / `clientContractVersionMismatch`。最后一项是 T155 的契约版本关联结论：`null` = 还没收到过带版本的请求，`match` / `mismatch` / `unreadable` 三档；**不一致时仍回 200，只报不拦**。与 `/api/version/*` 一并豁免 IP 封锁（NAT 共享出口下误封不会殃及全体设备的更新检查）。
 
+### 5. 指标面（`GET /metrics`，T187 片1）
+
+```
+GET /metrics
+Authorization: Bearer <METRICS_TOKEN>
+```
+
+Prometheus 文本 exposition（`text/plain; version=0.0.4`），**手写、零新依赖**（引 `prom-client` 与服务端'依赖面极简'相悖，这里只需要计数器 / 直方图 / 采集时求值三种原语）。
+
+两道门，都在**每次请求时**读 env（改 `.env` 不用重启进程）：
+
+- `METRICS_ENABLED` 关 或 `METRICS_TOKEN` 没配 ⇒ 透传给应用级 **404**，与未知路由逐字节同形。⚠ 排障时别按 401 找它 —— 401 只在'配了 token 而这一发没带对'时才出现。
+- 带了 token 但不对 ⇒ `401 {"error":"unauthorized"}`，不回显比对过什么。
+- 口令**只**走请求头，不走 `?token=`（query 会落进反代 access log，与 T89'口令不进日志'同一条纪律）。
+
+三族读数（全部带 `notice_` 前缀）：
+
+| 族 | 指标 | 标签 |
+|---|---|---|
+| 进程面 | `notice_process_up` / `notice_process_uptime_seconds` / `notice_process_heap_used_bytes` / `notice_process_heap_total_bytes` / `notice_process_rss_bytes` / `notice_process_event_loop_lag_ms` / `notice_process_build_info` | 滞后那一族带 `quantile`（0.5 / 0.9 / 0.99，窗口＝上次抓取至今、抓完重置；没有样本时这一族这一次**不出**，不编 0）；`build_info` 带 `node` |
+| HTTP 面 | `notice_http_requests_total` / `notice_http_request_duration_ms`（`_bucket` / `_sum` / `_count`）/ `notice_http_inflight_requests` | `route` / `method` / `status` |
+| 安全面 | `notice_security_auth_failures_total` / `notice_security_ip_block_refusals_total` / `notice_security_ip_blocks_applied_total` / `notice_metrics_series_overflow_total` | `kind` ∈ `admin_token` / `login_2fa` / `recovery_rebind`（封闭词表，启动即各记一个 0）；`family` 只在溢出那枚 |
+
+⚠ **基数与隐私口径**（写在这儿，是为了下次加指标的人不必再猜）：`route` 只可能是**路由模板**（形如 `/api/fnthink/p/:endpointId/:secret`，段里是参数名而不是取值）或 `store.rateLimitBucket()` 那四个桶名；`method` 走九枚白名单，词表外折成 `OTHER`。原始路径、query、请求正文、凭据、token、地址码**永不**进指标 —— 一条随机路径若被当成标签，就是一条永久新增的时间序列（内存无上限，而地址码恰好住在路径段里）。一个家族超过 500 条序列后新的标签组合被丢弃，并同时记进 `notice_metrics_series_overflow_total`：丢弃必须看得见。
+
+⚠ 这一面**不进 IP 封锁豁免名单**（与 `/health`、`/api/version`、`/api/fnthink` 三条不同，片1 定稿）：被洪水打的时候正是最需要留痕的时候，而封掉它只损失读数、不损失任何用户功能。它吃全局那把限流（`static` 桶，默认 60 次/分/IP）；Prometheus 15s 抓取间隔＝4 次/分远在阈值内，采集器多或间隔更密时抬 `RATE_LIMIT_GENERAL_MAX`。
+
+抓取配置样例（token 从文件读，不落进 yaml 明文）：
+
+```yaml
+scrape_configs:
+  - job_name: notice-server
+    metrics_path: /metrics
+    authorization:
+      credentials_file: /etc/prometheus/notice-metrics-token
+    static_configs:
+      - targets: ["127.0.0.1:3456"]
+```
+
 ### 错误码约定
 
 | HTTP | `code` | 含义 | 处理建议 |
@@ -413,7 +454,7 @@ GET /health
 
 ### 限流的计数口径
 
-- 限流键为 `IP:路由桶`，桶由 `store.rateLimitBucket()` 把请求者可控的任意路径收敛为三类：`api-admin`（`/api/admin*`）、`api`（其他 `/api/*`）、`static`（其余全部路径）。404 探测串、随机 query 不再各自产生记录。
+- 限流键为 `IP:路由桶`，桶由 `store.rateLimitBucket()` 把请求者可控的任意路径收敛为四类：`api-admin`（`/api/admin*`）、`api-fnthink`（`/api/fnthink*`）、`api`（其他 `/api/*`）、`static`（其余全部路径）。404 探测串、随机 query 不再各自产生记录。
 - 窗口 60 秒：`static` / `api` 桶每 IP 每分钟 `RATE_LIMIT_GENERAL_MAX`（默认 60）次；`/api/admin` 在其之上再叠加 `RATE_LIMIT_AUTH_MAX`（默认 5）次的认证类限流。
 - 限流表条目硬上限 20 000：超限时先清理过期项，仍超限则本次不记账（放行而非拒绝），避免内存被打爆。
 - 每 60 秒定时清理并落盘 `data/rate_limit.json`（只保存当前窗口内的记录，全部过期即删除该文件）。
