@@ -2001,17 +2001,31 @@ class DatabaseHelper
 
   /// 还没到终态的那几条（`pending` / `executing`）。状态栏撤销那一格要读它们 ——
   /// 而它读的不是"全部历史再自己滤"，那会让撤销那一格在历史很长时翻不到。
-  Future<List<FnthinkRemoteExecutionRecord>>
-  loadUnsettledRemoteExecutions() async {
+  ///
+  /// [direction] 传 `in` = 本机要执行的那一发；传 `out` = 我在等对面回执的那一发；
+  /// null = 两向一起（发件看守的「还有在等的吗」）。
+  ///
+  /// ⚠ T200 起**清扫必须按方向分档**：`in` 行被系统打断 ⇒ 真的没做成
+  /// （`failed/interrupted`）；`out` 行「没拿到回执」只是**状态未知**，把它写成 failed
+  /// 就是把一条可能已执行完的指令说成失败。方向判据要能被调用方表达。
+  Future<List<FnthinkRemoteExecutionRecord>> loadUnsettledRemoteExecutions({
+    String? direction,
+  }) async {
     final db = await database;
+    final where = StringBuffer('state IN (?, ?)');
+    final args = <Object?>[
+      RemoteExecutionStates.pending,
+      RemoteExecutionStates.executing,
+    ];
+    if (direction != null) {
+      where.write(' AND direction = ?');
+      args.add(direction);
+    }
     final rows = await db.query(
       FnthinkRemoteExecutionRecord.table,
       orderBy: 'created_at DESC, exec_id ASC',
-      where: 'state IN (?, ?)',
-      whereArgs: [
-        RemoteExecutionStates.pending,
-        RemoteExecutionStates.executing,
-      ],
+      where: where.toString(),
+      whereArgs: args,
     );
     return rows.map(FnthinkRemoteExecutionRecord.fromMap).toList();
   }

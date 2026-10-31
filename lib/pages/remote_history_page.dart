@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/delivery_status.dart';
 import '../services/fnthink_remote_reason_words.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_contract_loader.dart';
@@ -341,12 +342,14 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
               fnthinkRemoteOutcomeText(l10n, row.result),
             ),
           ),
-        if (row.reason.isNotEmpty)
+        if (row.reason.isNotEmpty && row.reason != deliveryNoReceiptReason)
           FnthinkNote(
             keyName: 'remote-history-reason-${row.execId}',
             // 理由由词表那枚唯一作者翻成人话；词表外的**原样带出**（不编）。
             // ⚠ 不许退回 `row.reason`：那会让屏上同时出现人话与机器词，
             //   而用户分不清哪句是系统的结论（roadmap T144 那句「半翻比不翻更坏」）。
+            // ⚠ T200：`no-receipt` 那一格已经由**状态词**说全（"这一轮没拿到回执，状态未知"），
+            //   再画一行理由就是同一件事说两遍。
             text: l10n.remoteHistoryReason(remoteReasonText(row.reason, l10n)),
           ),
         // ⚠ 已终态的那一行**不给**这一下：它在界面上会是一个点了没反应的按钮，
@@ -394,6 +397,7 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
         l10n,
         row.state,
         knownStates: _contract?.remoteExecutionStates,
+        reason: row.reason,
       );
 }
 

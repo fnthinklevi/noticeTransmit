@@ -25,6 +25,7 @@ import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_delivery_link_store.dart';
 import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_receipt_watchdog.dart';
 import '../services/fnthink_receiver_service.dart';
 import '../services/fnthink_l3_local_state.dart';
 import '../services/fnthink_remote_command_handler.dart';
@@ -33,6 +34,7 @@ import '../services/fnthink_remote_runner.dart';
 import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_remote_wiring.dart';
 import '../models/notification_record.dart';
+import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_notification_report.dart';
 import '../services/fnthink_call_log_report.dart';
 import '../services/fnthink_location_report.dart';
@@ -119,9 +121,51 @@ void setupLocator() {
   getIt.registerLazySingleton<FnthinkPresenceScheduler>(
     () => FnthinkPresenceScheduler(contracts: getIt<FnthinkContractLoader>()),
   );
+  // T194 A 档：发件回执看守。注册必须排在协调者之前（它的 sync/receiveRound 闭包在**被调用时**
+  // 才取协调者，所以这里只登记、不解析）。判据两条都读本机事实：
+  //  - 通知历史里幻念那一格仍 pending/queued ⇒ 有发件在等回执；
+  //  - 远程执行表里 `direction=out` 仍未终态 ⇒ 等对面那一段回执（骑既有收货循环，不开第二轮询）。
+  getIt.registerLazySingleton<FnthinkReceiptWatchdog>(
+    () => FnthinkReceiptWatchdog(
+      hasWaiting: () async {
+        try {
+          final rows = await DatabaseHelper()
+              .getNotificationsWithUnsettledDelivery(
+                beforeMs: DateTime.now().millisecondsSinceEpoch + 1,
+                limit: 500,
+              );
+          for (final row in rows) {
+            if (fnthinkDeliveryStillAwaitingReceipt(
+              NotificationRecord.fromMap(row).deliveryStatus,
+            )) {
+              return true;
+            }
+          }
+        } catch (e) {
+          debugPrint('[fnthink] 发件看守读未决送达失败（按没有在等的处理）：$e');
+        }
+        return false;
+      },
+      sync: () async =>
+          (await getIt<FnthinkReceiveCoordinator>().syncReceipts()).applied,
+      remoteWaiting: () async {
+        try {
+          final rows = await DatabaseHelper().loadUnsettledRemoteExecutions();
+          return rows.any((r) => r.direction == kFnthinkRemoteDirectionOut);
+        } catch (e) {
+          debugPrint('[fnthink] 发件看守读未决远程执行失败（按没有在等的处理）：$e');
+          return false;
+        }
+      },
+      receiveRound: () async {
+        await getIt<FnthinkReceiveCoordinator>().receiveOnce();
+      },
+    ),
+  );
   getIt.registerLazySingleton<FnthinkReceiveCoordinator>(
     () => FnthinkReceiveCoordinator(
       contracts: getIt<FnthinkContractLoader>(),
+      receiptWatchdog: getIt<FnthinkReceiptWatchdog>(),
       signer: FnthinkKeystoreSigner(FnthinkIdentityService()),
       persist: DatabaseHelper().insertFnthinkInbox,
       // 收件显示（通知栏）。这一行与上面那行是"能不能报 displayed"的两半：只接 persist，

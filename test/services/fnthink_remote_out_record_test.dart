@@ -1,5 +1,6 @@
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/models/delivery_status.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
 import 'package:notice_transmit/services/fnthink_remote_execution.dart';
 import 'package:notice_transmit/services/fnthink_remote_out_record.dart';
@@ -161,6 +162,59 @@ void main() {
         remoteExecutionFinishedReceipt(contract),
         reason: '界面读的是 result 那一格',
       );
+    });
+
+    // ── T200 ②：迟到的回执只翻「没拿到回执」那一格 ──────────────────
+    FnthinkRemoteExecutionRecord noReceiptRow() =>
+        const FnthinkRemoteExecutionRecord(
+          execId: 'RX-1',
+          direction: kFnthinkRemoteDirectionOut,
+          peerAddress: 'peer-a',
+          level: 'L2',
+          item: 'listener:start',
+          argument: 'webhook_acme',
+          state: RemoteExecutionStates.failed,
+          source: 'fnthink',
+          createdAt: 1700000000000,
+          reason: deliveryNoReceiptReason,
+        );
+
+    test('failed(no-receipt) 迟到终态 done ⇒ 翻案成 done，临时理由撤掉', () {
+      final moved = remoteOutRowForReceipt(
+        contract: contract,
+        receipt: receipt(RemoteExecutionStates.done),
+        row: noReceiptRow(),
+      );
+      expect(moved!.state, RemoteExecutionStates.done);
+      expect(moved.reason, '');
+    });
+
+    test('真 failed（有实际理由）迟到 done ⇒ null：确实没做成的那条不许复活', () {
+      final moved = remoteOutRowForReceipt(
+        contract: contract,
+        receipt: receipt(RemoteExecutionStates.done),
+        row: outRow(RemoteExecutionStates.failed),
+      );
+      expect(moved, isNull);
+    });
+
+    test('failed(no-receipt) 只收到第一段 ⇒ null（不替对面编一个终态）', () {
+      final moved = remoteOutRowForReceipt(
+        contract: contract,
+        receipt: receipt(null),
+        row: noReceiptRow(),
+      );
+      expect(moved, isNull);
+    });
+
+    test('failed(no-receipt) 迟到终态 failed ⇒ 照实改成 failed（真相到了就撤临时理由）', () {
+      final moved = remoteOutRowForReceipt(
+        contract: contract,
+        receipt: receipt(RemoteExecutionStates.failed),
+        row: noReceiptRow(),
+      );
+      expect(moved!.state, RemoteExecutionStates.failed);
+      expect(moved.reason, '');
     });
 
     test('没带关联键 ⇒ null（不猜：按 level/item/argument 配最老那条未终结行是歧义版）', () {

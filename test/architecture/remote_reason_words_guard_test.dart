@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/models/delivery_status.dart';
 import 'package:notice_transmit/services/fnthink_remote_reason_words.dart';
 
 import '../support/source_guards.dart';
@@ -96,9 +97,15 @@ void main() {
   });
 
   test('② 表里的每一枚，源码都真造得出来（挡死词与占位的翻译）', () {
+    // T200：`no-receipt` 与送达清扫**共用同一枚常量**（一处作者），所以源码里不写
+    // 那个字面量、写的是常量名。判据不放松：要么字面量在场，要么这枚共享常量在场。
+    final constProduced = <String, String>{
+      deliveryNoReceiptReason: 'deliveryNoReceiptReason',
+    };
     final dead = <String>[
       for (final key in remoteReasonExactKeys)
         if (!source.contains("'$key'") &&
+            !source.contains(constProduced[key] ?? '\u0000') &&
             !(key.contains(':') &&
                 source.contains("'${key.substring(0, key.indexOf(':'))}") &&
                 source.contains(key.split(':').last)))
@@ -177,6 +184,15 @@ void main() {
       isFalse,
       reason: '页面直出原始 reason ⇒ 这张表被绕开，屏上又会长出机器词',
     );
+  });
+
+  test('⑦ 共享常量那一枚也真翻成人话（它不经字面量，边界靠这一条）', () {
+    final zh = lookupAppLocalizations(const Locale('zh'));
+    // T200：源码写的是 `deliveryNoReceiptReason` 而不是 `'no-receipt'` 字面量 ⇒
+    // ① 抽不到它、② 也看不见它。缺表时屏上会原样出现机器词，只有这一条会红。
+    final text = remoteReasonText(deliveryNoReceiptReason, zh);
+    expect(text, isNot(deliveryNoReceiptReason));
+    expect(text, contains('没拿到回执'));
   });
 
   test('⑥ 尺认得合成样本（防 ①② 退化成"恒不匹配＝恒绿"）', () {

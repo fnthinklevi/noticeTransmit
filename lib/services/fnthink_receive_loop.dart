@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 
 import '../models/fnthink_inbox_message.dart';
+import 'fnthink_receipt_apply.dart';
 import 'fnthink_receiver_service.dart';
 
 /// 收货循环（#126 第三片）：把**取货 → 落库 → 回一条 ack → 排下一轮**这个顺序钉死。
@@ -308,37 +309,17 @@ class FnthinkReceiveLoop {
     // T105 片③：这一轮带回来的**回执**（「我发的那条对面已经收下了」）。
     // 在这之前每个版本都把它解析出来就扔了 —— 发送侧那一栏永远只有
     // 「我发出去了」，而对端到底收没收到、什么时候收到，界面上无处可查。
-    // 用**同一枚钩子**（`recordAck`）：落的就是同一对列（`ack_result` + `acked_at`），
-    // 只是 in 方向写的是「我报出去的时刻」、out 方向写的是「它收下的时刻」。
-    // 时刻不能用 nowMs()：那会把「刚刚取到回执」写成「对面刚刚收到」。
-    for (final receipt in outcome.receipts) {
-      // 时刻只影响 `fnthink_messages` 那一对列（不许拿 nowMs 凑）；端到端那一格
-      // 不需要时刻，照样要落 —— 否则旧服务端不回时刻时「已送达」永远不出现。
-      if (receipt.at <= 0) {
-        debugPrint('[fnthink] 回执没带时刻，不猜一个：${receipt.messageId}');
-      } else {
-        final write = recordAck;
-        if (write != null) {
-          try {
-            await write(
-              messageId: receipt.messageId,
-              result: receipt.receipt,
-              at: receipt.at,
-            );
-          } catch (e) {
-            // 一条回执写不进去不能把这一轮带走：本轮里还有别的消息要落库与 ack。
-            debugPrint('[fnthink] 回执没记进本机历史：${receipt.messageId} $e');
-          }
-        }
-      }
-      final apply = recordDelivery;
-      if (apply != null) {
-        try {
-          await apply(receipt.messageId, receipt.receipt);
-        } catch (e) {
-          debugPrint('[fnthink] 端到端回执没写进通知历史：${receipt.messageId} $e');
-        }
-      }
+    //
+    // T194：落账收进 `applyFnthinkReceipts`（唯一作者）—— 「发件回执看守」在收货循环
+    // 没跑时也会取回执，两条路必须落成同一种事实（否则同一条回执按入口分裂成两种结果）。
+    // ⚠ 空列表不进这一发：它不做事，而一次 `await` 会多让出一个微任务 ——
+    //   那条"手动收取撞上在途那一轮"的判据过去依赖这个时序（用例见协调者 `手动收取` 组）。
+    if (outcome.receipts.isNotEmpty) {
+      await applyFnthinkReceipts(
+        receipts: outcome.receipts,
+        recordAck: recordAck,
+        recordDelivery: recordDelivery,
+      );
     }
 
     return FnthinkLoopReport(

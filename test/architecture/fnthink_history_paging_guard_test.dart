@@ -141,7 +141,9 @@ void main() {
       final block = memberSlice(
         src,
         'loadRemoteExecutionRecords({',
-        'Future<List<FnthinkRemoteExecutionRecord>>\n',
+        // T200：下一成员的签名从"两行返回类型"改成了单行，还带上了 direction 参数 ⇒
+        // 尺跟着写实（按**名字**认下一个成员，不按换行形状认）。
+        'Future<List<FnthinkRemoteExecutionRecord>> loadUnsettledRemoteExecutions(',
       );
       expect(
         block,

@@ -50,6 +50,9 @@ final Map<String, String Function(AppLocalizations)> _exact = {
   'terminal-state': (l) => l.remoteReasonTerminalState,
   'illegal-move': (l) => l.remoteReasonIllegalMove,
   'interrupted': (l) => l.remoteReasonInterrupted,
+  // T200：发起端重启后「这一轮没拿到回执」只说明状态未知，与送达清扫那枚同词同源
+  // （`delivery_status.dart` 的 `deliveryNoReceiptReason`）。
+  'no-receipt': (l) => l.remoteReasonNoReceipt,
   'cancelled-by-user': (l) => l.remoteReasonCancelledByUser,
   'cancelled-from-status-bar': (l) => l.remoteReasonCancelledStatusBar,
   'report-not-sent': (l) => l.remoteReasonReportNotSent,

@@ -105,6 +105,9 @@ class RemoteCommandWiring {
     );
     if (moved == null) return true;
     await saveRecord(moved);
+    // T200 ③：这一格改的是**库里的行**，执行链自己的工作集里没有它 ⇒ 订阅者
+    // （历史页 / 撤销横幅）不会自己知道。补一次通知：回执到了，那一格应当当场改口径。
+    runner.notifyHistoryChanged();
     return true;
   }
 

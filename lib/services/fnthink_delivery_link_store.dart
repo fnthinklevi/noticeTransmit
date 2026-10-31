@@ -171,6 +171,17 @@ Map<String, dynamic>? applyFnthinkReceiptToDelivery(
   return next;
 }
 
+/// 通知历史里幻念那一格是否还停在「在路上」（T194 发件回执看守的判据）。
+///
+/// 读的是**同一份送达模型**（`unsettledStatuses` 与 `channelDeliveryKey`），不在看守里
+/// 自己解释一遍字符串 —— 那种第二份解释改一处忘一处，表现是「看守以为没有在等的，
+/// 而历史页还画着发送中」。
+bool fnthinkDeliveryStillAwaitingReceipt(Map<String, dynamic> delivery) {
+  final info = delivery[channelDeliveryKey(kFnthinkChannelSlug)];
+  if (info is! Map) return false;
+  return unsettledStatuses.contains(info['status']?.toString() ?? '');
+}
+
 /// 端到端回执的落库口：`messageId → 记录 id → delivery_info`。
 ///
 /// 生产装配给收件循环的 `recordDelivery`。失败只打印：一条回执写不进历史，

@@ -181,6 +181,11 @@ function authorizeClientEvent(contract, state, input, kind) {
   if (kind === 'poll') {
     return { ok: true, kind: 'poll', sender: id.sender, serverTime: input.now };
   }
+  if (kind === 'receipts') {
+    // T194：只取回执、不取货。载荷与 poll 同形（空串），这一支**不解析 body** ——
+    // 解析一次就要为它长出第二套字段名单，而它本来什么都不带。
+    return { ok: true, kind: 'receipts', sender: id.sender, serverTime: input.now };
+  }
   if (kind === 'ack') {
     if (spec.resultMustBeReceipt !== true) {
       throw new Error(

@@ -3758,6 +3758,24 @@ abstract class AppLocalizations {
   /// **'其中 {n} 条通道已删除，不能重推'**
   String historyChannelRepushGone(Object n);
 
+  /// No description provided for @deliveryRetryHelpShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动重试与「没拿到回执」的说明'**
+  String get deliveryRetryHelpShort;
+
+  /// No description provided for @deliveryRetryHelpTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动重试与回执'**
+  String get deliveryRetryHelpTitle;
+
+  /// No description provided for @deliveryRetryHelpBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'· 会重试：网络错误、HTTP 失败与限流。先当场重试 3 次（约 2 秒起逐次加长）；仍失败则进入跨进程重放队列（最多 3 次、间隔约 15 分钟、24 小时内）。\n· 不重试：业务性拒绝（例如企微 errcode 非 0、签名或关键词不匹配）。重试不会成功，还可能让对面群里重复刷屏。\n· 邮件通道没有出站队列，失败后不会自动重发。\n· 「没拿到回执」＝ 发出 30 分钟后本机仍没有结论，且只在打开 App / 回到前台时清扫（没有后台定时器）。它不等于通道失败，也不等于对面没收到。'**
+  String get deliveryRetryHelpBody;
+
   /// No description provided for @privacyOverviewTitle.
   ///
   /// In zh, this message translates to:
@@ -9582,6 +9600,12 @@ abstract class AppLocalizations {
   /// **'等执行'**
   String get remoteHistoryPending;
 
+  /// No description provided for @remoteHistoryNoReceipt.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一轮没拿到回执，状态未知'**
+  String get remoteHistoryNoReceipt;
+
   /// No description provided for @remoteHistoryExecuting.
   ///
   /// In zh, this message translates to:
@@ -9761,6 +9785,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'这一轮被打断（应用被重启过）'**
   String get remoteReasonInterrupted;
+
+  /// No description provided for @remoteReasonNoReceipt.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一轮没拿到回执，状态未知'**
+  String get remoteReasonNoReceipt;
 
   /// No description provided for @remoteReasonCancelledByUser.
   ///

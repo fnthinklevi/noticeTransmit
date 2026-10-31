@@ -2396,6 +2396,94 @@ describe('POST /api/fnthink/probe（非侵入探针）', () => {
   });
 });
 
+describe('POST /api/fnthink/receipts（只取回执，T194）', () => {
+  // 反方向发一条（TARGET → SENDER）：用来证明这一发**不取货** —— 调用方自己队列里的消息
+  // 必须还停在初始状态，等下一次 poll 才被取走。
+  const targetSends = () => {
+    const fields = {
+      version: '1',
+      type: 'notice',
+      target: SENDER,
+      ts: String(Math.floor(Date.now() / 1000)),
+      nonce: 'tmsg-' + crypto.randomBytes(6).toString('hex'),
+      body: 'hello sender',
+    };
+    const signed = sign(targetKey, fields);
+    return {
+      sender: TARGET,
+      signature: signed.signature,
+      fields: signed.map,
+      title: 'hi',
+      body: 'hi' + SEP + 'hello sender',
+    };
+  };
+
+  test('响应键集合与契约逐字相等，且回执只被取走一次', async () => {
+    const posted = await request(app).post('/api/fnthink/message').send(messageBody()).expect(202);
+    const messageId = posted.body.messageId;
+    await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', targetKey, TARGET))
+      .expect(200);
+    await request(app)
+      .post('/api/fnthink/ack')
+      .send(
+        eventBody('ack', targetKey, TARGET, {
+          body: JSON.stringify({ messageId, result: 'displayed' }),
+        }),
+      )
+      .expect(200);
+
+    const first = await request(app)
+      .post('/api/fnthink/receipts')
+      .send(eventBody('receipts', senderKey, SENDER))
+      .expect(200);
+    expect(Object.keys(first.body).sort()).toEqual(
+      [...contract.clientEvents.receipts.returns].sort(),
+    );
+    expect(first.body.receipts.map((r) => r.messageId)).toContain(messageId);
+    const second = await request(app)
+      .post('/api/fnthink/receipts')
+      .send(eventBody('receipts', senderKey, SENDER))
+      .expect(200);
+    expect(second.body.receipts.map((r) => r.messageId)).not.toContain(messageId);
+  });
+
+  test('不取货：调用方排队里的消息仍是初始状态，下一次 poll 才取走', async () => {
+    const posted = await request(app).post('/api/fnthink/message').send(targetSends()).expect(202);
+    const messageId = posted.body.messageId;
+    await request(app)
+      .post('/api/fnthink/receipts')
+      .send(eventBody('receipts', senderKey, SENDER))
+      .expect(200);
+    const messages = messagestore.loadMessages();
+    expect(messages[messageId].state).toBe(contract.delivery.initialState);
+    const poll = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', senderKey, SENDER))
+      .expect(200);
+    expect(poll.body.messages.map((m) => m.messageId)).toContain(messageId);
+  });
+
+  test('不刷新在场：这一发不是心跳', async () => {
+    const before = devicestore.loadDevices()[SENDER].lastSeenAt || 0;
+    await new Promise((r) => setTimeout(r, 20));
+    await request(app)
+      .post('/api/fnthink/receipts')
+      .send(eventBody('receipts', senderKey, SENDER))
+      .expect(200);
+    expect(devicestore.loadDevices()[SENDER].lastSeenAt || 0).toBe(before);
+  });
+
+  test('target 写成别人 ⇒ 拒（只能取自己的回执）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/receipts')
+      .send(eventBody('receipts', senderKey, SENDER, { target: OTHER }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+});
+
 // #126 第二片把"客户端发到哪个 URL"收进契约 `transport.apiPaths`，这一组就是把那张表钉回事实。
 // 它必须双向：只查"声明的都挂了"会漏掉挂了两条声明一条；只查"挂了的都声明了"则漏掉
 // 声明了却没挂的那条（客户端照着 404 敲一年）。

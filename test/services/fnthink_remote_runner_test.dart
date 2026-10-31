@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/models/delivery_status.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
 import 'package:notice_transmit/services/fnthink_l2_actions.dart';
 import 'package:notice_transmit/services/fnthink_l3_settings.dart';
@@ -563,6 +564,78 @@ void main() {
       fired.single();
       await Future<void>.delayed(Duration.zero);
       expect(saved.last.state, RemoteExecutionStates.done);
+    });
+
+    // ── T200：同一把刀不能砍两种事实 ──────────────────────────────────
+    FnthinkRemoteExecutionRecord outRow(
+      String id,
+      String state, {
+      String reason = '',
+      String result = '',
+      String messageId = '',
+    }) => FnthinkRemoteExecutionRecord(
+      execId: id,
+      direction: kFnthinkRemoteDirectionOut,
+      peerAddress: '7YD4RKQPBM8XZ3VHNT',
+      level: 'L2',
+      item: 'listener:start',
+      argument: '',
+      state: state,
+      source: 'fnthink',
+      createdAt: 1,
+      reason: reason,
+      result: result,
+      messageId: messageId,
+    );
+
+    test('out 方向：重启只写 no-receipt，状态保留、不写成 failed', () async {
+      final swept = await runner().sweepInterrupted([
+        outRow('o1', RemoteExecutionStates.pending),
+        outRow('o2', RemoteExecutionStates.executing),
+      ]);
+      expect(swept, 2);
+      expect(saved.map((s) => s.state), [
+        RemoteExecutionStates.pending,
+        RemoteExecutionStates.executing,
+      ]);
+      expect(saved.map((s) => s.reason), [
+        deliveryNoReceiptReason,
+        deliveryNoReceiptReason,
+      ]);
+      expect(l2.calls, isEmpty);
+    });
+
+    test('out 方向已写过 no-receipt ⇒ 第二次不再写（幂等）', () async {
+      final swept = await runner().sweepInterrupted([
+        outRow(
+          'o3',
+          RemoteExecutionStates.pending,
+          reason: deliveryNoReceiptReason,
+        ),
+      ]);
+      expect(swept, 0);
+      expect(saved, isEmpty);
+    });
+
+    test('out 方向不丢 result / messageId（只改理由那一格）', () async {
+      await runner().sweepInterrupted([
+        outRow(
+          'o4',
+          RemoteExecutionStates.executing,
+          result: '已交给对面',
+          messageId: 'm-9',
+        ),
+      ]);
+      expect(saved.single.result, '已交给对面');
+      expect(saved.single.messageId, 'm-9');
+    });
+
+    test('notifyHistoryChanged 让历史页那一格自己刷新（不用重开页面）', () {
+      final r = runner();
+      var notified = 0;
+      r.addListener(() => notified++);
+      r.notifyHistoryChanged();
+      expect(notified, 1);
     });
   });
 

@@ -17,6 +17,7 @@ library;
 import 'package:fnthink_push/fnthink_push.dart';
 
 import '../database/database_helper.dart';
+import '../models/delivery_status.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_remote_execution.dart';
 
@@ -107,6 +108,31 @@ FnthinkRemoteExecutionRecord? remoteOutRowForReceipt({
   final at = row;
   if (at == null) return null;
   if (at.direction != kFnthinkRemoteDirectionOut) return null;
+  // T200 ②：迟到的回执能翻案，但**只翻「没拿到回执」那一种**。
+  // 重启清扫把 out 行留在 pending、只写 `no-receipt`（状态未知）；真 failed 是终态，
+  // 谁也走不动（"一条执行不许复活"那条注释就在状态机里）。
+  // 这一判必须在这**一处**：再放一份在接线层，就又多了一个"什么算能翻案"的作者。
+  if (at.state == RemoteExecutionStates.failed) {
+    if (at.reason != deliveryNoReceiptReason) return null;
+    if (!receipt.isFinished) return null;
+    final terminal = receipt.state ?? '';
+    if (!contract.remoteExecutionStates.contains(terminal)) return null;
+    return FnthinkRemoteExecutionRecord(
+      execId: at.execId,
+      direction: at.direction,
+      peerAddress: at.peerAddress,
+      level: at.level,
+      item: at.item,
+      argument: at.argument,
+      state: terminal,
+      source: at.source,
+      createdAt: at.createdAt,
+      result: receipt.result,
+      // 真相到了 ⇒ 那枚"没拿到回执"的临时理由必须撤掉；留着它就是界面在说两件不同的事。
+      reason: '',
+      messageId: at.messageId,
+    );
+  }
   final to =
       (receipt.isFinished ? receipt.state : null) ??
       RemoteExecutionStates.executing;
@@ -127,6 +153,7 @@ FnthinkRemoteExecutionRecord? remoteOutRowForReceipt({
     result: receipt.result,
     // ⚠ 原样留着：`network` 那一枚记的是"我这一发在路上停过"，与对面办没办成是两件事。
     reason: at.reason,
+    messageId: at.messageId,
   );
 }
 

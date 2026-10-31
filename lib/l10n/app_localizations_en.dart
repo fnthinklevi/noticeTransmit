@@ -2056,6 +2056,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get deliveryRetryHelpShort =>
+      'About automatic retries and “no receipt”';
+
+  @override
+  String get deliveryRetryHelpTitle => 'Automatic retries and receipts';
+
+  @override
+  String get deliveryRetryHelpBody =>
+      '· Will retry: network errors, HTTP failures, and rate limits. It retries 3 times on the spot (starting at about 2 s, growing each time); if it still fails, the request enters the cross-process replay queue (up to 3 times, about 15 minutes apart, within 24 hours).\n· Won\'t retry: business-level rejections (for example a WeCom errcode other than 0, a bad signature, or a keyword mismatch). Retrying cannot succeed and may keep flooding the peer\'s chat.\n· Email channels have no outbound queue: a failure is final and is not retried automatically.\n· “No receipt” means this device still has no conclusion 30 minutes after sending, and the sweep runs only when the app opens or returns to the foreground (there is no background timer). It does not mean the channel failed, and it does not mean the peer did not receive it.';
+
+  @override
   String get privacyOverviewTitle => 'Privacy Policy Overview';
 
   @override
@@ -5620,6 +5631,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteHistoryPending => 'Waiting';
 
   @override
+  String get remoteHistoryNoReceipt => 'No receipt this round; outcome unknown';
+
+  @override
   String get remoteHistoryExecuting => 'Executing';
 
   @override
@@ -5746,6 +5760,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get remoteReasonInterrupted =>
       'This round was interrupted (the app restarted)';
+
+  @override
+  String get remoteReasonNoReceipt => 'No receipt this round; outcome unknown';
 
   @override
   String get remoteReasonCancelledByUser =>

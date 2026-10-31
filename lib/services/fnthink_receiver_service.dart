@@ -63,6 +63,9 @@ class FnthinkReceiverService {
       // 非浸入探针（T106 片②）：健康度自动重探要发的就是这一发。登记进这张名单的
       // 意义与上面几条相同 —— 装配期就确认"这扇门存在"，而不是等第一次重探才炸。
       'probe',
+      // 只取回执（T194）：装配期就确认这扇门存在 —— 缺它时「发件回执看守」才第一次
+      // 现形，而那一发会被归成"网络不通"。
+      'receipts',
       // 投递面也在这张名单里，但它**不是一种事件**：那一条的签字节 `type` 取自能力词表
       // （notice / action / setting），所以下面的反查为它单独兜了一档。登记进名单要的是
       // "装配期就确认这条路存在"——缺它时第一次发送会在运行时炸成一句看起来像网络故障的话。
@@ -401,6 +404,23 @@ class FnthinkReceiverService {
     );
   }
 
+  /// 只取回执（T194）。与 [pollOnce] 共用签名链与状态码分类，但**不 hold、不取货**：
+  /// 这一发只把「我发出去的那几条到了没有」取回来，接收关着也能用。
+  ///
+  /// 返回 [FnthinkPollResult] 而不是新造一种结果类型：调用方要读的就是
+  /// 「成没成 / 为什么 / 取到了哪几条」，与一轮 poll 的结论同形。
+  Future<FnthinkPollResult> pollReceipts() async {
+    if (!await _canSign()) {
+      return FnthinkPollResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        nextDelay: kernel.currentDelay,
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.pullReceipts();
+  }
+
   /// 回一条送达结论（唯一送达依据）。`result` 的取值边界在内核判。
   Future<FnthinkAckResult> ack({
     required String messageId,
@@ -567,6 +587,7 @@ class FnthinkReceiverService {
   /// （把"顺手存一下方便显示"做进来，等于把这把长期口令写进 prefs —— 而 prefs 会跟着备份走）。
   Future<FnthinkEndpointCreateResult> endpointCreate({
     required String name,
+    String? kind,
   }) async {
     if (!await _canSign()) {
       return FnthinkEndpointCreateResult(
@@ -575,7 +596,7 @@ class FnthinkReceiverService {
         signedWhileUncalibrated: !kernel.calibrated,
       );
     }
-    return kernel.endpointCreate(name: name);
+    return kernel.endpointCreate(name: name, kind: kind);
   }
 
   /// 读自己名下那几把接入端点（`/endpoint-list`，#157 第二片）。

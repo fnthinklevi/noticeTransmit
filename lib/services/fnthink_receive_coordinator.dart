@@ -15,6 +15,8 @@ import 'fnthink_credential_store.dart';
 import 'fnthink_diag.dart';
 import 'fnthink_grant_items.dart';
 import 'fnthink_presence_scheduler.dart';
+import 'fnthink_receipt_apply.dart';
+import 'fnthink_receipt_watchdog.dart';
 import 'fnthink_receive_loop.dart';
 import 'fnthink_receiver_service.dart';
 import 'fnthink_settings.dart';
@@ -372,6 +374,7 @@ class FnthinkReceiveCoordinator {
     this.forgetRemoteExecution,
     this.registerDevice,
     this.recordHealth,
+    this.receiptWatchdog,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -529,6 +532,14 @@ class FnthinkReceiveCoordinator {
     required int latencyMs,
   })?
   recordHealth;
+
+  /// 发件回执看守（T194）。null = 这台没装（测试里的裸协调者）⇒ 只在收货循环跑到时
+  /// 才有人取回执，与 T194 之前的形状一致。
+  ///
+  /// ⚠ 它由装配点建、拿到的闭包里再回头调本类的 [syncReceipts]/[receiveOnce]：
+  /// 直接在这里 new 会把「本机还有没有在等的发件」这条判据（要读通知表）搬进协调者，
+  /// 而协调者到今天为止不碰 DB（全是 hook）。
+  final FnthinkReceiptWatchdog? receiptWatchdog;
 
   /// 已经登记过的那个组合（`baseUri|addressCode`）。null = 这一次进程里还没成功过。
   String? _registeredFor;
@@ -1514,6 +1525,7 @@ class FnthinkReceiveCoordinator {
   /// 页面对它的处理只有一个合法去处：当场显示一次，让用户抄走。
   Future<FnthinkEndpointCreateResult> createEndpoint({
     required String name,
+    String? kind,
   }) async {
     final resolved = await _resolveSpec(requireEnabled: false);
     if (resolved.reason != null) {
@@ -1525,7 +1537,7 @@ class FnthinkReceiveCoordinator {
     }
     final service = _serviceFactory(resolved.spec!);
     try {
-      return await service.endpointCreate(name: name);
+      return await service.endpointCreate(name: name, kind: kind);
     } finally {
       service.dispose();
     }
@@ -1700,7 +1712,50 @@ class FnthinkReceiveCoordinator {
       result: result,
       latencyMs: watch.elapsedMilliseconds,
     );
+    // T194：发送受理之后踢一脚「发件回执看守」。它只在短窗口里合并成一次、且本机确实
+    // 还有在等的发件时才发 `/receipts` —— 发送端锁屏 / 接收关着时，这是唯一会把
+    // 「对面已收下」写回历史的人。
+    if (result.status == FnthinkSendStatus.accepted) {
+      receiptWatchdog?.kick();
+    }
     return result;
+  }
+
+  /// 只取回执（T194）：即便接收开关关着、收货循环没跑，也把「我发出去那条到了没有」
+  /// 取回来，落进与收货循环**同一处**（[applyFnthinkReceipts]）。
+  ///
+  /// 前置口径与 [sendNotice] 同一条（`requireEnabled: false`）：回执是发送这件事的尾巴，
+  /// 不是接收。**不取货、不 hold** —— 旧服务端上没有这扇门（404），降级结果是
+  /// 「这次没拿到回执」，而不是「把货取走了却没人落库」。
+  ///
+  /// 返回 `status`：`ok` / `failed` / `skipped`（本机就不该发：未同意 / 没地址 / 没签名）。
+  Future<({String status, String? reason, int applied})> syncReceipts() async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return (status: 'skipped', reason: resolved.reason, applied: 0);
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      final result = await service.pollReceipts();
+      if (result.status != FnthinkPollStatus.ok) {
+        return (status: 'failed', reason: result.reason, applied: 0);
+      }
+      final applied = await applyFnthinkReceipts(
+        receipts: result.receipts,
+        recordAck: recordAck,
+        recordDelivery: recordDelivery,
+      );
+      return (status: 'ok', reason: null, applied: applied);
+    } catch (e) {
+      return (status: 'failed', reason: 'threw:$e', applied: 0);
+    } finally {
+      service.dispose();
+    }
+  }
+
+  /// 回前台 / 冷启动：等发件看守跑完（清扫必须排在它后面，见 `main_page` 那条链）。
+  Future<void> runReceiptWatchdogNow() async {
+    await receiptWatchdog?.runNow();
   }
 
   /// 把这一发的服务器可达性记进通道健康度（T60 approach B）。

@@ -76,9 +76,9 @@ class NotificationService {
     // 补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
     await drainPendingDeliveries();
 
-    // T175 ②：启动时清扫超过 30 分钟仍没有终态的格子。后台被杀、worker 没跑，
-    // 那些记录不会有人再来写回执 —— 不清扫就会永远停在「发送中」。
-    await sweepStaleDeliveries();
+    // T175 ②的超时清扫**不在这里**：它必须排在「发件回执看守取回回执」之后，
+    // 否则会把一条其实已送达、只是还没人取回执的记录标成 no-receipt。
+    // 观察点已挪到 `main_page` 的 `_syncReceiptsThenSweep`（冷启动与回前台共用那一条链）。
   }
 
   /// T175 ②：把超过 [olderThan] 仍是 `pending`/`queued` 的送达格改成

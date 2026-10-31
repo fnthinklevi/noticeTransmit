@@ -444,7 +444,8 @@
     ],
     "cadenceGoverned": [
       "poll",
-      "ack"
+      "ack",
+      "receipts"
     ],
     "perSenderOnly": [
       "pairArm",
@@ -921,6 +922,19 @@
       "_returnsWhy": "这份名单是**双向**的：路由那次响应的键集合必须与它逐字相等（用例 `fnthink-routes.test.js` 拿它当尺，不写死字面量）。只查一个方向的话，两种缺陷各剩一半藏在暗处 —— 「契约多列一项而路由没挂」＝设备按名单去读一个永远不存在的键，屏幕上那一格空着且没人报错；「路由多回一项而契约没列」＝设备侧按名单设计解析器，那一块永远解析不到，而它其实是这一面唯一的新数据。配对的两面各占一项（`pairRequest.pollKey` 与 `pairRequest.sentPollKey`）：接收方看「谁在请求配对你」，发起方看「我发起的那条走到了哪儿」，两边读的是同一张表但**主语相反**。",
       "_serverTimeWhy": "响应必须带服务端时间：T29 的「ts 以服务端时间判定」要有承载处，设备自算偏移只能在拿到响应之后进行。"
     },
+    "receipts": {
+      "messageType": "receipts",
+      "verifyAgainst": "device-table-public-key",
+      "_targetMustEqualSenderWhy": "这一发问的是「**我**发出去的那几条现在算什么」，只能关于本机：target 写成别人，任何一台已配对设备都能把别的发送方的回执读走 —— 回执里带 messageId、终态与时刻，合起来是一张「谁给谁发过什么、对面什么时候收下」的清单。",
+      "targetMustEqualSender": true,
+      "returns": [
+        "receipts",
+        "serverTime"
+      ],
+      "_returnsWhy": "与 poll 的 returns 同一条纪律：路由响应的键集合必须与这份名单逐字相等。这里只有两样，是因为这一发**只做一件事**：把属于本机的终态回执取走，并且取走即消费（`receiptSentAt`）。它不取货、不报 pending、不带配对两面 —— 多一个键就是让「只看回执」这条窄路悄悄长出第二条读口。",
+      "_why": "T194：发送端锁屏、接收开关关着或收货循环没跑时，没有任何人发 poll ⇒ receipts 永远躺在服务端，发送端历史停在「发送中」，而对面其实早已收下。这一发是给「发件回执看守」用的窄口：签名、限流、身份都走同一条链，但**不碰投递状态**（不取消息、不刷新在场、不 hold）。",
+      "_notPollWhy": "为什么不给 /poll 加一个 receiptsOnly 位：旧服务端不认识那个位，会把这一发当普通 poll 把消息取走 ⇒ 没人落库/ack 的那批要等满 ack 截止才退回，用户看到的是「消息平白晚了几分钟」。新开一扇门在旧服务端上是 404，降级结果是「没拿到回执」—— 比「拿到了却把货卡住」诚实。"
+    },
     "ack": {
       "messageType": "ack",
       "verifyAgainst": "device-table-public-key",
@@ -1249,6 +1263,7 @@
       "endpointRotate": "/api/fnthink/endpoint-rotate",
       "message": "/api/fnthink/message",
       "poll": "/api/fnthink/poll",
+      "receipts": "/api/fnthink/receipts",
       "ack": "/api/fnthink/ack",
       "probe": "/api/fnthink/probe",
       "peerPresence": "/api/fnthink/peer-presence",

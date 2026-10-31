@@ -1975,6 +1975,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get deliveryRetryHelpShort => '自动重试与「没拿到回执」的说明';
+
+  @override
+  String get deliveryRetryHelpTitle => '自动重试与回执';
+
+  @override
+  String get deliveryRetryHelpBody =>
+      '· 会重试：网络错误、HTTP 失败与限流。先当场重试 3 次（约 2 秒起逐次加长）；仍失败则进入跨进程重放队列（最多 3 次、间隔约 15 分钟、24 小时内）。\n· 不重试：业务性拒绝（例如企微 errcode 非 0、签名或关键词不匹配）。重试不会成功，还可能让对面群里重复刷屏。\n· 邮件通道没有出站队列，失败后不会自动重发。\n· 「没拿到回执」＝ 发出 30 分钟后本机仍没有结论，且只在打开 App / 回到前台时清扫（没有后台定时器）。它不等于通道失败，也不等于对面没收到。';
+
+  @override
   String get privacyOverviewTitle => '隐私政策概述';
 
   @override
@@ -5314,6 +5324,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryPending => '等执行';
 
   @override
+  String get remoteHistoryNoReceipt => '这一轮没拿到回执，状态未知';
+
+  @override
   String get remoteHistoryExecuting => '执行中';
 
   @override
@@ -5430,6 +5443,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get remoteReasonInterrupted => '这一轮被打断（应用被重启过）';
+
+  @override
+  String get remoteReasonNoReceipt => '这一轮没拿到回执，状态未知';
 
   @override
   String get remoteReasonCancelledByUser => '你在撤销窗口里撤掉了它';

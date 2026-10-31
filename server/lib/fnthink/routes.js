@@ -581,6 +581,38 @@ router.post(
   }),
 );
 
+// ── POST /receipts：只取回执（T194）────────────────────────────────────
+// 发送端锁屏 / 接收关着时没有收货循环，没人发 poll ⇒ receipts 一直躺在服务端。
+// 这一发只做「把我的终态回执取走」：不取货、不 hold、**不刷新在场**（它不回答「这台在收信」），
+// 因此接收关着也能用。走同一条签名链与同一个按设备的配额桶（契约 limits.cadenceGoverned）。
+// ⚠ 不给 /poll 加 receiptsOnly 位：旧服务端不认识那个位会把消息取走（见契约 _notPollWhy）。
+router.post(
+  '/receipts',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    const auth = authorizeClientEvent(contract, state, eventInput(body, now), 'receipts');
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'receipts', auth.sender)) return;
+
+    const messages = loadMessages();
+    const receipts = receiptsForSender(
+      contract,
+      messages,
+      auth.sender,
+      now,
+      contract.clientEvents.poll.maxBatchPerPoll,
+    );
+    saveMessages(messages);
+    res.status(200).json({ receipts, serverTime: Date.now() });
+  }),
+);
+
 // ── GET /stream：SSE 门铃（T185 第二步）──────────────────────────────
 //
 // 它**不是第二条投递通道**：只写 `event: wake`，收到之后设备仍走唯一的
@@ -1018,7 +1050,7 @@ router.post(
     }
     res.status(200).json({
       endpointId: created.id,
-      // ⚠ 明文口令只在这里出现这一次（表里只有摘要，之后任何口都拿不到它）。
+      // 明文口令只在这里出现这一次（表里只有摘要，之后任何口都拿不到它）。
       secret: created.secret,
       kind: created.endpoint.kind,
       postOnly: created.endpoint.postOnly,

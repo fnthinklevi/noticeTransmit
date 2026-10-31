@@ -37,6 +37,7 @@ import '../update_manager.dart';
 import '../models/notification_rule.dart';
 import '../models/email_channel.dart';
 import '../models/fnthink_channel.dart';
+import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_channel_mirror.dart';
 import '../services/fnthink_channel_service.dart';
 import '../theme/app_colors.dart';
@@ -327,6 +328,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
       await _checkFirstLaunch();
 
+      // T194：冷启动也要先取回执再清扫。清扫已从 `NotificationService.loadRecords` 挪到这里
+      // （Splash 那一刻契约与同意门都还没到，做不了「先同步」这一步）。
+      unawaited(_syncReceiptsThenSweep());
+
       if (!_notificationService.serviceManuallyStopped) {
         Future.delayed(const Duration(milliseconds: 1000), () {
           if (mounted) {
@@ -471,13 +476,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       );
       // 回到前台时补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
       unawaited(_notificationService.drainPendingDeliveries());
-      // T176 ④：后台那一轮可能整轮没跑（ROM 杀了闹钟/worker），回前台立刻补一轮。
-      // `runOnce` 自带单飞：循环正在跑时它整轮跳过，不会与前台循环抢同一轮。
-      final coordinator = _fnthinkReceiveCoordinator;
-      if (coordinator != null) unawaited(coordinator.receiveOnce());
-      // T175 ②：锁屏/后台期间没有任何人写回执的记录，回前台时清扫成 no-receipt。
-      // 与上面那一发同一个时机：两件事都在补"后台期间没发生的那一次回执"。
-      unawaited(_notificationService.sweepStaleDeliveries());
+      // T176 ④ + T194：回前台补一轮收货，并且**先等发件回执看守取回回执、再清扫**
+      // （顺序是判据：清扫读的是「还在路上」那一格，先扫会把刚取到回执的那条标成 no-receipt）。
+      unawaited(_syncReceiptsThenSweep());
       // 收件未读数也在这里重取：收货循环在后台跑，它落库的那几条不会往 UI 推事件。
       // 不接实时事件总闸的理由是这一格的时效要求是"回到前台就该对"，而不是"秒级跳变"。
       unawaited(_refreshFnthinkInboxUnread());
@@ -593,6 +594,29 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     await getIt<RemoteCommandWiring>().drainLocalCommands();
   }
 
+  /// T194：回前台 / 冷启动共用的那条顺序。
+  ///
+  /// ① 发件回执看守先跑（只取回执，快、不 hold、接收关着也能发）；
+  /// ② 补一轮收货（远程执行的回执是一条**消息**，由既有循环收；这一步不等）；
+  /// ③ 才轮到 T175 的超时清扫 —— 它读的是「还在路上」那一格，先扫会把一条其实已经
+  ///    送达、只是还没人取回执的记录标成 `no-receipt`（反馈⑭ 那条形状）。
+  ///
+  /// 清扫放在最后而不撤：过了 30 分钟确实没有回执的那些仍要标成没回执；
+  /// 有回执的在这一步之前已经变成「已送达」，清扫不会再碰它。
+  Future<void> _syncReceiptsThenSweep() async {
+    final coordinator = _fnthinkReceiveCoordinator;
+    if (coordinator != null) {
+      try {
+        await coordinator.runReceiptWatchdogNow();
+      } catch (e) {
+        // 看守失败不改本机任何一格；清扫照旧（没有回执的本来就该落下）。
+        debugPrint('[fnthink] 回前台回执同步失败（清扫照旧）：$e');
+      }
+      unawaited(coordinator.receiveOnce());
+    }
+    await _notificationService.sweepStaleDeliveries();
+  }
+
   /// 把还写着「待执行」的那些行收一次尾（T147 ③ / 片2）。
   ///
   /// ⚠ **两个调用点不是冗余，是两条不同的路**：
@@ -613,7 +637,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   /// 收不了的后果是那几行下次进来再收，不是丢消息。
   Future<void> _sweepInterruptedRemoteExecutions() async {
     if (getIt<FnthinkContractLoader>().cached == null) return;
-    final open = await DatabaseHelper().loadUnsettledRemoteExecutions();
+    // T200：只收 `in` 方向 —— 本机那一发被系统打断＝真的没做成。`out` 方向是我在等
+    // 对面回执，重启只说明**状态未知**；runner 那侧只写 `no-receipt`，迟到的回执能翻案。
+    final open = await DatabaseHelper().loadUnsettledRemoteExecutions(
+      direction: kFnthinkRemoteDirectionIn,
+    );
     if (open.isEmpty) return;
     await getIt<RemoteCommandRunner>().sweepInterrupted(open);
   }

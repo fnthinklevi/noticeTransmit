@@ -60,6 +60,42 @@ void main() {
     });
   });
 
+  // ── T194：只取回执那一发 ─────────────────────────────────────────────
+  group('只取回执（/receipts）', () {
+    test('发到自己那条声明过的路径，取回执但不取货', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"receipts":[{"messageId":"m_1","receipt":"delivered","at":1800000000123}],'
+              '"serverTime":1800000000000}',
+        ],
+      );
+      final service = build(contract, rec, _Signer());
+      final result = await service.pollReceipts();
+      expect(result.ok, isTrue);
+      expect(result.messages, isEmpty);
+      expect(result.receipts.single.messageId, 'm_1');
+      expect(result.receipts.single.receipt, 'delivered');
+      expect(rec.requests.single.url.path, contract.apiPath('receipts'));
+      // 不 hold：这一发带长轮询头就会把「只取回执」变成一次 25 秒的等待。
+      final longPoll = contract.longPollSpec;
+      if (longPoll != null) {
+        expect(
+          rec.requests.single.headers.keys.map((k) => k.toLowerCase()),
+          isNot(contains(longPoll.requestHeader.toLowerCase())),
+        );
+      }
+    });
+
+    test('签不出来 ⇒ 一个字节都不发（与 poll 同一条本地短路）', () async {
+      final rec = _Recorder();
+      final service = build(contract, rec, _Signer(available: false));
+      final result = await service.pollReceipts();
+      expect(result.status, FnthinkPollStatus.failed);
+      expect(result.reason, 'signing-unavailable');
+      expect(rec.requests, isEmpty);
+    });
+  });
+
   // ── T155：每发请求顶层带上契约版本（让「服务器上那份是旧的」可见）──────────
   group('契约版本关联键', () {
     test('每一发都在**顶层**带上包内那份的 contractVersion', () async {

@@ -1,4 +1,5 @@
 import '../l10n/app_localizations.dart';
+import '../models/delivery_status.dart';
 import 'fnthink_remote_execution.dart';
 
 /// 远程执行**状态词**的唯一作者（T141① 从 `remote_history_page` 抽出来的那一把）。
@@ -12,13 +13,22 @@ import 'fnthink_remote_execution.dart';
 /// "不认得"**，不当它等于某个已知状态 —— 那是这一格最容易犯的错：把"读不出来"
 /// 说成"执行完毕"。传 null（读不到契约的地方）跳过这道漂移检查，
 /// 词表外的状态仍由 `_` 臂兜回"不认得"，两种入口的输出一致。
+///
+/// [reason]（T200）：`pending` 且理由是 `no-receipt` 的那一行**不是"待执行"** ——
+/// 重启清扫发现「这一轮没拿到回执」，本机不会再执行它，也不会替对面判它失败。
+/// 它读作「这一轮没拿到回执，状态未知」；迟到的终态回执会把它改成真相。
 String fnthinkRemoteExecutionStateWord(
   AppLocalizations l10n,
   String state, {
   List<String>? knownStates,
+  String? reason,
 }) {
   if (knownStates != null && !knownStates.contains(state)) {
     return l10n.remoteHistoryStateUnknown(state);
+  }
+  if (state == RemoteExecutionStates.pending &&
+      reason == deliveryNoReceiptReason) {
+    return l10n.remoteHistoryNoReceipt;
   }
   return switch (state) {
     RemoteExecutionStates.pending => l10n.remoteHistoryPending,

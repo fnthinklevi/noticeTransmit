@@ -13,6 +13,7 @@ import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/models/fnthink_pair_request_record.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
+import 'package:notice_transmit/services/fnthink_receipt_watchdog.dart';
 import 'package:notice_transmit/services/fnthink_receive_loop.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
@@ -106,6 +107,14 @@ void main() {
       required int latencyMs,
     })?
     recordHealth,
+    Future<bool> Function({
+      required String messageId,
+      required String result,
+      required int at,
+    })?
+    recordAck,
+    Future<void> Function(String messageId, String receipt)? recordDelivery,
+    FnthinkReceiptWatchdog? receiptWatchdog,
   }) => FnthinkReceiveCoordinator(
     contracts: contracts ?? goodLoader(),
     signer: signerOverride ?? signer(true),
@@ -119,6 +128,9 @@ void main() {
     storePairRequest: storePairRequest,
     loadPairRequests: loadPairRequests,
     recordHealth: recordHealth,
+    recordAck: recordAck,
+    recordDelivery: recordDelivery,
+    receiptWatchdog: receiptWatchdog,
     loopFactory: recorder.build,
     serviceFactory: serviceFactory,
   );
@@ -2360,6 +2372,81 @@ void main() {
       expect(r.status, FnthinkSendStatus.badInput);
       expect(asked, isEmpty, reason: '坏内容在离机前就被内核拦下');
       expect(calls, 0, reason: '这一发一个字节都没上网，够不上"服务器可达/不可达"的任何结论');
+    });
+  });
+
+  group('发件回执看守与只取回执（T194）', () {
+    const sentBody =
+        '{"receipt":"delivered","state":"delivered","messageId":"m_31"}';
+    test('接收关着也能取回执：发到 /receipts，落进与收货循环同一处', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 没有 receive_enabled ⇒ 默认关
+      final asked = <http.Request>[];
+      final acked = <String>[];
+      final delivered = <String>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        recordAck: ({required messageId, required result, required at}) async {
+          acked.add('$messageId|$result|$at');
+          return true;
+        },
+        recordDelivery: (messageId, receipt) async {
+          delivered.add('$messageId|$receipt');
+        },
+        serviceFactory: armFactory(
+          sink: asked,
+          body:
+              '{"receipts":[{"messageId":"m_1","receipt":"delivered",'
+              '"at":1800000000123}],"serverTime":1800000000000}',
+        ),
+      );
+
+      final result = await c.syncReceipts();
+
+      expect(result.status, 'ok');
+      expect(result.applied, 1);
+      expect(asked.single.url.path, contract.apiPath('receipts'));
+      expect(acked.single, 'm_1|delivered|1800000000123');
+      expect(delivered.single, 'm_1|delivered');
+      expect(c.isRunning, isFalse, reason: '只取回执不该顺手把收货循环起来');
+    });
+
+    test('未同意中转 ⇒ 一个字节都不发（回执也要经服务器）', () async {
+      SharedPreferences.setMockInitialValues({});
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+      );
+      final result = await c.syncReceipts();
+      expect(result.status, 'skipped');
+      expect(result.reason, 'not-consented');
+      expect(asked, isEmpty);
+    });
+
+    test('sendNotice 受理之后踢一脚看守（合并窗口后只跑一次）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      var syncs = 0;
+      final watchdog = FnthinkReceiptWatchdog(
+        hasWaiting: () async => true,
+        sync: () async {
+          syncs++;
+          return 0;
+        },
+        debounce: const Duration(milliseconds: 10),
+      );
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: [], status: 202, body: sentBody),
+        receiptWatchdog: watchdog,
+      );
+      await c.sendNotice(peer: '8KMNPQRSTVWX999777', title: 't', text: 'b');
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(syncs, 1);
+      watchdog.dispose();
     });
   });
 

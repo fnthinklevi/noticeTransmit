@@ -34,6 +34,7 @@ import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_visuals.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/fnthink_card.dart'
     show
         FnthinkActionTone,
@@ -1117,6 +1118,17 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                 ),
               ],
+              // T202：把「会不会重试」与「没拿到回执」两句说真话。三种事实
+              //（没重试／重试过／不再重试）今天在界面上长得一样，用户拿着「失败」
+              // 两字没法判断该不该手动再发一次；而 no-receipt 只在打开 App/回前台时
+              // 才可能落下 —— 这两条都必须点得开看到，不在页面上摊成一段小字。
+              HelpNoteRow(
+                noteKey: 'history-delivery-retry-note',
+                helpKey: 'history-delivery-retry-help',
+                text: l10n.deliveryRetryHelpShort,
+                helpTitle: l10n.deliveryRetryHelpTitle,
+                helpBody: l10n.deliveryRetryHelpBody,
+              ),
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
@@ -2416,8 +2428,15 @@ class _HistoryPageState extends State<HistoryPage> {
     FnthinkRemoteExecutionRecord? record,
   ) {
     if (record == null) return null;
-    var line = fnthinkRemoteExecutionStateWord(l10n, record.state);
-    if (record.reason.isNotEmpty) {
+    var line = fnthinkRemoteExecutionStateWord(
+      l10n,
+      record.state,
+      reason: record.reason,
+    );
+    if (record.reason.isEmpty) {
+      if (record.result.isNotEmpty) line = '$line · ${record.result}';
+    } else if (record.reason != deliveryNoReceiptReason) {
+      // T200：`no-receipt` 已经由状态词说全（"这一轮没拿到回执，状态未知"），不重复。
       line = '$line · ${remoteReasonText(record.reason, l10n)}';
     } else if (record.result.isNotEmpty) {
       line = '$line · ${record.result}';

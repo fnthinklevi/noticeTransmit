@@ -1410,8 +1410,10 @@ void main() {
       );
       expect(
         main,
-        contains('loadUnsettledRemoteExecutions()'),
-        reason: 'sweep 的输入是"还欠着的那几行"；读口没有调用点 = 这一族仍是死的',
+        contains('loadUnsettledRemoteExecutions('),
+        reason:
+            'sweep 的输入是"还欠着的那几行"；读口没有调用点 = 这一族仍是死的'
+            '（T200 起带 direction 参数；方向判据由 receipt_chain 守卫另钉）',
       );
       // 与 `_drainLocalRemoteCommands` 同一条护栏：契约没读到就先不跑（装配那一刻崩过一次）。
       expect(

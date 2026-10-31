@@ -5,6 +5,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 
 import 'remote_execution_notifier.dart';
 
+import '../models/delivery_status.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_l2_actions.dart';
 import 'fnthink_l3_settings.dart';
@@ -30,7 +31,8 @@ import 'fnthink_remote_outcome_words.dart';
 /// 延时窗口靠的是进程内的 Timer，进程一死它们就没了 —— 而历史表里那些行**还写着
 /// `pending`**。不扫一遍的话，界面上永远显示"待执行"，而"撤销"那一下点下去也没有任何反应
 /// （撤销靠的就是那个 Timer）。所以 [sweepInterrupted] 在装配处跑一次：
-/// 把所有未决的行记成 `failed` + `interrupted`，**如实说"没做成"而不是让它永远显示在等**。
+/// `in` 方向记成 `failed` + `interrupted`（**如实说"没做成"**）；`out` 方向只写
+/// `no-receipt`（状态未知，见该方法的注释）。
 /// ⚠ 它是 [ChangeNotifier]：执行链的状态每一次变（来了新指令 / 到点了 / 撤销了 /
 ///   执行完了）都 `notifyListeners()`，而撤销入口那两处横幅靠这个**立刻**重画。
 ///   只给它们一个 `pendingAt` 问口的话，横幅只能每秒轮询一次 ——
@@ -284,17 +286,44 @@ class RemoteCommandRunner extends ChangeNotifier {
     return true;
   }
 
-  /// 进程重启之后：把所有未决的行记成 `failed` + `interrupted`（**只落盘，不执行**）。
+  /// 进程重启之后：把未决行收一次尾（**只落盘，不执行**）。
   ///
   /// ⚠ 只处理**没有在工作集里**的那些：本进程新收的正在跑，不该被这一刀砍掉。
   /// 之所以只落盘不执行：进程已经死过一次了，重启后**自动补做**等于
-  /// 「用户以为撤掉了、其实重启后又做了一遍」—— 那一行写着 `interrupted`，
-  /// 界面上会说"没做成"，这比偷偷补做诚实。
+  /// 「用户以为撤掉了、其实重启后又做了一遍」。
+  ///
+  /// T200 起按**主语分档**（同一把刀不能砍两种事实）：
+  ///  - `direction=in`（本机要执行的那一发）被系统打断 ⇒ `failed` + `interrupted` 成立；
+  ///  - `direction=out`（我在等对面回执）**不许写失败** —— 这一轮没拿到回执只说明
+  ///    **状态未知**，保留原状态、只把理由写成 `no-receipt`（与送达清扫那枚同一词、
+  ///    同一作者），迟到的终态回执还能把它翻案（判据在 `remoteOutRowForReceipt`）。
+  ///    写成 failed 的后果就是维护者 10-18 报的那一格：对面真的执行完了，发起端说「没做成」。
   Future<int> sweepInterrupted(List<FnthinkRemoteExecutionRecord> rows) async {
     var swept = 0;
     for (final row in rows) {
       if (!row.unsettled) continue;
       if (_inFlight.containsKey(row.execId)) continue;
+      if (row.outgoing) {
+        if (row.reason == deliveryNoReceiptReason) continue;
+        await saveRecord(
+          FnthinkRemoteExecutionRecord(
+            execId: row.execId,
+            direction: row.direction,
+            peerAddress: row.peerAddress,
+            level: row.level,
+            item: row.item,
+            argument: row.argument,
+            state: row.state,
+            source: row.source,
+            createdAt: row.createdAt,
+            result: row.result,
+            reason: deliveryNoReceiptReason,
+            messageId: row.messageId,
+          ),
+        );
+        swept++;
+        continue;
+      }
       await saveRecord(
         FnthinkRemoteExecutionRecord(
           execId: row.execId,
@@ -306,6 +335,7 @@ class RemoteCommandRunner extends ChangeNotifier {
           state: RemoteExecutionStates.failed,
           source: row.source,
           createdAt: row.createdAt,
+          result: row.result,
           reason: 'interrupted',
           messageId: row.messageId,
         ),
@@ -315,6 +345,12 @@ class RemoteCommandRunner extends ChangeNotifier {
     if (swept > 0) notifyListeners();
     return swept;
   }
+
+  /// T200 ③：回执认领改的是**库里的行**（不在执行链的工作集里），订阅者
+  /// （历史页 / 撤销横幅）不会自己知道 —— 这里补一次通知，与执行链自己那几发同一个
+  /// ChangeNotifier。不补的表现：回执写进库了，而页面那一格要等下一次执行链动静
+  /// 或重开页面才更新（"不是永远不刷新，但也确实不会自己刷新"）。
+  void notifyHistoryChanged() => notifyListeners();
 
   /// 到点了：走一遍 `pending → executing → 终态`。
   Future<void> _execute(String execId) async {

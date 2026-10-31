@@ -137,6 +137,56 @@ class FnthinkReceiveKernel {
     };
   }
 
+  /// 只取回执那一发（T194）的签名字段：与 [pollFields] 同形，只换 `type`。
+  ///
+  /// 载荷仍是空串（`body` 键必须在 —— 缺字段与填空值签出的字节不同）。这一发**不 hold**、
+  /// 不取货：它只回答「我发出去的那几条现在算什么」。
+  Map<String, Object?> receiptsFields({required String nonce, String? ts}) {
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('receipts'),
+      'target': addressCode,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': '',
+    };
+  }
+
+  /// 只取回执（T194）。
+  ///
+  /// 复用 [interpret] 而不是另写一套状态码分类：403 / 410 / 429 / 非 200 的含义
+  /// 在两条路上是同一条，抄第二份的那天只会有一边改到。响应里没有 messages 与
+  /// pending（契约 `clientEvents.receipts.returns` 只有两样），内核按缺省读成空。
+  Future<FnthinkPollResult> pullReceipts() async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: receiptsFields(nonce: nonce),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkPollResult(
+        status: FnthinkPollStatus.transportError,
+        nextDelay: currentDelay,
+        signedWhileUncalibrated: signedUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    return interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedUncalibrated,
+    );
+  }
+
   /// 一次取货。失败不抛：返回的 [FnthinkPollResult.status] 说清是哪一种失败，
   /// 因为**调用方的下一步取决于它**（等一会 / 换 nonce / 先去校准时间）。
   Future<FnthinkPollResult> poll() async {
