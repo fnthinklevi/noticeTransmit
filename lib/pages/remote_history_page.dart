@@ -5,6 +5,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/delivery_status.dart';
+import '../services/fnthink_diag.dart';
 import '../services/fnthink_remote_reason_words.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import '../services/fnthink_contract_loader.dart';
@@ -86,6 +87,17 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
   bool _loading = false;
   bool _reloadWanted = false;
 
+  /// 这一屏里**词表外**的那几行理由（T201 ③）。
+  ///
+  /// ⚠ 数字取自当场读回来的那几行，不取 prefs 里那份累计读数：问号讲的是"你正在看的这一屏
+  /// 有几条我们没写过说明"，而累计数会把别的页面、别的日子看到的算进来 —— 那一格就成了一句
+  /// 用户无法核对的话。0 = 一句不加（这一屏没有缺口，就不许宣称有）。
+  int _reasonMissCount = 0;
+
+  /// 同一枚码在一次页面生命周期里只记一发诊断读数：`_load` 会被回前台、执行链每一步
+  /// 事件反复触发，不做这层去重的话那个计数只是"刷新了几次"。
+  final Set<String> _reasonMissMarked = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -139,10 +151,22 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
         rows = null;
       }
       if (mounted) {
+        // T201 ③：数一遍这一屏里有几行的「理由」落到了词表外 —— 判据与那一格画不画**同一个函数**
+        // （`_showsReasonNote`），否则数字会把根本不显示的那一行算进去，用户数屏幕就对不上。
+        var misses = 0;
+        for (final row in rows ?? const <FnthinkRemoteExecutionRecord>[]) {
+          if (!_showsReasonNote(row.reason)) continue;
+          if (remoteReasonIsKnown(row.reason)) continue;
+          misses++;
+          if (_reasonMissMarked.add(row.reason)) {
+            unawaited(markFnthinkReasonMiss(code: row.reason));
+          }
+        }
         setState(() {
           _contract = contract;
           _rows = rows;
           _error = error;
+          _reasonMissCount = misses;
         });
       }
     } finally {
@@ -342,15 +366,30 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
               fnthinkRemoteOutcomeText(l10n, row.result),
             ),
           ),
-        if (row.reason.isNotEmpty && row.reason != deliveryNoReceiptReason)
-          FnthinkNote(
-            keyName: 'remote-history-reason-${row.execId}',
-            // 理由由词表那枚唯一作者翻成人话；词表外的**原样带出**（不编）。
-            // ⚠ 不许退回 `row.reason`：那会让屏上同时出现人话与机器词，
-            //   而用户分不清哪句是系统的结论（roadmap T144 那句「半翻比不翻更坏」）。
-            // ⚠ T200：`no-receipt` 那一格已经由**状态词**说全（"这一轮没拿到回执，状态未知"），
-            //   再画一行理由就是同一件事说两遍。
-            text: l10n.remoteHistoryReason(remoteReasonText(row.reason, l10n)),
+        if (_showsReasonNote(row.reason))
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: FnthinkNote(
+                  keyName: 'remote-history-reason-${row.execId}',
+                  // 理由由词表那枚唯一作者翻成人话；词表外的**承认没写过**并带上原文。
+                  // ⚠ 不许退回 `row.reason`：那会让屏上同时出现人话与机器词，
+                  //   而用户分不清哪句是系统的结论（roadmap T144 那句「半翻比不翻更坏」）。
+                  // ⚠ T201：这一行右侧那枚问号读**同一张表**（`remoteReasonHelpBody`），
+                  //   用户不必知道码长什么样就能查这一族在说什么。
+                  text: l10n.remoteHistoryReason(
+                    remoteReasonText(row.reason, l10n),
+                  ),
+                ),
+              ),
+              HelpNoteButton(
+                keyName: 'remote-history-reason-help-${row.execId}',
+                title: l10n.remoteReasonHelpTitle,
+                body: remoteReasonHelpBody(l10n, missCount: _reasonMissCount),
+                bodyHeight: 360,
+              ),
+            ],
           ),
         // ⚠ 已终态的那一行**不给**这一下：它在界面上会是一个点了没反应的按钮，
         //   而"点了没反应"正是这一格要防的那种形状。
@@ -410,3 +449,11 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage>
 
 // （T100 片5）这一页原来在这里抄了一枚私有 `_Note`：padding、12px、height 1.4、
 // secondaryLabel 四个值与公共件 `FnthinkNote` 逐字相同 —— 小字说明那一族从此只有一个作者。
+
+/// 这一行**画不画**「理由」那一格：空串不画；`no-receipt` 也不画（那一句由状态那一行说，
+/// 行内再讲一遍就是同一格两个作者 —— T200 立的口径）。
+///
+/// ⚠ 问号里那句「这一屏有几条没写过说明」读的是**同一个函数**（T201 ③）。两处各写一份的后果是
+/// 数字把根本不显示的那一行算进去 —— 而那一句唯一的作用就是能让用户对着屏幕数。
+bool _showsReasonNote(String reason) =>
+    reason.isNotEmpty && reason != deliveryNoReceiptReason;

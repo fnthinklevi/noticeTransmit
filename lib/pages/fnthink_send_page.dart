@@ -510,21 +510,20 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       text: wire,
     );
     final sent = result.status == FnthinkSendStatus.accepted;
+    // 那枚**原始码**只有一个作者：落库、当场那句结论、问号里的「还没写过说明」三处读同一份。
+    // 各写一遍 `result.reason ?? result.status.name` 会长出三个口径（T201 ⑤ 要的就是这一处不再分叉）。
+    final code = sent ? '' : (result.reason ?? result.status.name);
     // 没交出去 ⇒ 同一行改写成 `failed` + 那枚机器词（`execId` 不变，不留两行）。
     // 交出去 ⇒ 原样停在 `pending`：对面执没执行是两段回执的事，
     // 而回执什么时候回来、回不回都改不了这一格已经定下来的事实（我按下了）。
     // ⚠ 这次写在 `if (!mounted)` **之前**：用户划走这一页不该让账少一行。
     await widget.deps.saveRemoteExecution(
-      remoteOutRowAfterSend(
-        outRow,
-        accepted: sent,
-        reason: sent ? '' : (result.reason ?? result.status.name),
-      ),
+      remoteOutRowAfterSend(outRow, accepted: sent, reason: code),
     );
     if (!mounted) return;
     final note = sent
         ? l10n.remoteSendStartedNote
-        : l10n.remoteSendFailed(result.reason ?? result.status.name);
+        : l10n.remoteSendFailed(code);
     setState(() {
       _busy = false;
       _sent = sent;
@@ -539,7 +538,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     // T126 片3：指令那一档同样当场弹一次，正文与小字同一个作者（`note`）。
     // 这一档比消息那一档更需要它：`remoteSendStartedNote` 说的是"已交出去"，
     // 而对面到底肯不肯做是后面两段回执的事 —— 弹层里不许提前说成"做完了"。
-    await showFnthinkOutcome(context, ok: sent, detail: note);
+    await showFnthinkOutcome(context, ok: sent, detail: note, reason: code);
   }
 
   @override

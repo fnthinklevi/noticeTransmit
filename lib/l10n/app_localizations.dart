@@ -10187,6 +10187,186 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'应用'**
   String get fnthinkAppLabel;
+
+  /// No description provided for @remoteReasonSendAccepted.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器已受理（还不等于对方收到）'**
+  String get remoteReasonSendAccepted;
+
+  /// No description provided for @remoteReasonSendRejectedUnsigned.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器没认下这台设备的签名（要重新登记或配对）'**
+  String get remoteReasonSendRejectedUnsigned;
+
+  /// No description provided for @remoteReasonSendRejectedCapability.
+  ///
+  /// In zh, this message translates to:
+  /// **'身份已证明，但这一步不被允许（没配对、档位不够或类型不在词表）'**
+  String get remoteReasonSendRejectedCapability;
+
+  /// No description provided for @remoteReasonSendReplayed.
+  ///
+  /// In zh, this message translates to:
+  /// **'同一个 nonce 已经用过（重发要换一个 nonce）'**
+  String get remoteReasonSendReplayed;
+
+  /// No description provided for @remoteReasonSendNeedsCalibration.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机时间与服务器差得太多（先校准时间再重试）'**
+  String get remoteReasonSendNeedsCalibration;
+
+  /// No description provided for @remoteReasonSendRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'被服务器限流（按提示等一会再试）'**
+  String get remoteReasonSendRateLimited;
+
+  /// No description provided for @remoteReasonSendTransportError.
+  ///
+  /// In zh, this message translates to:
+  /// **'没连上服务器（网络、代理或证书）—— 这一发什么都没发生'**
+  String get remoteReasonSendTransportError;
+
+  /// No description provided for @remoteReasonSendSigningUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机签不出名（Keystore 被拒或没有私钥）'**
+  String get remoteReasonSendSigningUnavailable;
+
+  /// No description provided for @remoteReasonSendPreconditionFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机还没就绪（地址、契约或开关不完整）'**
+  String get remoteReasonSendPreconditionFailed;
+
+  /// No description provided for @remoteReasonSendBadInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一条本身发不出去（内容含签名字段分隔符，或类型不在词表）'**
+  String get remoteReasonSendBadInput;
+
+  /// No description provided for @remoteReasonSendUnparseable.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器答了，但载荷看不懂（例如“已受理”却没有消息号）'**
+  String get remoteReasonSendUnparseable;
+
+  /// No description provided for @remoteReasonTsExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'签名时间超出服务器的容差（先学到服务器时间再重签）'**
+  String get remoteReasonTsExpired;
+
+  /// No description provided for @remoteReasonNonceReplayed.
+  ///
+  /// In zh, this message translates to:
+  /// **'nonce 撞上了服务端的去重窗口（换一个 nonce 重签）'**
+  String get remoteReasonNonceReplayed;
+
+  /// No description provided for @remoteReasonUnsignedOrUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'签名没被认下，或服务端没有这台设备'**
+  String get remoteReasonUnsignedOrUnknown;
+
+  /// No description provided for @remoteReasonAcceptedWithoutId.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器说收下了，却没给消息号（这一条追不回来）'**
+  String get remoteReasonAcceptedWithoutId;
+
+  /// No description provided for @remoteReasonSigningFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机签不出名（底层异常：{x}）'**
+  String remoteReasonSigningFailed(String x);
+
+  /// No description provided for @remoteReasonTransportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没连上服务器（底层异常：{x}）—— 这一发什么都没发生'**
+  String remoteReasonTransportFailed(String x);
+
+  /// No description provided for @remoteReasonRateLimitFamily.
+  ///
+  /// In zh, this message translates to:
+  /// **'被服务器限流（建议等待秒数：{x}）'**
+  String remoteReasonRateLimitFamily(String x);
+
+  /// No description provided for @remoteReasonCapabilityFamily.
+  ///
+  /// In zh, this message translates to:
+  /// **'身份已证明，但这一步不被允许（服务端回执：{x}）'**
+  String remoteReasonCapabilityFamily(String x);
+
+  /// No description provided for @remoteReasonUnexpectedStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器回了一个本机没见过的状态码（{x}）'**
+  String remoteReasonUnexpectedStatus(String x);
+
+  /// No description provided for @remoteReasonBizFail.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道的业务性拒绝（重试不会成功；例如企微 errcode 非 0）'**
+  String get remoteReasonBizFail;
+
+  /// No description provided for @remoteReasonHttpFail.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道回了 HTTP 失败（会当场重试；仍失败则进入重放队列）'**
+  String get remoteReasonHttpFail;
+
+  /// No description provided for @remoteReasonNetworkFail.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能连上通道（会当场重试；仍失败则进入重放队列）'**
+  String get remoteReasonNetworkFail;
+
+  /// No description provided for @remoteReasonRateLimitedNative.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道限流（会按 Retry-After 等待后重试）'**
+  String get remoteReasonRateLimitedNative;
+
+  /// No description provided for @remoteReasonUnknownCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条我们还没写过说明（原文：{code}）'**
+  String remoteReasonUnknownCode(String code);
+
+  /// No description provided for @remoteReasonHelpTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条报错说明'**
+  String get remoteReasonHelpTitle;
+
+  /// No description provided for @remoteReasonHelpShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'报错说明与常见原因'**
+  String get remoteReasonHelpShort;
+
+  /// No description provided for @remoteReasonHelpIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'下面这些码会出现在「理由」那一格；没有列出的码属于本机还没写过说明的那一类，它会连同原文一起显示，不会变成一句猜出来的原因。'**
+  String get remoteReasonHelpIntro;
+
+  /// No description provided for @remoteReasonHelpFamilyNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'形如「族：细节」的码：族说明原因，细节原样带出（本机不替它改写）。'**
+  String get remoteReasonHelpFamilyNote;
+
+  /// No description provided for @remoteReasonMissSeen.
+  ///
+  /// In zh, this message translates to:
+  /// **'本页有 {n} 条理由本机还没写过说明（原文见各行）。'**
+  String remoteReasonMissSeen(int n);
 }
 
 class _AppLocalizationsDelegate

@@ -6029,4 +6029,129 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkAppLabel => 'App';
+
+  @override
+  String get remoteReasonSendAccepted =>
+      'Accepted by the server (not yet delivered)';
+
+  @override
+  String get remoteReasonSendRejectedUnsigned =>
+      'The server did not accept this device\'s signature (register or pair again)';
+
+  @override
+  String get remoteReasonSendRejectedCapability =>
+      'Identity proven, but this action is not allowed (not paired, level too low, or type not in the vocabulary)';
+
+  @override
+  String get remoteReasonSendReplayed =>
+      'This nonce was already used (resend with a new nonce)';
+
+  @override
+  String get remoteReasonSendNeedsCalibration =>
+      'The local clock differs too much from the server (calibrate before retrying)';
+
+  @override
+  String get remoteReasonSendRateLimited =>
+      'Rate-limited by the server (wait as instructed, then retry)';
+
+  @override
+  String get remoteReasonSendTransportError =>
+      'Could not reach the server (network, proxy, or certificate); nothing was sent';
+
+  @override
+  String get remoteReasonSendSigningUnavailable =>
+      'This device could not sign (Keystore refused or the private key is missing)';
+
+  @override
+  String get remoteReasonSendPreconditionFailed =>
+      'This device is not ready (address, contract, or switches incomplete)';
+
+  @override
+  String get remoteReasonSendBadInput =>
+      'This item cannot be sent (it contains the signature separator, or its type is not in the vocabulary)';
+
+  @override
+  String get remoteReasonSendUnparseable =>
+      'The server replied, but the payload was unreadable (for example, accepted without a message id)';
+
+  @override
+  String get remoteReasonTsExpired =>
+      'The signed timestamp is outside the server\'s tolerance (learn the server time, then sign again)';
+
+  @override
+  String get remoteReasonNonceReplayed =>
+      'The nonce hit the server\'s dedupe window (sign again with a new nonce)';
+
+  @override
+  String get remoteReasonUnsignedOrUnknown =>
+      'The signature was not accepted, or the server does not know this device';
+
+  @override
+  String get remoteReasonAcceptedWithoutId =>
+      'The server said accepted but returned no message id (this item cannot be tracked)';
+
+  @override
+  String remoteReasonSigningFailed(String x) {
+    return 'This device could not sign (underlying error: $x)';
+  }
+
+  @override
+  String remoteReasonTransportFailed(String x) {
+    return 'Could not reach the server (underlying error: $x); nothing was sent';
+  }
+
+  @override
+  String remoteReasonRateLimitFamily(String x) {
+    return 'Rate-limited by the server (suggested wait: $x s)';
+  }
+
+  @override
+  String remoteReasonCapabilityFamily(String x) {
+    return 'Identity proven, but the action is not allowed (server receipt: $x)';
+  }
+
+  @override
+  String remoteReasonUnexpectedStatus(String x) {
+    return 'The server returned a status code this build does not recognize ($x)';
+  }
+
+  @override
+  String get remoteReasonBizFail =>
+      'Business-level rejection by the channel (retrying cannot succeed; for example a WeCom errcode other than 0)';
+
+  @override
+  String get remoteReasonHttpFail =>
+      'The channel returned an HTTP failure (retried on the spot; if it still fails it enters the replay queue)';
+
+  @override
+  String get remoteReasonNetworkFail =>
+      'Could not reach the channel (retried on the spot; if it still fails it enters the replay queue)';
+
+  @override
+  String get remoteReasonRateLimitedNative =>
+      'Channel rate limit (retried after the Retry-After delay)';
+
+  @override
+  String remoteReasonUnknownCode(String code) {
+    return 'We have not written an explanation for this one yet (raw: $code)';
+  }
+
+  @override
+  String get remoteReasonHelpTitle => 'About this error';
+
+  @override
+  String get remoteReasonHelpShort => 'Error explanations and common causes';
+
+  @override
+  String get remoteReasonHelpIntro =>
+      'These codes can appear in the Reason field. A code not listed here is one we have not written an explanation for yet; it is shown together with its raw text rather than replaced by a guess.';
+
+  @override
+  String get remoteReasonHelpFamilyNote =>
+      'Codes shaped like \"family:detail\": the family states the cause and the detail is carried through verbatim (we do not rewrite it).';
+
+  @override
+  String remoteReasonMissSeen(int n) {
+    return 'This page has $n reason(s) with no explanation yet (raw codes are shown on each row).';
+  }
 }

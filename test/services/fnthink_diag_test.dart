@@ -64,6 +64,21 @@ void main() {
     );
   });
 
+  test('词表外的理由落两枚读数：累计条数 + 最近一枚原文', () async {
+    await markFnthinkReasonMiss(code: 'brand-new-token');
+    await markFnthinkReasonMiss(code: 'another-fresh-code');
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt(kFnthinkDiagReasonMissCountKey), 2);
+    expect(
+      prefs.getString(kFnthinkDiagReasonMissLastKey),
+      'another-fresh-code',
+    );
+    // 裸键名（与上面三枚同一条纪律：Dart 侧写裸键，插件落盘时自己加前缀）。
+    expect(kFnthinkDiagReasonMissCountKey, 'fnthink_diag_reason_miss_count');
+    expect(kFnthinkDiagReasonMissLastKey, 'fnthink_diag_reason_miss_last');
+  });
+
   test('poll 结论压缩：成功不带原因，失败把原因带上', () {
     expect(
       fnthinkPollDiagStatus(

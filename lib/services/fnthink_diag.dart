@@ -11,6 +11,24 @@ const String kFnthinkDiagLastPollStatusKey = 'fnthink_diag_last_poll_status';
 const String kFnthinkDiagLastStreamByteAtKey =
     'fnthink_diag_last_stream_byte_at';
 
+/// T201 ③：理由词表**没写过**的那一类码（诊断读数，不参与任何判据）。
+/// 只记最近一条与累计条数；用户读到的那句「这条我们还没写过说明」出自同一张表。
+const String kFnthinkDiagReasonMissLastKey = 'fnthink_diag_reason_miss_last';
+const String kFnthinkDiagReasonMissCountKey = 'fnthink_diag_reason_miss_count';
+
+/// 记一条「本机词表没写过」的理由码。写盘失败只留日志：诊断读数坏了不许
+/// 反过来影响历史页的渲染。
+Future<void> markFnthinkReasonMiss({required String code}) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final next = (prefs.getInt(kFnthinkDiagReasonMissCountKey) ?? 0) + 1;
+    await prefs.setInt(kFnthinkDiagReasonMissCountKey, next);
+    await prefs.setString(kFnthinkDiagReasonMissLastKey, code);
+  } catch (e) {
+    debugPrint('[fnthink] 理由词表诊断读数没落盘：$e');
+  }
+}
+
 /// 写一发 poll 的时刻与结论。失败只留一行 debug 日志：诊断读数坏了不许反过来影响收货。
 Future<void> markFnthinkPoll({
   required int atMs,

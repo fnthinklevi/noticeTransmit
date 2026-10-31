@@ -5687,4 +5687,110 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkAppLabel => '应用';
+
+  @override
+  String get remoteReasonSendAccepted => '服务器已受理（还不等于对方收到）';
+
+  @override
+  String get remoteReasonSendRejectedUnsigned => '服务器没认下这台设备的签名（要重新登记或配对）';
+
+  @override
+  String get remoteReasonSendRejectedCapability =>
+      '身份已证明，但这一步不被允许（没配对、档位不够或类型不在词表）';
+
+  @override
+  String get remoteReasonSendReplayed => '同一个 nonce 已经用过（重发要换一个 nonce）';
+
+  @override
+  String get remoteReasonSendNeedsCalibration => '本机时间与服务器差得太多（先校准时间再重试）';
+
+  @override
+  String get remoteReasonSendRateLimited => '被服务器限流（按提示等一会再试）';
+
+  @override
+  String get remoteReasonSendTransportError => '没连上服务器（网络、代理或证书）—— 这一发什么都没发生';
+
+  @override
+  String get remoteReasonSendSigningUnavailable => '本机签不出名（Keystore 被拒或没有私钥）';
+
+  @override
+  String get remoteReasonSendPreconditionFailed => '本机还没就绪（地址、契约或开关不完整）';
+
+  @override
+  String get remoteReasonSendBadInput => '这一条本身发不出去（内容含签名字段分隔符，或类型不在词表）';
+
+  @override
+  String get remoteReasonSendUnparseable => '服务器答了，但载荷看不懂（例如“已受理”却没有消息号）';
+
+  @override
+  String get remoteReasonTsExpired => '签名时间超出服务器的容差（先学到服务器时间再重签）';
+
+  @override
+  String get remoteReasonNonceReplayed => 'nonce 撞上了服务端的去重窗口（换一个 nonce 重签）';
+
+  @override
+  String get remoteReasonUnsignedOrUnknown => '签名没被认下，或服务端没有这台设备';
+
+  @override
+  String get remoteReasonAcceptedWithoutId => '服务器说收下了，却没给消息号（这一条追不回来）';
+
+  @override
+  String remoteReasonSigningFailed(String x) {
+    return '本机签不出名（底层异常：$x）';
+  }
+
+  @override
+  String remoteReasonTransportFailed(String x) {
+    return '没连上服务器（底层异常：$x）—— 这一发什么都没发生';
+  }
+
+  @override
+  String remoteReasonRateLimitFamily(String x) {
+    return '被服务器限流（建议等待秒数：$x）';
+  }
+
+  @override
+  String remoteReasonCapabilityFamily(String x) {
+    return '身份已证明，但这一步不被允许（服务端回执：$x）';
+  }
+
+  @override
+  String remoteReasonUnexpectedStatus(String x) {
+    return '服务器回了一个本机没见过的状态码（$x）';
+  }
+
+  @override
+  String get remoteReasonBizFail => '通道的业务性拒绝（重试不会成功；例如企微 errcode 非 0）';
+
+  @override
+  String get remoteReasonHttpFail => '通道回了 HTTP 失败（会当场重试；仍失败则进入重放队列）';
+
+  @override
+  String get remoteReasonNetworkFail => '没能连上通道（会当场重试；仍失败则进入重放队列）';
+
+  @override
+  String get remoteReasonRateLimitedNative => '通道限流（会按 Retry-After 等待后重试）';
+
+  @override
+  String remoteReasonUnknownCode(String code) {
+    return '这条我们还没写过说明（原文：$code）';
+  }
+
+  @override
+  String get remoteReasonHelpTitle => '这条报错说明';
+
+  @override
+  String get remoteReasonHelpShort => '报错说明与常见原因';
+
+  @override
+  String get remoteReasonHelpIntro =>
+      '下面这些码会出现在「理由」那一格；没有列出的码属于本机还没写过说明的那一类，它会连同原文一起显示，不会变成一句猜出来的原因。';
+
+  @override
+  String get remoteReasonHelpFamilyNote => '形如「族：细节」的码：族说明原因，细节原样带出（本机不替它改写）。';
+
+  @override
+  String remoteReasonMissSeen(int n) {
+    return '本页有 $n 条理由本机还没写过说明（原文见各行）。';
+  }
 }

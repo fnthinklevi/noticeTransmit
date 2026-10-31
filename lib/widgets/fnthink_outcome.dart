@@ -22,18 +22,38 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/fnthink_remote_reason_words.dart';
 import 'ios_dialog_actions.dart';
 
 /// 弹一次结论。[detail] 必须是那一页现有那句结论的**原话**，不许在这里另拼。
+///
+/// T201 ⑤：**失败那一发**多一枚「这条报错说明」——正文与两张远程执行页读同一张表
+/// （[remoteReasonHelpBody]）。成功那一发不出现这一枚：它没有需要解释的码。
+///
+/// [reason] 是那枚**原始码**（不是翻过的那句）。给了它，问号里才会多那句「这条本机
+/// 还没写过说明」；没给（空串）就只出正文那一串词表，不假装数过。
 Future<void> showFnthinkOutcome(
   BuildContext context, {
   required bool ok,
   required String detail,
+  String reason = '',
 }) {
   final l10n = AppLocalizations.of(context);
+  final miss = reason.isEmpty || remoteReasonIsKnown(reason) ? 0 : 1;
   return IosDialogActions.showInfo(
     context,
     title: ok ? l10n.fnthinkOutcomeDone : l10n.fnthinkOutcomeFailed,
     message: detail,
+    helpText: ok ? null : l10n.remoteReasonHelpShort,
+    onHelp: ok
+        ? null
+        : () => IosDialogActions.showExplainer<void>(
+            context,
+            title: l10n.remoteReasonHelpTitle,
+            body: SingleChildScrollView(
+              child: Text(remoteReasonHelpBody(l10n, missCount: miss)),
+            ),
+            bodyHeight: 360,
+          ),
   );
 }

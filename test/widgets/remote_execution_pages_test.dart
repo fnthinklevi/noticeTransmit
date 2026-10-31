@@ -7,8 +7,11 @@ import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
+import 'package:notice_transmit/models/delivery_status.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
+import 'package:notice_transmit/services/fnthink_diag.dart';
 import 'package:notice_transmit/services/fnthink_remote_action_labels.dart';
+import 'package:notice_transmit/services/fnthink_remote_reason_words.dart';
 import 'package:notice_transmit/services/fnthink_remote_execution.dart';
 import 'package:notice_transmit/services/fnthink_remote_out_record.dart';
 import 'package:notice_transmit/pages/fnthink_send_page.dart';
@@ -1369,9 +1372,13 @@ void main() {
       );
 
       expect(
-        find.text(zhL10n.remoteHistoryReason('brand-new-token')),
+        find.text(
+          zhL10n.remoteHistoryReason(
+            zhL10n.remoteReasonUnknownCode('brand-new-token'),
+          ),
+        ),
         findsOneWidget,
-        reason: '把认不出的码翻成一句已知的话 ⇒ 界面替本机编了一个它没给的原因',
+        reason: '词表外的码要「承认没写过」并带原文，不许换成一句已知的话，也不许只剩裸码',
       );
     });
 
@@ -1533,6 +1540,206 @@ void main() {
       expect(
         find.byKey(const ValueKey('remote-history-row-e_one')),
         findsOneWidget,
+      );
+    });
+  });
+
+  // ── T201：两张页的报错说明入口（与 T202/T200 同一张理由表）─────────────
+  group('T201：报错说明入口（发送页与历史页读同一张表）', () {
+    Future<void> submitCommand(WidgetTester tester) async {
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-listener:start')),
+      );
+      await tester.pumpAndSettle();
+      await revealSubmit(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      await _confirmIfPresent(tester);
+    }
+
+    testWidgets('发送失败 ⇒ 当场结论多一枚说明；点开读到同一张表', (tester) async {
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async => const FnthinkSendResult(
+              status: FnthinkSendStatus.transportError,
+              reason: 'transport:SocketException',
+            ),
+      );
+      await submitCommand(tester);
+      expect(
+        find.text(zhL10n.remoteReasonHelpShort),
+        findsOneWidget,
+        reason: '失败结论没有说明入口 ⇒ 用户只看到一枚英文裸码',
+      );
+      await tester.tap(find.text(zhL10n.remoteReasonHelpShort));
+      await tester.pumpAndSettle();
+      expect(find.text(zhL10n.remoteReasonHelpTitle), findsOneWidget);
+      expect(find.textContaining('BIZ_FAIL'), findsWidgets);
+      expect(find.textContaining('还没写过说明'), findsWidgets);
+    });
+
+    testWidgets('发送失败且那枚码在词表外 ⇒ 当场那份说明也带上这一条', (tester) async {
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async => const FnthinkSendResult(
+              status: FnthinkSendStatus.transportError,
+              reason: 'brand-new-token',
+            ),
+      );
+      await submitCommand(tester);
+      await tester.tap(find.text(zhL10n.remoteReasonHelpShort));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(remoteReasonHelpBody(zhL10n, missCount: 1)),
+        findsOneWidget,
+        reason: '发送页读的是同一张表：这一发的码没写过，说明里就要数出这一条',
+      );
+    });
+
+    testWidgets('发送成功 ⇒ 没有那枚说明（它没有需要解释的码）', (tester) async {
+      await pumpSend(tester);
+      await submitCommand(tester);
+      expect(
+        find.text(zhL10n.remoteReasonHelpShort),
+        findsNothing,
+        reason: '成功那一发没有码可解释，多一枚入口就是让用户去读一份与他无关的表',
+      );
+    });
+
+    testWidgets('历史行 reason 旁有一枚；点开是同一份表', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('x0000001', state: 'failed', reason: 'brand-new-token'),
+        ],
+      );
+      expect(
+        find.textContaining('brand-new-token'),
+        findsWidgets,
+        reason: '词表外的码必须连同原文一起出现（承认没写过），不许只剩一句空话',
+      );
+      final help = find.byKey(
+        const ValueKey('remote-history-reason-help-x0000001'),
+      );
+      expect(help, findsOneWidget, reason: '历史行 reason 旁那枚问号没了');
+      await tester.tap(help);
+      await tester.pumpAndSettle();
+      expect(find.text(zhL10n.remoteReasonHelpTitle), findsOneWidget);
+      expect(find.textContaining('BIZ_FAIL'), findsWidgets);
+    });
+
+    testWidgets('这一屏有词表外的码 ⇒ 问号正文多那一句条数（数的是当场这几行）', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('x0000001', state: 'failed', reason: 'brand-new-token'),
+          record('x0000002', state: 'failed', reason: 'another-fresh-code'),
+          record('x0000003', state: 'failed', reason: 'switch-off'),
+        ],
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-history-reason-help-x0000001')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(remoteReasonHelpBody(zhL10n, missCount: 2)),
+        findsOneWidget,
+        reason: '三行里两行落在词表外，问号正文却报 0 条或报 3 条 ⇒ 数字与屏上的行对不上',
+      );
+    });
+
+    testWidgets('这一屏的码全在词表里 ⇒ 正文不出现那一句（不许宣称一个不存在的缺口）', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('x0000001', state: 'failed', reason: 'switch-off'),
+          record('x0000002', state: 'failed', reason: 'auth:wrong'),
+        ],
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-history-reason-help-x0000001')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(remoteReasonHelpBody(zhL10n)),
+        findsOneWidget,
+        reason: '这一屏没有词表外的码，多那一句就是不实陈述',
+      );
+    });
+
+    testWidgets('同一枚码被重取多次 ⇒ 诊断读数只记一发', (tester) async {
+      // 那一格是"这台设备见过几种没写过的码"，不是"这一页刷新了几次"：
+      // `_load` 会被回前台与执行链每一步反复触发，不去重就把它读成了一个自增噪声。
+      final events = ChangeNotifier();
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('x0000001', state: 'failed', reason: 'brand-new-token'),
+        ],
+        events: () => events,
+      );
+      events.notifyListeners();
+      await tester.pumpAndSettle();
+      events.notifyListeners();
+      await tester.pumpAndSettle();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(kFnthinkDiagReasonMissCountKey), 1);
+      expect(prefs.getString(kFnthinkDiagReasonMissLastKey), 'brand-new-token');
+    });
+
+    testWidgets('`no-receipt` 那一行不进条数（它行内根本不画「理由」那一格）', (tester) async {
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('x0000001', state: 'failed', reason: 'brand-new-token'),
+          record('x0000002', state: 'failed', reason: deliveryNoReceiptReason),
+        ],
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-history-reason-help-x0000001')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(remoteReasonHelpBody(zhL10n, missCount: 1)),
+        findsOneWidget,
+        reason: '计数与那一格显示的条件必须是同一个；把不画的那一行算进去就是多报一条',
+      );
+    });
+
+    testWidgets('`no-receipt` 那一行行内不画「理由」那一格，也不给它问号', (tester) async {
+      // 那一句的说法归状态那一行（T200）：行内再讲一遍就是同一格两个作者，
+      // 而两处一旦分叉，用户在屏上会读到两种说法。
+      await pumpHistory(
+        tester,
+        loadRecords: (_) async => [
+          record('x0000001', state: 'failed', reason: deliveryNoReceiptReason),
+        ],
+      );
+      expect(
+        find.byKey(const ValueKey('remote-history-reason-x0000001')),
+        findsNothing,
+        reason: 'no-receipt 在行内又画了一遍「理由」⇒ 同一件事两处两个作者',
+      );
+      expect(
+        find.byKey(const ValueKey('remote-history-reason-help-x0000001')),
+        findsNothing,
+        reason: '那一格不画，行尾那枚问号也不该跟着出现（它没有可解释的码）',
       );
     });
   });

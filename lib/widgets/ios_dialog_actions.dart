@@ -37,6 +37,8 @@ class IosDialogActions {
     required String title,
     required String message,
     String? okText,
+    String? helpText,
+    VoidCallback? onHelp,
   }) {
     final l10n = AppLocalizations.of(context);
     return showCupertinoDialog<void>(
@@ -49,6 +51,15 @@ class IosDialogActions {
           child: Text(message),
         ),
         actions: [
+          // T201 ⑤：失败结论旁那一枚说明入口（成功那一发不传，两个都不出现）。
+          if (helpText != null && onHelp != null)
+            CupertinoDialogAction(
+              onPressed: () {
+                Navigator.pop(ctx);
+                onHelp();
+              },
+              child: Text(helpText),
+            ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.pop(ctx),

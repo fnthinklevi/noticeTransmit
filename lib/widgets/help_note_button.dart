@@ -20,6 +20,7 @@ class HelpNoteButton extends StatelessWidget {
     required this.keyName,
     required this.title,
     required this.body,
+    this.bodyHeight,
   });
 
   /// ValueKey 的名字部分。用例与发版闸门都按 `ValueKey(keyName)` 点这一枚。
@@ -31,6 +32,10 @@ class HelpNoteButton extends StatelessWidget {
   /// 弹窗正文 —— 就是原来那句长说明，原样搬进来。
   final String body;
 
+  /// 正文固定高度并改成可滚动（T201：报错说明那张表会随词表增长）。
+  /// null = 旧行为（内容自己决定高度）。
+  final double? bodyHeight;
+
   @override
   Widget build(BuildContext context) {
     return CupertinoButton(
@@ -40,7 +45,10 @@ class HelpNoteButton extends StatelessWidget {
       onPressed: () => IosDialogActions.showExplainer<void>(
         context,
         title: title,
-        body: Text(body),
+        body: bodyHeight == null
+            ? Text(body)
+            : SingleChildScrollView(child: Text(body)),
+        bodyHeight: bodyHeight,
       ),
       child: Icon(
         Icons.help_outline,
