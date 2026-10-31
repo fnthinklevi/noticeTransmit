@@ -28,11 +28,28 @@ MA_BUILD=$(grep "FALLBACK_BUILD" android/app/src/main/kotlin/com/fnthink/notice/
 
 echo "MainActivity.kt:  version=$MA_VERSION  build=$MA_BUILD"
 
-# 提取 version.json 中的版本
-VJ_VERSION=$(grep '"latestVersion"' server/data/version.json | grep -oP '"(1\.[0-9]+\.[0-9]+)"' | tr -d '"')
-VJ_BUILD=$(grep '"latestBuild"' server/data/version.json | grep -oP ':\s*(\d+)' | grep -oP '\d+')
-
-echo "version.json:  version=$VJ_VERSION  build=$VJ_BUILD"
+# 提取两站清单（T170：cn → version.cn.json，global → version.global.json）中的版本。
+# ⚠ 不再拿 version.json 当基准：它已降级为"按站点文件缺失时的只读兜底"，
+#   继续让它当裁判就是让影子真值说了算（线上那两份已经漂过两天，见部署手册 4.4）。
+VERSION_FILES=(server/data/version.cn.json server/data/version.global.json)
+for vf in "${VERSION_FILES[@]}"; do
+    if [ ! -f "$vf" ]; then
+        echo -e "${RED}❌ 缺按站点清单 $vf（该站会退回旧 version.json 兜底，或读到空清单）${NC}"
+        errors=$((errors+1))
+        continue
+    fi
+    v=$(grep '"latestVersion"' "$vf" | head -1 | grep -oP '"(1\.[0-9]+\.[0-9]+)"' | tr -d '"' || true)
+    b=$(grep '"latestBuild"' "$vf" | head -1 | grep -oP ':\s*(\d+)' | grep -oP '\d+' || true)
+    echo "$vf:  version=$v  build=$b"
+    if [ "$PUBSPEC_VERSION" != "$v" ]; then
+        echo -e "${RED}❌ pubspec.yaml ($PUBSPEC_VERSION) != $vf ($v)${NC}"
+        errors=$((errors+1))
+    fi
+    if [ "$PUBSPEC_BUILD" != "$b" ]; then
+        echo -e "${RED}❌ pubspec.yaml build ($PUBSPEC_BUILD) != $vf ($b)${NC}"
+        errors=$((errors+1))
+    fi
+done
 
 # 比对
 echo ""
@@ -46,10 +63,6 @@ if [ "$PUBSPEC_VERSION" != "$MA_VERSION" ]; then
     echo -e "${RED}❌ pubspec.yaml ($PUBSPEC_VERSION) != MainActivity.kt ($MA_VERSION)${NC}"
     errors=$((errors+1))
 fi
-if [ "$PUBSPEC_VERSION" != "$VJ_VERSION" ]; then
-    echo -e "${RED}❌ pubspec.yaml ($PUBSPEC_VERSION) != version.json ($VJ_VERSION)${NC}"
-    errors=$((errors+1))
-fi
 
 if [ "$PUBSPEC_BUILD" != "$UM_BUILD" ]; then
     echo -e "${RED}❌ pubspec.yaml build ($PUBSPEC_BUILD) != update_manager.dart ($UM_BUILD)${NC}"
@@ -57,10 +70,6 @@ if [ "$PUBSPEC_BUILD" != "$UM_BUILD" ]; then
 fi
 if [ "$PUBSPEC_BUILD" != "$MA_BUILD" ]; then
     echo -e "${RED}❌ pubspec.yaml build ($PUBSPEC_BUILD) != MainActivity.kt ($MA_BUILD)${NC}"
-    errors=$((errors+1))
-fi
-if [ "$PUBSPEC_BUILD" != "$VJ_BUILD" ]; then
-    echo -e "${RED}❌ pubspec.yaml build ($PUBSPEC_BUILD) != version.json ($VJ_BUILD)${NC}"
     errors=$((errors+1))
 fi
 
@@ -81,15 +90,18 @@ if [ -z "$PY" ]; then
     errors=$((errors+1))
 fi
 
-# ===== N3 传输层校验：version.json 的 sha256 字段完备性 =====
+# ===== N3 传输层校验：两站清单的 sha256 字段完备性（T170 之后不再只看 version.json）=====
 # 四个平台均须为 64 位小写十六进制（空串表示该平台不校验，允许但会提示）
-if [ -n "$PY" ] && [ -f server/data/version.json ]; then
-    if ! "$PY" - <<'EOF'
+for vf in "${VERSION_FILES[@]}"; do
+    [ -f "$vf" ] || continue
+    if [ -n "$PY" ]; then
+        if ! "$PY" - "$vf" <<'EOF'
 import json, re, sys
-data = json.load(open('server/data/version.json', encoding='utf-8'))
+path = sys.argv[1]
+data = json.load(open(path, encoding='utf-8'))
 sha = data.get('sha256')
 if not isinstance(sha, dict):
-    print("❌ version.json 缺少 sha256 字段（N3 传输层校验）")
+    print(f"❌ {path} 缺少 sha256 字段（N3 传输层校验）")
     sys.exit(1)
 hex64 = re.compile(r'^[0-9a-f]{64}$')
 problems, empties = [], []
@@ -101,29 +113,29 @@ for k in ('arm64', 'arm32', 'x86_64', 'all'):
     if not (isinstance(v, str) and hex64.match(v)):
         problems.append(f"{k}={v!r}")
 if problems:
-    print(f"❌ sha256 非法（须为 64 位小写十六进制）：{problems}")
+    print(f"❌ {path} 的 sha256 非法（须为 64 位小写十六进制）：{problems}")
     sys.exit(1)
 if empties:
-    print(f"⚠ sha256 存在但以下平台为空（下载时跳过校验）：{empties}")
-print("sha256 字段检查通过（4 平台齐全）")
+    print(f"⚠ {path} 的 sha256 存在但以下平台为空（下载时跳过校验）：{empties}")
+print(f"{path} 的 sha256 字段检查通过（4 平台齐全）")
 EOF
-    then
-        echo -e "${RED}❌ version.json sha256 字段检查失败${NC}"
-        errors=$((errors+1))
+        then
+            echo -e "${RED}❌ $vf 的 sha256 字段检查失败${NC}"
+            errors=$((errors+1))
+        fi
     fi
-fi
+done
 
-# ===== N3 续：sha256 与磁盘上的包按字节交叉校验 =====
-# 上一段只验形状（64 位小写十六进制）⇒ "哈希属于另一次构建"照不出来：v1.5.76 第一趟 x86_64
-# 构建失败后重跑，四包字节全变了，而当时已提交的 version.json 留的是上一趟的哈希 —— 形状检查
-# 一路绿。客户端装包前正是拿这个值校验下载的，发错哈希等于让用户装不上。
+# ===== N3 续：sha256 与磁盘包按字节交叉校验 + 两站/旧文件一致性 =====
+# 工具本体现在默认**两站都验**：站点无关字段必须逐字相同；旧 `version.json` 若还在，
+# 也必须与按站点清单一致（漂移即红＝影子真值：它在按站点文件缺失时会被服务端静默读走）。
 # 本机有归档/构建产物才按字节比；CI 上没有，工具自己打印"未交叉校验"（不静默、也不判红）。
-if [ -n "$PY" ] && [ -f server/data/version.json ]; then
+if [ -n "$PY" ] && { [ -f server/data/version.cn.json ] || [ -f server/data/version.global.json ]; }; then
     if [ ! -f tools/check_apk_sha.py ]; then
         echo -e "${RED}❌ 缺 tools/check_apk_sha.py ⇒ sha256 字节级交叉校验没跑（不是通过，是没跑）${NC}"
         errors=$((errors+1))
     elif ! PYTHONIOENCODING=utf-8 "$PY" tools/check_apk_sha.py; then
-        echo -e "${RED}❌ version.json 的 sha256 与磁盘上的包不一致 ⇒ 重新回填（release_local.sh 阶段 3）${NC}"
+        echo -e "${RED}❌ 两站清单与磁盘包/彼此不一致 ⇒ 重新回填（release_local.sh 阶段 3）${NC}"
         errors=$((errors+1))
     fi
 fi

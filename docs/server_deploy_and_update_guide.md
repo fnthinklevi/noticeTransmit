@@ -337,11 +337,28 @@ curl -sS -H 'cf-ipcountry: US' https://notice.fnthink.com/api/version/region
 | --- | --- | --- | --- |
 | 大陆站（`.com`） | `UPDATE_REGION=cn` | `$ROOT/data/version.cn.json` | `cdn.fnthink.com` |
 | 海外站（`.top`） | `UPDATE_REGION=global`（或**不设**） | `$ROOT/data/version.global.json` | `cdn2.fnthink.top` |
+| 旧文件名（**已退役**） | — | `$ROOT/data/version.json`（**只在按站点文件缺失时**被读） | 无（管理面不再写它） |
 
 - 默认 `global`：与拆分前"只有一台在跑"的行为一致。写成 `cn`/`global` 以外的值，进程**启动即报错退出** ——
   站点写错会让下载链接指向另一站的 CDN，这比起不来更难被发现，所以不猜。
-- **升级前的旧文件仍可读**：按站文件不存在、而 `$ROOT/data/version.json` 存在时，读旧文件；
-  下一次在后台保存版本会写到按站文件（旧文件留在原地，不删）。这两份只是**模板**，真实版本内容以运维后台为准。
+- **旧文件 `version.json` 已降级为"只读兜底"**：按站文件不存在、而 `$ROOT/data/version.json` 存在时，服务端读旧文件；
+  管理面保存**永远写按站点文件**（`server/lib/routes/version.js` 的注释原话："读可以退回旧 version.json，写只写按站文件"）。
+  它留在磁盘上的唯一后果是：**当按站点文件被删/改名/写坏时，服务端会静默回落到它**，把那份旧版本号发给所有人 ——
+  线上已经出现过一次"两份内容差两天、属主还不同"的漂移（2026-10-30 截图）。
+- **退役它（推荐；两台各做一次，先验证后改名，别直接删）**：
+  ```bash
+  # ① 先确认按站点文件在、且接口回答的就是它
+  ssh user@host 'ls -l $ROOT/data/version.*.json'
+  curl -s https://<站点>/api/version/check | grep -o '"latestVersion"[^,]*'
+  # ② 归档（改名不删，留着回溯）
+  ssh user@host 'cd $ROOT/data && mv version.json version.json.legacy-$(date +%Y%m%d)'
+  # ③ 再读一次接口：版本号不变即完成；变空/变旧 ⇒ 立刻把文件 mv 回去并查 .env 的 UPDATE_REGION
+  curl -s https://<站点>/api/version/check | grep -o '"latestVersion"[^,]*'
+  ```
+- 发版侧已有守卫（2026-10-31）：`tools/check_apk_sha.py` 默认**两站都验** —— 站点无关字段
+  （`latestVersion`／`latestBuild`／`sha256`／`fileSizes` 等）必须逐字一致，旧 `version.json` 若还在也必须与按站点一致，
+  漂移即红并直接把归档命令打印出来；`.github/scripts/check_version_consistency.sh` 也从"只读 version.json"
+  改成两站清单各验一遍。这两份按站点文件只是**模板**，真实版本内容仍以运维后台为准。
 - ⚠ `data/` 是运行数据，日常 `rsync --exclude 'data/'` 不会把这两份文件带上去 ⇒ 新装机要手工放一份，
   或首次在后台保存时让服务端自动建。回滚时同上：`data/` 不动，换代码与 `UPDATE_REGION` 即可。
 - 回归：两台各发一次
