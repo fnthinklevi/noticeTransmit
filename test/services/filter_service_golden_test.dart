@@ -29,7 +29,7 @@ void main() {
     // 用例数=0 时下面的 for 一枚用例都不会生成，"全绿"其实等于没跑 —— 这条是那个空洞的正面锚点。
     expect(
       cases,
-      hasLength(51),
+      hasLength(55),
       reason:
           '用例数变化本身不是风险，但未经确认的变化要让人停下来：'
           '增删用例必须同时改 test/fixtures/ 与 android/app/src/test/resources/ 两份副本'

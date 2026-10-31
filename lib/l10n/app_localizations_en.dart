@@ -1646,6 +1646,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get condRegex => 'Regex';
 
   @override
+  String get condUnknown => 'Unrecognized condition type';
+
+  @override
   String get hintPackage => 'e.g. com.example.app';
 
   @override
@@ -1659,6 +1662,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hintRegex => 'Regex';
+
+  @override
+  String get hintUnknown =>
+      'This app does not know that condition type, so it never matches (it is not compared against the title). The raw type is kept as written when saving.';
 
   @override
   String get actionPush => 'Push Notification';

@@ -28,9 +28,27 @@ void main() {
         ConditionType.titleNotContains,
       );
       expect(
+        // 认不出的类型**不猜**：以前降级成 titleContains，于是「充电状态=full」这种本机
+        // 不支持的条件在 Dart 侧变成「标题包含 full」，而原生侧同一串判不匹配 ⇒ 两端各自转发
+        // 不同的东西。现在两端一致：unknown ⇒ 求值恒不匹配（见 filter_service 与 RuleEngine）。
         ConditionTypeExtension.fromValue('unknown'),
-        ConditionType.titleContains,
+        ConditionType.unknown,
       );
+      expect(ConditionTypeExtension.fromValue(''), ConditionType.unknown);
+    });
+
+    // 单独成条（不并进 fromValue 那条）：植入反证时，「解析降级」与「选择器少一档/多一档」
+    // 是两条不同的判据，红在同一条用例上就分不出是哪条塌了。
+    test('条件类型选择器：不含 unknown，且认得的类型一枚不许丢', () {
+      // `unknown` 不在可选项里：界面上没人能"选一个不认识"。
+      expect(selectableConditionTypes, isNot(contains(ConditionType.unknown)));
+      expect(selectableConditionTypes.length, ConditionType.values.length - 1);
+      // 认得的类型逐个都要在可选项里（漏一枚就是界面上配不出来的条件）。
+      for (final t in ConditionType.values.where(
+        (t) => t != ConditionType.unknown,
+      )) {
+        expect(selectableConditionTypes, contains(t), reason: '$t 从选择器里丢了');
+      }
     });
   });
 
@@ -94,6 +112,54 @@ void main() {
       expect(updated.id, 'c1');
       expect(updated.type, ConditionType.contentContains);
       expect(updated.value, 'updated');
+    });
+
+    // ── T186 片1：本机认不出的条件类型 ────────────────────────────────
+    test('认不出的类型原样带回（不因为"这台不认得"就改写或丢掉）', () {
+      final original = {
+        'id': 'c1',
+        'type': 'charging_state',
+        'value': 'full',
+        'logic': 'and',
+      };
+      final condition = Condition.fromMap(original);
+
+      expect(condition.type, ConditionType.unknown);
+      expect(condition.value, 'full');
+      // 存回去必须是同一串：写成 'title_contains' 就是替用户改了他的规则，
+      // 写成 '' 就是让这条条件从此谁都读不出来。
+      expect(condition.toMap(), original);
+    });
+
+    test('缺 type 那一格也算认不出（与原生 optString 缺省空串同一条口径）', () {
+      final condition = Condition.fromMap({'id': 'c1', 'value': 'full'});
+      expect(condition.type, ConditionType.unknown);
+      expect(condition.toMap()['type'], '');
+    });
+
+    test('用户把一条认不出的条件改成认得的类型 ⇒ 原始串跟着换', () {
+      final kept = Condition.fromMap({
+        'id': 'c1',
+        'type': 'charging_state',
+        'value': 'full',
+        'logic': 'and',
+      });
+      final fixed = kept.copyWith(type: ConditionType.titleContains);
+
+      expect(fixed.type, ConditionType.titleContains);
+      expect(fixed.wireType, 'title_contains');
+      // 没换类型时仍然原样带着那一串（编辑别的字段不该顺手改写类型）。
+      expect(kept.copyWith(value: 'charging').wireType, 'charging_state');
+    });
+
+    test('认得的类型用规范串，不用读进来时那一份', () {
+      final c = Condition(
+        id: 'c1',
+        type: ConditionType.priority,
+        value: 'high',
+        rawType: 'PRIORITy',
+      );
+      expect(c.wireType, 'priority');
     });
   });
 

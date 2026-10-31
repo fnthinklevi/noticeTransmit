@@ -3020,6 +3020,12 @@ abstract class AppLocalizations {
   /// **'正则表达式'**
   String get condRegex;
 
+  /// No description provided for @condUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'不认得的条件类型'**
+  String get condUnknown;
+
   /// No description provided for @hintPackage.
   ///
   /// In zh, this message translates to:
@@ -3049,6 +3055,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正则表达式'**
   String get hintRegex;
+
+  /// No description provided for @hintUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机不认得这一型条件 ⇒ 一律判不匹配（不会拿它去比标题）；保存时原样保留，不改写成别的类型'**
+  String get hintUnknown;
 
   /// No description provided for @actionPush.
   ///

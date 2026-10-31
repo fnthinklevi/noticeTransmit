@@ -98,6 +98,12 @@ class FilterService {
           case ConditionType.regexMatch:
             conditionMatch = _evaluateRegexCondition(value, title, content);
             break;
+          case ConditionType.unknown:
+            // 认不出的类型一律判不匹配（与原生 `RuleEngine.evaluateCondition` 的
+            // `else -> false` 同一条口径）。不许在这里猜成某个认得的类型：
+            // 猜错的后果是"两端各自转发不同的东西"，而影子求值与真机行为不一致最难查。
+            conditionMatch = false;
+            break;
         }
       }
 

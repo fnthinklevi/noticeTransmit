@@ -55,11 +55,7 @@ void main() {
     final entry = managerSrc.indexOf('Future<bool> installApk(');
     final call = managerSrc.indexOf('await stageWhatsNewChangelog(');
     expect(entry, greaterThan(-1));
-    expect(
-      call > entry,
-      isTrue,
-      reason: '落盘没发生在安装入口之内 ⇒ 首启永远读不到待读日志',
-    );
+    expect(call > entry, isTrue, reason: '落盘没发生在安装入口之内 ⇒ 首启永远读不到待读日志');
     expect(
       managerSrc.substring(entry, call).contains('VersionCheckResult? update'),
       isTrue,

@@ -1576,6 +1576,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get condRegex => '正则表达式';
 
   @override
+  String get condUnknown => '不认得的条件类型';
+
+  @override
   String get hintPackage => '例如：com.example.app';
 
   @override
@@ -1589,6 +1592,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get hintRegex => '正则表达式';
+
+  @override
+  String get hintUnknown => '本机不认得这一型条件 ⇒ 一律判不匹配（不会拿它去比标题）；保存时原样保留，不改写成别的类型';
 
   @override
   String get actionPush => '推送通知';

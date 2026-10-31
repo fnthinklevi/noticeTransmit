@@ -337,6 +337,15 @@ class _ActionItem extends StatelessWidget {
   }
 }
 
+/// 条件类型可选项的唯一装配点：只列本机认得的类型 [selectableConditionTypes]。
+/// `unknown` 不是一档可选项——没人能"选一个不认识"；它只在读入一条本机不认得的规则时出现
+/// （那时界面上明说"不匹配"）。两枚弹层共用这一份，避免某一枚漂回整份枚举。
+List<_IosOption<ConditionType>> _conditionTypeOptions(AppLocalizations l10n) =>
+    [
+      for (final t in selectableConditionTypes)
+        _IosOption(t, l10n.conditionTypeLabel(t)),
+    ];
+
 class _ConditionAddDialog extends StatefulWidget {
   final Function(Condition) onAdd;
 
@@ -384,9 +393,7 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
         _IosSelectField<ConditionType>(
           label: l10n.ruleConditionType,
           value: _selectedType,
-          options: ConditionType.values
-              .map((t) => _IosOption(t, l10n.conditionTypeLabel(t)))
-              .toList(),
+          options: _conditionTypeOptions(l10n),
           onChanged: (value) {
             setState(() {
               _selectedType = value;
@@ -519,9 +526,7 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
         _IosSelectField<ConditionType>(
           label: l10n.ruleConditionType,
           value: _type,
-          options: ConditionType.values
-              .map((t) => _IosOption(t, l10n.conditionTypeLabel(t)))
-              .toList(),
+          options: _conditionTypeOptions(l10n),
           onChanged: (value) {
             setState(() {
               _type = value!;

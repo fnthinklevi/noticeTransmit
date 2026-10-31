@@ -15,6 +15,7 @@ extension AppLocalizationsEnumHelpers on AppLocalizations {
     ConditionType.priority => condPriority,
     ConditionType.timeRange => condTimeRange,
     ConditionType.regexMatch => condRegex,
+    ConditionType.unknown => condUnknown,
   };
 
   String conditionTypeHint(ConditionType type) => switch (type) {
@@ -26,6 +27,7 @@ extension AppLocalizationsEnumHelpers on AppLocalizations {
     ConditionType.priority => hintPriority,
     ConditionType.timeRange => hintTimeRange,
     ConditionType.regexMatch => hintRegex,
+    ConditionType.unknown => hintUnknown,
   };
 
   String actionTypeLabel(ActionType type) => switch (type) {

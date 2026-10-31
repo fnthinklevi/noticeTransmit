@@ -1366,6 +1366,117 @@
         "priority": 1
       },
       "expected": true
+    },
+    {
+      "name": "T186 片1：认不出的类型（charging_state）单条件判不匹配，即便标题含那个值",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "full",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "fully charged 100%",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "T186 片1：认不出的类型 OR 已知命中条件 ⇒ 整条命中（未知不许拖垮组间 OR）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "full",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "title_contains",
+            "value": "charged",
+            "logic": "or"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "fully charged 100%",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "T186 片1：认不出的类型 AND 已知命中条件 ⇒ 本组落空（不知道不等于没这个条件）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "charging_state",
+            "value": "full",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "title_contains",
+            "value": "charged",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "fully charged 100%",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "T186 片1：条件缺 type 字段 ⇒ 判不匹配（与原生 optString 缺省空串同口径）",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "value": "full",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.app",
+        "title": "fully charged 100%",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
     }
   ]
 }

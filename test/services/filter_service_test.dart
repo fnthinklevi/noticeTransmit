@@ -397,4 +397,71 @@ void main() {
       expect(result, isA<bool>()); // should not throw
     });
   });
+
+  // ── T186 片1：认不出的条件类型一律判不匹配（与原生 RuleEngine 同一条口径）────
+  group('evaluateRule – 认不出的条件类型', () {
+    test('单条件且认不出 ⇒ 不匹配（不拿 value 去比标题）', () {
+      final rule = NotificationRule(
+        id: 'r1',
+        name: 'unknown',
+        enabled: true,
+        priority: 10,
+        conditions: [
+          Condition(id: 'c1', type: ConditionType.unknown, value: 'full'),
+        ],
+      );
+      // 通知标题里**故意**含 'full'：降级成 title_contains 就会命中，那正是这次修掉的形状。
+      expect(
+        service.evaluateRule(rule, makeNotification(title: 'fully charged')),
+        isFalse,
+        reason: '认不出却去匹配 ⇒ 影子求值与真机行为分叉，且没人会知道',
+      );
+    });
+
+    test('组间 OR：认不出那一支不匹配，另一支命中 ⇒ 整条规则命中', () {
+      final rule = NotificationRule(
+        id: 'r1',
+        name: 'mix',
+        enabled: true,
+        priority: 10,
+        conditions: [
+          Condition(id: 'c1', type: ConditionType.unknown, value: 'full'),
+          Condition(
+            id: 'c2',
+            type: ConditionType.titleContains,
+            value: '验证码',
+            logic: LogicOperator.or,
+          ),
+        ],
+      );
+      expect(
+        service.evaluateRule(rule, makeNotification(title: '你的验证码 1234')),
+        isTrue,
+        reason: '未知类型不许把整条规则拖成不匹配（组间 OR 的语义是"任一支成立"）',
+      );
+    });
+
+    test('组内 AND：认不出那一支让本组落空（不猜、不跳过）', () {
+      final rule = NotificationRule(
+        id: 'r1',
+        name: 'mix',
+        enabled: true,
+        priority: 10,
+        conditions: [
+          Condition(id: 'c1', type: ConditionType.unknown, value: 'full'),
+          Condition(
+            id: 'c2',
+            type: ConditionType.titleContains,
+            value: '验证码',
+            logic: LogicOperator.and,
+          ),
+        ],
+      );
+      expect(
+        service.evaluateRule(rule, makeNotification(title: '你的验证码 1234')),
+        isFalse,
+        reason: 'AND 组里"不知道"不能当"没这个条件"处理 —— 那会把窄规则放宽',
+      );
+    });
+  });
 }

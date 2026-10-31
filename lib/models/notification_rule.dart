@@ -41,7 +41,28 @@ enum ConditionType {
   priority,
   timeRange,
   regexMatch,
+
+  /// 本机**不认得**的条件类型（来自更新的 App 写的备份／规则模板，或未来新增的类型）。
+  ///
+  /// 为什么必须有这一档：以前未知值被降级成 `titleContains`，于是「充电状态=full」这种
+  /// 本机不支持的条件在 Dart 侧变成「标题包含 `full`」—— 这是把"不认识"说成"我懂"，
+  /// 而原生侧同一份规则判的是不匹配（`RuleEngine.kt` 的 `else -> false`）⇒ 两端各自转发
+  /// 不同的东西。现在两端一致：**判不匹配**，并且原始类型串原样带回（见 [Condition.rawType]）。
+  /// ⚠ 它**不进**条件类型选择器（见 [selectableConditionTypes]）：用户不该能"选一个不认识"。
+  unknown,
 }
+
+/// 界面上可选的条件类型。`unknown` 刻意不在里面 —— 它只用于"读进来时不认得"。
+const List<ConditionType> selectableConditionTypes = [
+  ConditionType.packageName,
+  ConditionType.titleContains,
+  ConditionType.titleNotContains,
+  ConditionType.contentContains,
+  ConditionType.contentNotContains,
+  ConditionType.priority,
+  ConditionType.timeRange,
+  ConditionType.regexMatch,
+];
 
 extension ConditionTypeExtension on ConditionType {
   String get value {
@@ -62,6 +83,8 @@ extension ConditionTypeExtension on ConditionType {
         return 'time_range';
       case ConditionType.regexMatch:
         return 'regex_match';
+      case ConditionType.unknown:
+        return '';
     }
   }
 
@@ -84,8 +107,10 @@ extension ConditionTypeExtension on ConditionType {
       case 'regex_match':
         return ConditionType.regexMatch;
       default:
-        debugPrint('警告：未知的 ConditionType 值: $value');
-        return ConditionType.titleContains;
+        // 不猜成任何一个认得的类型：降级会改变匹配结果（原生侧对同一串判 false，
+        // 降级成 title_contains 就会去拿 value 比标题）。这里只记账，判不匹配交给求值那一层。
+        debugPrint('警告：未知的 ConditionType 值: $value（按不匹配处理，原样保留类型串）');
+        return ConditionType.unknown;
     }
   }
 }
@@ -121,12 +146,21 @@ class Condition {
   final String value;
   final LogicOperator logic;
 
+  /// 读进来时那一格**原始的**类型串。只有 [ConditionType.unknown] 时才有意义：
+  /// 保存／导出必须把它原样带回，否则"这台机器不认得"会变成"这条条件消失了"或"它被改成了
+  /// 别的类型"—— 那两条都是对用户存量的破坏性改写。
+  final String rawType;
+
   Condition({
     required this.id,
     required this.type,
     required this.value,
     this.logic = LogicOperator.and,
-  });
+    String? rawType,
+  }) : rawType = rawType ?? type.value;
+
+  /// 写回存储/导出时用的那一串（认得的类型 = 它的规范串；不认得的 = 原始串）。
+  String get wireType => type == ConditionType.unknown ? rawType : type.value;
 
   /// 反序列化。⚠ 入参可能是**备份文件或规则模板**里的 Map，形状不受我们控制：
   /// 任何一处 `as String?` / `as int?` 硬转抛 TypeError，代价是整张规则表恢复不回来
@@ -135,20 +169,20 @@ class Condition {
   /// 与 [ChannelConfigCodec.flag] 的区别是刻意的：那个是 DB 行读取器，故意不认字符串，
   /// 以免脏数据混进 UI。
   factory Condition.fromMap(Map<String, dynamic> map) {
+    final rawType = map['type']?.toString() ?? '';
     return Condition(
       id: map['id']?.toString() ?? '',
-      type: ConditionTypeExtension.fromValue(
-        map['type']?.toString() ?? 'title_contains',
-      ),
+      type: ConditionTypeExtension.fromValue(rawType),
       value: map['value']?.toString() ?? '',
       logic: LogicOperatorExtension.fromValue(
         map['logic']?.toString() ?? 'and',
       ),
+      rawType: rawType,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {'id': id, 'type': type.value, 'value': value, 'logic': logic.value};
+    return {'id': id, 'type': wireType, 'value': value, 'logic': logic.value};
   }
 
   Condition copyWith({
@@ -157,11 +191,14 @@ class Condition {
     String? value,
     LogicOperator? logic,
   }) {
+    final nextType = type ?? this.type;
     return Condition(
       id: id ?? this.id,
-      type: type ?? this.type,
+      type: nextType,
       value: value ?? this.value,
       logic: logic ?? this.logic,
+      // 换了类型就换原始串：只有仍然"不认得"时才继续带着那一串。
+      rawType: nextType == ConditionType.unknown ? rawType : nextType.value,
     );
   }
 }
