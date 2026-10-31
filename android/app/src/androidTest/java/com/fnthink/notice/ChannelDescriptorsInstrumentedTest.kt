@@ -43,8 +43,8 @@ class ChannelDescriptorsInstrumentedTest {
         assertTrue("解码结果不是 Map：${decoded.javaClass}", decoded is Map<*, *>)
         val map = decoded as Map<String, Any?>
         assertEquals(
-            "载荷键变了：Dart 侧只认 descriptors + messageFormats，多给/少给都是协议漂移",
-            setOf("descriptors", "messageFormats"),
+            "载荷键变了：Dart 侧只认 descriptors + messageFormats + httpMethods，多给/少给都是协议漂移",
+            setOf("descriptors", "messageFormats", "httpMethods"),
             map.keys,
         )
         // 按「线上字节」复制一份再解：encodeSuccessEnvelope 返回的 direct buffer 的
@@ -56,6 +56,8 @@ class ChannelDescriptorsInstrumentedTest {
         val rows = (map["descriptors"] as List<*>).map { it as Map<String, Any?> }
         assertEquals("webhook 12 + 应用通道 2 + 邮件 1", 15, rows.size)
         assertEquals(TemplateEngine.formatOptions, map["messageFormats"])
+        // T188 片1：请求方法档位同样**只能由原生给**（Dart 不抄第二份动词表）。
+        assertEquals(HttpMethods.configurable, map["httpMethods"])
 
         // 逐条核对解码后的类型：codec 会把 Int 收成 32/64 位两种，Dart 侧统一按 num 取
         val byKey = rows.associateBy { it["key"] as String }

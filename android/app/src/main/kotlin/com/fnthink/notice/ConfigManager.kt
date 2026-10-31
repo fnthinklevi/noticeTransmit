@@ -62,6 +62,13 @@ class ConfigManager(private val context: Context) {
         val type: WebhookPayloadBuilder.WebhookType,
         val messageFormat: String = "default",
         val messageTemplate: String? = null,
+        /**
+         * T188 片1：请求方法。**这里只存"用户填的档位"，能不能用由描述符判**
+         * （`ChannelDispatch.plan` 拿 `transport.httpMethodOptions` 过滤）——
+         * 存成"已裁决的最终值"会把裁决点拆成两处（写侧一处、发侧一处），
+         * 而老配置里存着 `TRACE` 这类值时必须照样回落 POST。
+         */
+        val httpMethod: String = HttpMethods.DEFAULT,
         // T12：主备角色。`getWebhookChannelConfigs()` 只返回**要推的**通道
         // （role=NONE 已被排除），所以发送层不需要再判一次。
         val role: ChannelRole = ChannelRole.PRIMARY,
@@ -120,6 +127,11 @@ class ConfigManager(private val context: Context) {
                 val messageFormat = obj.optString("message_format", "default").ifEmpty { "default" }
                 val messageTemplate = obj.optString("message_template", "")
                     .takeIf { it.isNotEmpty() && it != "null" }
+                // 两个键名都认：DB/备份是 snake（http_method），而 Dart 的 UI 形状是 camel（httpMethod），
+                // 载荷走的是后者 —— 与上面 `type`/`channel_type` 同一条教训：只认一边会静默丢掉用户设的方法。
+                val httpMethod = HttpMethods.normalize(
+                    obj.optString("http_method", obj.optString("httpMethod", ""))
+                )
                 val rawId = obj.optString("id", "")
                 val role = ChannelRole.parse(obj.optString("role", ""))
                 // 「不参与」：保留配置但一条都不推（与"关掉启用开关"的区别是随时可归队）
@@ -133,6 +145,7 @@ class ConfigManager(private val context: Context) {
                         type = type,
                         messageFormat = messageFormat,
                         messageTemplate = messageTemplate,
+                        httpMethod = httpMethod,
                         role = role,
                     )
                 )

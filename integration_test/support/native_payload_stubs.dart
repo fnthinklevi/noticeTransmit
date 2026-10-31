@@ -26,6 +26,18 @@ const List<String> stubMessageFormats = <String>[
   'xml',
 ];
 
+/// 与原生 `HttpMethods.configurable` 同一份方法档位名单（T188 片1）。
+/// ⚠ 这是**闸门桩**，不是第二处权威：线上名单由原生随 `getChannelDescriptors` 下发，
+/// 这里只是让设备侧走查不必真起原生也能渲染那一排档位；两处不一致时
+/// `channel_descriptor_export_contract_test` 的深比对会红。
+const List<String> stubHttpMethods = <String>[
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+];
+
 /// 钉钉群机器人 webhook。
 Map<String, Object?> stubDingtalk() => _webhook(
   key: 'dingtalk',
@@ -166,6 +178,8 @@ Map<String, Object?> channelDescriptorsStub(
 ) => <String, Object?>{
   'descriptors': subset,
   'messageFormats': stubMessageFormats,
+  // T188 片1：请求方法档位（与原生 `HttpMethods.configurable` 同一份，深比对会盯住它）
+  'httpMethods': stubHttpMethods,
 };
 
 Map<String, Object?> _webhook({

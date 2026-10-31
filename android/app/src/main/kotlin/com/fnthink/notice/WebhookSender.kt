@@ -272,6 +272,7 @@ class WebhookSender(private val context: Context) {
             spec,
             OutboundInput(
                 url = cfg.url,
+                configuredHttpMethod = cfg.httpMethod,
                 secret = cfg.secret,
                 chatId = chatId,
                 urlToken = urlToken,
@@ -344,6 +345,8 @@ class WebhookSender(private val context: Context) {
             secret = plan.secretForSigner,
             recordId = info.id,
             contentType = plan.contentType,
+            // 描述符过滤后的方法（平台通道一律回到 POST）；plan 是唯一裁决点，这里不再判一次
+            method = plan.httpMethod,
             force = force,
             onResult = { result ->
                 Log.d(

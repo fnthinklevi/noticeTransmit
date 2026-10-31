@@ -168,7 +168,13 @@ internal object ChannelRegistry {
             signature = SignatureScheme.HEADER_HEX_BODY,
             // 自建端点回 200 + "OK" 纯文本完全合法 ⇒ 不按 JSON 契约判失败
             requiresJsonContract = false,
-            transport = ChannelTransport(templateSupport = TemplateSupport.RAW_BODY),
+            transport = ChannelTransport(
+                templateSupport = TemplateSupport.RAW_BODY,
+                // T188 片1：只有通用 webhook 给"改请求方法"这一档。平台通道的方法是对端契约的一部分，
+                // 让它可改只会把"对端拒绝"变成"用户以为配错了"；而这条事实必须写在这里而不是发送层的
+                // `if (type == GENERIC)`（后者被 productionCodeMustNotBranchOnWebhookTypeAgain 禁止）。
+                httpMethodOptions = HttpMethods.configurable,
+            ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -1155,6 +1161,7 @@ internal object ChannelRegistry {
             if (t.templateSupport != TemplateSupport.DISABLED) add(Capability.CUSTOM_TEMPLATE)
             if (t.templateSupport == TemplateSupport.RAW_BODY) add(Capability.RAW_TEMPLATE_BODY)
             if (s.requiresJsonContract) add(Capability.JSON_CONTRACT)
+            if (t.httpMethodOptions.isNotEmpty()) add(Capability.CUSTOM_HTTP_METHOD)
         }
     }
 

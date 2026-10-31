@@ -1730,6 +1730,12 @@ abstract class AppLocalizations {
   /// **'消息格式'**
   String get webhookFormatLabel;
 
+  /// No description provided for @webhookHttpMethodLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求方法'**
+  String get webhookHttpMethodLabel;
+
   /// No description provided for @feishuMarkdownDowngradeHint.
   ///
   /// In zh, this message translates to:

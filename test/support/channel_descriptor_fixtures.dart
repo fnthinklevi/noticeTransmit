@@ -46,6 +46,14 @@ List<String> exportedMessageFormats() =>
         .map((e) => e.toString())
         .toList(growable: false);
 
+/// 快照里的请求方法档位（T188 片1，与描述符同一次导出）。
+/// 表单测试的档位名单只能从这份快照取 —— 在测试里另抄一份动词表的话，
+/// 原生改档位时 Dart 测试会对着假表继续绿（消息格式档位那一条老账，形状一模一样）。
+List<String> exportedHttpMethods() =>
+    ((_fixtureJson()['httpMethods'] as List<Object?>?) ?? const [])
+        .map((e) => e.toString())
+        .toList(growable: false);
+
 /// `getChannelDescriptors` 的 mock 答复（**形状与 MethodChannel 真实回传一致**：
 /// T08-B 起是 `{descriptors: [...], messageFormats: [...]}` 对象，不再是裸列表 ——
 /// 桩若给旧形状，服务层会按"未知形状保留旧缓存"处理，测试就会在假前提下判绿）。

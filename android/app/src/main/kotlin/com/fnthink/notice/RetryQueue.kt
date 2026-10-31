@@ -30,6 +30,17 @@ data class RetryItem(
     /** 应用通道（自建应用体系）：非空时重放走 AppChannelSender（token 按凭据重取），v1.5.73 */
     val appChannelId: String = "",
     val appType: String = "",
+    /**
+     * T188 片1：入队那一刻的**请求方法**。
+     *
+     * ⚠ 这一枚必须带着：重试不是"重新组一次请求"，而是"把失败那一发再发一遍"。
+     * 队列里没带方法 ⇒ 用户在通用通道上设的 PUT 在第一次失败后就静默变回 POST，
+     * 而对很多自建网关来说"PUT 建档 / POST 追加"是两种操作 —— 重放会做出另一件事。
+     * （同一形状还欠一枚 `extraHeaders`：enqueue 收它但**不**落盘，今天没有受害者
+     * —— 带鉴权头的应用通道走 `replayStored` 重取凭据 —— 但 T188 片2 一旦让用户自定义头，
+     * 那就是同一个坑的第二落点，必须同片补上。）
+     */
+    val method: String = HttpMethods.DEFAULT,
 )
 
 /**
@@ -80,6 +91,7 @@ object RetryQueueLogic {
                     put("recordId", item.recordId)
                     put("appChannelId", item.appChannelId)
                     put("appType", item.appType)
+                    put("method", item.method)
                     put("attempts", item.attempts)
                     put("nextAttemptAt", item.nextAttemptAt)
                     put("createdAt", item.createdAt)
@@ -104,6 +116,8 @@ object RetryQueueLogic {
                     recordId = o.optString("recordId", ""),
                     appChannelId = o.optString("appChannelId", ""),
                     appType = o.optString("appType", ""),
+                    // 升级前落盘的队列没有这一枚 ⇒ POST，而那正是它们当初实发的方法（不是猜的）
+                    method = HttpMethods.normalize(o.optString("method", "")),
                     attempts = o.optInt("attempts", 0),
                     nextAttemptAt = o.optLong("nextAttemptAt", 0L),
                     createdAt = o.optLong("createdAt", 0L),
@@ -167,6 +181,7 @@ object RetryQueue {
         extraHeaders: Map<String, String> = emptyMap(),
         appChannelId: String? = null,
         appTypeLabel: String? = null,
+        method: String = HttpMethods.DEFAULT,
     ) {
         val context = appContext ?: run {
             Log.w(TAG, "enqueue skipped: queue not initialized")
@@ -187,6 +202,7 @@ object RetryQueue {
             createdAt = now,
             appChannelId = appChannelId ?: "",
             appType = appTypeLabel ?: webhookType.name,
+            method = method,
         )
         synchronized(lock) {
             val prefs = prefs(context)
@@ -318,6 +334,8 @@ object RetryQueue {
             webhookType = type,
             secret = item.secret.ifEmpty { null },
             contentType = item.contentType,
+            // T188 片1：重放必须带原方法，否则"PUT 失败重试变 POST"（见 RetryItem.method 的说明）
+            method = item.method,
             force = true,
             recordId = item.recordId,
             onResult = { result ->

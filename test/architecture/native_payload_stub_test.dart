@@ -72,11 +72,11 @@ void main() {
       );
     });
 
-    test('桩组装出的载荷形状与生产相同（对象 + 两个键）', () {
+    test('桩组装出的载荷形状与生产相同（对象 + 三个键）', () {
       final payload = channelDescriptorsStub([stubDingtalk()]);
       expect(
         payload.keys.toSet(),
-        {'descriptors', 'messageFormats'},
+        {'descriptors', 'messageFormats', 'httpMethods'},
         reason:
             '形状变了要同时改 `ChannelDescriptorService.load()` 与两处集成桩 —— '
             '服务认不下载荷时是**保留旧缓存**的（静默降级），不会有人红',

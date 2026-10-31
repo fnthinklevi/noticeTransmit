@@ -84,9 +84,10 @@ void main() {
         reason: '原生已经会回 $unmapped，而页面既没有这一行也没登记并进哪里 ⇒ 用户看不见，等于没读',
       );
       // 登记表自己也会过期：删掉原生某个键后，这里必须跟着删
-      final stale =
-          mergedInto.keys.toSet().union(consumedElsewhere.keys.toSet())
-              .difference(nativeKeys);
+      final stale = mergedInto.keys
+          .toSet()
+          .union(consumedElsewhere.keys.toSet())
+          .difference(nativeKeys);
       expect(stale, isEmpty, reason: '登记表里 $stale 已经不是原生会回的键了');
     });
 

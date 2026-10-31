@@ -97,6 +97,12 @@ class ChannelConfigCodec {
       'role': normalizeRole(row['role']),
       'secret': nullableText(row['secret']),
       'message_format': row['message_format'] ?? 'default',
+      // T188 片1：老行没这一列（迁移给 DEFAULT 'POST'）、老备份文件没这个键 ⇒ 缺省 POST
+      // 就是这些配置历史上实发的方法，不是替用户新做一个决定。
+      'http_method':
+          row['http_method']?.toString() ??
+          row['httpMethod']?.toString() ??
+          'POST',
       'message_template': nullableText(row['message_template']),
       // v9 的 extra_config 不再进 UI（roadmap D4 / ㊷）：原生解析了它但全链路无人消费，
       // wecom_app 的 corpid/agentid/touser 早在 v10 搬进 app_channels.config。
@@ -125,6 +131,10 @@ class ChannelConfigCodec {
     row['role'] = normalizeRole(ui['role']);
     row['secret'] = nullableText(ui['secret']);
     row['message_format'] = ui['message_format'] ?? 'default';
+    // 两套键名都认（DB 列 snake / UI 与备份 camel）：只认一侧的表现是"用户把 PUT 存成
+    // POST"，而页面回显的还是 PUT —— 分叉没人看得见（与 channel_type 同一课）。
+    row['http_method'] =
+        ui['http_method']?.toString() ?? ui['httpMethod']?.toString() ?? 'POST';
     row['message_template'] = nullableText(ui['message_template']);
     return row;
   }
@@ -138,6 +148,10 @@ class ChannelConfigCodec {
     // 老文件就没有这个键），漏给原生 = 原生按主通道读，用户设的"备用/不参与"失效。
     // 这条是 channel_config_codec_test 的跨端键集合守卫抓出来的。
     payload['role'] = normalizeRole(ui['role']);
+    // 方法也必须**显式给**（与 role 同一理由）：调用方可能是备份恢复，文件里没有这个键时
+    // 靠"整份拷贝"就带不出去 —— 原生读不到会按 POST 发，用户设的 PUT 静默失效。
+    payload['http_method'] =
+        ui['http_method']?.toString() ?? ui['httpMethod']?.toString() ?? 'POST';
     return payload;
   }
 

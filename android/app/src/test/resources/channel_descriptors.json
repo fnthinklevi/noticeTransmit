@@ -4,7 +4,8 @@
       "capabilities": [
         "secretUsed",
         "customTemplate",
-        "rawTemplateBody"
+        "rawTemplateBody",
+        "customHttpMethod"
       ],
       "hosts": [],
       "nativeType": "GENERIC",
@@ -407,5 +408,12 @@
     "markdown",
     "json",
     "xml"
+  ],
+  "httpMethods": [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE"
   ]
 }

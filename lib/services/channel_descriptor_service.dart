@@ -148,6 +148,11 @@ class ChannelDescriptor {
   /// 自定义消息格式/模板对该通道是否生效（不生效时 UI 不该给入口）
   bool get supportsCustomTemplate => can('customTemplate');
 
+  /// 该通道是否允许用户改请求方法（T188 片1，只有通用 webhook 给这一档）。
+  /// 与 [supportsCustomTemplate] 同一条取向：能力位由原生描述符派生，Dart 不再写一份
+  /// "哪几类通道可以"的名单 —— 那会是分叉的第二处作者。
+  bool get supportsCustomHttpMethod => can('customHttpMethod');
+
   bool get supportsMarkdown => can('markdown');
 
   factory ChannelDescriptor.fromMap(Map<dynamic, dynamic> m) {
@@ -192,10 +197,16 @@ class ChannelDescriptorService {
   /// 存着的格式就被改了）。现在名单只有原生一份；未就绪时是空列表，
   /// 表单据此只显示该通道当前已存的值，不凭空造档位。
   List<String> _messageFormats = const [];
+
+  /// 请求方法档位（T188 片1）。名单只在原生 `HttpMethods.configurable` 一处；未就绪时是
+  /// 空列表 ⇒ 表单只回显该通道已存的那个值，不凭空造档位（与 messageFormats 同一条纪律）。
+  List<String> _httpMethods = const [];
   bool _loaded = false;
 
   bool get isReady => _loaded;
   List<String> get messageFormats => _messageFormats;
+
+  List<String> get httpMethods => _httpMethods;
   List<ChannelDescriptor> get all => _all;
   List<ChannelDescriptor> get webhook =>
       _all.where((d) => d.family == 'webhook').toList(growable: false);
@@ -246,6 +257,9 @@ class ChannelDescriptorService {
       }
       _all = parsed;
       _messageFormats = ((raw['messageFormats'] as List<Object?>?) ?? const [])
+          .map((e) => e.toString())
+          .toList(growable: false);
+      _httpMethods = ((raw['httpMethods'] as List<Object?>?) ?? const [])
           .map((e) => e.toString())
           .toList(growable: false);
       _loaded = true;

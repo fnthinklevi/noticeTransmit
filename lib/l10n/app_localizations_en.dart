@@ -930,6 +930,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webhookFormatLabel => 'Message Format';
 
   @override
+  String get webhookHttpMethodLabel => 'Request Method';
+
+  @override
   String get feishuMarkdownDowngradeHint =>
       'Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.';
 

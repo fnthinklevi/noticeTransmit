@@ -65,6 +65,13 @@ class WebhookChannel {
 
   /// 消息格式档位（token 字符串，名单来自原生 `TemplateEngine.formatOptions`）。
   final String messageFormat;
+
+  /// 请求方法档位（T188 片1，token 字符串）。
+  ///
+  /// 名单只有原生 `HttpMethods.configurable` 一份作者，界面档位随描述符载荷到手；
+  /// 这里**原样收下**存量值（与 `messageFormat` 同一条纪律）： Dart 侧不认识它不代表
+  /// 这条配置无效 —— 真正的裁决在原生 `ChannelDispatch.plan`（按描述符过滤后回落 POST）。
+  final String httpMethod;
   final String? messageTemplate;
 
   WebhookChannel({
@@ -75,6 +82,7 @@ class WebhookChannel {
     this.enabled = true,
     this.secret,
     this.messageFormat = 'default',
+    this.httpMethod = 'POST',
     this.messageTemplate,
   });
 
@@ -180,6 +188,9 @@ class WebhookChannel {
       secret: map['secret'] as String?,
       // 原样收下，不认识的也留着：旧实现回退成 default，等于"看一眼页面就改设置"
       messageFormat: map['message_format'] as String? ?? 'default',
+      // 两个键名都认：DB 列是 snake，UI/备份形状可能是 camel（与 type/channel_type 同一课）
+      httpMethod:
+          (map['http_method'] ?? map['httpMethod'])?.toString() ?? 'POST',
       messageTemplate: map['message_template'] as String?,
     );
   }
@@ -193,6 +204,7 @@ class WebhookChannel {
       'enabled': enabled,
       if (secret != null && secret!.isNotEmpty) 'secret': secret,
       'message_format': messageFormat,
+      'http_method': httpMethod,
       if (messageTemplate != null && messageTemplate!.isNotEmpty)
         'message_template': messageTemplate,
     };
@@ -206,6 +218,7 @@ class WebhookChannel {
     bool? enabled,
     String? secret,
     String? messageFormat,
+    String? httpMethod,
     String? messageTemplate,
   }) {
     return WebhookChannel(
@@ -216,6 +229,7 @@ class WebhookChannel {
       enabled: enabled ?? this.enabled,
       secret: secret ?? this.secret,
       messageFormat: messageFormat ?? this.messageFormat,
+      httpMethod: httpMethod ?? this.httpMethod,
       messageTemplate: messageTemplate ?? this.messageTemplate,
     );
   }

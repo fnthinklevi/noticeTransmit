@@ -89,7 +89,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 27;
+  static const int dbVersion = 28;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -440,6 +440,8 @@ class DatabaseHelper
         enabled INTEGER NOT NULL DEFAULT 1,
         secret TEXT,
         message_format TEXT NOT NULL DEFAULT 'default',
+        -- T188 片1：通用 webhook 的请求方法档位（平台通道不读它，能不能改由描述符决定）
+        http_method TEXT NOT NULL DEFAULT 'POST',
         role TEXT NOT NULL DEFAULT 'primary',
         message_template TEXT,
         extra_config TEXT,
@@ -1010,6 +1012,18 @@ class DatabaseHelper
         FnthinkPeer.table,
         'peer_name',
         "TEXT NOT NULL DEFAULT ''",
+      );
+    }
+
+    if (oldVersion < 28) {
+      // v28 / T188 片1：通用 webhook 的请求方法可配（GET/POST/PUT/PATCH/DELETE）。
+      // 只加列、DEFAULT 'POST' —— 存量通道本来就一律 POST 发，缺省写成别的值等于替用户改了
+      // 实发形状（"PUT 建档 / POST 追加"这类网关会做出另一件事）。
+      await _addColumnIfMissing(
+        db,
+        'webhook_channels',
+        'http_method',
+        "TEXT NOT NULL DEFAULT 'POST'",
       );
     }
 
@@ -2490,6 +2504,12 @@ class DatabaseHelper
               c['messageFormat']?.toString() ??
               'default',
           'message_template': c['message_template'] ?? c['messageTemplate'],
+          // T188 片1：snake/camel 两套键名都认，缺省 POST（＝这一列不存在时的实发形状）。
+          // 只认一侧的表现是"用户把 PUT 存成 POST"，而页面回显的还是 PUT —— 分叉没人看得见。
+          'http_method':
+              c['http_method']?.toString() ??
+              c['httpMethod']?.toString() ??
+              'POST',
           // v9 的 extra_config 不再写（roadmap D4 / ㊷）：全链路无人消费它。
           // **列保留**（DDL 与 v9→v10 搬家 SELECT 都在下面），删列要迁用户数据、风险不对等。
           // 老行里已有的值会在下一次保存该通道时被置空 —— 该值从来没人读过，属预期清理。

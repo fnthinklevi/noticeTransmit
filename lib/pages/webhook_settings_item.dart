@@ -131,6 +131,57 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                 maxLines: 1,
               ),
             ],
+            // T188 片1：请求方法档位。⚠ 档位文字**不进 ARB**：GET/POST/PUT/PATCH/DELETE 是
+            // HTTP 协议动词，翻成中文就对不上日志与对端文档；只有字段标签需要翻译。
+            if (_supportsCustomHttpMethod) ...[
+              const SizedBox(height: 12),
+              _buildFieldLabel(context, l10n.webhookHttpMethodLabel),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _httpMethodOptions.map((method) {
+                  final selected = _httpMethod == method;
+                  return GestureDetector(
+                    key: ValueKey('webhook-http-method-$method'),
+                    onTap: () {
+                      setState(() {
+                        _httpMethod = method;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? AppColors.blue.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.blue
+                              : AppColors.separator(context),
+                        ),
+                      ),
+                      child: Text(
+                        method,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: selected
+                              ? AppColors.blue
+                              : AppColors.secondaryLabel(context),
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
             // 该通道的实发正文不吃自定义格式/模板（能力位 customTemplate=false）时，
             // 连整排选择器一起收掉：以前给了入口也毫无作用，用户以为设置了其实没有。
             if (_supportsCustomTemplate) ...[

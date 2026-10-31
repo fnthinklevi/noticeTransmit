@@ -111,7 +111,8 @@ void main() {
       // 唯一允许的差集是 `role`（T12）：**总是显式给**，UI 缺该键时补规范缺省值。
       // 不这么做的话，备份恢复来的老文件（没有 role 键）会让原生读到空值，
       // 用户设的「备用 / 不参与」在恢复之后静默失效。
-      expect(native, equals({...ui, 'role': 'primary'}));
+      // role（T12）与 http_method（T188 片1）是仅有的两枚差集：总是显式给，UI 缺键时补规范缺省值。
+      expect(native, equals({...ui, 'role': 'primary', 'http_method': 'POST'}));
       expect(
         identical(native, ui),
         isFalse,
@@ -146,7 +147,7 @@ void main() {
         read,
         // 原生对 type 保留了历史列名兜底（optString("type", optString("channel_type", …))），
         // 主键名给了即可，别名不必再发。
-        subsetOf(produced, aliases: {'channel_type'}),
+        subsetOf(produced, aliases: {'channel_type', 'httpMethod'}),
         reason: '原生读得到而 Dart 不发的键 → 后台推送取空值，且「测试」按钮查不出（㉑ 同族）',
       );
       // 反向钉住 ㊷：extra_config 的解析已从原生侧删掉。将来若有人重新 optJSONObject 它，

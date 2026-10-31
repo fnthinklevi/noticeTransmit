@@ -32,6 +32,11 @@ internal class OutboundInput(
     val rawTemplateBody: () -> Pair<String, String>?,
     /** 描述符 notify 产出的默认正文 */
     val defaultBody: () -> String,
+    /**
+     * 用户在该通道上存着的请求方法（T188 片1，已 trim+大写；缺省 `POST`）。
+     * 传进来**不**代表就按它发 —— 只有该通道描述符的 `httpMethodOptions` 含它才算数。
+     */
+    val configuredHttpMethod: String = HttpMethods.DEFAULT,
 )
 
 internal class OutboundPlan(
@@ -42,6 +47,13 @@ internal class OutboundPlan(
     val secretForSigner: String?,
     /** 非 null = 不发送，直接按该原因记一次业务失败送达结果 */
     val earlyFailReason: String?,
+    /**
+     * 实发请求方法（T188 片1）：`configuredHttpMethod` 落在该通道描述符的
+     * `httpMethodOptions` 里才生效，否则一律 [HttpMethods.DEFAULT]。
+     * 裁决放在 plan 里而不是发送层，是为了让"平台通道不接受自定义方法"这件事
+     * 仍然只是描述符里的一条数据（发送层不许按 WebhookType 分支）。
+     */
+    val httpMethod: String = HttpMethods.DEFAULT,
 )
 
 internal object ChannelDispatch {
@@ -86,10 +98,21 @@ internal object ChannelDispatch {
             body = input.defaultBody()
         }
 
+        // 方法裁决（T188 片1）：描述符没给这一档（12 类平台通道）或存着词表外的值 ⇒ POST。
+        // 词表外的值不报错而是回落，是因为"老配置里存着一个现在不再提供的档位"该照常发出
+        // 一条通用形状的请求，而不是让这条通道的每一次推送都静默失败。
+        val httpMethod =
+            if (transport.httpMethodOptions.contains(input.configuredHttpMethod)) {
+                input.configuredHttpMethod
+            } else {
+                HttpMethods.DEFAULT
+            }
+
         return OutboundPlan(
             url = targetUrl,
             body = body,
             contentType = contentType,
+            httpMethod = httpMethod,
             // token 已进 URL 的平台不得再把 secret 交给签名层（会二次签名 / 覆盖凭据）
             secretForSigner = if (transport.secretAsQueryToken) null else input.secret,
             earlyFailReason = missingReason,

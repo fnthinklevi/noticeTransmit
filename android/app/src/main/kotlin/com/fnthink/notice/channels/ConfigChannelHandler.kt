@@ -7,6 +7,7 @@ import com.fnthink.notice.ChannelRouting
 import com.fnthink.notice.DiagLog
 import com.fnthink.notice.EmailChannelSpec
 import com.fnthink.notice.EmailManager
+import com.fnthink.notice.HttpMethods
 import com.fnthink.notice.I18n
 import com.fnthink.notice.MainActivity
 import com.fnthink.notice.NotificationMonitorService
@@ -78,7 +79,13 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 // 旧版 App 不传该参数 ⇒ null，行为与之前一致（向后兼容）
                 val channelType = call.argument<String>("channelType")
                 // 原 `extraConfig` 参数已删（roadmap D4 / ㊷）：Dart 从不传它，接收端也从不使用
-                activity.testWebhook(url, secret, result, channelType = channelType)
+                // T188 片1：方法也要传过来。只给 testWebhook 加形参而不在这里取，表现是
+                // "测试按钮永远按 POST 发" —— 而 PUT 建档 / POST 追加的网关会给出一个
+                // 假成功的测试结论，比不测更糟。老版本 Dart 不传该参数 ⇒ null ⇒ POST（行为不变）。
+                val httpMethod = call.argument<String>("httpMethod")
+                activity.testWebhook(
+                    url, secret, result, channelType = channelType, httpMethod = httpMethod,
+                )
             }
             "getChannelDescriptors" -> {
                 // 通道描述符导出（第 5 步）：身份 + 能力位 + 字段 schema + 消息格式档位。
@@ -240,4 +247,7 @@ internal fun channelDescriptorsPayload(): Map<String, Any?> = mapOf(
             EmailChannelSpec.descriptors()
         ),
     "messageFormats" to TemplateEngine.formatOptions,
+    // T188 片1：方法档位名单与 messageFormats 同一条纪律 —— 只在原生定义一次，随这份载荷导出。
+    // Dart 不存第二份：两处各写一份的表现是"界面能选 PUT、发送层不认"，而没有任何一条守卫会红。
+    "httpMethods" to HttpMethods.configurable,
 )

@@ -75,6 +75,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   /// 消息格式档位（token 字符串，名单来自原生；见 `_formatOptions`）。
   /// 用字符串而不是 Dart 枚举：枚举曾把不认识的存量值静默回退成 'default'。
   String _messageFormat = 'default';
+
+  /// 请求方法档位（T188 片1）。缺省 POST ＝ 所有通道十年来的实发形状；名单只在原生
+  /// `HttpMethods.configurable` 一处，界面档位随描述符载荷到手。
+  String _httpMethod = 'POST';
   // 'auto' = 按 URL host 探测，否则为用户手动指定的类型（自建代理等场景）
   String _channelType = 'auto';
 
@@ -133,6 +137,12 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         ChannelConfigCodec.nullableText(c['message_format']) ??
         ChannelConfigCodec.nullableText(c['messageFormat']) ??
         'default';
+    // 同样"原样收下"：存量值不在原生名单里也要能显示出来，否则打开页面就把用户的 PUT
+    // 改成 POST（messageFormat 那条老教训，同一个坑不踩第三次）。
+    _httpMethod =
+        ChannelConfigCodec.nullableText(c['http_method']) ??
+        ChannelConfigCodec.nullableText(c['httpMethod']) ??
+        'POST';
     final type =
         ChannelConfigCodec.nullableText(c['channelType']) ??
         ChannelConfigCodec.nullableText(c['type']) ??
@@ -243,6 +253,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         'message_format': _messageFormat,
         'message_template': _orNull(_templateController.text),
       },
+      // 只有该通道接受自定义方法时才发这个键：服务层是 `{...已有行, ...载荷}` 合并，
+      // 不该由这一格去重置别的通道存着的方法（P7 那一条教训的同一形状）。
+      if (_supportsCustomHttpMethod) 'http_method': _httpMethod,
     };
   }
 
@@ -267,6 +280,11 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   bool get _supportsCustomTemplate =>
       _descriptor?.supportsCustomTemplate ?? true;
 
+  /// 是否给"请求方法"这一格（T188 片1）。取不到描述符时**不给**：这一档只对通用
+  /// webhook 开放，凭空给一排档位会让用户以为平台通道也能改（改完不生效才是坑）。
+  bool get _supportsCustomHttpMethod =>
+      _descriptor?.supportsCustomHttpMethod ?? false;
+
   /// 可选的消息格式档位：**名单只在原生**（`TemplateEngine.formatOptions`，随
   /// `getChannelDescriptors` 一起导出）。Dart 不再存第二份枚举 —— 加一个格式只改原生，
   /// 界面自动跟着走。
@@ -280,6 +298,16 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     // 存量值不在原生名单里（老数据、或原生删掉了某个档位）：仍然显示它，
     // 否则选择器会显示成"没选中任何项"，用户以为设置丢了。
     return <String>[...native, _messageFormat];
+  }
+
+  /// 可选的请求方法档位：**名单只在原生**（`HttpMethods.configurable`，随描述符载荷一起导出），
+  /// 与 [_formatOptions] 同一条缺省处理 —— 名单没到手就只显示已存的值，存量值不在名单里也
+  /// 照样列出来（否则那一格看着像"丢了"），Dart 绝不自己抄一份动词表。
+  List<String> get _httpMethodOptions {
+    final native = _descriptors.httpMethods;
+    if (native.isEmpty) return <String>[_httpMethod];
+    if (native.contains(_httpMethod)) return native;
+    return <String>[...native, _httpMethod];
   }
 
   /// 右上角「测试并保存」：先校验落库，再按当前值测这一条。
@@ -366,6 +394,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
             'url': url,
             if (secret.isNotEmpty) 'secret': secret,
             'channelType': _channelType,
+            // 测试那一发必须按"真发时会用的方法"打：不带上就是 PUT 建档 / POST 追加
+            // 那类网关给出假成功的测试结论（原生按描述符裁决，平台通道仍回 POST）
+            'httpMethod': _httpMethod,
           })
           .timeout(
             kTestWebhookBudget,

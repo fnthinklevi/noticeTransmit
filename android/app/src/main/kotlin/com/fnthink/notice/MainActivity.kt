@@ -2288,6 +2288,8 @@ class MainActivity : FlutterActivity() {
         // 原 extraConfig 形参已删（roadmap D4 / ㊷）：Dart 侧只传 url/secret/channelType，
         // 它永远收到 null，且发送层也从不需要它。
         channelType: String? = null,
+        /** T188 片1：通道上存着的请求方法（缺省/词表外 ⇒ POST，与真实推送同一裁决口径）。 */
+        httpMethod: String? = null,
     ) {
         requestScope.launch(Dispatchers.IO) {
             val (success, message, signed) = try {
@@ -2400,10 +2402,23 @@ class MainActivity : FlutterActivity() {
                     val signedReq = WebhookSigner.sign(webhookType, url, payload, secret)
 
                     val body = signedReq.payload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                    // 方法按描述符裁决，口径与 `ChannelDispatch.plan` 一致：这一档只对通用
+                    // webhook 开放，平台通道即便存着怪值也照 POST 发 —— 测试按钮与真实推送
+                    // 必须同口径，否则"测试说成功、真发是另一种形状"（T188 片1）。
+                    val resolvedMethod = HttpMethods.normalize(httpMethod).let { normalized ->
+                        if (ChannelRegistry.spec(webhookType).transport.httpMethodOptions
+                                .contains(normalized)
+                        ) normalized else HttpMethods.DEFAULT
+                    }
                     val requestBuilder = Request.Builder()
                         .url(signedReq.url)
-                        .post(body)
                         .addHeader("User-Agent", "NotificationMonitor/1.0")
+                    // GET/HEAD 不能带请求体（OkHttp 直接抛）：正文仍照常签名，只是不进请求
+                    if (HttpMethods.isBodyless(resolvedMethod)) {
+                        requestBuilder.method(resolvedMethod, null)
+                    } else {
+                        requestBuilder.method(resolvedMethod, body)
+                    }
                     for ((k, v) in signedReq.headers) {
                         requestBuilder.addHeader(k, v)
                     }

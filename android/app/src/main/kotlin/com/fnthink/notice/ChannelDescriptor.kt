@@ -80,6 +80,39 @@ internal class BodyInput(
 /**
  * 发送层的通道事实。全部默认值 = "普通 JSON webhook"，因此**大多数通道不需要写这一段**。
  */
+/**
+ * HTTP 方法的词表（T188 片1）。
+ *
+ * ⚠ 这里是**唯一作者**：界面 offered 的名单、发送层认得的名单、缺省值都从这三枚常量派生。
+ * Dart 侧不存第二份（与 `TemplateEngine.formatOptions` 同一条纪律 —— 加一档只改原生，
+ * 界面跟着走；反过来两处各写一份的话，"界面上能选但发不出去"没人会红）。
+ *
+ * [configurable] 只给**通用 webhook**（自建网关、私有变体服务）用：平台通道的请求方法是
+ * 平台契约的一部分，让它可改只会制造"用户以为是配置问题"的错判 —— 那份名单在描述符里
+ * 是空的，UI 与发送层都因此不接这个字段（见 `ChannelTransport.httpMethodOptions`）。
+ *
+ * [bodyless] 单独立出来是因为 OkHttp 对 `GET/HEAD` 带请求体会直接抛
+ * `IllegalArgumentException`（"GET/HEAD does not support request bodies"）——
+ * 漏掉这一判的表现是"选了 GET 就 100% 崩溃"，而不是"发了一个空 body"。
+ */
+internal object HttpMethods {
+    const val DEFAULT = "POST"
+
+    /** 描述符可对外提供的档位（顺序即界面顺序）。 */
+    val configurable = listOf("GET", "POST", "PUT", "PATCH", "DELETE")
+
+    /** 这两个方法**必须**不带请求体（OkHttp 的硬约束）。 */
+    val bodyless = setOf("GET", "HEAD")
+
+    fun isBodyless(method: String): Boolean = bodyless.contains(method.trim().uppercase())
+
+    /** 归一化：trim + 大写；空串回落到 [DEFAULT]。**不**在这里判合法性（合法性由描述符判）。 */
+    fun normalize(raw: String?): String {
+        val v = raw?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
+        return v ?: DEFAULT
+    }
+}
+
 internal class ChannelTransport(
     /** null = 用 `NetworkClient` 的默认 JSON content-type */
     val contentType: String? = null,
@@ -120,6 +153,15 @@ internal class ChannelTransport(
      * null = 不截断。数值只在 [ChannelLimits] 里定义一次，载荷 lambda 与本字段共用同一常量。
      */
     val textLimitChars: Int? = null,
+
+    /**
+     * 该方法允许用户改请求方法的档位（T188 片1）；**空 = 不给改**（12 类平台通道全是空）。
+     *
+     * 写成描述符字段而不是在发送层写 `if (type == GENERIC)`：后者被
+     * `productionCodeMustNotBranchOnWebhookTypeAgain` 明令禁止，而且新通道要改核心才能带上这条。
+     * 消费方只有两处 —— `ChannelDispatch.plan`（按它过滤配置值）与 `capabilitiesOf`（派生能力位）。
+     */
+    val httpMethodOptions: List<String> = emptyList(),
 )
 
 /**
@@ -215,6 +257,9 @@ object Capability {
 
     /** 响应按业务码判定：2xx + 非 JSON 视为未送达（防反代/认证门户页假成功） */
     const val JSON_CONTRACT = "jsonContract"
+
+    /** 请求方法可由用户配置（T188 片1，只有通用 webhook 给这一档） */
+    const val CUSTOM_HTTP_METHOD = "customHttpMethod"
 
     /** 支持 markdown 消息（企业微信自建应用；飞书统一降级为 text） */
     const val MARKDOWN = "markdown"

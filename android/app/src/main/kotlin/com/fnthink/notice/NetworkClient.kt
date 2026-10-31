@@ -136,6 +136,9 @@ class NetworkClient {
             extraHeaders: Map<String, String> = emptyMap(),
             appChannelId: String? = null,
             appTypeLabel: String? = null,
+            // T188 片1：请求方法。缺省 POST ⇒ 七个调用点里没传的一律保持既有行为。
+            // ⚠ 值必须已经过 `ChannelDispatch.plan` 按描述符过滤；这里不再判合法性（判了就是第二处裁决）。
+            method: String = HttpMethods.DEFAULT,
             onResult: ((WebhookResponseParser.ParseResult) -> Unit)? = null
         ) {
             if (!isActive) {
@@ -168,7 +171,7 @@ class NetworkClient {
                     var lastResult: WebhookResponseParser.ParseResult? = null
 
                     while (retryCount < MAX_RETRIES) {
-                        val result = sendOnce(signed, tag, retryCount, contentType, extraHeaders, webhookType)
+                        val result = sendOnce(signed, tag, retryCount, contentType, extraHeaders, webhookType, method)
                         lastResult = result
 
                         // 成功或不可重试 → 终止
@@ -219,6 +222,7 @@ class NetworkClient {
                                 extraHeaders = extraHeaders,
                                 appChannelId = appChannelId,
                                 appTypeLabel = appTypeLabel,
+                                method = method,
                             )
                             else -> {}
                         }
@@ -239,15 +243,23 @@ class NetworkClient {
             attempt: Int,
             contentType: String = "application/json; charset=utf-8",
             extraHeaders: Map<String, String> = emptyMap(),
-            webhookType: WebhookPayloadBuilder.WebhookType = WebhookPayloadBuilder.WebhookType.GENERIC
+            webhookType: WebhookPayloadBuilder.WebhookType = WebhookPayloadBuilder.WebhookType.GENERIC,
+            method: String = HttpMethods.DEFAULT,
         ): WebhookResponseParser.ParseResult {
             return try {
+                val requestBody =
+                    if (HttpMethods.isBodyless(method)) {
+                        // OkHttp 对 GET/HEAD 带 body 直接抛 IllegalArgumentException ⇒ 这一档必须真的不带。
+                        // 正文仍然照常签名（`signed.payload` 是签出来的那份），只是不进请求 ——
+                        // 用 GET 收通知的平台本来就只看 URL/头，扔掉 body 不改变签名口径。
+                        null
+                    } else {
+                        signed.payload.toRequestBody(contentType.toMediaType())
+                    }
                 val requestBuilder = Request.Builder()
                     .url(signed.url)
                     .addHeader("User-Agent", "NotificationMonitor/1.0")
-
-                val body = signed.payload.toRequestBody(contentType.toMediaType())
-                requestBuilder.post(body)
+                    .method(method, requestBody)
 
                 // 通用 webhook 签名头
                 for ((k, v) in signed.headers) {
