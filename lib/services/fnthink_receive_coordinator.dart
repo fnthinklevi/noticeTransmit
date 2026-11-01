@@ -51,6 +51,9 @@ bool fnthinkStreamProbeSucceeded(FnthinkLoopReport report) {
     case FnthinkPollStatus.rejectedUnsigned:
     case FnthinkPollStatus.replayed:
     case FnthinkPollStatus.needsCalibration:
+    // 网关 5xx 说明中间层还在答（只是源站/边缘超时），不是链路断开；
+    // 把它判成离线会让门铃被一次边缘抖动误杀。
+    case FnthinkPollStatus.gatewayTimeout:
       return true;
     case FnthinkPollStatus.transportError:
       return false;

@@ -117,6 +117,11 @@ class FnthinkReceiverService {
   /// 最容易掐的形状；由协调者按 `FnthinkStreamLinkState` 设置，手动轮询本来就是短轮询。
   bool shortPollMode = false;
 
+  /// T215：网关超时后本机先降级短轮询。与 [shortPollMode] 分开记 ——
+  /// 那一格是门铃降级（外部写），这一格是「刚刚被边缘掐过」（poll 自己写），
+  /// 任一 200 都把它清掉，长轮询随之恢复。
+  bool _gatewayTimeoutShortPoll = false;
+
   /// 这台服务端支持门铃（来自普通 poll 的**支持位**响应头，T185 第二步）。
   ///
   /// ⚠ 换票请求是发在同一条 /poll 上的：旧服务端不认识换票头时会把它当普通取货，
@@ -365,7 +370,7 @@ class FnthinkReceiverService {
         nextDelay: kernel.currentDelay,
       );
     }
-    _holdPoll = hold && !shortPollMode;
+    _holdPoll = hold && !shortPollMode && !_gatewayTimeoutShortPoll;
     final FnthinkPollResult result;
     try {
       result = await kernel.poll();
@@ -376,6 +381,9 @@ class FnthinkReceiverService {
     // 而旧服务端（永远没有这一位）必须一直保持"不换票"。
     if (result.status == FnthinkPollStatus.ok) {
       _streamSupported = result.streamSupported;
+      _gatewayTimeoutShortPoll = false;
+    } else if (result.status == FnthinkPollStatus.gatewayTimeout) {
+      _gatewayTimeoutShortPoll = true;
     }
     // 服务端认了长轮询 ⇒ 这一轮刚返回就意味着"到点了/有新货"，下一轮立刻发，
     // 不再等一个常态间隔。没认（旧服务端 / 手动那一轮）就照内核给的节奏走。

@@ -282,6 +282,17 @@ class FnthinkReceiveKernel {
         reason: _lastReason,
       );
     }
+    if (reply.status >= 500 && reply.status < 600) {
+      // T215：网关超时（EdgeOne 554/524、反代 502/504 等）不是协议结论。
+      // 单开一档，让接收服务把下一发改成短轮询；任一 200 再把长轮询恢复。
+      _lastReason = 'gateway-timeout:${reply.status}';
+      return FnthinkPollResult(
+        status: FnthinkPollStatus.gatewayTimeout,
+        nextDelay: currentDelay,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
     if (reply.status != 200) {
       _lastReason = 'http:${reply.status}';
       return FnthinkPollResult(
@@ -1883,6 +1894,7 @@ enum FnthinkPollStatus {
   replayed,
   needsCalibration,
   transportError,
+  gatewayTimeout,
   failed,
 }
 

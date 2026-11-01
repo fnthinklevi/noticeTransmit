@@ -439,6 +439,30 @@ void main() {
     });
   });
 
+  group('T215：网关 5xx 单开一档', () {
+    test('554 / 524 走 gatewayTimeout，不并入协议失败', () async {
+      for (final code in [554, 524]) {
+        final harness = _Harness(contract, 1_800_000_000_000);
+        harness.reply = FnthinkReply(status: code, body: const {});
+        final result = await harness.kernel().poll();
+        expect(
+          result.status,
+          FnthinkPollStatus.gatewayTimeout,
+          reason: '$code',
+        );
+        expect(result.reason, contains('gateway-timeout:$code'));
+      }
+    });
+
+    test('非 5xx 的失败仍是 failed', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(status: 404, body: {});
+      final result = await harness.kernel().poll();
+      expect(result.status, FnthinkPollStatus.failed);
+      expect(result.reason, contains('http:404'));
+    });
+  });
+
   group('ack：设备只说自己那一半', () {
     Future<FnthinkReceiveKernel> withOneMessage(_Harness harness) async {
       harness.reply = FnthinkReply(

@@ -377,7 +377,8 @@ void main() {
       );
       final result = await build(contract, rec, _Signer()).pollOnce();
       expect(result.ok, isFalse);
-      expect(result.status, FnthinkPollStatus.failed);
+      // T215：5xx 是网关层的结论，不是协议失败；后续会自动降级短轮询。
+      expect(result.status, FnthinkPollStatus.gatewayTimeout);
       expect(result.reason, contains('502'));
     });
 
@@ -938,6 +939,40 @@ void main() {
       expect(outcome.nextDelay, isNot(Duration.zero));
     });
 
+    test('T215：网关 554 ⇒ 下一发短轮询；任一 200 后恢复 hold', () async {
+      final spec = contract.longPollSpec!;
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[],"receipts":[],"pending":0}',
+          '{"messages":[],"receipts":[],"pending":0}',
+          '{"messages":[],"receipts":[],"pending":0}',
+        ],
+        statusScripts: [554, 200, 200],
+        headers: {'content-type': 'application/json', spec.responseHeader: '1'},
+      );
+      final service = build(contract, rec, _Signer());
+
+      final first = await service.pollOnce();
+      expect(first.status, FnthinkPollStatus.gatewayTimeout);
+      expect(rec.requests.first.headers[spec.requestHeader], isNotNull);
+
+      final second = await service.pollOnce();
+      expect(second.status, FnthinkPollStatus.ok);
+      expect(
+        rec.requests.last.headers.containsKey(spec.requestHeader),
+        isFalse,
+        reason: '刚被边缘掐过，下一发还 hold 25 秒 ⇒ 又被掐一次',
+      );
+
+      final third = await service.pollOnce();
+      expect(third.status, FnthinkPollStatus.ok);
+      expect(
+        rec.requests.last.headers[spec.requestHeader],
+        '${spec.waitSeconds}',
+        reason: '任一 200 之后长轮询必须恢复，不是永久降级',
+      );
+    });
+
     test('旧服务端（不认等待头、没有识别头）⇒ 仍按常态间隔，不拿零延迟追它', () async {
       final spec = contract.longPollSpec!;
       final rec = _Recorder(
@@ -1047,12 +1082,16 @@ class _Recorder {
   _Recorder({
     List<String>? scripts,
     this.status = 200,
+    this.statusScripts,
     this.headers = const {'content-type': 'application/json'},
     this.rawScripts,
   }) : scripts = scripts ?? ['{"messages":[],"receipts":[],"pending":0}'];
 
   final List<http.Request> requests = [];
   List<String> scripts;
+
+  /// 按请求序号给不同状态码（T215：554 之后接 200）。
+  List<int>? statusScripts;
   int status;
   Map<String, String> headers;
 
@@ -1064,14 +1103,17 @@ class _Recorder {
   MockClient client() => MockClient((http.Request request) async {
     requests.add(request);
     final index = (requests.length - 1) % scripts.length;
+    final code = statusScripts == null
+        ? status
+        : statusScripts![index % statusScripts!.length];
     if (rawScripts != null) {
       return http.Response.bytes(
         rawScripts![index % rawScripts!.length],
-        status,
+        code,
         headers: headers,
       );
     }
-    return http.Response(scripts[index], status, headers: headers);
+    return http.Response(scripts[index], code, headers: headers);
   });
 }
 
