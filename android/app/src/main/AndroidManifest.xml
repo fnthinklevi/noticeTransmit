@@ -56,9 +56,9 @@
          静默开启/暂停推送。本应用自身与系统 AppWidget 服务（system uid，广播权限检查恒通过）
          自动满足；第三方应用因签名不匹配无法获得该权限，任何伪造广播都会被系统拒绝投递 -->
     <permission
-        android:name="com.fnthink.notice.permission.WIDGET_CONTROL"
+        android:name="${applicationId}.permission.WIDGET_CONTROL"
         android:protectionLevel="signature" />
-    <uses-permission android:name="com.fnthink.notice.permission.WIDGET_CONTROL" />
+    <uses-permission android:name="${applicationId}.permission.WIDGET_CONTROL" />
 
     <application
         android:label="通知推送助手"
@@ -680,7 +680,7 @@
             android:name=".PushToggleWidgetProvider"
             android:enabled="true"
             android:exported="true"
-            android:permission="com.fnthink.notice.permission.WIDGET_CONTROL"
+            android:permission="${applicationId}.permission.WIDGET_CONTROL"
             android:label="@string/widget_label_toggle_2x2">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -695,7 +695,7 @@
             android:name=".PushToggleWidgetWideProvider"
             android:enabled="true"
             android:exported="true"
-            android:permission="com.fnthink.notice.permission.WIDGET_CONTROL"
+            android:permission="${applicationId}.permission.WIDGET_CONTROL"
             android:label="@string/widget_label_toggle_4x2">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

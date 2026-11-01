@@ -197,6 +197,12 @@ android {
         debug {
             // 证书固定 Debug 恒关闭：开发期证书变化频繁，避免调试时误断连
             buildConfigField("boolean", "ENABLE_CERT_PINNING", "false")
+            // 真机测试包：`-PnoticeTestAppIdSuffix=.devtest`（或环境变量
+            // ORG_GRADLE_PROJECT_noticeTestAppIdSuffix）时换一个包名安装，
+            // 与官方包并存、互不覆盖；不带这个属性时行为逐字不变（官方包名）。
+            (project.findProperty("noticeTestAppIdSuffix") as? String)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { applicationIdSuffix = it }
         }
         release {
             isMinifyEnabled = true
