@@ -4,10 +4,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/services/app_quick_select.dart';
 import 'package:notice_transmit/services/installed_apps_service.dart';
 import 'package:notice_transmit/widgets/app_card_style.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_permission_prompt.dart';
+import 'package:notice_transmit/widgets/app_quick_select_bar.dart';
 import 'package:notice_transmit/widgets/app_text_selection_menu.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
@@ -396,7 +398,32 @@ class _RemoteTriggerFilterPageState extends State<RemoteTriggerFilterPage>
     );
   }
 
+  /// T209：这一页装着的应用里，快速选择目录各组的命中（值用设备原始包名）。
+  /// 跟着当前筛选结果走，与全选/清空/反选同一个集合。
+  Map<AppQuickGroup, List<String>> _quickGroups() => appQuickGroupsOfInstalled(
+    _filteredApps.map((a) => a['packageName']?.toString() ?? '').toList(),
+  );
+
+  bool _quickGroupApplied(List<String> packages) =>
+      packages.isNotEmpty && packages.every(_selectedPackages.contains);
+
+  /// 点一下整组：已全选 ⇒ 整组取消；否则整组加入选中。
+  ///
+  /// ⚠ 两种模式（允许/阻止）都只是"往选中集里加"：选中集的含义由本页 `mode` 决定，
+  /// 公共件里不按 mode 分支（在这里分支就会把 allow 变成反向选择）。
+  void _toggleQuickGroup(AppQuickGroup group, List<String> packages) {
+    final applied = _quickGroupApplied(packages);
+    setState(() {
+      if (applied) {
+        _selectedPackages.removeAll(packages);
+      } else {
+        _selectedPackages.addAll(packages);
+      }
+    });
+  }
+
   Widget _buildAppListView(AppLocalizations l10n) {
+    final quickGroups = _quickGroups();
     return Column(
       children: [
         const SizedBox(height: 8),
@@ -573,6 +600,20 @@ class _RemoteTriggerFilterPageState extends State<RemoteTriggerFilterPage>
                     ],
                   ),
                 ),
+                if (quickGroups.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: AppQuickSelectBar(
+                        keyPrefix: 'remote-trigger-quick',
+                        groups: quickGroups,
+                        isApplied: (group) =>
+                            _quickGroupApplied(quickGroups[group] ?? const []),
+                        onToggle: _toggleQuickGroup,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

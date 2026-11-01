@@ -34,7 +34,7 @@ final _installedApps = [
   {'packageName': 'com.beta.app', 'appName': 'Beta', 'isSystemApp': false},
 ];
 
-void _mockChannel() {
+void _mockChannel([List<Map<String, dynamic>>? apps]) {
   TestWidgetsFlutterBinding.ensureInitialized();
   if (!GetIt.instance.isRegistered<InstalledAppsService>()) {
     GetIt.instance.registerLazySingleton<InstalledAppsService>(
@@ -48,7 +48,7 @@ void _mockChannel() {
             return true;
           case 'getCachedInstalledApps':
           case 'getInstalledApps':
-            return _installedApps;
+            return apps ?? _installedApps;
           default:
             return null;
         }
@@ -173,5 +173,30 @@ void main() {
     await tester.tap(find.textContaining('当前无应用列表读取权限'));
     await tester.pumpAndSettle();
     expect(requestCalls, 1);
+  });
+
+  // T209：快速选择接在派生页上 —— 两页各用自己的 key 前缀，不互相串。
+  testWidgets('快速选择：点「通讯」把这一组加进选中', (tester) async {
+    _mockChannel(const [
+      {'packageName': 'com.tencent.mm', 'appName': '微信', 'isSystemApp': false},
+      {
+        'packageName': 'com.alpha.app',
+        'appName': 'Alpha',
+        'isSystemApp': false,
+      },
+    ]);
+    await tester.pumpWidget(_buildApp(const RemoteTriggerFilterPage()));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('remote-trigger-quick-comm')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('remote-trigger-quick-comm')));
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteTriggerFilterPage)),
+    );
+    expect(find.text(l10n.selectedCount(1)), findsWidgets);
   });
 }

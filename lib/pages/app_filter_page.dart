@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/app_quick_select.dart';
 import '../services/installed_apps_service.dart';
 import '../widgets/app_card_style.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_permission_prompt.dart';
+import '../widgets/app_quick_select_bar.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -393,7 +395,34 @@ class _AppFilterPageState extends State<AppFilterPage>
     );
   }
 
+  /// T209：这一页装着的应用里，快速选择目录各组的命中（值用设备原始包名）。
+  ///
+  /// 跟着**当前筛选结果**走（与全选/清空/反选同一个集合）：搜「微信」时只剩「通讯」
+  /// 那一枚，点了也只作用于屏上那几条 —— 与按目录整组撒网是两种动作，别混。
+  Map<AppQuickGroup, List<String>> _quickGroups() => appQuickGroupsOfInstalled(
+    _filteredApps.map((a) => a['packageName']?.toString() ?? '').toList(),
+  );
+
+  bool _quickGroupApplied(List<String> packages) =>
+      packages.isNotEmpty && packages.every(_selectedPackages.contains);
+
+  /// 点一下整组：已全选 ⇒ 整组取消；否则整组加入选中。
+  ///
+  /// ⚠ 两种模式（允许/阻止）都只是"往选中集里加"：选中集在各模式下的**含义**由本页
+  /// 自己的 `mode` 决定，这里不按 mode 分支 —— 在公共件里分支就会把 allow 变成反向选择。
+  void _toggleQuickGroup(AppQuickGroup group, List<String> packages) {
+    final applied = _quickGroupApplied(packages);
+    setState(() {
+      if (applied) {
+        _selectedPackages.removeAll(packages);
+      } else {
+        _selectedPackages.addAll(packages);
+      }
+    });
+  }
+
   Widget _buildAppListView(AppLocalizations l10n) {
+    final quickGroups = _quickGroups();
     return Column(
       children: [
         const SizedBox(height: 8),
@@ -570,6 +599,20 @@ class _AppFilterPageState extends State<AppFilterPage>
                     ],
                   ),
                 ),
+                if (quickGroups.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: AppQuickSelectBar(
+                        keyPrefix: 'app-filter-quick',
+                        groups: quickGroups,
+                        isApplied: (group) =>
+                            _quickGroupApplied(quickGroups[group] ?? const []),
+                        onToggle: _toggleQuickGroup,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

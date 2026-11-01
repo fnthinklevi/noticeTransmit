@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
+import '../services/app_quick_select.dart';
 import '../services/installed_apps_service.dart';
 import '../services/platform_channel.dart';
 import '../widgets/app_card_style.dart';
@@ -1000,28 +1001,31 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
 
     for (final a in searchMatched) {
       final p = _pkg(a);
-      if (_kQuickSmsIndex.containsKey(p)) {
-        collectQuick(a, quickSms);
-      } else if (_kQuickPhoneIndex.containsKey(p)) {
-        collectQuick(a, quickPhone);
-      } else if (_kQuickCommIndex.containsKey(p)) {
-        collectQuick(a, quickComm);
-      } else if (_kQuickMailIndex.containsKey(p)) {
-        collectQuick(a, quickMail);
+      switch (appQuickGroupOf(p)) {
+        case AppQuickGroup.sms:
+          collectQuick(a, quickSms);
+        case AppQuickGroup.phone:
+          collectQuick(a, quickPhone);
+        case AppQuickGroup.comm:
+          collectQuick(a, quickComm);
+        case AppQuickGroup.mail:
+          collectQuick(a, quickMail);
+        case null:
+          break;
       }
     }
-    quickSms.sort(
-      (a, b) => _kQuickSmsIndex[_pkg(a)]! - _kQuickSmsIndex[_pkg(b)]!,
-    );
-    quickPhone.sort(
-      (a, b) => _kQuickPhoneIndex[_pkg(a)]! - _kQuickPhoneIndex[_pkg(b)]!,
-    );
-    quickComm.sort(
-      (a, b) => _kQuickCommIndex[_pkg(a)]! - _kQuickCommIndex[_pkg(b)]!,
-    );
-    quickMail.sort(
-      (a, b) => _kQuickMailIndex[_pkg(a)]! - _kQuickMailIndex[_pkg(b)]!,
-    );
+    // 组内按目录顺序（目录在 `services/app_quick_select.dart`，与另两页同一份）。
+    void sortByCatalog(List<Map<String, dynamic>> list, AppQuickGroup group) {
+      list.sort(
+        (a, b) =>
+            appQuickOrderOf(group, _pkg(a))! - appQuickOrderOf(group, _pkg(b))!,
+      );
+    }
+
+    sortByCatalog(quickSms, AppQuickGroup.sms);
+    sortByCatalog(quickPhone, AppQuickGroup.phone);
+    sortByCatalog(quickComm, AppQuickGroup.comm);
+    sortByCatalog(quickMail, AppQuickGroup.mail);
 
     // 其他应用：非快速目录，沿用「默认隐藏系统应用」过滤
     final visible = searchMatched
@@ -1596,85 +1600,3 @@ class _ScopeListItem {
       isLastInGroup = false,
       isQuickCard = true;
 }
-
-/// 快速选择目录：系统短信类包名（信息/短信应用 + 短信存储）。
-/// 多个系统组件（如「信息」「短信存储」）在 UI 聚合为单行「短信」。
-const List<String> _kQuickSmsPackages = [
-  'com.android.mms',
-  'com.android.messaging',
-  'com.google.android.apps.messaging',
-  'com.samsung.android.messaging',
-  'com.miui.sms',
-  'com.coloros.mms',
-  'com.heytap.mms',
-  'com.vivo.mms',
-  'com.huawei.message',
-  'com.android.providers.telephony', // 短信存储
-];
-
-/// 快速选择目录：系统电话类包名（拨号器 + 通话界面 + 电话服务）。
-/// 多个系统组件（如「电话」「通话界面」「电话服务」）在 UI 聚合为单行「电话」。
-const List<String> _kQuickPhonePackages = [
-  'com.android.dialer',
-  'com.android.incallui',
-  'com.google.android.dialer',
-  'com.samsung.android.dialer',
-  'com.android.phone',
-  'com.android.server.telecom',
-];
-
-/// 快速选择目录：第三方即时通讯/社交/办公类 APP 包名（顺序即展示顺序）。
-const List<String> _kQuickCommPackages = [
-  // 国内即时通讯/办公
-  'com.tencent.mm', // 微信
-  'com.tencent.mobileqq', // QQ
-  'com.tencent.tim', // TIM
-  'com.tencent.wework', // 企业微信
-  'com.ss.android.lark', // 飞书
-  'com.larksuite.suite', // Lark
-  'com.alibaba.android.rimet', // 钉钉
-  // 国际即时通讯/社交
-  'org.telegram.messenger', // Telegram
-  'org.telegram.messenger.web', // Telegram X
-  'com.twitter.android', // X
-  'com.whatsapp', // WhatsApp
-  'com.whatsapp.w4b', // WhatsApp Business
-  'com.facebook.orca', // Messenger
-  'com.instagram.android', // Instagram
-  'jp.naver.line.android', // LINE
-  'org.thoughtcrime.securesms', // Signal
-  'com.viber.voip', // Viber
-  'com.skype.raider', // Skype
-  'com.discord', // Discord
-  'com.Slack', // Slack
-  'com.zing.zalo', // Zalo
-  'com.kakao.talk', // KakaoTalk
-  'com.snapchat.android', // Snapchat
-];
-
-/// 快速选择目录：主流邮箱类 APP 包名。
-const List<String> _kQuickMailPackages = [
-  'com.google.android.gm', // Gmail
-  'com.microsoft.office.outlook', // Outlook
-  'com.tencent.androidqqmail', // QQ 邮箱
-  'com.netease.mail', // 网易邮箱大师
-  'com.netease.mobimail', // 网易邮箱
-  'com.samsung.android.email.provider', // Samsung Email
-  'com.yahoo.mobile.client.android.mail', // Yahoo Mail
-  'ch.protonmail.android', // Proton Mail
-  'readdle.com.sparkmailinbox', // Spark
-  'net.thunderbird.android', // Thunderbird
-  'me.bluemail.mail', // BlueMail
-  'com.easilydo.mail', // Edison Mail
-  'com.ninefolders.hd3', // Nine
-];
-
-/// 包名 → 目录序号（用于按目录顺序排序已安装的命中应用）
-Map<String, int> _indexOf(List<String> packages) => {
-  for (var i = 0; i < packages.length; i++) packages[i]: i,
-};
-
-final Map<String, int> _kQuickSmsIndex = _indexOf(_kQuickSmsPackages);
-final Map<String, int> _kQuickPhoneIndex = _indexOf(_kQuickPhonePackages);
-final Map<String, int> _kQuickCommIndex = _indexOf(_kQuickCommPackages);
-final Map<String, int> _kQuickMailIndex = _indexOf(_kQuickMailPackages);

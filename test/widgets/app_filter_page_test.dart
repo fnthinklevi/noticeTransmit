@@ -24,7 +24,9 @@ final _installedApps = [
 ];
 
 /// Mock 原生通道：有权限 + 返回固定应用列表
-void _mockChannel() {
+///
+/// [apps] 缺省用上面那三条「目录外」的假包；T209 那两条要喂目录里的真包名。
+void _mockChannel([List<Map<String, dynamic>>? apps]) {
   TestWidgetsFlutterBinding.ensureInitialized();
   // 页面改经 InstalledAppsService 读清单，DI 需先注册（测试不跑 setupLocator）
   if (!GetIt.instance.isRegistered<InstalledAppsService>()) {
@@ -39,7 +41,7 @@ void _mockChannel() {
             return true;
           case 'getCachedInstalledApps':
           case 'getInstalledApps':
-            return _installedApps;
+            return apps ?? _installedApps;
           default:
             return null;
         }
@@ -332,6 +334,75 @@ void main() {
       expect(
         methods.where((m) => m == 'requestQueryAllPackagesPermission').toList(),
         isEmpty,
+      );
+    });
+  });
+
+  // T209：快速选择那一排。别把"点一下整组"写成按 mode 反向选择 ——
+  // 两种模式下它都只是"把这一组加进选中集"，含义由页面自己的 mode 决定。
+  group('AppFilterPage – 快速选择（T209）', () {
+    const catalogApps = [
+      {'packageName': 'com.tencent.mm', 'appName': '微信', 'isSystemApp': false},
+      {
+        'packageName': 'com.google.android.gm',
+        'appName': 'Gmail',
+        'isSystemApp': false,
+      },
+      {
+        'packageName': 'com.alpha.app',
+        'appName': 'Alpha',
+        'isSystemApp': false,
+      },
+    ];
+
+    testWidgets('允许模式：点「通讯」把这一组加进选中，再点取消', (tester) async {
+      _mockChannel(catalogApps);
+      await tester.pumpWidget(
+        _buildApp(const AppFilterPage(installedApps: [], enabledPackages: [])),
+      );
+      await tester.pumpAndSettle();
+
+      // 只出现真装了的组：通讯与邮箱；短信/电话没装 ⇒ 不画（点了也是空操作）。
+      expect(
+        find.byKey(const ValueKey('app-filter-quick-comm')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('app-filter-quick-mail')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('app-filter-quick-sms')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('app-filter-quick-comm')));
+      await tester.pumpAndSettle();
+      expect(find.text('已选 1'), findsWidgets, reason: '微信应被整组选中');
+
+      await tester.tap(find.byKey(const ValueKey('app-filter-quick-comm')));
+      await tester.pumpAndSettle();
+      expect(find.text('已选 0'), findsWidgets, reason: '同一枚再点应整组取消');
+    });
+
+    testWidgets('阻止模式：点整组是"加进阻止集"，不是反选', (tester) async {
+      _mockChannel(catalogApps);
+      await tester.pumpWidget(
+        _buildApp(
+          const AppFilterPage(
+            installedApps: [],
+            enabledPackages: [],
+            initialMode: 'block',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('app-filter-quick-mail')));
+      await tester.pumpAndSettle();
+      // 阻止模式下选中集 = 被阻止的；点「邮箱」应加进去（1 条），而不是把别的反选掉。
+      expect(find.text('已选 1'), findsWidgets);
+      expect(
+        find.text('未选 2'),
+        findsOneWidget,
+        reason: '另外两条仍是"未选"——反选的形状会变成"未选 2"以外的东西',
       );
     });
   });
