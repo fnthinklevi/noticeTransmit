@@ -335,7 +335,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Configure notification, battery, background permissions';
 
   @override
-  String get pushHistory => 'Push History';
+  String get pushHistory => 'History';
 
   @override
   String recordCount(int n) {

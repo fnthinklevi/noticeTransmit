@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/notification_page.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 
@@ -56,8 +57,12 @@ void main() {
   testWidgets('一条未读都没有 ⇒ 首页不多出这一格', (tester) async {
     await pump(tester, unread: 0);
     expect(find.text('幻念收件'), findsNothing);
-    // 「推送历史」那一格不受影响（它是收件档的远路，一直在）
-    expect(find.text('推送历史'), findsOneWidget);
+    // 历史记录那一格不受影响（它是收件档的远路，一直在）。
+    // 词由 l10n 给：T207 把首页这枚标签与页面标题对齐了，这里写死旧值会跟着漂。
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(NotificationPage)),
+    );
+    expect(find.text(l10n.pushHistory), findsOneWidget);
   });
 
   testWidgets('有未读 ⇒ 画的数就是注入的那个数', (tester) async {

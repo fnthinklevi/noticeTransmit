@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/notification_page.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 
@@ -66,12 +67,16 @@ void main() {
     }
   });
 
-  testWidgets('标题仍在，且首页那张历史卡还是唯一的「推送历史」入口', (tester) async {
+  testWidgets('标题仍在，且首页那张历史卡还是唯一的「历史记录」入口', (tester) async {
     await pump(tester);
 
     final bar = tester.widget<AppBar>(find.byType(AppBar).first);
     expect((bar.title as Text).data, '通知推送助手');
     // 删顶栏不该顺手把入口删掉：历史这件事仍然有一格能进。
-    expect(find.text('推送历史'), findsWidgets);
+    // 标签与历史页标题同一份词（T207），这里读 l10n，不写死那个值。
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(NotificationPage)),
+    );
+    expect(find.text(l10n.pushHistory), findsWidgets);
   });
 }

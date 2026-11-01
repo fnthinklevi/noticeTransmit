@@ -187,7 +187,7 @@
   "backupAutoSwitchOffNote": "When off, every notification picks its own channel: nothing remembers \"switched to backup\", and nothing switches back on its own.",
   "permSettings": "Permissions",
   "permSettingsDesc": "Configure notification, battery, background permissions",
-  "pushHistory": "Push History",
+  "pushHistory": "History",
   "recordCount": "{n} records",
   "@recordCount": {
     "placeholders": {

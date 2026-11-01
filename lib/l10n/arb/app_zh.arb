@@ -187,7 +187,7 @@
   "backupAutoSwitchOffNote": "关掉之后每条通知各自判断走哪条通道，不再记住「已切到备用」，也不会自动切回。",
   "permSettings": "权限设置",
   "permSettingsDesc": "配置通知、电池、后台运行等权限",
-  "pushHistory": "推送历史",
+  "pushHistory": "历史记录",
   "recordCount": "共 {n} 条记录",
   "@recordCount": {
     "placeholders": {

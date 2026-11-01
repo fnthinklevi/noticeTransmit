@@ -323,7 +323,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get permSettingsDesc => '配置通知、电池、后台运行等权限';
 
   @override
-  String get pushHistory => '推送历史';
+  String get pushHistory => '历史记录';
 
   @override
   String recordCount(int n) {

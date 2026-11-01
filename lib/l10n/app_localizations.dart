@@ -640,7 +640,7 @@ abstract class AppLocalizations {
   /// No description provided for @pushHistory.
   ///
   /// In zh, this message translates to:
-  /// **'推送历史'**
+  /// **'历史记录'**
   String get pushHistory;
 
   /// No description provided for @recordCount.
