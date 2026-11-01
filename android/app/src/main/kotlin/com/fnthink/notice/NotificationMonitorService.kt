@@ -35,7 +35,10 @@ import kotlinx.coroutines.*
 class NotificationMonitorService : NotificationListenerService() {
     companion object {
         private const val TAG = "NotificationMonitorService"
-        private const val FOREGROUND_ID = 1001
+
+        // 常驻通知 id。`internal` 是给 MainActivity.stopNotificationListener 的兜底撤除用：
+        // 服务被 ROM 回收时那一发 ACTION 没人收，只剩界面侧还能把残留的通知撤掉。
+        internal const val FOREGROUND_ID = 1001
         private const val CHANNEL_ID = "notification_monitor_channel"
         private const val CHANNEL_NAME = "通知监听"
         const val ACTION_UPDATE_CONFIG = "com.fnthink.notice.UPDATE_CONFIG"
@@ -1448,6 +1451,16 @@ class NotificationMonitorService : NotificationListenerService() {
 
     // / 更新前台通知显示当前已推送数量与推送启停状态
     private fun updateForegroundNotification() {
+        // T222②：停止监听之后**不许**再"更新"出一条常驻通知。
+        //
+        // 旧写法只判通知权限，于是这几条路都会把「正在监听通知」重新贴回状态栏：
+        // 停止那一刻还在途的 dispatchToChannels 回调、已排期的延时/聚合推送、
+        // 以及按钮触发的 refresh。用户已经点了停止，界面却说在监听 —— 这正是真机
+        // 现象。这里统一按总开关收口：关着就只做"撤掉"，绝不 notify。
+        if (!monitoringEnabled) {
+            stopForegroundCompat()
+            return
+        }
         // v1.59：通知权限已撤时不再 notify，并撤掉可能残留的旧通知
         if (!notificationManager.areNotificationsEnabled()) {
             notificationManager.cancel(FOREGROUND_ID)

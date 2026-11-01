@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.AlarmManager
 import android.app.AppOpsManager
 import android.app.DownloadManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -1665,7 +1666,18 @@ class MainActivity : FlutterActivity() {
             startService(intent)
             Log.i("MainActivity", "Notification monitoring disabled (component kept enabled)")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("MainActivity", "stopNotificationListener failed", e)
+        }
+        // 真机现象：点了停止，状态栏那枚「正在监听通知」还在。两条来路都要堵：
+        // ① 服务已被 ROM 回收 ⇒ 上面那一发 ACTION 没人收，stopForeground 永远不会发生；
+        // ② 停止那一刻还有在途推送（见 NotificationMonitorService.updateForegroundNotification 的守卫）。
+        // 这里按同一个 id 直接撤一次 —— 服务还活着时 applyMonitoringState(false) 本来也会撤，
+        // 这只是一枚双保险，不改变「监听组件保持启用」的语义。
+        try {
+            (getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)
+                ?.cancel(NotificationMonitorService.FOREGROUND_ID)
+        } catch (e: Exception) {
+            Log.w("MainActivity", "cancel foreground notification failed", e)
         }
     }
 

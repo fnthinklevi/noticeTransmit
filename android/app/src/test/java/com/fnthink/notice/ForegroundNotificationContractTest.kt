@@ -47,6 +47,12 @@ class ForegroundNotificationContractTest {
         )
     }
 
+    private val activitySource: String by lazy {
+        stripComments(
+            File("src/main/kotlin/com/fnthink/notice/MainActivity.kt").readText(),
+        )
+    }
+
     @Test
     fun `onDestroy 显式清理常驻通知（进程终止不得残留）`() {
         val onDestroyBlock = extractFunction(serviceSource, "override fun onDestroy()")
@@ -103,6 +109,36 @@ class ForegroundNotificationContractTest {
             "updateForegroundNotification 缺少通知权限守卫",
             updateBlock.contains("areNotificationsEnabled()") &&
                 updateBlock.contains("notificationManager.cancel(FOREGROUND_ID)"),
+        )
+    }
+
+    @Test
+    fun `停止监听之后 update 不许重新张贴常驻通知`() {
+        val block = extractFunction(
+            serviceSource,
+            "private fun updateForegroundNotification()",
+        )
+        assertTrue(
+            "updateForegroundNotification 缺少 monitoringEnabled 守卫 —— 停止监听后，" +
+                "在途推送/延时聚合会把「正在监听通知」重新贴回状态栏",
+            block.contains("!monitoringEnabled"),
+        )
+        assertTrue(
+            "停着时应走 stopForegroundCompat（撤掉通知），不是 notify",
+            block.contains("stopForegroundCompat()"),
+        )
+    }
+
+    @Test
+    fun `停止监听时界面侧按同一 id 兜底撤掉残留通知`() {
+        val block = extractFunction(
+            activitySource,
+            "internal fun stopNotificationListener()",
+        )
+        assertTrue(
+            "stopNotificationListener 缺少 notificationManager.cancel(FOREGROUND_ID) 兜底 —— " +
+                "服务被 ROM 回收时那枚「正在监听通知」会永远留在状态栏",
+            block.contains("cancel(NotificationMonitorService.FOREGROUND_ID)"),
         )
     }
 
