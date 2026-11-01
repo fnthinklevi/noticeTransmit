@@ -193,10 +193,24 @@ class BatteryMonitor(private val context: Context) {
     }
 
     /**
-     * 当前各温度维度的读数（℃）。与电量采样同源（一次 ACTION_BATTERY_CHANGED
-     * 同时取电量与电池温度，避免重复唤醒设备），设备/屏幕维度来自 thermal_zone
-     * sysfs 探测（部分机型不可得 → 该维度不参与判定）。
+     * 告警族（电量／温度／设备态）的模板变量读数。
+     *
+     * 这三条构造链不经过 `NotificationProcessor`，`%battery%`/`%network%` 曾因此在
+     * 告警推送里恒为空串。两枚读数各读一次；告警有冷却、不是 60s 轮询热路径，这次读值得。
+     * 读不到保持 null/空串 —— 与通知链路「不拿 0% 冒充」同一条纪律。
      */
+    private fun readBatteryPercentForTemplate(): Int? = try {
+        DeviceSnapshot.readBatteryPercent(context)
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun readNetworkTypeForTemplate(): String = try {
+        DeviceSnapshot.readNetworkType(context) ?: ""
+    } catch (e: Exception) {
+        ""
+    }
+
     /** 温度规则触发通知：标题含维度与阈值，正文为当前温度读数 */
     private fun buildTemperatureNotification(
         rule: BatteryRule,
@@ -216,7 +230,9 @@ class BatteryMonitor(private val context: Context) {
             postTime = System.currentTimeMillis(),
             time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
             type = "battery",
-            deviceName = deviceName
+            deviceName = deviceName,
+            batteryPercent = readBatteryPercentForTemplate(),
+            networkType = readNetworkTypeForTemplate(),
         )
     }
 
@@ -320,9 +336,17 @@ class BatteryMonitor(private val context: Context) {
             time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
             type = "battery",
             deviceName = deviceName,
+            batteryPercent = readBatteryPercentForTemplate(),
+            // 网络规则那一支已经有读数；亮度规则那一支现读（只在告警时读一次，不进 60s 轮询）
+            networkType = networkType ?: readNetworkTypeForTemplate(),
         )
     }
 
+    /**
+     * 当前各温度维度的读数（℃）。与电量采样同源（一次 ACTION_BATTERY_CHANGED
+     * 同时取电量与电池温度，避免重复唤醒设备），设备/屏幕维度来自 thermal_zone
+     * sysfs 探测（部分机型不可得 → 该维度不参与判定）。
+     */
     private fun readCurrentTemps(batteryTempC: Double?): Map<String, Double> { val temps = mutableMapOf<String, Double>()
         if (batteryTempC != null) temps["battery_temp_above"] = batteryTempC
         val zones = DeviceThermalReader.readZones()
@@ -353,7 +377,9 @@ class BatteryMonitor(private val context: Context) {
             postTime = System.currentTimeMillis(),
             time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
             type = "battery",
-            deviceName = deviceName
+            deviceName = deviceName,
+            batteryPercent = currentLevel,
+            networkType = readNetworkTypeForTemplate(),
         )
     }
 

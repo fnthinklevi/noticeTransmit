@@ -163,4 +163,44 @@ class BatteryMonitorWiringContractTest {
             src.contains("NotificationEngine()")
         )
     }
+
+    /**
+     * T186 片1 收尾：告警族不经过 `NotificationProcessor`，`%battery%`/`%network%`
+     * 在它们身上曾恒为空串（真机抓包实证）。三条构造点各填一次，缺一条就是
+     * "同一个模板变量，通知有值、告警没值"的静默分叉。
+     */
+    @Test
+    fun `三条告警构造点都填了模板变量`() {
+        for (builder in listOf(
+            "private fun buildBatteryNotification(",
+            "private fun buildTemperatureNotification(",
+            "private fun buildDeviceStateNotification(",
+        )) {
+            val start = src.indexOf(builder)
+            assertTrue("$builder 不见了/改名：本守卫要跟", start >= 0)
+            val end = src.indexOf("\n    }\n", start)
+            val body = src.substring(start, if (end < 0) src.length else end)
+            assertTrue(
+                "$builder 没截到函数体 ⇒ 下面的断言会对空串永远成立",
+                body.isNotEmpty(),
+            )
+            assertTrue(
+                "$builder 没填 batteryPercent ⇒ 告警族的 %battery% 仍是空串",
+                body.contains("batteryPercent ="),
+            )
+            assertTrue(
+                "$builder 没填 networkType ⇒ 告警族的 %network% 仍是空串",
+                body.contains("networkType ="),
+            )
+        }
+        assertTrue(
+            "电量告警已经知道 currentLevel，别为已知值再读一次系统属性",
+            src.contains("batteryPercent = currentLevel"),
+        )
+        assertTrue(
+            "读数必须走既有换算口（DeviceSnapshot），不许在告警链路另读一套",
+            src.contains("DeviceSnapshot.readBatteryPercent(context)") &&
+                src.contains("DeviceSnapshot.readNetworkType(context)"),
+        )
+    }
 }
