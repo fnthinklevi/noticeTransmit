@@ -437,6 +437,7 @@ class NotificationService {
     required String normalized,
     required String message,
     bool viaBackup = false,
+    int httpCode = 0,
   }) {
     final key = channelDeliveryKey(kotlinType);
     final slug = channelKey(kotlinType);
@@ -447,6 +448,7 @@ class NotificationService {
         'intercepted',
         message,
         viaBackup,
+        httpCode,
       );
     }
     if (slug == kMergedChannelKey) {
@@ -456,29 +458,42 @@ class NotificationService {
         normalized,
         message,
         viaBackup,
+        httpCode,
       );
     }
     final updated = Map<String, dynamic>.from(existing);
-    updated[key] = _entry(normalized, message, existing[key], viaBackup);
+    updated[key] = _entry(
+      normalized,
+      message,
+      existing[key],
+      viaBackup,
+      httpCode,
+    );
     return updated;
   }
 
-  /// 单个通道的送达条目：`{status, message}`（+ 粘滞的 `viaBackup`）。
+  /// 单个通道的送达条目：`{status, message}`（+ 粘滞的 `viaBackup` / `httpCode`）。
   ///
   /// `viaBackup` 只在为真时写入、且优先保留旧值：键少一个，历史 JSON 就小一点，
   /// 也不必为「绝大多数通知没降级」这件事在每行里存一个 false。
+  /// `httpCode` 同理：回传 0 时保留上一次的值，别让一条后续状态把失败证据擦掉。
   static Map<String, dynamic> _entry(
     String status,
     String message,
     Object? previous,
     bool viaBackup,
+    int httpCode,
   ) {
-    final marked =
-        viaBackup || (previous is Map && previous['viaBackup'] == true);
+    final before = previous is Map ? previous : const {};
+    final marked = viaBackup || before['viaBackup'] == true;
+    final code = httpCode > 0
+        ? httpCode
+        : (before['httpCode'] as num?)?.toInt() ?? 0;
     return <String, dynamic>{
       'status': status,
       'message': message,
       if (marked) 'viaBackup': true,
+      if (code > 0) 'httpCode': code,
     };
   }
 
@@ -489,13 +504,16 @@ class NotificationService {
     String status,
     String message,
     bool viaBackup,
+    int httpCode,
   ) {
     if (existing.isEmpty) {
-      return <String, dynamic>{key: _entry(status, message, null, viaBackup)};
+      return <String, dynamic>{
+        key: _entry(status, message, null, viaBackup, httpCode),
+      };
     }
     return <String, dynamic>{
       for (final k in existing.keys)
-        k: _entry(status, message, existing[k], viaBackup),
+        k: _entry(status, message, existing[k], viaBackup, httpCode),
     };
   }
 
@@ -534,6 +552,7 @@ class NotificationService {
         normalized: normalized,
         message: message,
         viaBackup: viaBackup,
+        httpCode: httpCode,
       );
       final newRecord = _records[idx].copyWith(deliveryStatus: updated);
       _records[idx] = newRecord;
@@ -562,6 +581,7 @@ class NotificationService {
             normalized: normalized,
             message: message,
             viaBackup: viaBackup,
+            httpCode: httpCode,
           );
           await DatabaseHelper().updateNotificationDelivery(
             notificationId,
@@ -746,7 +766,7 @@ class NotificationService {
   ) {
     final updated = Map<String, dynamic>.from(existing);
     for (final key in keys) {
-      updated[key] = _entry('pending', '', null, false);
+      updated[key] = _entry('pending', '', null, false, 0);
     }
     return updated;
   }

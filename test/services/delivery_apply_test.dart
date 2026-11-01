@@ -43,6 +43,41 @@ void main() {
       });
     });
 
+    test('T220：httpCode 写进送达格；后续状态不清掉失败证据', () {
+      final out = NotificationService.applyDelivery(
+        kotlinType: 'DINGTALK',
+        existing: pending(),
+        normalized: 'failed',
+        message: '502 Bad Gateway',
+        httpCode: 502,
+      );
+      expect(out['chan:dingtalk'], {
+        'status': 'failed',
+        'message': '502 Bad Gateway',
+        'httpCode': 502,
+      });
+
+      // 后续一条不带 httpCode 的成功（例如重放后成功）不许把 502 擦掉。
+      final later = NotificationService.applyDelivery(
+        kotlinType: 'DINGTALK',
+        existing: out,
+        normalized: 'success',
+        message: 'ok',
+      );
+      expect((later['chan:dingtalk'] as Map)['httpCode'], 502);
+      expect((later['chan:dingtalk'] as Map)['status'], 'success');
+    });
+
+    test('httpCode 为 0 时不写这个键（存量 JSON 不无谓变大）', () {
+      final out = NotificationService.applyDelivery(
+        kotlinType: 'EMAIL',
+        existing: <String, dynamic>{},
+        normalized: 'failed',
+        message: '网络不通',
+      );
+      expect(out['chan:email'], {'status': 'failed', 'message': '网络不通'});
+    });
+
     test('同一通道的不同拼写落在同一个键（不会分裂出第二项）', () {
       // 原生回传枚举名、DB 存的是 snake_case、v11 前记录里是本地化显示名
       for (final raw in [
