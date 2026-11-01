@@ -2,6 +2,7 @@ package com.fnthink.notice
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -219,5 +220,125 @@ class RuleEngineTest {
             .put("title", "t").put("content", "c").put("time", "")
         val decision = RuleEngine.decide(notification.let(::info), mergeRule("""{"id":"a1","type":"merge"}"""))
         assertEquals(RuleEngine.Decision.Push, decision)
+    }
+
+    // ========== T186 片1：设备状态翻转路径（无通知到达） ==========
+
+    private fun deviceRule(
+        conditions: String,
+        action: String = """{"id":"a1","type":"push"}""",
+        enabled: Boolean = true,
+        priority: Int = 10,
+    ): String = """[{"id":"r1","name":"d","enabled":$enabled,"priority":$priority,
+        "conditions":[$conditions],"actions":[$action]}]"""
+
+    private fun deviceInfo(
+        charging: String = "",
+        network: String = "",
+        packageName: String = "com.fnthink.notice",
+        title: String = "设备状态变化",
+        content: String = "充电中，网络 WiFi",
+    ): NotificationInfo = NotificationInfo(
+        id = "device_1",
+        title = title,
+        content = content,
+        subText = "",
+        packageName = packageName,
+        appName = "Test",
+        postTime = 0L,
+        time = "2026-01-01 00:00:00",
+        type = "device_state",
+        deviceName = "dev",
+        chargingState = charging,
+        networkType = network,
+    )
+
+    @Test
+    fun deviceState_chargingCondition_matchesOnlyWhenStateEqual() {
+        val rules = deviceRule(
+            """{"id":"c1","type":"charging_state","value":"charging","logic":"and"}"""
+        )
+        assertEquals(
+            RuleEngine.Decision.Push,
+            RuleEngine.decideDeviceState(deviceInfo(charging = "charging"), rules),
+        )
+        assertNull(RuleEngine.decideDeviceState(deviceInfo(charging = "not_charging"), rules))
+    }
+
+    @Test
+    fun deviceState_networkCondition_matchesNetworkType() {
+        val rules = deviceRule(
+            """{"id":"c1","type":"network_type","value":"wifi","logic":"and"}"""
+        )
+        assertEquals(
+            RuleEngine.Decision.Push,
+            RuleEngine.decideDeviceState(deviceInfo(network = "wifi"), rules),
+        )
+        assertNull(RuleEngine.decideDeviceState(deviceInfo(network = "cellular"), rules))
+    }
+
+    /**
+     * 安全边界：状态翻转**只评估含设备态条件的规则**。
+     * 一条只按包名（甚至 `*`）匹配的通知规则，在状态翻转时一条都不该发 ——
+     * 否则每次充电/断网都会凭空推一条"通知"。
+     */
+    @Test
+    fun deviceState_notificationOnlyRule_neverFires() {
+        val rules = deviceRule(
+            """{"id":"c1","type":"package_name","value":"*","logic":"and"}"""
+        )
+        assertNull(RuleEngine.decideDeviceState(deviceInfo(), rules))
+        // 对照：同一条规则在通知路径下会命中（证明上面的 null 是过滤造成的，不是规则本身坏了）
+        assertEquals(RuleEngine.Decision.Push, RuleEngine.decide(deviceInfo(), rules))
+    }
+
+    @Test
+    fun deviceState_silentActionStillSilenced() {
+        val rules = deviceRule(
+            """{"id":"c1","type":"charging_state","value":"charging","logic":"and"}""",
+            action = """{"id":"a1","type":"silent"}""",
+        )
+        assertEquals(
+            RuleEngine.Decision.Block,
+            RuleEngine.decideDeviceState(deviceInfo(charging = "charging"), rules),
+        )
+    }
+
+    @Test
+    fun deviceState_disabledRuleIgnored() {
+        val rules = deviceRule(
+            """{"id":"c1","type":"charging_state","value":"charging","logic":"and"}""",
+            enabled = false,
+        )
+        assertNull(RuleEngine.decideDeviceState(deviceInfo(charging = "charging"), rules))
+    }
+
+    @Test
+    fun deviceState_priorityAmongDeviceRulesOnly() {
+        val rules = """[
+            {"id":"high","name":"h","enabled":true,"priority":20,
+             "conditions":[{"id":"c1","type":"charging_state","value":"full","logic":"and"}],
+             "actions":[{"id":"a1","type":"push"}]},
+            {"id":"low","name":"l","enabled":true,"priority":10,
+             "conditions":[{"id":"c2","type":"network_type","value":"wifi","logic":"and"}],
+             "actions":[{"id":"a2","type":"silent"}]}
+        ]"""
+        // 高优先的那条不匹配 ⇒ 落到低优先那一条（不是"高优先一存在就吞掉"）
+        assertEquals(
+            RuleEngine.Decision.Block,
+            RuleEngine.decideDeviceState(deviceInfo(network = "wifi"), rules),
+        )
+    }
+
+    @Test
+    fun hasDeviceStateCondition_readsBothTypesOnly() {
+        val charging = JSONObject(deviceRule(
+            """{"id":"c1","type":"charging_state","value":"charging","logic":"and"}"""
+        ).removePrefix("[").removeSuffix("]"))
+        assertTrue(RuleEngine.hasDeviceStateCondition(charging))
+        val plain = JSONObject(deviceRule(
+            """{"id":"c1","type":"title_contains","value":"x","logic":"and"}"""
+        ).removePrefix("[").removeSuffix("]"))
+        assertTrue(!RuleEngine.hasDeviceStateCondition(plain))
     }
 }

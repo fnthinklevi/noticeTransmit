@@ -95,6 +95,53 @@ object RuleEngine {
             .map { rules.getJSONObject(it) }
             .sortedByDescending { it.optInt("priority", 0) }
 
+        return decideAmong(sorted, info, Decision.Push) ?: Decision.Push
+    }
+
+    /**
+     * T186 片1：**设备状态翻转**路径的决策（没有通知到达）。
+     *
+     * 与 [decide] 的差别只有一处，但那一处是这条路径的全部安全边界：**只评估含设备态条件
+     * （`charging_state` / `network_type`）的规则**。不过滤的话，一条"什么都不填"的规则
+     * （`conditions` 为空时 [evaluate] 返回 false，但只配了一条 `package_name: "*"` 的规则
+     * 会匹配）会在每次充电/断网时凭空推一条 —— 那是把"通知规则"变成"状态广播"。
+     *
+     * 返回 null = 这一次没有任何设备态规则命中（**不**回落 `Push`）：状态翻转不是通知，
+     * 没有"默认推送"这回事。
+     */
+    fun decideDeviceState(info: NotificationInfo, rulesJson: String): Decision? {
+        if (rulesJson.isBlank()) return null
+        val rules = try {
+            JSONArray(rulesJson)
+        } catch (e: Exception) {
+            Log.w(TAG, "设备态规则 JSON 解析失败，本次不评估: ${e.message}")
+            return null
+        }
+        val sorted = (0 until rules.length())
+            .map { rules.getJSONObject(it) }
+            .filter { it.optBoolean("enabled", true) && hasDeviceStateCondition(it) }
+            .sortedByDescending { it.optInt("priority", 0) }
+        if (sorted.isEmpty()) return null
+        return decideAmong(sorted, info, null)
+    }
+
+    /** 这条规则是否含设备态条件（`charging_state` / `network_type`）。两型词表只在 [evaluateCondition] 一处。 */
+    fun hasDeviceStateCondition(rule: JSONObject): Boolean {
+        val conditions = rule.optJSONArray("conditions") ?: return false
+        for (i in 0 until conditions.length()) {
+            when (conditions.getJSONObject(i).optString("type", "")) {
+                "charging_state", "network_type" -> return true
+            }
+        }
+        return false
+    }
+
+    /// 命中第一条即停；[fallback] = 一条都没命中时的结论（通知路径是 Push，状态路径是 null）。
+    private fun decideAmong(
+        sorted: List<JSONObject>,
+        info: NotificationInfo,
+        fallback: Decision?
+    ): Decision? {
         for (rule in sorted) {
             if (!rule.optBoolean("enabled", true)) {
                 DiagLog.w(TAG, "诊断·规则跳过(禁用): ${rule.optString("name")}(${rule.optString("id")})")
@@ -124,7 +171,7 @@ object RuleEngine {
             )
             return decideAction(rule, info)
         }
-        return Decision.Push
+        return fallback
     }
 
     /** 由命中规则的 actions 计算最终动作 */
