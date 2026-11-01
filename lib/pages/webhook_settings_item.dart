@@ -182,6 +182,29 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                 }).toList(),
               ),
             ],
+            // T188 片1 第②刀：自定义请求头。形状是"每行 `名称: 值`"的纯文本 ——
+            // 让用户在一个 TextField 里粘贴一段头，比做九行键值对编辑器省事；
+            // 解析（首个冒号切分、同名后者胜、空行丢弃）只在 codec 一处，保存与测试共用。
+            if (_supportsCustomHeaders) ...[
+              const SizedBox(height: 12),
+              _buildFieldLabel(context, l10n.webhookHeadersLabel),
+              TextField(
+                key: const ValueKey('webhook-headers'),
+                contextMenuBuilder: AppTextSelectionMenu.editableText,
+                controller: _headersController,
+                decoration: _inputDecoration(
+                  context,
+                  hint: l10n.webhookHeadersHint,
+                  dense: false,
+                ),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primaryLabel(context),
+                ),
+                maxLines: 3,
+                minLines: 1,
+              ),
+            ],
             // 该通道的实发正文不吃自定义格式/模板（能力位 customTemplate=false）时，
             // 连整排选择器一起收掉：以前给了入口也毫无作用，用户以为设置了其实没有。
             if (_supportsCustomTemplate) ...[

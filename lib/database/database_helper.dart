@@ -7,6 +7,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/email_channel.dart';
 import '../models/delivery_status.dart';
+import '../models/webhook_channel.dart';
 import '../models/fnthink_channel.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
@@ -90,7 +91,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 28;
+  static const int dbVersion = 29;
 
   /// T199 ③（第一刀）：这一颗 isolate 允不允许做**破坏性**的开库动作。
   ///
@@ -533,6 +534,8 @@ class DatabaseHelper
         message_format TEXT NOT NULL DEFAULT 'default',
         -- T188 片1：通用 webhook 的请求方法档位（平台通道不读它，能不能改由描述符决定）
         http_method TEXT NOT NULL DEFAULT 'POST',
+        -- T188 片1 第②刀：用户自定义请求头（JSON 对象；白名单裁决在原生 HttpHeaders）
+        headers TEXT,
         role TEXT NOT NULL DEFAULT 'primary',
         message_template TEXT,
         extra_config TEXT,
@@ -1104,6 +1107,13 @@ class DatabaseHelper
         'peer_name',
         "TEXT NOT NULL DEFAULT ''",
       );
+    }
+
+    if (oldVersion < 29) {
+      // v29 / T188 片1 第②刀：通用 webhook 的自定义请求头（JSON 对象）。
+      // 只加列、不写缺省 —— 存量行没有头可读（它们本来就是"不加头"发的），
+      // 补一个 NULL 与补 '{}' 语义相同，但 NULL 更诚实：这一列之前根本不存在。
+      await _addColumnIfMissing(db, 'webhook_channels', 'headers', 'TEXT');
     }
 
     if (oldVersion < 28) {
@@ -2622,6 +2632,11 @@ class DatabaseHelper
               c['http_method']?.toString() ??
               c['httpMethod']?.toString() ??
               'POST',
+          // T188 片1 第②刀：调用方（ChannelConfigCodec）已编码成 JSON 对象；
+          // 这里兼容直接给 Map 的调用点（历史备份/手造行），两种都能落库。
+          'headers': c['headers'] is String
+              ? c['headers']
+              : jsonEncode(WebhookChannel.webhookHeadersFrom(c['headers'])),
           // v9 的 extra_config 不再写（roadmap D4 / ㊷）：全链路无人消费它。
           // **列保留**（DDL 与 v9→v10 搬家 SELECT 都在下面），删列要迁用户数据、风险不对等。
           // 老行里已有的值会在下一次保存该通道时被置空 —— 该值从来没人读过，属预期清理。

@@ -79,6 +79,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   /// 请求方法档位（T188 片1）。缺省 POST ＝ 所有通道十年来的实发形状；名单只在原生
   /// `HttpMethods.configurable` 一处，界面档位随描述符载荷到手。
   String _httpMethod = 'POST';
+
+  /// 自定义请求头（T188 片1 第②刀）：页面里是"每行 `名称: 值`"，保存时编码成对象。
+  final TextEditingController _headersController = TextEditingController();
   // 'auto' = 按 URL host 探测，否则为用户手动指定的类型（自建代理等场景）
   String _channelType = 'auto';
 
@@ -143,6 +146,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         ChannelConfigCodec.nullableText(c['http_method']) ??
         ChannelConfigCodec.nullableText(c['httpMethod']) ??
         'POST';
+    _headersController.text = ChannelConfigCodec.headersToText(
+      WebhookChannel.webhookHeadersFrom(c['headers']),
+    );
     final type =
         ChannelConfigCodec.nullableText(c['channelType']) ??
         ChannelConfigCodec.nullableText(c['type']) ??
@@ -157,6 +163,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     _nameController.dispose();
     _secretController.dispose();
     _templateController.dispose();
+    _headersController.dispose();
     super.dispose();
   }
 
@@ -256,6 +263,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       // 只有该通道接受自定义方法时才发这个键：服务层是 `{...已有行, ...载荷}` 合并，
       // 不该由这一格去重置别的通道存着的方法（P7 那一条教训的同一形状）。
       if (_supportsCustomHttpMethod) 'http_method': _httpMethod,
+      // 头与方法是同一档能力：只有接受自定义形状的通道才发这个键（合并语义会保住别的通道存着的值）。
+      if (_supportsCustomHeaders)
+        'headers': ChannelConfigCodec.headersFromText(_headersController.text),
     };
   }
 
@@ -284,6 +294,11 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   /// webhook 开放，凭空给一排档位会让用户以为平台通道也能改（改完不生效才是坑）。
   bool get _supportsCustomHttpMethod =>
       _descriptor?.supportsCustomHttpMethod ?? false;
+
+  /// 是否给"自定义请求头"这一格（T188 片1 第②刀）。与请求方法同一档能力位：
+  /// 只对通用 webhook 开放；描述符没到手时**不给**（凭空给一个输入框，填了也发不出去）。
+  bool get _supportsCustomHeaders =>
+      _descriptor?.supportsCustomHeaders ?? false;
 
   /// 可选的消息格式档位：**名单只在原生**（`TemplateEngine.formatOptions`，随
   /// `getChannelDescriptors` 一起导出）。Dart 不再存第二份枚举 —— 加一个格式只改原生，
@@ -397,6 +412,13 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
             // 测试那一发必须按"真发时会用的方法"打：不带上就是 PUT 建档 / POST 追加
             // 那类网关给出假成功的测试结论（原生按描述符裁决，平台通道仍回 POST）
             'httpMethod': _httpMethod,
+            // 头同理：网关按 headers 路由（X-Webhook-Target 之类）时，不带头的测试会
+            // 得出"通"或"不通"两种假结论。原生只对接受自定义形状的通道放行，且再过一遍
+            // 危险头白名单（这里发过去的只是用户填的原值，裁决仍在原生一处）。
+            if (_supportsCustomHeaders)
+              'headers': ChannelConfigCodec.headersFromText(
+                _headersController.text,
+              ),
           })
           .timeout(
             kTestWebhookBudget,

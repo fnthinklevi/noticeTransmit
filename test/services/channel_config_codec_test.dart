@@ -139,6 +139,67 @@ void main() {
       );
     });
 
+    test('自定义头：文本 ↔ 对象两向，同名后者胜、值里的冒号保留', () {
+      expect(
+        ChannelConfigCodec.headersFromText(
+          'X-Api-Key: abc\n'
+          'X-Route: a:b:c\n'
+          '\n'
+          '# 注释行\n'
+          'X-Api-Key: new\n'
+          'no-colon-line\n',
+        ),
+        {'X-Api-Key': 'new', 'X-Route': 'a:b:c'},
+      );
+      expect(
+        ChannelConfigCodec.headersToText({
+          'X-Api-Key': 'abc',
+          'X-Route': 'a:b',
+        }),
+        'X-Api-Key: abc\nX-Route: a:b',
+      );
+    });
+
+    test('自定义头落库是 JSON 字符串，回读成对象（两种形状都认）', () {
+      final row = ChannelConfigCodec.webhookToDb({
+        'id': 'wh_1',
+        'url': 'https://h/x',
+        'channelType': 'generic',
+        'headers': {'X-Api-Key': 'abc'},
+      });
+      expect(row['headers'], '{"X-Api-Key":"abc"}');
+
+      final ui = ChannelConfigCodec.webhookFromDb({
+        'id': 'wh_1',
+        'url': 'https://h/x',
+        'channel_type': 'generic',
+        'headers': '{"X-Api-Key":"abc"}',
+      });
+      expect(ui['headers'], {'X-Api-Key': 'abc'});
+
+      // 备份文件里就是对象（没经过 jsonEncode）：同一条加载链也要读得出
+      final fromBackup = ChannelConfigCodec.webhookFromDb({
+        'id': 'wh_1',
+        'url': 'https://h/x',
+        'channel_type': 'generic',
+        'headers': {'X-Api-Key': 'abc'},
+      });
+      expect(fromBackup['headers'], {'X-Api-Key': 'abc'});
+    });
+
+    test('自定义头坏 JSON 回读退成空 Map，不打死整表加载', () {
+      final ui = ChannelConfigCodec.webhookFromDb({
+        'id': 'wh_1',
+        'url': 'https://h/x',
+        'headers': '{oops',
+      });
+      expect(ui['headers'], isEmpty);
+      expect(
+        ChannelConfigCodec.webhookToNative({'headers': '{oops'})['headers'],
+        isEmpty,
+      );
+    });
+
     test('跨端契约：ConfigManager 读 webhook 的每个键，我们都给得出', () {
       final produced = ChannelConfigCodec.webhookToNative({
         'id': 'wh_1',

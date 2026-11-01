@@ -210,4 +210,55 @@ void main() {
       expect(deserialized.enabled, original.enabled);
     });
   });
+
+  group('自定义请求头（T188 片1 第②刀）', () {
+    test('JSON 字符串与 Map 两种入参都归一成 Map<String, String>', () {
+      expect(WebhookChannel.webhookHeadersFrom('{"X-Api-Key":"abc"}'), {
+        'X-Api-Key': 'abc',
+      });
+      expect(WebhookChannel.webhookHeadersFrom({'X-Api-Key': 'abc'}), {
+        'X-Api-Key': 'abc',
+      });
+      // 备份文件里值可能是数字：判空看的是"有没有值"，不是"是不是字符串"
+      expect(WebhookChannel.webhookHeadersFrom({'X-Retry': 2}), {
+        'X-Retry': '2',
+      });
+    });
+
+    test('坏 JSON / null / "null" / 非 Map 一律退成空 Map，不抛', () {
+      for (final raw in <Object?>[null, '', 'null', '{oops', '[]', 123]) {
+        expect(
+          WebhookChannel.webhookHeadersFrom(raw),
+          isEmpty,
+          reason: '头解析抛在加载链上会连带整表通道读不出来：$raw',
+        );
+      }
+    });
+
+    test('空名、空值、非标量键值都丢弃（只有真能发的头才进载荷）', () {
+      expect(
+        WebhookChannel.webhookHeadersFrom({
+          ' ': 'v',
+          'X-Empty': '   ',
+          'X-Ok': '  v  ',
+        }),
+        {'X-Ok': 'v'},
+      );
+    });
+
+    test('fromMap/toMap/copyWith 带头；空头不写进 toMap', () {
+      final channel = WebhookChannel.fromMap({
+        'url': 'https://example.com/hook',
+        'headers': '{"X-Api-Key":"abc"}',
+      });
+      expect(channel.headers, {'X-Api-Key': 'abc'});
+      expect(channel.toMap()['headers'], {'X-Api-Key': 'abc'});
+
+      final plain = WebhookChannel.fromMap({'url': 'https://example.com/hook'});
+      expect(plain.toMap().containsKey('headers'), isFalse);
+
+      final changed = plain.copyWith(headers: {'X-Token': 't'});
+      expect(changed.headers, {'X-Token': 't'});
+    });
+  });
 }

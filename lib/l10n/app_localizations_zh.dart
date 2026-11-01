@@ -970,6 +970,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookHttpMethodLabel => '请求方法';
 
   @override
+  String get webhookHeadersLabel => '自定义请求头（可选）';
+
+  @override
+  String get webhookHeadersHint => '每行一个，格式为 Name: Value，如 X-Api-Key: xxx';
+
+  @override
   String get feishuMarkdownDowngradeHint =>
       '飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号原样显示）。建议使用 text 格式。';
 

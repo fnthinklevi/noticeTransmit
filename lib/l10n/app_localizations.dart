@@ -1855,6 +1855,18 @@ abstract class AppLocalizations {
   /// **'请求方法'**
   String get webhookHttpMethodLabel;
 
+  /// No description provided for @webhookHeadersLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义请求头（可选）'**
+  String get webhookHeadersLabel;
+
+  /// No description provided for @webhookHeadersHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'每行一个，格式为 Name: Value，如 X-Api-Key: xxx'**
+  String get webhookHeadersHint;
+
   /// No description provided for @feishuMarkdownDowngradeHint.
   ///
   /// In zh, this message translates to:

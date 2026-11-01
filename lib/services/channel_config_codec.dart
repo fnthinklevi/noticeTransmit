@@ -103,11 +103,34 @@ class ChannelConfigCodec {
           row['http_method']?.toString() ??
           row['httpMethod']?.toString() ??
           'POST',
+      // T188 片1 第②刀：DB 列是 TEXT（JSON 对象），备份文件里是对象 —— 两种都认。
+      'headers': WebhookChannel.webhookHeadersFrom(row['headers']),
       'message_template': nullableText(row['message_template']),
       // v9 的 extra_config 不再进 UI（roadmap D4 / ㊷）：原生解析了它但全链路无人消费，
       // wecom_app 的 corpid/agentid/touser 早在 v10 搬进 app_channels.config。
       // DB 列保留（见 database_helper 的 DDL 与 v9→v10 搬家 SELECT）。
     };
+  }
+
+  /// 自定义请求头的两向文本形状（T188 片1 第②刀）：页面里是"每行一条 `名称: 值`"，
+  /// 库里与原生载荷里是对象。写法只有这一份 —— 页面与用例读同一把尺。
+  static String headersToText(Map<String, String> headers) =>
+      headers.entries.map((e) => '${e.key}: ${e.value}').join('\n');
+
+  static Map<String, String> headersFromText(String text) {
+    final out = <String, String>{};
+    for (final line in text.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+      final colon = trimmed.indexOf(':');
+      if (colon <= 0) continue;
+      final name = trimmed.substring(0, colon).trim();
+      final value = trimmed.substring(colon + 1).trim();
+      if (name.isEmpty || value.isEmpty) continue;
+      // 同名后者胜（与原生 HttpHeaders 同一条规则：用户改过的那一条应该赢）。
+      out[name] = value;
+    }
+    return out;
   }
 
   /// UI → DB 行（列名 + `'null'` 脏数据清洗）
@@ -135,6 +158,11 @@ class ChannelConfigCodec {
     // POST"，而页面回显的还是 PUT —— 分叉没人看得见（与 channel_type 同一课）。
     row['http_method'] =
         ui['http_method']?.toString() ?? ui['httpMethod']?.toString() ?? 'POST';
+    // T188 片1 第②刀：头落库是 TEXT（JSON 对象）。空也要写成 '{}' 而不是 NULL：
+    // 两种都表示"没有"，但统一成一种后，"清空所有头"与"从没填过"在回读时长得一样。
+    row['headers'] = jsonEncode(
+      WebhookChannel.webhookHeadersFrom(ui['headers'] ?? ui['headersMap']),
+    );
     row['message_template'] = nullableText(ui['message_template']);
     return row;
   }
@@ -154,9 +182,10 @@ class ChannelConfigCodec {
         ui['http_method']?.toString() ?? ui['httpMethod']?.toString() ?? 'POST';
     // T188 片1 第②刀：自定义头也必须显式给（同 role/http_method 的理由：备份恢复的
     // 文件里可能没有这个键，靠整份拷贝就带不出去 ⇒ 原生按"没有头"发）。
-    // 今天 Dart 侧还没有这一格（模型与 DB 列在下一刀），这里先如实给空对象：
-    // 原生读得到"用户没填"，而不是"这个键不存在"。
-    payload['headers'] = ui['headers'] ?? const <String, dynamic>{};
+    // 空 Map 是实话：用户没填，而不是"这个键不存在"。
+    payload['headers'] = WebhookChannel.webhookHeadersFrom(
+      ui['headers'] ?? ui['headersMap'],
+    );
     return payload;
   }
 

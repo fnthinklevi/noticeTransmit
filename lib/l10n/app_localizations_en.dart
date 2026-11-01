@@ -1006,6 +1006,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webhookHttpMethodLabel => 'Request Method';
 
   @override
+  String get webhookHeadersLabel => 'Custom Headers (optional)';
+
+  @override
+  String get webhookHeadersHint =>
+      'One per line as Name: Value, e.g. X-Api-Key: xxx';
+
+  @override
   String get feishuMarkdownDowngradeHint =>
       'Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.';
 

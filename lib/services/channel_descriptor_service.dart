@@ -153,6 +153,10 @@ class ChannelDescriptor {
   /// "哪几类通道可以"的名单 —— 那会是分叉的第二处作者。
   bool get supportsCustomHttpMethod => can('customHttpMethod');
 
+  /// 该通道是否允许用户自定义请求头（T188 片1 第②刀，同样只有通用 webhook 给这一档）。
+  /// 危险头的白名单在原生 `HttpHeaders`（唯一作者），这里只决定露不露那一格。
+  bool get supportsCustomHeaders => can('customHeaders');
+
   bool get supportsMarkdown => can('markdown');
 
   factory ChannelDescriptor.fromMap(Map<dynamic, dynamic> m) {

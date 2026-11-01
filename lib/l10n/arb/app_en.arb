@@ -518,6 +518,8 @@
   "webhookTemplateLabel": "Push Template (optional)",
   "webhookFormatLabel": "Message Format",
   "webhookHttpMethodLabel": "Request Method",
+  "webhookHeadersLabel": "Custom Headers (optional)",
+  "webhookHeadersHint": "One per line as Name: Value, e.g. X-Api-Key: xxx",
   "feishuMarkdownDowngradeHint": "Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.",
   "webhookTemplateHint": "Leave empty to use preset; supported variables:",
   "platformWechat": "WeCom",

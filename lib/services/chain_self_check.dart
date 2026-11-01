@@ -15,6 +15,7 @@ import 'dart:async';
 
 import 'package:get_it/get_it.dart';
 
+import '../models/webhook_channel.dart';
 import 'active_channels.dart';
 import 'app_channel_service.dart';
 import 'channel_config_codec.dart';
@@ -180,6 +181,8 @@ Future<({bool ok, String message})> _checkWebhook(ActiveChannel channel) async {
         row['http_method']?.toString() ??
         row['httpMethod']?.toString() ??
         'POST',
+    // 与真发同一形状：库里存着的头一起带上，否则"按头路由"的网关自检永远假失败。
+    'headers': WebhookChannel.webhookHeadersFrom(row['headers']),
   });
   return _outcomeOf(result);
 }

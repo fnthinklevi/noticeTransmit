@@ -67,6 +67,7 @@ void main() {
     String? secret,
     String format = 'default',
     String? template,
+    Map<String, String>? headers,
   }) => {
     'id': id,
     'name': name,
@@ -77,6 +78,7 @@ void main() {
     'secret': secret,
     'message_format': format,
     'message_template': template,
+    'headers': ?headers,
   };
 
   /// 打开某条通道的详情页（服务里得先有那条 —— 页面按 id 从 `service.channels` 取）。
@@ -368,6 +370,84 @@ void main() {
           .where((b) => b.dismissible)
           .toList();
       expect(barriers, isNotEmpty, reason: '这一枚不可点穿 ⇒ 看了想收回去的路没了');
+    });
+  });
+
+  group('详情页 – 自定义请求头（T188 片1 第②刀）', () {
+    Map<String, dynamic> generic(String id, {Map<String, String>? headers}) =>
+        uiRow(
+          id,
+          '通道$id',
+          'https://$id.example.com/hook',
+          'generic',
+          headers: headers,
+        );
+
+    Finder headersField() => find.byKey(const ValueKey('webhook-headers'));
+
+    testWidgets('通用 webhook 给头输入框', (tester) async {
+      await openDetail(tester, [generic('a')], channelId: 'a');
+      expect(find.text('自定义请求头（可选）'), findsOneWidget);
+      expect(headersField(), findsOneWidget);
+    });
+
+    testWidgets('平台通道不给头输入框，测试那一发也不带这个键', (tester) async {
+      await openDetail(tester, [
+        uiRow(
+          'dt',
+          '钉钉A',
+          'https://oapi.dingtalk.com/robot/send?access_token=a',
+          'dingtalk',
+        ),
+      ], channelId: 'dt');
+      expect(
+        headersField(),
+        findsNothing,
+        reason: '平台通道的签名头由原生生成，用户自填头会被白名单静默丢弃 = 给了假入口',
+      );
+
+      calls.clear();
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '仅测试'));
+      await tester.pumpAndSettle();
+      expect(lastTestArgs?.containsKey('headers'), isFalse);
+    });
+
+    testWidgets('库里存着的头回显成每行一条', (tester) async {
+      await openDetail(tester, [
+        generic('a', headers: {'X-Api-Key': 'abc', 'X-Route': 'a:b'}),
+      ], channelId: 'a');
+
+      final field = tester.widget<TextField>(headersField());
+      expect(field.controller?.text, 'X-Api-Key: abc\nX-Route: a:b');
+    });
+
+    testWidgets('填头 ⇒ 保存落库成对象；测试那一发带同一份', (tester) async {
+      await openDetail(tester, [generic('a')], channelId: 'a');
+      await tester.enterText(headersField(), 'X-Api-Key: abc\nX-Route: a:b');
+      await tester.pumpAndSettle();
+
+      // 「仅测试」按当前表单值打：不带头就会对"按头路由"的网关得出假结论
+      await tester.tap(find.widgetWithText(FnthinkInlineAction, '仅测试'));
+      await tester.pumpAndSettle();
+      expect(lastTestArgs?['headers'], {'X-Api-Key': 'abc', 'X-Route': 'a:b'});
+
+      await tapSave(tester);
+      expect(saved('a')['headers'], {'X-Api-Key': 'abc', 'X-Route': 'a:b'});
+    });
+
+    testWidgets('清空头 ⇒ 库里是空对象（不是保留上一条的值）', (tester) async {
+      await openDetail(tester, [
+        generic('a', headers: {'X-Api-Key': 'abc'}),
+      ], channelId: 'a');
+      await tester.enterText(headersField(), '');
+      await tester.pumpAndSettle();
+      await tapSave(tester);
+
+      expect(
+        saved('a')['headers'],
+        isEmpty,
+        reason: '头输入框就在眼前：清空就是清空（与 secret 同一条合并语义）',
+      );
     });
   });
 

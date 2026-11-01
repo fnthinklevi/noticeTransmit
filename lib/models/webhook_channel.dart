@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -74,6 +76,13 @@ class WebhookChannel {
   final String httpMethod;
   final String? messageTemplate;
 
+  /// 用户自定义请求头（T188 片1 第②刀，只有通用 webhook 用得上）。
+  ///
+  /// 这里**原样收下**（与 `httpMethod` 同一条纪律）：Dart 不做白名单裁决 ——
+  /// 危险头（Host／Content-Length／Content-Type／签名头）由原生 `HttpHeaders` 拒，
+  /// 两份名单迟早漂成"界面拦了、发的时候又带上"。
+  final Map<String, String> headers;
+
   WebhookChannel({
     required this.id,
     this.name = '',
@@ -84,6 +93,7 @@ class WebhookChannel {
     this.messageFormat = 'default',
     this.httpMethod = 'POST',
     this.messageTemplate,
+    this.headers = const {},
   });
 
   /// 平台 host 匹配规则（与 Kotlin 端 `ChannelRegistry` 各通道的 `hosts` 一致；
@@ -192,7 +202,32 @@ class WebhookChannel {
       httpMethod:
           (map['http_method'] ?? map['httpMethod'])?.toString() ?? 'POST',
       messageTemplate: map['message_template'] as String?,
+      headers: webhookHeadersFrom(map['headers']),
     );
+  }
+
+  /// 自定义头的读法（Map / JSON 字符串两种形状都认）：
+  /// 备份文件里是对象，DB 列是 TEXT，直接 `as Map` 会在其中一种形状上打死页面。
+  static Map<String, String> webhookHeadersFrom(Object? raw) {
+    Object? decoded = raw;
+    if (raw is String) {
+      final text = raw.trim();
+      if (text.isEmpty || text == 'null') return const {};
+      try {
+        decoded = jsonDecode(text);
+      } catch (_) {
+        return const {};
+      }
+    }
+    if (decoded is! Map) return const {};
+    final out = <String, String>{};
+    decoded.forEach((k, v) {
+      final name = k.toString().trim();
+      final value = v?.toString().trim() ?? '';
+      if (name.isEmpty || value.isEmpty) return;
+      out[name] = value;
+    });
+    return out;
   }
 
   Map<String, dynamic> toMap() {
@@ -207,6 +242,7 @@ class WebhookChannel {
       'http_method': httpMethod,
       if (messageTemplate != null && messageTemplate!.isNotEmpty)
         'message_template': messageTemplate,
+      if (headers.isNotEmpty) 'headers': headers,
     };
   }
 
@@ -220,6 +256,7 @@ class WebhookChannel {
     String? messageFormat,
     String? httpMethod,
     String? messageTemplate,
+    Map<String, String>? headers,
   }) {
     return WebhookChannel(
       id: id ?? this.id,
@@ -231,6 +268,7 @@ class WebhookChannel {
       messageFormat: messageFormat ?? this.messageFormat,
       httpMethod: httpMethod ?? this.httpMethod,
       messageTemplate: messageTemplate ?? this.messageTemplate,
+      headers: headers ?? this.headers,
     );
   }
 }
