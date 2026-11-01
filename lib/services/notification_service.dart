@@ -227,6 +227,9 @@ class NotificationService {
           httpCode: (map['httpCode'] as num?)?.toInt() ?? 0,
           channelUrl: map['channelUrl']?.toString() ?? '',
           viaBackup: map['viaBackup'] == true,
+          // T220：原生这一发试了几次、花了多久。旧版原生不带这两枚键 ⇒ 0，按"没报"处理。
+          attempts: (map['attempts'] as num?)?.toInt() ?? 0,
+          elapsedMs: (map['elapsedMs'] as num?)?.toInt() ?? 0,
         );
       }
       debugPrint('[DeliveryResultStore] 补更新 ${results.length} 条送达结果');
@@ -431,6 +434,11 @@ class NotificationService {
   ///   （粘滞）：一条通知可能先后收到多个结果（失败 → 重放队列补一次成功），
   ///   后到的结果不带轮次上下文，若允许覆盖会把"当时确实走了备用"这段历史抹掉。
   ///   会清掉标记的只有手动补推那种**整表重建**（`_buildInitialDeliveries`）—— 那是新的一轮。
+  /// - [attempts] / [elapsedMs]（T220）：原生这一发**实际试了几次、共花了多少毫秒**。回传 0
+  ///   表示「这条链没报」（短信/邮件那几条链的重试口径不同），与 [httpCode] 同一条粘滞规则：
+  ///   0 时保留上一次的值 —— 别让一条后来不带取证的结果把失败证据擦掉。
+  /// ⚠ 这两个读数只写在**单通道**分支上：伪通道（`FILTER` / `SMS` / `MERGE`）那一发是聚合
+  ///   投递，把它试了几次记到成员通道名下等于给每个通道编一个它没做过的事实。
   static Map<String, dynamic> applyDelivery({
     required String kotlinType,
     required Map<String, dynamic> existing,
@@ -438,6 +446,8 @@ class NotificationService {
     required String message,
     bool viaBackup = false,
     int httpCode = 0,
+    int attempts = 0,
+    int elapsedMs = 0,
   }) {
     final key = channelDeliveryKey(kotlinType);
     final slug = channelKey(kotlinType);
@@ -468,32 +478,46 @@ class NotificationService {
       existing[key],
       viaBackup,
       httpCode,
+      attempts,
+      elapsedMs,
     );
     return updated;
   }
 
-  /// 单个通道的送达条目：`{status, message}`（+ 粘滞的 `viaBackup` / `httpCode`）。
+  /// 单个通道的送达条目：`{status, message}`（+ 粘滞的 `viaBackup` / `httpCode` /
+  /// `attempts` / `elapsedMs`）。
   ///
   /// `viaBackup` 只在为真时写入、且优先保留旧值：键少一个，历史 JSON 就小一点，
   /// 也不必为「绝大多数通知没降级」这件事在每行里存一个 false。
   /// `httpCode` 同理：回传 0 时保留上一次的值，别让一条后续状态把失败证据擦掉。
+  /// `attempts` / `elapsedMs` 与 `httpCode` 同一条规则（T220）：0 即「这一发没报」，留着旧值。
   static Map<String, dynamic> _entry(
     String status,
     String message,
     Object? previous,
     bool viaBackup,
-    int httpCode,
-  ) {
+    int httpCode, [
+    int attempts = 0,
+    int elapsedMs = 0,
+  ]) {
     final before = previous is Map ? previous : const {};
     final marked = viaBackup || before['viaBackup'] == true;
     final code = httpCode > 0
         ? httpCode
         : (before['httpCode'] as num?)?.toInt() ?? 0;
+    final tried = attempts > 0
+        ? attempts
+        : (before['attempts'] as num?)?.toInt() ?? 0;
+    final spent = elapsedMs > 0
+        ? elapsedMs
+        : (before['elapsedMs'] as num?)?.toInt() ?? 0;
     return <String, dynamic>{
       'status': status,
       'message': message,
       if (marked) 'viaBackup': true,
       if (code > 0) 'httpCode': code,
+      if (tried > 0) 'attempts': tried,
+      if (spent > 0) 'elapsedMs': spent,
     };
   }
 
@@ -521,6 +545,7 @@ class NotificationService {
   /// 终态（success/failed）同时写入 webhook_delivery_log 送达日志。
   ///
   /// [viaBackup]：原生本轮主备路由（T12）降级走了备用通道，标在该通道的送达条目上。
+  /// [attempts] / [elapsedMs]（T220）：原生这一发试了几次、花了多久；0 = 该链路没报。
   Future<void> updateDelivery(
     String notificationId,
     String kotlinType,
@@ -529,6 +554,8 @@ class NotificationService {
     int httpCode = 0,
     String channelUrl = '',
     bool viaBackup = false,
+    int attempts = 0,
+    int elapsedMs = 0,
   }) async {
     if (notificationId.isEmpty) return;
     final idx = _records.indexWhere((r) => r.id == notificationId);
@@ -553,6 +580,8 @@ class NotificationService {
         message: message,
         viaBackup: viaBackup,
         httpCode: httpCode,
+        attempts: attempts,
+        elapsedMs: elapsedMs,
       );
       final newRecord = _records[idx].copyWith(deliveryStatus: updated);
       _records[idx] = newRecord;
@@ -582,6 +611,8 @@ class NotificationService {
             message: message,
             viaBackup: viaBackup,
             httpCode: httpCode,
+            attempts: attempts,
+            elapsedMs: elapsedMs,
           );
           await DatabaseHelper().updateNotificationDelivery(
             notificationId,

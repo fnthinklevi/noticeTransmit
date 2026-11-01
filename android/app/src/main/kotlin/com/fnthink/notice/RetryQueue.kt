@@ -348,16 +348,13 @@ object RetryQueue {
                         prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(items)).commit()
                     }
                     // 重放成功：记录从「推送失败」如实翻转为「推送成功」
+                    // T220：`copy` 而不是新造一个 —— 上面那一发已经带着 attempts/elapsedMs，
+                    // 新造会把这次重放的取证丢掉（Dart 侧于是留着上一轮的旧读数）。
                     DeliveryNotifier.notify(
                         context,
                         item.recordId,
                         item.webhookType,
-                        WebhookResponseParser.ParseResult(
-                            WebhookResponseParser.DeliveryStatus.SUCCESS,
-                            result.httpCode,
-                            result.message,
-                            false
-                        ),
+                        result.copy(retryable = false),
                         item.url
                     )
                     Log.i(TAG, "重放成功: ${NetworkClient.sanitizeUrlHost(item.url)} record=${item.recordId}")

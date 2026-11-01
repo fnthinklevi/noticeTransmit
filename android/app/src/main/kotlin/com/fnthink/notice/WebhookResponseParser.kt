@@ -30,7 +30,12 @@ object WebhookResponseParser {
         val status: DeliveryStatus,
         val httpCode: Int,
         val message: String,
-        val retryable: Boolean
+        val retryable: Boolean,
+        // T220：这一发**实际试了几次、共花了多少毫秒**。默认 0 = 这条链没报这件事
+        // （配置/暂停/未激活那种"一个请求都没发出去"的结局，以及口径不同的短信/邮件链路）。
+        // 0 在 Dart 侧表示"未知"，不会覆盖上一次的真读数。
+        val attempts: Int = 0,
+        val elapsedMs: Int = 0
     )
 
     fun parse(

@@ -608,6 +608,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           httpCode: (data['httpCode'] as num?)?.toInt() ?? 0,
           channelUrl: data['channelUrl']?.toString() ?? '',
           viaBackup: data['viaBackup'] == true,
+          // T220：与 drainPendingDeliveries 读同一对键（原生旧版不带 ⇒ 0 ⇒ 按"没报"处理）。
+          attempts: (data['attempts'] as num?)?.toInt() ?? 0,
+          elapsedMs: (data['elapsedMs'] as num?)?.toInt() ?? 0,
         );
         setState(() {});
       } else if (call.method == 'onBatteryChanged') {

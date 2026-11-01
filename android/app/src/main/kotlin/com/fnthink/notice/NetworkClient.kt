@@ -169,6 +169,8 @@ class NetworkClient {
 
                     var retryCount = 0
                     var lastResult: WebhookResponseParser.ParseResult? = null
+                    // T220：取证从"真的开始发"算起 —— 排队等信号量的那段不算这一发的耗时。
+                    val startedAtMs = System.currentTimeMillis()
 
                     while (retryCount < MAX_RETRIES) {
                         val result = sendOnce(signed, tag, retryCount, contentType, extraHeaders, webhookType, method)
@@ -177,12 +179,12 @@ class NetworkClient {
                         // 成功或不可重试 → 终止
                         if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
                             Log.d(TAG, "$tag delivered (attempt ${retryCount + 1}): ${result.message}")
-                            onResult?.invoke(result)
+                            onResult?.invoke(result.withTelemetry(startedAtMs, retryCount + 1))
                             return@withPermit
                         }
                         if (!result.retryable) {
                             Log.e(TAG, "$tag delivery failed (no retry): ${result.message}")
-                            onResult?.invoke(result)
+                            onResult?.invoke(result.withTelemetry(startedAtMs, retryCount + 1))
                             return@withPermit
                         }
 
@@ -228,14 +230,26 @@ class NetworkClient {
                         }
                     }
                     onResult?.invoke(
-                        lastResult ?: WebhookResponseParser.ParseResult(
+                        (lastResult ?: WebhookResponseParser.ParseResult(
                             WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
                             0, "Unknown failure after $MAX_RETRIES attempts", false
-                        )
+                        )).withTelemetry(startedAtMs, retryCount)
                     )
                 }
             }
         }
+
+        /**
+         * T220：给这一发打上「试了几次、花了多久」。只在真正发过请求的那条路上调用 ——
+         * 上游那两个早退（未激活 / 推送暂停）一个请求都没发，attempts 保持 0（未知）。
+         */
+        private fun WebhookResponseParser.ParseResult.withTelemetry(
+            startedAtMs: Long,
+            attemptCount: Int
+        ): WebhookResponseParser.ParseResult = copy(
+            attempts = attemptCount,
+            elapsedMs = (System.currentTimeMillis() - startedAtMs).coerceAtLeast(0L).toInt()
+        )
 
         private fun sendOnce(
             signed: WebhookSigner.SignedRequest,

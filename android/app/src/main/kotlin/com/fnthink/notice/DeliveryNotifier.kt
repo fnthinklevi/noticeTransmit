@@ -48,7 +48,9 @@ object DeliveryNotifier {
                 result.message,
                 result.httpCode,
                 channelUrl,
-                viaBackup
+                viaBackup,
+                result.attempts,
+                result.elapsedMs
             )
             val intent = Intent(MainActivity.ACTION_DELIVERY_RESULT).apply {
                 setPackage(context.packageName)
@@ -59,6 +61,10 @@ object DeliveryNotifier {
                 putExtra("http_code", result.httpCode)
                 putExtra("channel_url", channelUrl)
                 putExtra("via_backup", viaBackup)
+                // T220：这两枚与 http_code 同一条回传链（广播与持久化队列都得带上，
+                // 两条路径读的是同一组键 —— 只补一边会让"实时"与"补拉"给出两套读数）。
+                putExtra("attempts", result.attempts)
+                putExtra("elapsed_ms", result.elapsedMs)
             }
             context.sendBroadcast(intent)
         } catch (e: Exception) {

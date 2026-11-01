@@ -165,6 +165,9 @@ class MainActivity : FlutterActivity() {
                     "httpCode" to (intent.getIntExtra("http_code", 0)),
                     "channelUrl" to (intent.getStringExtra("channel_url") ?: ""),
                     "viaBackup" to intent.getBooleanExtra("via_backup", false),
+                    // T220：与 DeliveryResultStore 的同名键成对（两条路径给同一组读数）。
+                    "attempts" to intent.getIntExtra("attempts", 0),
+                    "elapsedMs" to intent.getIntExtra("elapsed_ms", 0),
                 )
                 try {
                     methodChannel?.invokeMethod("onDeliveryResult", data)

@@ -78,6 +78,74 @@ void main() {
       expect(out['chan:email'], {'status': 'failed', 'message': '网络不通'});
     });
 
+    test('T220：attempts / elapsedMs 与 httpCode 同一次写进送达格', () {
+      final out = NotificationService.applyDelivery(
+        kotlinType: 'DINGTALK',
+        existing: pending(),
+        normalized: 'failed',
+        message: '服务器错误 HTTP 502',
+        httpCode: 502,
+        attempts: 3,
+        elapsedMs: 8420,
+      );
+      expect(out['chan:dingtalk'], {
+        'status': 'failed',
+        'message': '服务器错误 HTTP 502',
+        'httpCode': 502,
+        'attempts': 3,
+        'elapsedMs': 8420,
+      });
+    });
+
+    test('T220：0 表示"这条链没报"，不写键、也不擦掉上一次的真读数', () {
+      // 旧版原生／短信邮件那几条链不带这两个数 ⇒ 传 0。第一条断言防"存量行被填 0"，
+      // 第二条防"后到的一条不带取证的结果把失败那一刻的 3 次／8.4 秒抹掉"。
+      final fresh = NotificationService.applyDelivery(
+        kotlinType: 'EMAIL',
+        existing: <String, dynamic>{},
+        normalized: 'failed',
+        message: '网络不通',
+      );
+      expect(fresh['chan:email'], {
+        'status': 'failed',
+        'message': '网络不通',
+      }, reason: '0 不是"试了 0 次"，是"不知道"；写成 0 等于给历史表编一个读数');
+
+      final evidence = NotificationService.applyDelivery(
+        kotlinType: 'DINGTALK',
+        existing: pending(),
+        normalized: 'failed',
+        message: '超时',
+        attempts: 3,
+        elapsedMs: 8420,
+      );
+      final later = NotificationService.applyDelivery(
+        kotlinType: 'DINGTALK',
+        existing: evidence,
+        normalized: 'success',
+        message: 'ok',
+      );
+      expect((later['chan:dingtalk'] as Map)['attempts'], 3);
+      expect((later['chan:dingtalk'] as Map)['elapsedMs'], 8420);
+    });
+
+    test('T220：聚合/拦截伪通道不把"它试了几次"记到成员通道名下', () {
+      // MERGE 那一发是聚合投递：次数与耗时属于那次聚合，不属于每个成员通道。
+      final out = NotificationService.applyDelivery(
+        kotlinType: 'MERGE',
+        existing: pending(),
+        normalized: 'failed',
+        message: '网络连接失败',
+        attempts: 3,
+        elapsedMs: 5000,
+      );
+      expect(out['chan:dingtalk'], {
+        'status': 'failed',
+        'message': '网络连接失败',
+      }, reason: '成员通道没做那次尝试；把 3 次写进它名下就是编事实');
+      expect(out['chan:email'], {'status': 'failed', 'message': '网络连接失败'});
+    });
+
     test('同一通道的不同拼写落在同一个键（不会分裂出第二项）', () {
       // 原生回传枚举名、DB 存的是 snake_case、v11 前记录里是本地化显示名
       for (final raw in [

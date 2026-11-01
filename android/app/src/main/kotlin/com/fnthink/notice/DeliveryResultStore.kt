@@ -34,7 +34,9 @@ object DeliveryResultStore {
         message: String,
         httpCode: Int,
         channelUrl: String = "",
-        viaBackup: Boolean = false
+        viaBackup: Boolean = false,
+        attempts: Int = 0,
+        elapsedMs: Int = 0
     ) {
         if (notificationId.isEmpty() || type.isEmpty()) return
         val p = prefs(context)
@@ -47,6 +49,9 @@ object DeliveryResultStore {
             put("httpCode", httpCode)
             put("channelUrl", channelUrl)
             put("viaBackup", viaBackup)
+            // T220：与实时广播同一组键名；0 = 这条链没报，Dart 侧据此不覆盖旧读数。
+            put("attempts", attempts)
+            put("elapsedMs", elapsedMs)
         }
         var replaced = false
         for (i in 0 until arr.length()) {
@@ -83,6 +88,9 @@ object DeliveryResultStore {
                     "httpCode" to item.optInt("httpCode", 0),
                     "channelUrl" to item.optString("channelUrl"),
                     "viaBackup" to item.optBoolean("viaBackup", false),
+                    // T220：与实时广播那两枚键同名（Dart 两侧读的是同一对）。
+                    "attempts" to item.optInt("attempts", 0),
+                    "elapsedMs" to item.optInt("elapsedMs", 0),
                 )
             )
         }
