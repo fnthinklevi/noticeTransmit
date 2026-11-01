@@ -3403,6 +3403,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHealthUnreachable => '协议面不可用：最近一次幻念请求失败';
 
   @override
+  String get fnthinkPollGatewayTimeout => '网关超时（源站 25 秒内没有响应）';
+
+  @override
+  String fnthinkPollGatewayUnavailable(String code) {
+    return '网关暂时不可用（HTTP $code）';
+  }
+
+  @override
   String get fnthinkReachabilityLabel => '服务可达';
 
   @override
@@ -4446,14 +4454,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String fnthinkPresenceLive(int seconds) {
-    return '常驻后台收取中（每 $seconds 秒）';
-  }
+  String get fnthinkPresenceLive => '常驻后台收取中（长轮询，有货即回）';
 
   @override
-  String fnthinkPresenceLiveNoLock(int seconds) {
-    return '常驻后台收取中（每 $seconds 秒，但系统没给唤醒锁）';
-  }
+  String get fnthinkPresenceLiveNoLock => '常驻后台收取中（长轮询，但系统没给唤醒锁）';
 
   @override
   String fnthinkPresenceNext(String time, int seconds) {

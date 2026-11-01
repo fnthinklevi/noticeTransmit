@@ -1730,6 +1730,15 @@
   "fnthinkHealthNever": "Protocol plane unknown: no protocol request reading yet",
   "fnthinkHealthReachable": "Protocol plane ready: the last Fnthink request succeeded",
   "fnthinkHealthUnreachable": "Protocol plane unavailable: the last Fnthink request failed",
+  "fnthinkPollGatewayTimeout": "Gateway timeout (origin did not respond within 25s)",
+  "fnthinkPollGatewayUnavailable": "Gateway temporarily unavailable (HTTP {code})",
+  "@fnthinkPollGatewayUnavailable": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkReachabilityLabel": "Service reachable",
   "fnthinkProtocolLabel": "Protocol plane",
   "fnthinkReachabilityOk": "Reachable · {n} ms ({ago})",
@@ -2521,22 +2530,8 @@
       }
     }
   },
-  "fnthinkPresenceLive": "Persistent background polling (every {seconds}s)",
-  "@fnthinkPresenceLive": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "fnthinkPresenceLiveNoLock": "Persistent background polling (every {seconds}s, but the system denied the wake lock)",
-  "@fnthinkPresenceLiveNoLock": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
+  "fnthinkPresenceLive": "Persistent background polling (long poll, returns as soon as there is mail)",
+  "fnthinkPresenceLiveNoLock": "Persistent background polling (long poll, but the system denied the wake lock)",
   "fnthinkPresenceNext": "Next wake-up: {time} (every {seconds}s)",
   "@fnthinkPresenceNext": {
     "placeholders": {

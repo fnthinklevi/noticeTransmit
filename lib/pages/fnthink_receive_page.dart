@@ -17,6 +17,7 @@ import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_relay_consent.dart';
 import '../services/fnthink_settings.dart';
 import '../services/fnthink_start_failure_display.dart';
+import '../services/fnthink_network_status.dart';
 import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_info_note_box.dart';
@@ -366,9 +367,11 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
     // T181 B：常驻轮询档不是"下一次自己醒"，它就是"现在一直在收"。
     // 锁没拿上时如实说——"已开启"与"真的能醒"是两件事。
     if (status.liveMode && _enabled && _consented) {
+      // T215：常驻档实际是长轮询（空闲时 hold 25 秒），不再是"每 N 秒"；
+      // 那一句只在真是 N 秒时才带间隔，这里改用长轮询说法。
       return status.wakeLock
-          ? l10n.fnthinkPresenceLive(status.liveSeconds)
-          : l10n.fnthinkPresenceLiveNoLock(status.liveSeconds);
+          ? l10n.fnthinkPresenceLive
+          : l10n.fnthinkPresenceLiveNoLock;
     }
     if (_showStreamHealthy) {
       return l10n.fnthinkPresenceStreamHealthy(status.cadenceSeconds);
@@ -453,10 +456,27 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   String _describeStartFailure(String reason, AppLocalizations l10n) =>
       fnthinkStartFailureText(l10n, reason);
 
-  String _serverHealthText(AppLocalizations l10n) {
+  /// T215：协议面跟**最近一次结论**，不跟"最后一次成功"。
+  /// poll 的诊断读数比健康度那条记录新时，以 poll 为准；否则才读健康度。
+  bool? _protocolReachability() {
+    final diag = _presence?.diag;
     final health = _serverHealth;
-    if (health == null) return l10n.fnthinkHealthNever;
-    return health.reachable
+    final pollAt = diag?.lastPollAt ?? 0;
+    final pollReach = diag == null
+        ? null
+        : fnthinkPollStatusReachable(diag.lastPollStatus);
+    if (pollAt > 0 &&
+        pollReach != null &&
+        (health == null || pollAt >= health.probedAt)) {
+      return pollReach;
+    }
+    return health?.reachable;
+  }
+
+  String _serverHealthText(AppLocalizations l10n) {
+    final reachable = _protocolReachability();
+    if (reachable == null) return l10n.fnthinkHealthNever;
+    return reachable
         ? l10n.fnthinkHealthReachable
         : l10n.fnthinkHealthUnreachable;
   }
@@ -877,7 +897,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
             text: diag.lastPollAt > 0
                 ? l10n.fnthinkDiagPollAt(
                     _presenceClock(diag.lastPollAt),
-                    diag.lastPollStatus.isEmpty ? '—' : diag.lastPollStatus,
+                    diag.lastPollStatus.isEmpty
+                        ? '—'
+                        : fnthinkPollStatusText(l10n, diag.lastPollStatus),
                   )
                 : l10n.fnthinkDiagPollNever,
           ),

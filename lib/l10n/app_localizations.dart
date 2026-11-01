@@ -6320,6 +6320,18 @@ abstract class AppLocalizations {
   /// **'协议面不可用：最近一次幻念请求失败'**
   String get fnthinkHealthUnreachable;
 
+  /// No description provided for @fnthinkPollGatewayTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'网关超时（源站 25 秒内没有响应）'**
+  String get fnthinkPollGatewayTimeout;
+
+  /// No description provided for @fnthinkPollGatewayUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'网关暂时不可用（HTTP {code}）'**
+  String fnthinkPollGatewayUnavailable(String code);
+
   /// No description provided for @fnthinkReachabilityLabel.
   ///
   /// In zh, this message translates to:
@@ -8068,14 +8080,14 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPresenceLive.
   ///
   /// In zh, this message translates to:
-  /// **'常驻后台收取中（每 {seconds} 秒）'**
-  String fnthinkPresenceLive(int seconds);
+  /// **'常驻后台收取中（长轮询，有货即回）'**
+  String get fnthinkPresenceLive;
 
   /// No description provided for @fnthinkPresenceLiveNoLock.
   ///
   /// In zh, this message translates to:
-  /// **'常驻后台收取中（每 {seconds} 秒，但系统没给唤醒锁）'**
-  String fnthinkPresenceLiveNoLock(int seconds);
+  /// **'常驻后台收取中（长轮询，但系统没给唤醒锁）'**
+  String get fnthinkPresenceLiveNoLock;
 
   /// No description provided for @fnthinkPresenceNext.
   ///

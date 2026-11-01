@@ -1751,6 +1751,15 @@
   "fnthinkHealthNever": "协议面未知：还没有协议请求的读数",
   "fnthinkHealthReachable": "协议面就绪：最近一次幻念请求成功",
   "fnthinkHealthUnreachable": "协议面不可用：最近一次幻念请求失败",
+  "fnthinkPollGatewayTimeout": "网关超时（源站 25 秒内没有响应）",
+  "fnthinkPollGatewayUnavailable": "网关暂时不可用（HTTP {code}）",
+  "@fnthinkPollGatewayUnavailable": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkReachabilityLabel": "服务可达",
   "fnthinkProtocolLabel": "协议面",
   "fnthinkReachabilityOk": "可达 · {n} ms（{ago}）",
@@ -2542,22 +2551,8 @@
       }
     }
   },
-  "fnthinkPresenceLive": "常驻后台收取中（每 {seconds} 秒）",
-  "@fnthinkPresenceLive": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "fnthinkPresenceLiveNoLock": "常驻后台收取中（每 {seconds} 秒，但系统没给唤醒锁）",
-  "@fnthinkPresenceLiveNoLock": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
+  "fnthinkPresenceLive": "常驻后台收取中（长轮询，有货即回）",
+  "fnthinkPresenceLiveNoLock": "常驻后台收取中（长轮询，但系统没给唤醒锁）",
   "fnthinkPresenceNext": "下一次自己醒：{time}（每 {seconds} 秒）",
   "@fnthinkPresenceNext": {
     "placeholders": {

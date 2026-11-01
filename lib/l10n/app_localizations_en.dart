@@ -3562,6 +3562,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Protocol plane unavailable: the last Fnthink request failed';
 
   @override
+  String get fnthinkPollGatewayTimeout =>
+      'Gateway timeout (origin did not respond within 25s)';
+
+  @override
+  String fnthinkPollGatewayUnavailable(String code) {
+    return 'Gateway temporarily unavailable (HTTP $code)';
+  }
+
+  @override
   String get fnthinkReachabilityLabel => 'Service reachable';
 
   @override
@@ -4679,14 +4688,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String fnthinkPresenceLive(int seconds) {
-    return 'Persistent background polling (every ${seconds}s)';
-  }
+  String get fnthinkPresenceLive =>
+      'Persistent background polling (long poll, returns as soon as there is mail)';
 
   @override
-  String fnthinkPresenceLiveNoLock(int seconds) {
-    return 'Persistent background polling (every ${seconds}s, but the system denied the wake lock)';
-  }
+  String get fnthinkPresenceLiveNoLock =>
+      'Persistent background polling (long poll, but the system denied the wake lock)';
 
   @override
   String fnthinkPresenceNext(String time, int seconds) {
