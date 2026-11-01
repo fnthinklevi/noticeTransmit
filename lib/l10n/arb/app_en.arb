@@ -90,6 +90,52 @@
   "channelFailureKindUnknown": "unclassified",
   "channelFailureHelpTitle": "How to read the last failure",
   "channelFailureHelpBody": "This line is evidence, not a verdict: it stays even after the channel recovers.\n\nCouldn't reach the network — the request never got there (no connection, DNS, timeout).\nServer returned an error — the other side answered 4xx or 5xx; the exact code is in the delivery log.\nRate limited — the platform asked you to slow down (429); it retries after a wait.\nRejected by the platform — HTTP worked but the platform refused the content (non-zero errcode); retrying won't help.\nStopped on this device — this one was halted before it left (push paused or engine gone).\nUnclassified — there was an HTTP code, but it was 2xx or 3xx and nothing looked like a business rejection; we don't guess.\n\nN in a row — how many failures ran back to back ending at this one; a success in between resets the count.",
+  "channelSelfCheck": "Run full-chain check",
+  "channelSelfCheckConfirmTitle": "Send one test message to each family?",
+  "channelSelfCheckConfirmBody": "Each family gets one smallest test message. The fnthink family only runs a non-invasive probe: nothing is delivered and no quota is used. The check writes no push history and does not change primary/backup state.",
+  "channelSelfCheckRunning": "Checking…",
+  "channelSelfCheckResultTitle": "Full-chain check result",
+  "channelSelfCheckOk": "passed",
+  "channelSelfCheckFailed": "failed",
+  "channelSelfCheckLine": "{family} · {channel} — {state}",
+  "@channelSelfCheckLine": {
+    "placeholders": {
+      "family": {
+        "type": "String"
+      },
+      "channel": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "channelSelfCheckLineWithMessage": "{family} · {channel} — {state} ({message})",
+  "@channelSelfCheckLineWithMessage": {
+    "placeholders": {
+      "family": {
+        "type": "String"
+      },
+      "channel": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "channelSelfCheckNoChannelLine": "{family} — no enabled channel in this family",
+  "@channelSelfCheckNoChannelLine": {
+    "placeholders": {
+      "family": {
+        "type": "String"
+      }
+    }
+  },
   "mainBackupSettings": "Primary & Backup",
   "mainBackupHint": "Primary channels always receive the notification. Backup channels are used only when every primary channel is unavailable — a notification is never sent to both.",
   "mainBackupRecommend": "Keep primary channels at 5 or fewer. More are allowed, but fan-out and failure detection get slower.",

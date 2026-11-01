@@ -210,6 +210,49 @@ class AppLocalizationsEn extends AppLocalizations {
       'This line is evidence, not a verdict: it stays even after the channel recovers.\n\nCouldn\'t reach the network — the request never got there (no connection, DNS, timeout).\nServer returned an error — the other side answered 4xx or 5xx; the exact code is in the delivery log.\nRate limited — the platform asked you to slow down (429); it retries after a wait.\nRejected by the platform — HTTP worked but the platform refused the content (non-zero errcode); retrying won\'t help.\nStopped on this device — this one was halted before it left (push paused or engine gone).\nUnclassified — there was an HTTP code, but it was 2xx or 3xx and nothing looked like a business rejection; we don\'t guess.\n\nN in a row — how many failures ran back to back ending at this one; a success in between resets the count.';
 
   @override
+  String get channelSelfCheck => 'Run full-chain check';
+
+  @override
+  String get channelSelfCheckConfirmTitle =>
+      'Send one test message to each family?';
+
+  @override
+  String get channelSelfCheckConfirmBody =>
+      'Each family gets one smallest test message. The fnthink family only runs a non-invasive probe: nothing is delivered and no quota is used. The check writes no push history and does not change primary/backup state.';
+
+  @override
+  String get channelSelfCheckRunning => 'Checking…';
+
+  @override
+  String get channelSelfCheckResultTitle => 'Full-chain check result';
+
+  @override
+  String get channelSelfCheckOk => 'passed';
+
+  @override
+  String get channelSelfCheckFailed => 'failed';
+
+  @override
+  String channelSelfCheckLine(String family, String channel, String state) {
+    return '$family · $channel — $state';
+  }
+
+  @override
+  String channelSelfCheckLineWithMessage(
+    String family,
+    String channel,
+    String state,
+    String message,
+  ) {
+    return '$family · $channel — $state ($message)';
+  }
+
+  @override
+  String channelSelfCheckNoChannelLine(String family) {
+    return '$family — no enabled channel in this family';
+  }
+
+  @override
   String get mainBackupSettings => 'Primary & Backup';
 
   @override

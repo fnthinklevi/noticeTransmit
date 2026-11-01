@@ -205,6 +205,48 @@ class AppLocalizationsZh extends AppLocalizations {
       '这一行是取证，不是判决：通道后来恢复了，它照样留着。\n\n网络没连上 —— 请求没到对面（断网、DNS、连接超时）。\n服务器返回错误 —— 对面回了 4xx 或 5xx，具体码在送达记录里。\n平台限流 —— 对面让你慢一点（429），会自动等一会儿再试。\n平台业务拒绝 —— HTTP 通了但平台说内容不合规（errcode 非 0 那一类），重试没用。\n本机中断 —— 这条还没发出去就被本机停了（推送被暂停或引擎不在）。\n没对上号 —— 有 HTTP 码、却是 2xx 或 3xx，也没有业务拒绝的痕迹；我们不猜。\n\n连续 N 次 —— 从这一次失败往前，紧接着连着失败了几条；中间隔了一次成功就重新算。';
 
   @override
+  String get channelSelfCheck => '全链路自检';
+
+  @override
+  String get channelSelfCheckConfirmTitle => '四族各发一条测试消息？';
+
+  @override
+  String get channelSelfCheckConfirmBody =>
+      '会向每一族挑一条通道真发一条最小测试消息；幻念只走探针，不投递、不占额度。自检不写推送历史，也不改变主备状态。';
+
+  @override
+  String get channelSelfCheckRunning => '自检中…';
+
+  @override
+  String get channelSelfCheckResultTitle => '全链路自检结果';
+
+  @override
+  String get channelSelfCheckOk => '通过';
+
+  @override
+  String get channelSelfCheckFailed => '未通过';
+
+  @override
+  String channelSelfCheckLine(String family, String channel, String state) {
+    return '$family · $channel — $state';
+  }
+
+  @override
+  String channelSelfCheckLineWithMessage(
+    String family,
+    String channel,
+    String state,
+    String message,
+  ) {
+    return '$family · $channel — $state（$message）';
+  }
+
+  @override
+  String channelSelfCheckNoChannelLine(String family) {
+    return '$family — 这一族没有已启用的通道';
+  }
+
+  @override
   String get mainBackupSettings => '主备设置';
 
   @override

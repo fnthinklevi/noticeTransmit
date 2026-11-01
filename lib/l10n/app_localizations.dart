@@ -440,6 +440,71 @@ abstract class AppLocalizations {
   /// **'这一行是取证，不是判决：通道后来恢复了，它照样留着。\n\n网络没连上 —— 请求没到对面（断网、DNS、连接超时）。\n服务器返回错误 —— 对面回了 4xx 或 5xx，具体码在送达记录里。\n平台限流 —— 对面让你慢一点（429），会自动等一会儿再试。\n平台业务拒绝 —— HTTP 通了但平台说内容不合规（errcode 非 0 那一类），重试没用。\n本机中断 —— 这条还没发出去就被本机停了（推送被暂停或引擎不在）。\n没对上号 —— 有 HTTP 码、却是 2xx 或 3xx，也没有业务拒绝的痕迹；我们不猜。\n\n连续 N 次 —— 从这一次失败往前，紧接着连着失败了几条；中间隔了一次成功就重新算。'**
   String get channelFailureHelpBody;
 
+  /// No description provided for @channelSelfCheck.
+  ///
+  /// In zh, this message translates to:
+  /// **'全链路自检'**
+  String get channelSelfCheck;
+
+  /// No description provided for @channelSelfCheckConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'四族各发一条测试消息？'**
+  String get channelSelfCheckConfirmTitle;
+
+  /// No description provided for @channelSelfCheckConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'会向每一族挑一条通道真发一条最小测试消息；幻念只走探针，不投递、不占额度。自检不写推送历史，也不改变主备状态。'**
+  String get channelSelfCheckConfirmBody;
+
+  /// No description provided for @channelSelfCheckRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'自检中…'**
+  String get channelSelfCheckRunning;
+
+  /// No description provided for @channelSelfCheckResultTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'全链路自检结果'**
+  String get channelSelfCheckResultTitle;
+
+  /// No description provided for @channelSelfCheckOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过'**
+  String get channelSelfCheckOk;
+
+  /// No description provided for @channelSelfCheckFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'未通过'**
+  String get channelSelfCheckFailed;
+
+  /// No description provided for @channelSelfCheckLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'{family} · {channel} — {state}'**
+  String channelSelfCheckLine(String family, String channel, String state);
+
+  /// No description provided for @channelSelfCheckLineWithMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'{family} · {channel} — {state}（{message}）'**
+  String channelSelfCheckLineWithMessage(
+    String family,
+    String channel,
+    String state,
+    String message,
+  );
+
+  /// No description provided for @channelSelfCheckNoChannelLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'{family} — 这一族没有已启用的通道'**
+  String channelSelfCheckNoChannelLine(String family);
+
   /// No description provided for @mainBackupSettings.
   ///
   /// In zh, this message translates to:

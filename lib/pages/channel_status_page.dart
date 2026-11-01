@@ -12,11 +12,13 @@ import '../services/channel_config_codec.dart';
 import '../services/channel_display.dart';
 import '../services/channel_failure_summary.dart';
 import '../services/channel_health_store.dart';
+import '../services/chain_self_check.dart';
 import '../widgets/app_info_note_box.dart';
 import '../widgets/channel_health_badge.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
+import '../widgets/ios_dialog_actions.dart';
 import '../widgets/pull_to_refresh_list.dart';
 
 /// 通道状态页（T10）：首页「当前推送通道」那点进来，按族分组列出**已启用**的通道，
@@ -44,10 +46,17 @@ class ChannelStatusPage extends StatefulWidget {
   /// 而"有失败时画那一行、没有就不画"正是这里最该被钉住的判据。
   final Future<Map<String, ChannelFailureSummary>> Function()? loadFailures;
 
+  /// 一键全链路自检的跑法（T220 片2c）。null = 生产实现（四族各挑一条，真发最小载荷）。
+  ///
+  /// 与 [loadFailures] 同一条理由：widget 用例里不能真发消息，而"按钮按下去会跑、
+  /// 结果对话框会列四行"正是这里最该被钉住的判据。
+  final Future<List<ChainCheckEntry>> Function()? selfCheck;
+
   const ChannelStatusPage({
     super.key,
     required this.onOpenChannel,
     this.loadFailures,
+    this.selfCheck,
   });
 
   @override
@@ -61,6 +70,9 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   /// T220 片2b：每个通道「最近一次失败」的读数（读送达日志派生，不新开存储）。
   /// 空 Map = 还没读到或窗口内没有失败 —— 两种都**不画占位**（"从未失败"不该立个牌子）。
   Map<String, ChannelFailureSummary> _failures = const {};
+
+  /// T220 片2c：自检在跑（按钮据此变灰并改文案，避免连点两次把四族各发两遍）。
+  bool _checking = false;
 
   /// 备用模式那一格的读数（T12 锁存 + T135 自动切回留痕）。
   /// null = 还没读到 —— 这时**两句都不说**：把"还没读到"画成"没在走备用"或
@@ -111,6 +123,80 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     }
     if (!mounted) return;
     setState(() => _failures = next);
+  }
+
+  /// 一键全链路自检（T220 片2c）：先确认（要真发测试消息），再串行跑四族，最后一张结果框。
+  ///
+  /// 判据与边界都在 [runChainSelfCheck] 里（每族一条、串行、不写历史、不动主备锁存）；
+  /// 这一层只负责确认与把结论画出来 —— 页面不重算"通没通"。
+  Future<void> _runSelfCheck() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.channelSelfCheckConfirmTitle,
+      message: l10n.channelSelfCheckConfirmBody,
+      confirmText: l10n.channelSelfCheck,
+      // 发测试消息不是删除：默认那枚红色破坏性样式放在这里会读成"要毁掉什么"。
+      destructive: false,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _checking = true);
+    List<ChainCheckEntry> entries;
+    try {
+      entries = widget.selfCheck != null
+          ? await widget.selfCheck!()
+          : await runChainSelfCheck(
+              channels: collectActiveChannels(),
+              send: defaultChainCheckSend,
+            );
+    } catch (e) {
+      // 整轮没跑起来（装配缺失等）：四族都给不出一行结论时，如实说这一轮没跑成。
+      entries = [
+        for (final family in channelFamilies)
+          ChainCheckEntry(
+            family: family,
+            state: ChainCheckState.failed,
+            message: e.toString(),
+          ),
+      ];
+    }
+    if (!mounted) return;
+    setState(() => _checking = false);
+    await IosDialogActions.showInfo(
+      context,
+      title: l10n.channelSelfCheckResultTitle,
+      message: _selfCheckReport(l10n, entries),
+    );
+  }
+
+  /// 结果框正文：四行固定（没有配置的族也占一行，免得"少一行"被读成漏测）。
+  String _selfCheckReport(
+    AppLocalizations l10n,
+    List<ChainCheckEntry> entries,
+  ) {
+    final rows = <String>[];
+    for (final entry in entries) {
+      final family = channelFamilyName(entry.family);
+      if (entry.state == ChainCheckState.noChannel) {
+        rows.add(l10n.channelSelfCheckNoChannelLine(family));
+        continue;
+      }
+      final stateText = entry.state == ChainCheckState.ok
+          ? l10n.channelSelfCheckOk
+          : l10n.channelSelfCheckFailed;
+      final name = entry.channelName ?? '';
+      rows.add(
+        entry.message.isEmpty
+            ? l10n.channelSelfCheckLine(family, name, stateText)
+            : l10n.channelSelfCheckLineWithMessage(
+                family,
+                name,
+                stateText,
+                entry.message,
+              ),
+      );
+    }
+    return rows.join('\n');
   }
 
   Future<void> _loadBackupMode() async {
@@ -284,6 +370,18 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
           if (_backup?.engaged == false && _backup?.releasedAt != null)
             _returnedLine(context, l10n),
           if (_showGuide) _guideCard(context, l10n),
+          // T220 片2c：四族各一发最小载荷，一次给出一份结论（这一页就是"看状态"的落点）。
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: FnthinkFilledAction(
+              key: const ValueKey('channel-self-check'),
+              icon: Icons.play_circle_outline,
+              label: _checking
+                  ? l10n.channelSelfCheckRunning
+                  : l10n.channelSelfCheck,
+              onPressed: _checking ? null : _runSelfCheck,
+            ),
+          ),
           for (final family in _familyOrder)
             ..._familySection(context, l10n, family, [
               ...channels.where((c) => c.family == family),

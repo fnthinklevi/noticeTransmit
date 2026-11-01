@@ -11,6 +11,7 @@ import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/channel_failure_summary.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
+import 'package:notice_transmit/services/chain_self_check.dart';
 import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
@@ -47,6 +48,10 @@ void main() {
   /// 默认空 Map = 一条失败都没有 ⇒ 每行都不画「最近一次失败」。
   Map<String, ChannelFailureSummary> failures = const {};
 
+  /// T220 片2c：自检替身（真实现会往每一族真发一条测试消息，用例里一条都不发）。
+  List<ChainCheckEntry> selfCheckResult = const [];
+  int selfCheckCalls = 0;
+
   Widget buildApp() {
     return AppRoot(
       locale: const Locale('zh'),
@@ -54,6 +59,10 @@ void main() {
       home: ChannelStatusPage(
         onOpenChannel: (family) async => opened.add(family),
         loadFailures: () async => failures,
+        selfCheck: () async {
+          selfCheckCalls++;
+          return selfCheckResult;
+        },
       ),
     );
   }
@@ -132,6 +141,8 @@ void main() {
     backupReleasedAuto = false;
     resetCalls.clear();
     failures = const {};
+    selfCheckResult = const [];
+    selfCheckCalls = 0;
     await GetIt.instance.reset();
     SharedPreferences.setMockInitialValues({});
     // 见 base.md（53）（54）：testWidgets 里不接住原生通道，服务侧那一句
@@ -266,6 +277,70 @@ void main() {
       find.textContaining(l10n.channelFailureKindHttp),
       findsWidgets,
       reason: '502 必须归到"服务器返回错误"那一档，而不是笼统一句失败',
+    );
+  });
+
+  testWidgets('T220 片2c：一键自检先确认，结果框四族各一行', (tester) async {
+    tester.view.physicalSize = const Size(1200, 2800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await seedAll();
+    selfCheckResult = [
+      const ChainCheckEntry(
+        family: 'webhook',
+        state: ChainCheckState.ok,
+        channelName: '告警群',
+        message: 'OK',
+      ),
+      const ChainCheckEntry(
+        family: 'app',
+        state: ChainCheckState.failed,
+        channelName: '办公',
+        message: 'HTTP 403',
+      ),
+      const ChainCheckEntry(family: 'email', state: ChainCheckState.noChannel),
+      const ChainCheckEntry(
+        family: 'fnthink',
+        state: ChainCheckState.noChannel,
+      ),
+    ];
+
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('channel-self-check')));
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(ChannelStatusPage)),
+    );
+    // 先确认再发：不确认那一步等于"点一下就往每一族真发一条"。
+    expect(find.text(l10n.channelSelfCheckConfirmTitle), findsOneWidget);
+    expect(selfCheckCalls, 0, reason: '还没确认就跑，等于确认框白问了');
+
+    await tester.tap(
+      find.widgetWithText(CupertinoDialogAction, l10n.channelSelfCheck),
+    );
+    await tester.pumpAndSettle();
+
+    expect(selfCheckCalls, 1);
+    expect(find.text(l10n.channelSelfCheckResultTitle), findsOneWidget);
+    final body = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? '')
+        .join('\n');
+    // 四行齐：通过、未通过、两族"没有已启用的通道"。
+    expect(body, contains(l10n.channelSelfCheckOk));
+    expect(body, contains(l10n.channelSelfCheckFailed));
+    expect(
+      body,
+      contains(l10n.channelSelfCheckNoChannelLine(channelFamilyName('email'))),
+    );
+    expect(
+      body,
+      contains(
+        l10n.channelSelfCheckNoChannelLine(channelFamilyName('fnthink')),
+      ),
     );
   });
 
