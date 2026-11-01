@@ -38,9 +38,16 @@ data class RetryItem(
      * 而对很多自建网关来说"PUT 建档 / POST 追加"是两种操作 —— 重放会做出另一件事。
      * （同一形状还欠一枚 `extraHeaders`：enqueue 收它但**不**落盘，今天没有受害者
      * —— 带鉴权头的应用通道走 `replayStored` 重取凭据 —— 但 T188 片2 一旦让用户自定义头，
-     * 那就是同一个坑的第二落点，必须同片补上。）
+     * 那就是同一个坑的第二落点，必须同片补上。）**→ T188 片1 第②刀已补 [headers]。**
      */
     val method: String = HttpMethods.DEFAULT,
+    /**
+     * T188 片1 第②刀：入队那一刻的**自定义请求头**（已过白名单）。
+     *
+     * 与 [method] 同一条纪律：不带 ⇒ 用户那条"网关要 `X-Api-Key`"的配置在第一次失败后
+     * 静默失效，重放必被拒，而界面只会说"又失败了一次"。
+     */
+    val headers: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -92,6 +99,7 @@ object RetryQueueLogic {
                     put("appChannelId", item.appChannelId)
                     put("appType", item.appType)
                     put("method", item.method)
+                    put("headers", JSONObject(item.headers))
                     put("attempts", item.attempts)
                     put("nextAttemptAt", item.nextAttemptAt)
                     put("createdAt", item.createdAt)
@@ -118,6 +126,12 @@ object RetryQueueLogic {
                     appType = o.optString("appType", ""),
                     // 升级前落盘的队列没有这一枚 ⇒ POST，而那正是它们当初实发的方法（不是猜的）
                     method = HttpMethods.normalize(o.optString("method", "")),
+                    // 升级前落盘的队列没有自定义头 ⇒ 空；回来的一律再过一遍白名单
+                    headers = HttpHeaders.normalize(
+                        o.optJSONObject("headers")?.let { h ->
+                            buildMap { h.keys().forEach { k -> put(k, h.optString(k, "")) } }
+                        }
+                    ),
                     attempts = o.optInt("attempts", 0),
                     nextAttemptAt = o.optLong("nextAttemptAt", 0L),
                     createdAt = o.optLong("createdAt", 0L),
@@ -203,6 +217,8 @@ object RetryQueue {
             appChannelId = appChannelId ?: "",
             appType = appTypeLabel ?: webhookType.name,
             method = method,
+            // 入队那一刻就把自定义头抄进来（过了白名单）：重放读的是这一份，不是再看当时的配置。
+            headers = HttpHeaders.normalize(extraHeaders),
         )
         synchronized(lock) {
             val prefs = prefs(context)
@@ -336,6 +352,8 @@ object RetryQueue {
             contentType = item.contentType,
             // T188 片1：重放必须带原方法，否则"PUT 失败重试变 POST"（见 RetryItem.method 的说明）
             method = item.method,
+            // 第②刀：自定义头同理 —— 重放是"把失败那一发再发一遍"，不带就是另一个请求。
+            extraHeaders = item.headers,
             force = true,
             recordId = item.recordId,
             onResult = { result ->

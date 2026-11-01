@@ -273,6 +273,7 @@ class WebhookSender(private val context: Context) {
             OutboundInput(
                 url = cfg.url,
                 configuredHttpMethod = cfg.httpMethod,
+                configuredHeaders = cfg.headers,
                 secret = cfg.secret,
                 chatId = chatId,
                 urlToken = urlToken,
@@ -347,6 +348,10 @@ class WebhookSender(private val context: Context) {
             contentType = plan.contentType,
             // 描述符过滤后的方法（平台通道一律回到 POST）；plan 是唯一裁决点，这里不再判一次
             method = plan.httpMethod,
+            // T188 片1 第②刀：用户自定义头（已由 plan 过一遍白名单）。
+            // ⚠ 与 `WebhookSigner` 那几个头不重叠：x-signature/x-timestamp/content-type
+            // 在白名单里是拒绝项，所以这里 addHeader 不会造出"同一个头两个值"。
+            extraHeaders = plan.customHeaders,
             force = force,
             onResult = { result ->
                 Log.d(

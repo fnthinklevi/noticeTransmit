@@ -32,6 +32,7 @@ class RetryQueueTest {
         attempts = attempts,
         nextAttemptAt = nextAttemptAt,
         createdAt = createdAt,
+        headers = mapOf("X-Api-Key" to "k-1"),
     )
 
     // ===== isReplayable =====
@@ -110,6 +111,23 @@ class RetryQueueTest {
         )
         val parsed = RetryQueueLogic.parse(RetryQueueLogic.toJson(original))
         assertEquals(original, parsed)
+    }
+
+    @Test
+    fun headersSurviveRoundtripAndForbiddenOnesAreDroppedOnRead() {
+        // 重放读的是队列里那一份，不是当时的配置 ⇒ 头必须落盘；
+        // 而落盘之后仍要过一遍白名单（手改过的队列文件不能成为绕过闸门的入口）。
+        val original = listOf(item().copy(headers = mapOf("X-Api-Key" to "k-1")))
+        assertEquals(original, RetryQueueLogic.parse(RetryQueueLogic.toJson(original)))
+
+        val forged = """
+            [{"id":"r1","url":"https://example.com/hook","payload":"{}","webhookType":"GENERIC",
+              "secret":"","contentType":"application/json","recordId":"rec","attempts":0,
+              "nextAttemptAt":$now,"createdAt":$now,
+              "headers":{"Host":"evil.example","X-Api-Key":"k-1"}}]
+        """.trimIndent()
+        val parsedForged = RetryQueueLogic.parse(forged)
+        assertEquals(mapOf("X-Api-Key" to "k-1"), parsedForged.single().headers)
     }
 
     @Test

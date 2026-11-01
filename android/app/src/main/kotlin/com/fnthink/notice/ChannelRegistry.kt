@@ -174,6 +174,8 @@ internal object ChannelRegistry {
                 // 让它可改只会把"对端拒绝"变成"用户以为配错了"；而这条事实必须写在这里而不是发送层的
                 // `if (type == GENERIC)`（后者被 productionCodeMustNotBranchOnWebhookTypeAgain 禁止）。
                 httpMethodOptions = HttpMethods.configurable,
+                // T188 片1 第②刀：自定义请求头同属"自定义形状"这一档，只给通用 webhook。
+                customHeaders = true,
             ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
@@ -1162,6 +1164,7 @@ internal object ChannelRegistry {
             if (t.templateSupport == TemplateSupport.RAW_BODY) add(Capability.RAW_TEMPLATE_BODY)
             if (s.requiresJsonContract) add(Capability.JSON_CONTRACT)
             if (t.httpMethodOptions.isNotEmpty()) add(Capability.CUSTOM_HTTP_METHOD)
+            if (t.customHeaders) add(Capability.CUSTOM_HEADERS)
         }
     }
 

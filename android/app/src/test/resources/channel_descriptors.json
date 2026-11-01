@@ -5,7 +5,8 @@
         "secretUsed",
         "customTemplate",
         "rawTemplateBody",
-        "customHttpMethod"
+        "customHttpMethod",
+        "customHeaders"
       ],
       "hosts": [],
       "nativeType": "GENERIC",

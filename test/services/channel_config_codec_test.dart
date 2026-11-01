@@ -111,8 +111,17 @@ void main() {
       // 唯一允许的差集是 `role`（T12）：**总是显式给**，UI 缺该键时补规范缺省值。
       // 不这么做的话，备份恢复来的老文件（没有 role 键）会让原生读到空值，
       // 用户设的「备用 / 不参与」在恢复之后静默失效。
-      // role（T12）与 http_method（T188 片1）是仅有的两枚差集：总是显式给，UI 缺键时补规范缺省值。
-      expect(native, equals({...ui, 'role': 'primary', 'http_method': 'POST'}));
+      // role（T12）、http_method（T188 片1）与 headers（T188 片1 第②刀）是仅有的三枚差集：
+      // 总是显式给，UI 缺键时补规范缺省值。
+      expect(
+        native,
+        equals({
+          ...ui,
+          'role': 'primary',
+          'http_method': 'POST',
+          'headers': <String, dynamic>{},
+        }),
+      );
       expect(
         identical(native, ui),
         isFalse,

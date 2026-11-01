@@ -431,5 +431,30 @@ class ChannelDescriptorContractTest {
         )
     }
 
+    // ── T188 片1 第②刀：自定义请求头 ─────────────────────────────────────
+
+    @Test
+    fun customHeaders_isOnlyForTheGenericChannel() {
+        // 平台通道的头是平台契约的一部分（企微要 JSON content-type、ntfy 的鉴权头由签名层写）。
+        // 多给一家 ⇒ 那一家的用户可以填一个把请求改坏的头发出去；少给 ⇒ 自建网关接不进来。
+        val withCustomHeaders = specs.filter { it.transport.customHeaders }.map { it.type.name }.toSet()
+        assertEquals(setOf("GENERIC"), withCustomHeaders)
+    }
+
+    @Test
+    fun customHeaders_capabilityIsDerivedFromTheDescriptorNotFromANameList() {
+        // 能力位只许派生：UI 靠它决定露不露那一格；另抄一份名单就会出现"界面能填、发不出去"。
+        for (spec in specs) {
+            val declared = spec.transport.customHeaders
+            val advertised = ChannelRegistry.capabilitiesOf(spec.type)
+                .contains(Capability.CUSTOM_HEADERS)
+            assertEquals(
+                "${spec.type} 的 customHeaders 能力位与描述符不一致",
+                declared,
+                advertised
+            )
+        }
+    }
+
     private fun ioReader(f: java.io.File): String = f.readText(Charsets.UTF_8)
 }

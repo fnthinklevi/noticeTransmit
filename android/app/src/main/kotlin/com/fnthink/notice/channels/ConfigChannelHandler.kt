@@ -83,8 +83,15 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 // "测试按钮永远按 POST 发" —— 而 PUT 建档 / POST 追加的网关会给出一个
                 // 假成功的测试结论，比不测更糟。老版本 Dart 不传该参数 ⇒ null ⇒ POST（行为不变）。
                 val httpMethod = call.argument<String>("httpMethod")
+                // T188 片1 第②刀：自定义头。老版本 Dart 不传 ⇒ null ⇒ 空（行为不变）。
+                // ⚠ 过 MethodChannel 的是 Map<*, *>：不在这里转成 String 的话，一个数字值
+                // 会在 `HttpHeaders` 里以 ClassCastException 现形（而那一发就整条失败）。
+                val headers = call.argument<Map<*, *>>("headers")
+                    ?.entries
+                    ?.associate { (k, v) -> k.toString() to (v?.toString() ?: "") }
                 activity.testWebhook(
                     url, secret, result, channelType = channelType, httpMethod = httpMethod,
+                    headers = headers,
                 )
             }
             "getChannelDescriptors" -> {

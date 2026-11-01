@@ -69,6 +69,13 @@ class ConfigManager(private val context: Context) {
          * 而老配置里存着 `TRACE` 这类值时必须照样回落 POST。
          */
         val httpMethod: String = HttpMethods.DEFAULT,
+        /**
+         * T188 片1 第②刀：用户自定义请求头。与 [httpMethod] 同一条纪律 —— 这里只存
+         * **用户填的**，能不能发由描述符判（`ChannelDispatch.plan` 拿 `transport.customHeaders`
+         * 过滤，再经 `HttpHeaders` 白名单）；解析时就过一次白名单，让"填了危险头"的配置
+         * 不会一路带到发送层才被悄悄丢掉。
+         */
+        val headers: Map<String, String> = emptyMap(),
         // T12：主备角色。`getWebhookChannelConfigs()` 只返回**要推的**通道
         // （role=NONE 已被排除），所以发送层不需要再判一次。
         val role: ChannelRole = ChannelRole.PRIMARY,
@@ -132,6 +139,13 @@ class ConfigManager(private val context: Context) {
                 val httpMethod = HttpMethods.normalize(
                     obj.optString("http_method", obj.optString("httpMethod", ""))
                 )
+                // T188 片1 第②刀：自定义头。缺省 = 空（旧配置零变化）；解析时就过白名单，
+                // 免得危险头（host/content-length/签名头）一路带到发送层才被悄悄丢掉。
+                val headers = HttpHeaders.normalize(
+                    obj.optJSONObject("headers")?.let { h ->
+                        buildMap { h.keys().forEach { k -> put(k, h.optString(k, "")) } }
+                    }
+                )
                 val rawId = obj.optString("id", "")
                 val role = ChannelRole.parse(obj.optString("role", ""))
                 // 「不参与」：保留配置但一条都不推（与"关掉启用开关"的区别是随时可归队）
@@ -146,6 +160,7 @@ class ConfigManager(private val context: Context) {
                         messageFormat = messageFormat,
                         messageTemplate = messageTemplate,
                         httpMethod = httpMethod,
+                        headers = headers,
                         role = role,
                     )
                 )

@@ -2293,6 +2293,8 @@ class MainActivity : FlutterActivity() {
         channelType: String? = null,
         /** T188 片1：通道上存着的请求方法（缺省/词表外 ⇒ POST，与真实推送同一裁决口径）。 */
         httpMethod: String? = null,
+        /** T188 片1 第②刀：通道上存着的自定义请求头（同样按描述符与白名单裁决）。 */
+        headers: Map<String, String>? = null,
     ) {
         requestScope.launch(Dispatchers.IO) {
             val (success, message, signed) = try {
@@ -2424,6 +2426,13 @@ class MainActivity : FlutterActivity() {
                     }
                     for ((k, v) in signedReq.headers) {
                         requestBuilder.addHeader(k, v)
+                    }
+                    // T188 片1 第②刀：自定义头——只有描述符给这一档的通道才带，且已过白名单；
+                    // 与真实推送同一口径，否则"测试按钮说成功、真发被网关拒"。
+                    if (ChannelRegistry.spec(webhookType).transport.customHeaders) {
+                        for ((k, v) in HttpHeaders.normalize(headers)) {
+                            requestBuilder.addHeader(k, v)
+                        }
                     }
                     val request = requestBuilder.build()
 

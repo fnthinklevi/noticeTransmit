@@ -152,6 +152,11 @@ class ChannelConfigCodec {
     // 靠"整份拷贝"就带不出去 —— 原生读不到会按 POST 发，用户设的 PUT 静默失效。
     payload['http_method'] =
         ui['http_method']?.toString() ?? ui['httpMethod']?.toString() ?? 'POST';
+    // T188 片1 第②刀：自定义头也必须显式给（同 role/http_method 的理由：备份恢复的
+    // 文件里可能没有这个键，靠整份拷贝就带不出去 ⇒ 原生按"没有头"发）。
+    // 今天 Dart 侧还没有这一格（模型与 DB 列在下一刀），这里先如实给空对象：
+    // 原生读得到"用户没填"，而不是"这个键不存在"。
+    payload['headers'] = ui['headers'] ?? const <String, dynamic>{};
     return payload;
   }
 

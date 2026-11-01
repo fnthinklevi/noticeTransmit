@@ -37,6 +37,12 @@ internal class OutboundInput(
      * 传进来**不**代表就按它发 —— 只有该通道描述符的 `httpMethodOptions` 含它才算数。
      */
     val configuredHttpMethod: String = HttpMethods.DEFAULT,
+    /**
+     * 用户在该通道上存着的请求头（T188 片1 第②刀）。
+     * 与 [configuredHttpMethod] 同一条：传进来不代表会发 —— 只有描述符
+     * `customHeaders=true` 的通道才生效，且要再过一遍 [HttpHeaders] 白名单。
+     */
+    val configuredHeaders: Map<String, String> = emptyMap(),
 )
 
 internal class OutboundPlan(
@@ -54,6 +60,11 @@ internal class OutboundPlan(
      * 仍然只是描述符里的一条数据（发送层不许按 WebhookType 分支）。
      */
     val httpMethod: String = HttpMethods.DEFAULT,
+    /**
+     * 实发时附加的请求头（T188 片1 第②刀）：描述符不给这一档（平台通道）⇒ 空；
+     * 给了也要过一次 [HttpHeaders] 白名单（危险头与签名头留在本机手里）。
+     */
+    val customHeaders: Map<String, String> = emptyMap(),
 )
 
 internal object ChannelDispatch {
@@ -113,6 +124,13 @@ internal object ChannelDispatch {
             body = body,
             contentType = contentType,
             httpMethod = httpMethod,
+            // 头的裁决同方法：描述符不给这一档 ⇒ 一条都不带；给了也过一次白名单
+            // （`host`/`content-length`/签名头那些必须留在本机手里）。
+            customHeaders = if (transport.customHeaders) {
+                HttpHeaders.normalize(input.configuredHeaders)
+            } else {
+                emptyMap()
+            },
             // token 已进 URL 的平台不得再把 secret 交给签名层（会二次签名 / 覆盖凭据）
             secretForSigner = if (transport.secretAsQueryToken) null else input.secret,
             earlyFailReason = missingReason,

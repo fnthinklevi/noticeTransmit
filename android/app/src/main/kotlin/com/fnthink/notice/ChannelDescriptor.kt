@@ -113,6 +113,87 @@ internal object HttpMethods {
     }
 }
 
+/**
+ * T188 片1 第②刀：自定义请求头的**唯一裁决点**（白名单）。
+ *
+ * 为什么要有它：`headers` 一开放，用户就拿到了"直接改 HTTP 请求"的一小截能力。
+ * 其中有几类头**不该由用户填**，而且填了往往不会报错、只会发出一个别的请求：
+ *  - `host` / `content-length` / `transfer-encoding` / `connection` / `upgrade` / `te` /
+ *    `trailer` / `expect` 由 HTTP 栈掌管（覆盖它们等于让 OkHttp 与请求体长度打架）；
+ *  - `content-type` 由模板格式决定（`ChannelDispatch.plan` 会按 raw 格式给），
+ *    用户再填一个就是同一请求里两套说法；
+ *  - `x-signature` / `x-timestamp` 由本机签名层写（`WebhookSigner`），用户填了会被覆盖，
+ *    而"被覆盖"比"被拒绝"更难查。
+ *
+ * ⚠ 只做**头**这一层：危险的是"谁来写这个请求"，不是"头里的内容"。
+ *   `authorization` 是允许的（自建网关常用它），且通用通道不走 ntfy 那条 Bearer 分支。
+ * ⚠ 拒绝是**静默丢弃**在这里，调用方（配置页）要用 [sanitize] 的 `rejected` 说出来 ——
+ *   静默丢弃的表现是"我明明填了，对面没收到"，与"根本没填"长得一样。
+ */
+internal object HttpHeaders {
+    /** 一次最多带几个（再多就不是"补一个网关要的头"，而是把整条请求搬进配置）。 */
+    const val MAX_HEADERS = 8
+
+    const val MAX_NAME_LENGTH = 64
+    const val MAX_VALUE_LENGTH = 512
+
+    /** 由 HTTP 栈 / 本机签名层掌管的头（见对象注释）。 */
+    val forbidden = setOf(
+        "host",
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "upgrade",
+        "te",
+        "trailer",
+        "expect",
+        "content-type",
+        "x-signature",
+        "x-timestamp",
+    )
+
+    /** 头名合法字符（RFC 7230 tchar；`:`、空格、换行都不在里面）。 */
+    private fun isTokenChar(ch: Char): Boolean =
+        ch.isLetterOrDigit() || ch in "!#$%&'*+-.^_`|~"
+
+    class Sanitized(
+        val accepted: Map<String, String>,
+        /** 被丢掉的**原始头名**（按输入顺序）—— 界面据此说"这几条没带上"。 */
+        val rejected: List<String>,
+    )
+
+    fun sanitize(raw: Map<String, String>?): Sanitized {
+        if (raw == null || raw.isEmpty()) return Sanitized(emptyMap(), emptyList())
+        val accepted = LinkedHashMap<String, String>()
+        val rejected = mutableListOf<String>()
+        for ((rawName, rawValue) in raw) {
+            val name = rawName.trim()
+            val value = rawValue.trim()
+            when {
+                name.isEmpty() || value.isEmpty() -> rejected.add(rawName)
+                name.length > MAX_NAME_LENGTH || value.length > MAX_VALUE_LENGTH ->
+                    rejected.add(rawName)
+                name.all(::isTokenChar).not() -> rejected.add(rawName)
+                name.lowercase() in forbidden -> rejected.add(rawName)
+                else -> {
+                    // 同名（大小写不敏感）以**后写的值**为准：用户在界面上改过的那一条就该赢。
+                    accepted.keys.firstOrNull { it.equals(name, ignoreCase = true) }
+                        ?.let { accepted.remove(it) }
+                    if (accepted.size >= MAX_HEADERS) {
+                        rejected.add(rawName)
+                    } else {
+                        accepted[name] = value
+                    }
+                }
+            }
+        }
+        return Sanitized(accepted, rejected)
+    }
+
+    /** 只要发得出去的那几条（配置解析与 plan 裁决共用这一份）。 */
+    fun normalize(raw: Map<String, String>?): Map<String, String> = sanitize(raw).accepted
+}
+
 internal class ChannelTransport(
     /** null = 用 `NetworkClient` 的默认 JSON content-type */
     val contentType: String? = null,
@@ -162,6 +243,18 @@ internal class ChannelTransport(
      * 消费方只有两处 —— `ChannelDispatch.plan`（按它过滤配置值）与 `capabilitiesOf`（派生能力位）。
      */
     val httpMethodOptions: List<String> = emptyList(),
+
+    /**
+     * 这一类通道允不允许用户自定义请求头（T188 片1 第②刀）。
+     *
+     * 与 [httpMethodOptions] 同一条纪律：平台通道的头是平台契约的一部分（企微要
+     * `Content-Type: application/json`、ntfy 的鉴权头由本机签名层写），让用户再填一份
+     * 只会造出"配置看着对、对面收到另一个请求"的现场 ⇒ 只有通用 webhook 为 true。
+     *
+     * 消费者与 [httpMethodOptions] 一致：`ChannelDispatch.plan`（按它过滤配置值）、
+     * `capabilitiesOf`（派生能力位）、界面（决定露不露那一格）。
+     */
+    val customHeaders: Boolean = false,
 )
 
 /**
@@ -260,6 +353,9 @@ object Capability {
 
     /** 请求方法可由用户配置（T188 片1，只有通用 webhook 给这一档） */
     const val CUSTOM_HTTP_METHOD = "customHttpMethod"
+
+    /** 请求头可由用户配置（T188 片1 第②刀，同样只有通用 webhook；危险头见 `HttpHeaders`） */
+    const val CUSTOM_HEADERS = "customHeaders"
 
     /** 支持 markdown 消息（企业微信自建应用；飞书统一降级为 text） */
     const val MARKDOWN = "markdown"
