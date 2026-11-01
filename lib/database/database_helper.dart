@@ -92,6 +92,17 @@ class DatabaseHelper
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
   static const int dbVersion = 28;
 
+  /// T199 ③（第一刀）：这一颗 isolate 允不允许做**破坏性**的开库动作。
+  ///
+  /// 破坏性＝备份改名（`.corrupt-*`）／丢密钥重建／清理旧明文库的迁移／让原生通道镜像失效。
+  /// 这些动作一旦做错就是整库历史清零，而"做错"最容易发生在**没有界面的那颗引擎**里
+  /// （T219 真机：后台轮留下的悬挂事务让前台永久打不开）。
+  ///
+  /// 判据收在这一处：前台（有用户、有重试、有恢复入口）为 true；后台那一轮在开库前置
+  /// false —— 它遇到打不开就跳过这一轮（消息留在服务端，下一轮再取），
+  /// 把"要不要备份/重建"这件事留给看得到界面的人。
+  static bool allowDestructiveOpen = true;
+
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
   /// 为什么开这个口子：`EngineRuleStore` 那几个方法里真正会咬人的是**SQL 本身**
@@ -143,13 +154,30 @@ class DatabaseHelper
     final databasesPath = await getDatabasesPath();
     final encryptedPath = join(databasesPath, _encryptedDbName);
     final oldPath = join(databasesPath, _oldDbName);
+    final destructive = allowDestructiveOpen;
+    final encryptedExists = await File(encryptedPath).exists();
+
+    // T199 ③：后台那一轮不许"顺手建一个空库"。它建出来的库会让前台那次迁移被跳过
+    // （迁移只在"新库不存在"时执行），旧明文库的历史就永远进不来。
+    // ⚠ 这一支必须在取密钥与迁移之前：取密钥失败会生成一把新钥匙，同样是破坏性的。
+    if (!destructive && !encryptedExists) {
+      final e = StateError('encrypted-db-not-created-yet');
+      DatabaseHealth.recordOpenFailure(e);
+      throw DatabaseUnavailableException(e);
+    }
 
     // 密钥丢失时先备份原库（保留恢复路径），再为新库生成新密钥；
     // 绝不静默覆盖密钥 → 旧库彻底无法打开、数据被悄悄清空。
     String password;
     try {
       password = await _getEncryptionKey();
-    } on DatabaseKeyLostException {
+    } on DatabaseKeyLostException catch (e) {
+      if (!destructive) {
+        // 后台这一轮：不备份、不换钥、不重建 —— 换个空钥匙等于把旧库变成永远打不开的
+        // 一堆字节，而这件事必须由看得到界面的人决定。
+        DatabaseHealth.recordOpenFailure(e);
+        throw DatabaseUnavailableException(e);
+      }
       await _invalidateNativeChannels();
       await _backupDatabaseFile(encryptedPath);
       await _backupDatabaseFile(oldPath);
@@ -174,6 +202,10 @@ class DatabaseHelper
       // 健康库被改成 .corrupt-*、再重建空库，整库历史就此清零。
       DatabaseHealth.recordOpenFailure(e);
       if (!DatabaseOpenTriage.isCorruption(e)) {
+        throw DatabaseUnavailableException(e);
+      }
+      if (!destructive) {
+        // 后台这一轮：只记一次失败就走 —— 改名重建是前台看得到界面的人决定的事。
         throw DatabaseUnavailableException(e);
       }
       await _invalidateNativeChannels();

@@ -841,6 +841,11 @@ Future<void> fnthinkBackgroundRound() async {
   // T185 第二步：这一颗引擎只跑一轮 —— 不放 SSE 门铃（流刚连上就会被收走），
   // 但要把主 isolate 落盘的「门铃健康」读回来：它只影响闹钟兜底间隔与要不要持锁。
   fnthinkAllowStream = false;
+  // T199 ③：这颗引擎**没有界面**，不许替用户做任何破坏性开库动作
+  // （备份改名 / 丢密钥重建 / 建空库 / 清理旧明文库迁移 / 丢通道镜像）。
+  // 打不开就跳过这一轮：消息留在服务端，下一轮（或前台打开时）再取。
+  // ⚠ 静态字段按 isolate 各一份 ⇒ 它不会传染前台；设在这里（装配之前）才有意义。
+  DatabaseHelper.allowDestructiveOpen = false;
   try {
     final prefs = await SharedPreferences.getInstance();
     fnthinkStreamHealthy = prefs.getBool(kFnthinkStreamHealthyKey) ?? false;

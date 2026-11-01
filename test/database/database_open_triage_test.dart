@@ -202,5 +202,70 @@ void main() {
       );
       expect(src.contains('l10n.databaseUnavailableTitle'), isTrue);
     });
+
+    // T199 ③（第一刀）：破坏性开库动作只许前台做。
+    //
+    // 后台那一轮没有界面、也没有"重试/恢复"那一枚按钮，它一旦把健康库改名成
+    // `.corrupt-*`，用户连"要不要并回来"的机会都没有（T219 真机就是这么丢的）。
+    test('后台那一轮不做破坏性开库：三处分支都先问 allowDestructiveOpen', () {
+      final src = stripComments(
+        File('$root/lib/database/database_helper.dart').readAsStringSync(),
+      );
+      expect(
+        src.contains('static bool allowDestructiveOpen = true;'),
+        isTrue,
+        reason: '判据必须是显式默认放行（前台行为零变化）',
+      );
+      final init = blockAfter(src, 'Future<Database> _initDatabase() async');
+      // ① 还没有加密库时：后台不许建空库（那会让前台那次迁移被跳过）。
+      final emptyGuard = init.indexOf('if (!destructive && !encryptedExists)');
+      expect(emptyGuard, greaterThan(0), reason: '缺这一支 ⇒ 后台建出空库，旧明文库的历史永远进不来');
+      expect(
+        emptyGuard,
+        lessThan(init.indexOf('_getEncryptionKey()')),
+        reason: '这一支必须在取密钥之前：取密钥会生成新钥匙，同样是破坏性的',
+      );
+      // ② 密钥丢失：后台不许备份改名、更不许换钥匙重建。
+      final keyLost = init.indexOf('on DatabaseKeyLostException catch (e)');
+      final keyGuard = init.indexOf('if (!destructive)', keyLost);
+      expect(keyLost, greaterThan(0));
+      expect(keyGuard, greaterThan(keyLost));
+      expect(
+        keyGuard,
+        lessThan(init.indexOf('_backupDatabaseFile(encryptedPath)', keyLost)),
+      );
+      // ③ 损坏分支：后台只记失败就走，改名/重建留给前台。
+      final triage = init.indexOf('DatabaseOpenTriage.isCorruption(e)');
+      final corruptGuard = init.indexOf('if (!destructive)', triage);
+      expect(triage, greaterThan(0));
+      expect(corruptGuard, greaterThan(triage));
+      expect(
+        corruptGuard,
+        lessThan(init.indexOf('_backupDatabaseFile(encryptedPath)', triage)),
+      );
+
+      // 后台那一轮在装配之前置 false（晚于装配就等于"开库已经发生过了"）。
+      final locator = stripComments(
+        File('$root/lib/di/service_locator.dart').readAsStringSync(),
+      );
+      final round = blockAfter(
+        locator,
+        'Future<void> fnthinkBackgroundRound() async',
+      );
+      final setFlag = round.indexOf(
+        'DatabaseHelper.allowDestructiveOpen = false;',
+      );
+      expect(setFlag, greaterThan(0));
+      expect(
+        setFlag,
+        lessThan(round.indexOf('setupLocator();')),
+        reason: '装配之后才关闸 ⇒ 那次开库已经带着恢复权限跑完了',
+      );
+      expect(
+        setFlag,
+        lessThan(round.indexOf('receiveOnce();')),
+        reason: '收货之前必须已经关闸',
+      );
+    });
   });
 }
