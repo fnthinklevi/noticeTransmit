@@ -36,6 +36,7 @@
 const { statusCode, loadContract, assertSupported, shapeError } = require('./contract');
 const { sharedTracker, FACE_KIND } = require('./anomaly');
 const store = require('../store');
+const metrics = require('../metrics');
 
 const contract = assertSupported(loadContract());
 const WINDOW_MS = store.RATE_LIMIT_WINDOW_MS;
@@ -193,6 +194,9 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows, options = {}) {
   const warned = new Set();
 
   function deny(res, now, entry, spanMs, note, windowName) {
+    // T187 片2：被限流是一等排障读数。层固定为 ip（本文件只管按 IP 的那两档），
+    // 窗口只有 minute/day 两枚 —— 都是代码常量，不含任何请求内容。
+    metrics.fnthink.ratelimitDenied.inc({ layer: 'ip', window: windowName || 'minute' });
     res.set('Retry-After', String(Math.ceil((spanMs - (now - entry.windowStart)) / 1000)));
     // T180：再把"哪一档"说出来。日档与分钟档的 Retry-After 都合法，但设备对前者的
     // 正确回答是"今日额度用完，明日恢复"，不是把 12 小时抄成倒计时。

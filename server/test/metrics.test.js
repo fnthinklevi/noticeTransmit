@@ -44,6 +44,8 @@ const request = require('supertest');
 const app = require('../lib/app');
 const store = require('../lib/store');
 const metrics = require('../lib/metrics');
+const { loadContract, assertSupported } = require('../lib/fnthink/contract');
+const messagestore = require('../lib/fnthink/messagestore');
 
 const otpCrypto = new NobleCryptoPlugin();
 const otpBase32 = new ScureBase32Plugin();
@@ -687,5 +689,99 @@ describe('片1 · 溢出看得见', () => {
     expect(() => metrics.counter('notice_ok_total', { help: 'x', labelNames: ['1bad'] })).toThrow(
       /标签名/,
     );
+  });
+});
+
+describe('片2 · 幻念业务面', () => {
+  const contract = assertSupported(loadContract());
+  const countOf = (parsed, name, labels) => pick(parsed, name, labels);
+
+  test('四态计数、队列深度、SSE 连接数与长轮询 hold 数都在读数里', async () => {
+    const { parsed } = await scrape();
+    expect(parsed.declared.get('notice_fnthink_delivery_transitions_total')).toBe('counter');
+    expect(parsed.declared.get('notice_fnthink_queue_depth')).toBe('gauge');
+    expect(parsed.declared.get('notice_fnthink_sse_connections')).toBe('gauge');
+    expect(parsed.declared.get('notice_fnthink_long_poll_holds')).toBe('gauge');
+    // 封闭词表先播种 0：每个契约状态都必须有一条序列（缺序列在 PromQL 里是"没有这条线"）
+    for (const state of contract.delivery.states) {
+      expect(
+        countOf(parsed, 'notice_fnthink_delivery_transitions_total', { to: state }),
+      ).toBeGreaterThanOrEqual(0);
+    }
+    for (const state of contract.delivery.pollableStates) {
+      expect(countOf(parsed, 'notice_fnthink_queue_depth', { state })).toBeGreaterThanOrEqual(0);
+    }
+    expect(countOf(parsed, 'notice_fnthink_sse_connections', {})).toBeGreaterThanOrEqual(0);
+    expect(countOf(parsed, 'notice_fnthink_long_poll_holds', {})).toBeGreaterThanOrEqual(0);
+  });
+
+  test('状态真的推进才计一次；迟到的重复 ack 不计', () => {
+    const messages = {};
+    const { message } = messagestore.enqueue(
+      contract,
+      messages,
+      { device: 'DEV-METRICS', type: 'notice', item: 'app:a', title: 't', body: 'b' },
+      Date.now(),
+      ENCRYPTION_SENTINEL,
+    );
+    const transitions = () =>
+      parseExposition(metrics.render())
+        .samples.filter(
+          (s) =>
+            s.name === 'notice_fnthink_delivery_transitions_total' &&
+            Object.keys(s.labels).length === 1,
+        )
+        .map((s) => s);
+    const deliveredBefore = countOf(
+      parseExposition(metrics.render()),
+      'notice_fnthink_delivery_transitions_total',
+      { to: contract.delivery.terminalStates[0] },
+    );
+    messagestore.advanceMessage(contract, messages, message.messageId, 'dispatch', {
+      now: Date.now(),
+    });
+    messagestore.advanceMessage(contract, messages, message.messageId, 'ack_ok', {
+      now: Date.now(),
+    });
+    expect(
+      countOf(parseExposition(metrics.render()), 'notice_fnthink_delivery_transitions_total', {
+        to: contract.delivery.terminalStates[0],
+      }) - deliveredBefore,
+    ).toBe(1);
+    // 迟到的重复 ack：状态机 ignored ⇒ 不许再计一次（否则运维看到的迁移次数会翻倍）
+    const beforeLate = countOf(
+      parseExposition(metrics.render()),
+      'notice_fnthink_delivery_transitions_total',
+      { to: contract.delivery.terminalStates[0] },
+    );
+    messagestore.advanceMessage(contract, messages, message.messageId, 'ack_ok', {
+      now: Date.now(),
+    });
+    expect(
+      countOf(parseExposition(metrics.render()), 'notice_fnthink_delivery_transitions_total', {
+        to: contract.delivery.terminalStates[0],
+      }),
+    ).toBe(beforeLate);
+    // 尺自己先自证：上面那段 transitions() 不是空转（至少每个状态都看得见）
+    expect(transitions().length).toBeGreaterThanOrEqual(contract.delivery.states.length);
+  });
+
+  test('收一条消息 ⇒ 队列深度按契约可投递态计出来', async () => {
+    const before = countOf(parseExposition((await scrape()).text), 'notice_fnthink_queue_depth', {
+      state: contract.delivery.initialState,
+    });
+    const messages = messagestore.loadMessages();
+    messagestore.enqueue(
+      contract,
+      messages,
+      { device: 'DEV-METRICS-QUEUE', type: 'notice', item: 'app:a', title: 't', body: 'b' },
+      Date.now(),
+      ENCRYPTION_SENTINEL,
+    );
+    messagestore.saveMessages(messages);
+    const after = countOf(parseExposition((await scrape()).text), 'notice_fnthink_queue_depth', {
+      state: contract.delivery.initialState,
+    });
+    expect(after).toBeGreaterThanOrEqual(before + 1);
   });
 });

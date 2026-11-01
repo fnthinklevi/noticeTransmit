@@ -345,6 +345,21 @@ const seriesOverflow = counter('notice_metrics_series_overflow_total', {
   labelNames: ['family'],
 });
 
+// ========== 业务面（T187 片2）==========
+//
+// 幻念协议面的计数只加"结果"这一维，不加设备/端点/地址码：标签基数必须由代码里那份
+// 封闭词表说了算（状态取自契约 `delivery.states`，限流档只有 ip/device 与 minute/day）。
+// 队列深度与连接数这类"此刻"的量走 gauge，由 `fnthink/business_metrics.js` 注册。
+const fnthinkDeliveryTransitions = counter('notice_fnthink_delivery_transitions_total', {
+  help: 'Messages that advanced to a new delivery state (contract delivery.states), by target state.',
+  labelNames: ['to'],
+});
+
+const fnthinkRatelimitDenied = counter('notice_fnthink_ratelimit_denied_total', {
+  help: 'Requests refused by fnthink throttles, by layer (ip / device) and quota window.',
+  labelNames: ['layer', 'window'],
+});
+
 // ========== 渲染 ==========
 
 function renderSeriesLines(family, s, extraLabel) {
@@ -517,5 +532,9 @@ module.exports = {
     ipBlockRefusals: securityIpBlockRefusals,
     ipBlocksApplied: securityIpBlocksApplied,
     seriesOverflow,
+  },
+  fnthink: {
+    deliveryTransitions: fnthinkDeliveryTransitions,
+    ratelimitDenied: fnthinkRatelimitDenied,
   },
 };

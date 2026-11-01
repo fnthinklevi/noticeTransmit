@@ -23,6 +23,7 @@ process.env.ENCRYPTION_KEY = 'a'.repeat(64);
 const { loadContract, assertSupported, statusCode } = require('../lib/fnthink/contract');
 const { windowsFor } = require('../lib/fnthink/ratelimit');
 const { createSenderQuota } = require('../lib/fnthink/senderquota');
+const metrics = require('../lib/metrics');
 
 const contract = assertSupported(loadContract());
 const windows = windowsFor(contract);
@@ -41,6 +42,12 @@ describe('按发送方计的配额（#130-A2）', () => {
     expect(over.window).toBe('minute');
     expect(over.retryAfter).toBeGreaterThan(0);
     expect(over.retryAfter).toBeLessThanOrEqual(60);
+    // T187 片2：按设备档的拦截也进指标面（layer=device，设备地址不进标签）
+    const denied = metrics
+      .render()
+      .match(/notice_fnthink_ratelimit_denied_total\{layer="device",window="minute"\} (\d+)/);
+    expect(denied).not.toBeNull();
+    expect(Number(denied[1])).toBeGreaterThanOrEqual(1);
   });
 
   test('换一台设备就是另一份额度（主键是地址，不是 IP）', () => {

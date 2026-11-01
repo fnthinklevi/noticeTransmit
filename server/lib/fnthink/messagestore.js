@@ -21,6 +21,7 @@ const { DATA_DIR } = require('./table');
 const { loadTable, saveTable } = require('./table');
 const delivery = require('./delivery');
 const { encryptBody, decryptBody } = require('./bodycrypto');
+const metrics = require('../metrics');
 
 const MESSAGE_FILE = path.join(DATA_DIR, 'fnthink_messages.json');
 
@@ -190,6 +191,9 @@ function applyStep(contract, messages, message, step, now) {
     delete message.body;
   }
   message.updatedAt = now;
+  // T187 片2：这一步真的改了状态 ⇒ 记一次迁移。标签只放契约状态名（封闭词表）。
+  // ignored 分支在上面已经返回，所以这里不会把"迟到的 ack"记成一次迁移。
+  metrics.fnthink.deliveryTransitions.inc({ to: step.state });
   messages[message.messageId] = message;
   return step;
 }

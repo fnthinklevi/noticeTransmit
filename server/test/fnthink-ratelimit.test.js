@@ -25,6 +25,7 @@ process.env.RATE_LIMIT_GENERAL_MAX = '100000';
 const request = require('supertest');
 const app = require('../lib/app');
 const store = require('../lib/store');
+const metrics = require('../lib/metrics');
 const { statusCode, loadContract, assertSupported } = require('../lib/fnthink/contract');
 const { createFnthinkRateLimiter } = require('../lib/fnthink/ratelimit');
 
@@ -51,6 +52,12 @@ describe('fnthink 独立限流', () => {
     expect(over.status).toBe(RATE_LIMITED);
     expect(Number(over.headers['retry-after'])).toBeGreaterThan(0);
     expect(over.body).toEqual({});
+    // T187 片2：被 IP 档拦下也要在指标面留痕（层与窗口都是代码常量，不含 IP/路径）
+    const denied = metrics
+      .render()
+      .match(/notice_fnthink_ratelimit_denied_total\{layer="ip",window="minute"\} (\d+)/);
+    expect(denied).not.toBeNull();
+    expect(Number(denied[1])).toBeGreaterThanOrEqual(1);
   });
 
   test('fnthink 被打满之后，升级通道照常（这才是拆桶的全部意义）', async () => {

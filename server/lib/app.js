@@ -136,6 +136,13 @@ try {
   app.use('/api/fnthink', fnthinkLimiter);
   const fnthink = require('./fnthink/routes');
   app.use('/api/fnthink', fnthink.router);
+  // T187 片2：业务读数（状态机四态/队列深度/SSE 连接数/长轮询 hold 数）。
+  // ⚠ 自成一段 try：指标面缺席只能说"看不到读数"，不许把已经起来的协议入口带下去。
+  try {
+    require('./fnthink/business_metrics').register();
+  } catch (e) {
+    console.error('[fnthink] 业务指标没挂上（协议面照常，只是少这几族读数）：', e.message);
+  }
   // 启动日志要报"公网面上到底开了哪几条"。这份清单**从路由本身取**，不在 server.js 里再抄一串：
   // 抄的那份早晚少一个，而少的表现是"运维以为没开，其实开着"（或反过来，去加固错的那一侧）。
   app.set(

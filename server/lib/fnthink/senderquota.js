@@ -20,6 +20,7 @@
 const { statusCode, loadContract, assertSupported } = require('./contract');
 const { windowsFor } = require('./ratelimit');
 const { sharedTracker } = require('./anomaly');
+const metrics = require('../metrics');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -66,6 +67,12 @@ function createSenderQuota(overrideWindows, options = {}) {
     const window = windows.senderWindows.get(kind);
     if (!window) return null; // 不在这两档里的端点（register / 未登记）由 IP 层管
     const when = now || Date.now();
+    // T187 片2：按设备地址的那一档拦截单独留痕（layer=device），与 IP 层可分开看。
+    // 计在这里而不是 `rejectIfOverQuota`：测试与路由都走 `charge`，漏一处就少一半读数。
+    const denied = (span, seconds) => {
+      metrics.fnthink.ratelimitDenied.inc({ layer: 'device', window: span });
+      return { status: code, retryAfter: seconds, window: span };
+    };
     const minute = windowEntry(`${sender}:${kind}:m`, when, MINUTE_MS);
     if (minute) {
       minute.count += 1;
@@ -83,11 +90,7 @@ function createSenderQuota(overrideWindows, options = {}) {
         at: when,
       });
       if (overMinute) {
-        return {
-          status: code,
-          retryAfter: Math.ceil((MINUTE_MS - (when - minute.windowStart)) / 1000),
-          window: 'minute',
-        };
+        return denied('minute', Math.ceil((MINUTE_MS - (when - minute.windowStart)) / 1000));
       }
     }
     if (window.perDay) {
@@ -106,11 +109,7 @@ function createSenderQuota(overrideWindows, options = {}) {
           at: when,
         });
         if (overDay) {
-          return {
-            status: code,
-            retryAfter: Math.ceil((DAY_MS - (when - day.windowStart)) / 1000),
-            window: 'day',
-          };
+          return denied('day', Math.ceil((DAY_MS - (when - day.windowStart)) / 1000));
         }
       }
     }
