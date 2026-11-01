@@ -821,6 +821,28 @@
   "retry": "重试",
   "databaseUnavailableTitle": "数据库打不开",
   "databaseUnavailableBody": "加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。",
+  "databaseRecoveryTitle": "发现旧库备份",
+  "databaseRecoveryBody": "重建前留下的旧库备份：{time}，{size}。恢复会用这份备份覆盖当前库；当前库会先另存一份，不会直接删除。",
+  "@databaseRecoveryBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "databaseRecoveryConfirm": "恢复",
+  "databaseRecoveryDone": "已从旧库备份恢复，正在刷新页面数据。",
+  "databaseRecoveryFailed": "旧库备份没有通过完整性校验，未做任何覆盖：{reason}",
+  "@databaseRecoveryFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "pageInitFailed": "页面初始化失败：{e}",
   "@pageInitFailed": {
     "placeholders": {

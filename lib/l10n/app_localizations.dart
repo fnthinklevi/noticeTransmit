@@ -3284,6 +3284,36 @@ abstract class AppLocalizations {
   /// **'加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。'**
   String get databaseUnavailableBody;
 
+  /// No description provided for @databaseRecoveryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现旧库备份'**
+  String get databaseRecoveryTitle;
+
+  /// No description provided for @databaseRecoveryBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'重建前留下的旧库备份：{time}，{size}。恢复会用这份备份覆盖当前库；当前库会先另存一份，不会直接删除。'**
+  String databaseRecoveryBody(String time, String size);
+
+  /// No description provided for @databaseRecoveryConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复'**
+  String get databaseRecoveryConfirm;
+
+  /// No description provided for @databaseRecoveryDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已从旧库备份恢复，正在刷新页面数据。'**
+  String get databaseRecoveryDone;
+
+  /// No description provided for @databaseRecoveryFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'旧库备份没有通过完整性校验，未做任何覆盖：{reason}'**
+  String databaseRecoveryFailed(String reason);
+
   /// No description provided for @pageInitFailed.
   ///
   /// In zh, this message translates to:

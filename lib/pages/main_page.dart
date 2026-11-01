@@ -8,6 +8,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../database/database_helper.dart';
 import '../database/database_open_triage.dart';
+import '../database/database_recovery.dart';
 import '../widgets/ios_dialog_actions.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -328,6 +329,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
       await _checkFirstLaunch();
 
+      // T199 ②：本次启动确实经历过开库失败时，才问要不要恢复重建前的旧库备份。
+      // 正常启动不弹，避免把「磁盘上还留着历史备份」变成每次开屏的打扰。
+      if (DatabaseHealth.openFailures > 0) {
+        unawaited(_offerDatabaseRecovery());
+      }
+
       // T194：冷启动也要先取回执再清扫。清扫已从 `NotificationService.loadRecords` 挪到这里
       // （Splash 那一刻契约与同意门都还没到，做不了「先同步」这一步）。
       unawaited(_syncReceiptsThenSweep());
@@ -355,6 +362,53 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           _showInfo(AppLocalizations.of(context).pageInitFailed('$e'));
         }
       }
+    }
+  }
+
+  /// T199 ②：重建过库之后，磁盘上那份 `.corrupt-*` 是唯一能救回历史的原件。
+  ///
+  /// 只做一件事：把「有一份可校验的旧库」说给用户，并把选择权交给他。校验与覆盖都在
+  /// [DatabaseHelper.restoreFromBackup] 里，页面不自己判「这份能不能读」。
+  Future<void> _offerDatabaseRecovery() async {
+    if (!mounted) return;
+    final backup = await DatabaseRecovery().latestBackup();
+    if (backup == null || !mounted) return;
+
+    const dismissedKey = 'db_recovery_dismissed_path';
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(dismissedKey) == backup.path) return;
+    if (!mounted) return;
+
+    final l10n = AppLocalizations.of(context);
+    final restore = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.databaseRecoveryTitle,
+      message: l10n.databaseRecoveryBody(
+        DatabaseRecovery.formatMoment(backup.modifiedAt),
+        DatabaseRecovery.formatBytes(backup.sizeBytes),
+      ),
+      confirmText: l10n.databaseRecoveryConfirm,
+      cancelText: l10n.notNow,
+      destructive: true,
+      barrierDismissible: false,
+    );
+    if (!restore) {
+      await prefs.setString(dismissedKey, backup.path);
+      return;
+    }
+
+    try {
+      await DatabaseHelper().restoreFromBackup(backup.path);
+      await prefs.setString(dismissedKey, backup.path);
+      await _notificationService.loadRecords();
+      await _refreshTotalCount();
+      await _refreshFnthinkInboxUnread();
+      if (mounted) {
+        setState(() {});
+        _showInfo(l10n.databaseRecoveryDone);
+      }
+    } catch (e) {
+      if (mounted) _showInfo(l10n.databaseRecoveryFailed('$e'));
     }
   }
 

@@ -1785,6 +1785,26 @@ class AppLocalizationsEn extends AppLocalizations {
       'The encrypted database could not be opened. Your data was kept; tap Retry to try again.';
 
   @override
+  String get databaseRecoveryTitle => 'Old database backup found';
+
+  @override
+  String databaseRecoveryBody(String time, String size) {
+    return 'A backup from before the rebuild was found: $time, $size. Restoring replaces the current database with this backup; the current database is saved aside first, not deleted.';
+  }
+
+  @override
+  String get databaseRecoveryConfirm => 'Restore';
+
+  @override
+  String get databaseRecoveryDone =>
+      'Restored from the old backup. Refreshing page data.';
+
+  @override
+  String databaseRecoveryFailed(String reason) {
+    return 'The old backup failed the integrity check; nothing was overwritten: $reason';
+  }
+
+  @override
   String pageInitFailed(String e) {
     return 'Page init failed: $e';
   }

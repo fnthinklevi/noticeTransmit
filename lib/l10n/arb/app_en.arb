@@ -821,6 +821,28 @@
   "retry": "Retry",
   "databaseUnavailableTitle": "Database unavailable",
   "databaseUnavailableBody": "The encrypted database could not be opened. Your data was kept; tap Retry to try again.",
+  "databaseRecoveryTitle": "Old database backup found",
+  "databaseRecoveryBody": "A backup from before the rebuild was found: {time}, {size}. Restoring replaces the current database with this backup; the current database is saved aside first, not deleted.",
+  "@databaseRecoveryBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "databaseRecoveryConfirm": "Restore",
+  "databaseRecoveryDone": "Restored from the old backup. Refreshing page data.",
+  "databaseRecoveryFailed": "The old backup failed the integrity check; nothing was overwritten: {reason}",
+  "@databaseRecoveryFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "pageInitFailed": "Page init failed: {e}",
   "@pageInitFailed": {
     "placeholders": {

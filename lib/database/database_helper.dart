@@ -17,6 +17,7 @@ import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_open_triage.dart';
+import 'database_recovery.dart';
 import '../services/channel_display.dart';
 import '../services/engine_rule_codec.dart';
 import '../services/fnthink_remote_execution.dart';
@@ -235,6 +236,64 @@ class DatabaseHelper
     }
     DatabaseHealth.clearOpenFailure();
     return database;
+  }
+
+  /// T199 ②：用重建前留下的旧库备份替换当前库。
+  ///
+  /// 顺序是判据：**先校验、再动当前库**。校验用只读句柄跑 `PRAGMA integrity_check`，
+  /// 不通过就抛 [DatabaseRestoreException]，此时当前库与原备份都未被改动。
+  /// 覆盖前把当前库改名为 `.before-restore-*`；覆盖后若重开失败，删掉半成品并把
+  /// 回滚副本改回来，再走同一套 `_initDatabase` —— 恢复失败不许把用户留在空库上。
+  ///
+  /// 旧备份本身保留在磁盘上（成功恢复也不删），这样再来一次仍有原件。
+  Future<void> restoreFromBackup(String backupPath) async {
+    final String password;
+    try {
+      password = await _getEncryptionKey();
+    } catch (e) {
+      throw DatabaseRestoreException('读不到当前库密钥：$e');
+    }
+    await DatabaseRecovery.verifyReadable(backupPath, password);
+
+    final dbPath = join(await getDatabasesPath(), _encryptedDbName);
+    final previous = _database;
+    _database = null;
+    if (previous != null && previous.isOpen) {
+      try {
+        await previous.close();
+      } catch (_) {
+        // 半坏句柄关不掉不改变恢复结论：_database 已清空，后面会重新开。
+      }
+    }
+
+    final rollbackPath =
+        '$dbPath.before-restore-${DateTime.now().millisecondsSinceEpoch}';
+    var movedCurrent = false;
+    try {
+      final current = File(dbPath);
+      if (await current.exists()) {
+        await current.rename(rollbackPath);
+        movedCurrent = true;
+      }
+      await File(backupPath).copy(dbPath);
+      _database = await _initDatabase();
+    } catch (e) {
+      try {
+        final failed = File(dbPath);
+        if (await failed.exists()) await failed.delete();
+      } catch (_) {}
+      if (movedCurrent) {
+        try {
+          await File(rollbackPath).rename(dbPath);
+        } catch (_) {}
+      }
+      try {
+        _database = await _initDatabase();
+      } catch (_) {
+        // 回滚也打不开时保留第一次的失败原因；页面会显式报错并可重试。
+      }
+      throw DatabaseRestoreException('$e');
+    }
   }
 
   /// 把指定数据库文件重命名为带时间戳的备份文件（保留原数据供恢复）。

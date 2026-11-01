@@ -1710,6 +1710,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get databaseUnavailableBody => '加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。';
 
   @override
+  String get databaseRecoveryTitle => '发现旧库备份';
+
+  @override
+  String databaseRecoveryBody(String time, String size) {
+    return '重建前留下的旧库备份：$time，$size。恢复会用这份备份覆盖当前库；当前库会先另存一份，不会直接删除。';
+  }
+
+  @override
+  String get databaseRecoveryConfirm => '恢复';
+
+  @override
+  String get databaseRecoveryDone => '已从旧库备份恢复，正在刷新页面数据。';
+
+  @override
+  String databaseRecoveryFailed(String reason) {
+    return '旧库备份没有通过完整性校验，未做任何覆盖：$reason';
+  }
+
+  @override
   String pageInitFailed(String e) {
     return '页面初始化失败：$e';
   }
