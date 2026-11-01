@@ -462,10 +462,13 @@ object I18n {
     // 中文按这个写正好，英文一写成就溢出被省略号截掉 —— 而且只有渲染出来才看得见。
     // 所以这几条字符串的宽度由 WidgetRenderSnapshotTest（zh + en × 2 主题 × 2 规格 × 3 态）逐张核对，
     // 改文案前后请重跑它，别只看中文。
+    // ⚠ 2026-11-01 真机（2410DPN6CC / Android 17 / 393dp）把上界收窄到 **11 个字母**：
+    // 「Tap to resume」13 个字母被省略号截掉 2 个，而同字宽的「Tap to pause」正好一行。
+    // 所以「恢复」这一格用 11 个字母的「Tap to start」，不是随手换词。
     fun widgetActiveText(): String = if (isEn) "Live" else "推送中"
     fun widgetPausedText(): String = if (isEn) "Idle" else "已暂停"
     fun widgetTapPause(): String = if (isEn) "Tap to pause" else "点击暂停推送"
-    fun widgetTapResume(): String = if (isEn) "Tap to resume" else "点击恢复推送"
+    fun widgetTapResume(): String = if (isEn) "Tap to start" else "点击恢复推送"
     fun widgetDailyPushed(): String = if (isEn) "Sent today" else "当日已推送"
     // 「已关闭」的副文案按**四种成因**分叉：一律写"已被清理"就有几条是错的
     // （STOPPED 是自己停的、KILLED 是被系统杀的、LISTENER_DISABLED 是在应用里关的、

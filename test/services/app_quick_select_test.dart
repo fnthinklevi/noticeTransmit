@@ -22,6 +22,24 @@ void main() {
       expect(appQuickOrderOf(AppQuickGroup.comm, 'com.alpha.app'), isNull);
     });
 
+    test('MIUI 的拨号器 com.android.contacts 归「电话」组（2026-11-01 真机发现）', () {
+      // 2410DPN6CC / Android 17 上原来「电话」组一枚都不画：MIUI 的拨号器与联系人共用
+      // com.android.contacts，而目录里只有 AOSP/Google/三星那几枚。
+      expect(appQuickGroupOf('com.android.contacts'), AppQuickGroup.phone);
+      final groups = appQuickGroupsOfInstalled([
+        'com.android.contacts',
+        'com.android.mms',
+        'com.tencent.mm',
+        'com.google.android.gm',
+      ]);
+      expect(groups.keys.toList(), [
+        AppQuickGroup.sms,
+        AppQuickGroup.phone,
+        AppQuickGroup.comm,
+        AppQuickGroup.mail,
+      ]);
+    });
+
     test('组内序号就是目录顺序', () {
       expect(appQuickOrderOf(AppQuickGroup.comm, 'com.tencent.mm'), 0);
       expect(

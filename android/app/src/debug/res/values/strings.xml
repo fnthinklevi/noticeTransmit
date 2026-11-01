@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dev_ui_accessibility_desc">Debug-only gesture driver for on-device readouts</string>
+</resources>

@@ -16,5 +16,25 @@
             android:enabled="false"
             tools:node="merge"
             tools:replace="android:enabled" />
+
+        <!-- 真机读数工装（仅 debug 变体，release/profile 清单不含它）。
+             这台 MIUI（2410DPN6CC / Android 17）对 shell 与 UiAutomation 都收回
+             INJECT_EVENTS，`adb shell input` 不可用；而系统允许在 secure settings 里
+             启用一个无障碍服务，无障碍连接可以 dispatchGesture —— 这是不 root 的前提下
+             唯一能自动驱动页面的路。命令走应用外部目录里的 ui_cmd.txt，只在测试包
+             （-PnoticeTestAppIdSuffix 改出的 applicationId）上启用。 -->
+        <service
+            android:name=".DevUiAccessibilityService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="Dev UI driver"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/dev_ui_accessibility" />
+        </service>
     </application>
 </manifest>

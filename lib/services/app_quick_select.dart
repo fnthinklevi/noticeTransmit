@@ -42,6 +42,12 @@ const Map<AppQuickGroup, List<String>> appQuickPackages = {
     'com.samsung.android.dialer',
     'com.android.phone',
     'com.android.server.telecom',
+    // 2026-11-01 真机（2410DPN6CC / MIUI / Android 17）：「电话」组一枚都没画出来 ——
+    // MIUI 的拨号器与联系人共用 com.android.contacts，通话界面 com.android.incallui 与
+    // com.android.server.telecom 都不可启动，而上游目录里没有前者。列目录只认包名，
+    // 不按"能不能启动"判，所以补上它；com.xiaomi.phone 是 HyperOS 的电话服务。
+    'com.android.contacts',
+    'com.xiaomi.phone',
   ],
   // 第三方即时通讯/社交/办公类（顺序即展示顺序）。
   AppQuickGroup.comm: [
