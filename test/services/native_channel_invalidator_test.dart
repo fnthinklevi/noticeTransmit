@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/services/native_channel_invalidator.dart';
 import 'package:notice_transmit/services/platform_channel.dart';
+import 'package:notice_transmit/services/secure_storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -76,9 +77,11 @@ void main() {
           throw PlatformException(code: 'secure-delete-failed');
         });
 
+    // T222 起安全存储的失败一律是 [SecureStorageUnavailable]（原 PlatformException
+    // 被包在里面）。这条钉的仍是它该钉的事：删除失败后**不许**进 finish。
     await expectLater(
       invalidateNativeChannelMirrors(),
-      throwsA(isA<PlatformException>()),
+      throwsA(isA<SecureStorageUnavailable>()),
     );
     expect(events, ['native:begin']);
   });

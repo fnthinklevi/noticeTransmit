@@ -24,6 +24,14 @@ class _SplashPageState extends State<SplashPage>
   late Animation<double> _fadeAnimation;
   String? _statusText;
 
+  /// T222：初始化失败的显式出口。**不许**再让界面停在「初始化完成」等一个不会再来的结果。
+  String? _error;
+  Timer? _watchdog;
+  bool _done = false;
+
+  /// 启动 watchdog 的上界。5 秒是安全存储单次调用的上界；这里给整条装配链留 20 秒。
+  static const Duration initDeadline = Duration(seconds: 20);
+
   @override
   void initState() {
     super.initState();
@@ -38,11 +46,45 @@ class _SplashPageState extends State<SplashPage>
     _controller.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initServices();
+      _startInit();
     });
   }
 
+  void _startInit() {
+    _watchdog?.cancel();
+    _watchdog = Timer(initDeadline, () {
+      if (!mounted || _done) return;
+      final l10n = AppLocalizations.of(context);
+      setState(() => _error = l10n.initTimeout(initDeadline.inSeconds));
+    });
+    unawaited(_initServices());
+  }
+
+  /// 重试只重跑装配链：**不重建数据、不动安全存储**（清数据那条路只能由用户自己去系统设置走）。
+  void _retry() {
+    setState(() {
+      _error = null;
+      _statusText = null;
+      _done = false;
+    });
+    _startInit();
+  }
+
   Future<void> _initServices() async {
+    try {
+      await _initServicesInner();
+    } catch (e, stack) {
+      log('[startup] SplashPage 初始化失败：$e', error: e, stackTrace: stack);
+      if (!mounted) return;
+      _watchdog?.cancel();
+      setState(() {
+        _done = true;
+        _error = '$e';
+      });
+    }
+  }
+
+  Future<void> _initServicesInner() async {
     final l10n = AppLocalizations.of(context);
     log('=== SplashPage 开始初始化服务 ===');
 
@@ -61,12 +103,21 @@ class _SplashPageState extends State<SplashPage>
     // 通道描述符（第 5 步）：设置页的表单字段、类型选择器、secret/模板显隐都按它渲染。
     // 顺序约束 = 必须早于 `onInitCompleted()`（那之后通道页才可达）。取不到时服务
     // 保持未就绪，页面自己会再 load() 一次，且不会因此把已存配置写空。
-    log('加载通道描述符');
-    await GetIt.instance<ChannelDescriptorService>().load();
+    try {
+      log('加载通道描述符');
+      await GetIt.instance<ChannelDescriptorService>().load();
+    } catch (e) {
+      // 描述符是显示层的表：读不出来不许挡住启动（页面自己会再 load 一次）。
+      log('加载通道描述符失败: $e');
+    }
     // 健康度缓存同样先装载：徽标是同步渲染的（build 里读内存快照），装载晚于装配
     // 就等于首帧没徽标、且各页面会各自去读 prefs（三份实现的旧账）。
-    log('加载通道健康缓存');
-    await GetIt.instance<ChannelHealthStore>().load();
+    try {
+      log('加载通道健康缓存');
+      await GetIt.instance<ChannelHealthStore>().load();
+    } catch (e) {
+      log('加载通道健康缓存失败: $e');
+    }
 
     try {
       if (mounted) setState(() => _statusText = l10n.loadWebhook);
@@ -117,6 +168,10 @@ class _SplashPageState extends State<SplashPage>
     if (mounted) setState(() => _statusText = l10n.initComplete);
     log('=== 所有服务初始化完成 ===');
 
+    // 装配链已经跑完：撤掉 watchdog，再交给根组件切主页面。
+    _done = true;
+    _watchdog?.cancel();
+
     await Future.delayed(const Duration(milliseconds: 300));
 
     if (mounted) {
@@ -126,6 +181,7 @@ class _SplashPageState extends State<SplashPage>
 
   @override
   void dispose() {
+    _watchdog?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -170,24 +226,53 @@ class _SplashPageState extends State<SplashPage>
                 ),
               ),
               const SizedBox(height: 32),
-              Text(
-                _statusText ?? l10n.initializing,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: 40,
-                height: 4,
-                child: LinearProgressIndicator(
-                  backgroundColor: AppColors.systemGray(context),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.blue,
+              if (_error != null) ...[
+                Text(
+                  l10n.initFailed,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  key: const ValueKey('splash-retry'),
+                  onPressed: _retry,
+                  child: Text(l10n.retry),
+                ),
+              ] else ...[
+                Text(
+                  _statusText ?? l10n.initializing,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: 40,
+                  height: 4,
+                  child: LinearProgressIndicator(
+                    backgroundColor: AppColors.systemGray(context),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.blue,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

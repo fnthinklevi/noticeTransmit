@@ -1855,6 +1855,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'DI initialization failed, please restart the app';
 
   @override
+  String initTimeout(int seconds) {
+    return 'Initialization did not complete within $seconds seconds';
+  }
+
+  @override
   String get retry => 'Retry';
 
   @override
@@ -1863,6 +1868,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get databaseUnavailableBody =>
       'The encrypted database could not be opened. Your data was kept; tap Retry to try again.';
+
+  @override
+  String get secureStorageUnavailableTitle => 'Secure storage unavailable';
+
+  @override
+  String get secureStorageUnavailableBody =>
+      'The encryption key can no longer be decrypted (the Android Keystore master key failed), and Retry cannot fix it. Go to system settings → Apps → Notification Push Assistant → Storage → Clear data, then reopen. History and pairings will be erased; the app will not do that for you.';
 
   @override
   String get databaseRecoveryTitle => 'Old database backup found';

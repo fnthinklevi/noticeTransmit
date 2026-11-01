@@ -888,9 +888,19 @@
   "initComplete": "初始化完成",
   "initFailed": "应用启动失败",
   "initFailedMsg": "依赖注入初始化失败，请重启应用",
+  "initTimeout": "初始化超过 {seconds} 秒没有完成",
+  "@initTimeout": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "retry": "重试",
   "databaseUnavailableTitle": "数据库打不开",
   "databaseUnavailableBody": "加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。",
+  "secureStorageUnavailableTitle": "安全存储不可用",
+  "secureStorageUnavailableBody": "加密数据库的钥匙已经失效（Android Keystore 主密钥读不出来），「重试」救不回来。请到系统设置 → 应用 → 通知推送助手 → 存储 → 清除应用数据，然后重新打开；历史与配对会一起丢失，本机不会替你做这一步。",
   "databaseRecoveryTitle": "发现旧库备份",
   "databaseRecoveryBody": "重建前留下的旧库备份：{time}，{size}。恢复会用这份备份覆盖当前库；当前库会先另存一份，不会直接删除。",
   "@databaseRecoveryBody": {

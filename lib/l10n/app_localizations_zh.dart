@@ -1779,6 +1779,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get initFailedMsg => '依赖注入初始化失败，请重启应用';
 
   @override
+  String initTimeout(int seconds) {
+    return '初始化超过 $seconds 秒没有完成';
+  }
+
+  @override
   String get retry => '重试';
 
   @override
@@ -1786,6 +1791,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get databaseUnavailableBody => '加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。';
+
+  @override
+  String get secureStorageUnavailableTitle => '安全存储不可用';
+
+  @override
+  String get secureStorageUnavailableBody =>
+      '加密数据库的钥匙已经失效（Android Keystore 主密钥读不出来），「重试」救不回来。请到系统设置 → 应用 → 通知推送助手 → 存储 → 清除应用数据，然后重新打开；历史与配对会一起丢失，本机不会替你做这一步。';
 
   @override
   String get databaseRecoveryTitle => '发现旧库备份';

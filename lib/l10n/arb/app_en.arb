@@ -888,9 +888,19 @@
   "initComplete": "Initialization complete",
   "initFailed": "App startup failed",
   "initFailedMsg": "DI initialization failed, please restart the app",
+  "initTimeout": "Initialization did not complete within {seconds} seconds",
+  "@initTimeout": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "retry": "Retry",
   "databaseUnavailableTitle": "Database unavailable",
   "databaseUnavailableBody": "The encrypted database could not be opened. Your data was kept; tap Retry to try again.",
+  "secureStorageUnavailableTitle": "Secure storage unavailable",
+  "secureStorageUnavailableBody": "The encryption key can no longer be decrypted (the Android Keystore master key failed), and Retry cannot fix it. Go to system settings → Apps → Notification Push Assistant → Storage → Clear data, then reopen. History and pairings will be erased; the app will not do that for you.",
   "databaseRecoveryTitle": "Old database backup found",
   "databaseRecoveryBody": "A backup from before the rebuild was found: {time}, {size}. Restoring replaces the current database with this backup; the current database is saved aside first, not deleted.",
   "@databaseRecoveryBody": {

@@ -284,9 +284,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   Future<void> _postInit() async {
-    // 自建应用通道：启动加载（送达标签/首页通道状态共用数据源）
-    await GetIt.instance<AppChannelService>().loadChannels();
     try {
+      // 自建应用通道：启动加载（送达标签/首页通道状态共用数据源）
+      // ⚠ 它在这条 try 之内：库打不开时这一发也是要读库的，过去放在外面会让异常
+      //   从 `_postInit` 直接冒出去（页面什么都不说）。
+      await GetIt.instance<AppChannelService>().loadChannels();
       // P2：冷启动时把当前实际语言同步给原生端（最近任务页应用名 / Webhook 文案 / 桌面图标别名）。
       // 此前只在"用户手动切换语言"时才调用 setLocaleLabel，system 模式下 flutter.locale 从未写入，
       // 原生端只能退回默认 "zh"，导致系统语言为英文场景下最近任务页仍显示中文；
@@ -422,11 +424,18 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       '[db] open failed (original kept, not rebuilt): ${error.cause}; '
       'diag=${DatabaseHealth.snapshot()}',
     );
+    // T222：安全存储不可用时，「重试」救不回来 —— 那句话要写成"去系统设置清数据"
+    // 而不是「再打开一次」；两者共用同一个确认框（不新造第二枚弹层）。
+    final secureStorage = error.cause is DatabaseSecureStorageException;
     // 走公共确认框：标题/按钮色/barrier 只有一位作者（T199 不新造第二枚弹层）。
     final retry = await IosDialogActions.askConfirm(
       context,
-      title: l10n.databaseUnavailableTitle,
-      message: l10n.databaseUnavailableBody,
+      title: secureStorage
+          ? l10n.secureStorageUnavailableTitle
+          : l10n.databaseUnavailableTitle,
+      message: secureStorage
+          ? l10n.secureStorageUnavailableBody
+          : l10n.databaseUnavailableBody,
       confirmText: l10n.retry,
       cancelText: l10n.cancel,
       destructive: false,

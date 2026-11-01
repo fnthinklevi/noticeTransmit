@@ -30,6 +30,20 @@ import '../services/secure_storage_service.dart';
 /// 由 [_initDatabase] 捕获后走「备份原库 + 重建」路径，禁止静默删库。
 class DatabaseKeyLostException implements Exception {}
 
+/// 安全存储本身不可用（T222）：Keystore 主密钥失效 / 读写超时。
+///
+/// 与 [DatabaseKeyLostException] 的区别是**下一步不一样**：密钥"丢了"还能写一把新的；
+/// 安全存储"读不出来"时连新钥匙都存不进去，所以只能 fail-closed —— **不动原库、不重建**，
+/// 把一句能照做的错误交到界面（重试无效时由用户清应用数据，Keystore 键随 `pm clear` 一起消失）。
+class DatabaseSecureStorageException implements Exception {
+  const DatabaseSecureStorageException(this.cause);
+
+  final Object cause;
+
+  @override
+  String toString() => '数据库密钥读不出来（安全存储不可用）：$cause';
+}
+
 /// Webhook 通道存取抽象。
 /// 默认实现为 SQLCipher 加密库 [DatabaseHelper]；测试可注入伪实现，
 /// 以覆盖「UI 通道 → DB 行 → 原生同步」的完整保存链路而不依赖原生加密库。
@@ -129,7 +143,19 @@ class DatabaseHelper
   /// 数据被静默清空。
   Future<String> _getEncryptionKey() async {
     final secureStorage = SecureStorageService();
-    var key = await secureStorage.read(_encryptionKeyStoreKey);
+    String? key;
+    try {
+      key = await secureStorage.read(_encryptionKeyStoreKey);
+    } catch (e) {
+      // T222：Keystore 主密钥失效时 read 抛（SecurityException / 5 秒超时）。
+      // 先回读一次 —— 插件初始化失败后有时第二次能自愈；仍失败就 fail-closed 交给上层：
+      // 既不生成一把"存不进去"的新钥匙，也不动原库（重建留给看得到界面的人）。
+      try {
+        key = await secureStorage.read(_encryptionKeyStoreKey);
+      } catch (retryError) {
+        throw DatabaseSecureStorageException('$e / $retryError');
+      }
+    }
     if (key == null || key.length != 64) {
       final databasesPath = await getDatabasesPath();
       final encryptedExists = await File(join(databasesPath, _encryptedDbName))
@@ -183,7 +209,20 @@ class DatabaseHelper
       await _backupDatabaseFile(encryptedPath);
       await _backupDatabaseFile(oldPath);
       password = _generateRandomHexKey();
-      await SecureStorageService().write(_encryptionKeyStoreKey, password);
+      try {
+        await SecureStorageService().write(_encryptionKeyStoreKey, password);
+      } catch (writeError) {
+        // 钥匙生成出来了却存不进去 ⇒ 这与"密钥丢了"不是同一条：原库已备份、当前库已改名，
+        // 但新库没有可用的钥匙就不许建（建了下次也打不开）。交回显式出口。
+        final wrapped = DatabaseSecureStorageException(writeError);
+        DatabaseHealth.recordOpenFailure(wrapped);
+        throw DatabaseUnavailableException(wrapped);
+      }
+    } on DatabaseSecureStorageException catch (e) {
+      // T222：安全存储读不出来 ⇒ fail-closed。**不动原库、不生成新钥匙**，
+      // 由界面显示「安全存储不可用」并给出唯一的恢复路径（清应用数据让 Keystore 键一起消失）。
+      DatabaseHealth.recordOpenFailure(e);
+      throw DatabaseUnavailableException(e);
     }
 
     // 从旧明文数据库迁移数据到新加密数据库

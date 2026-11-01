@@ -183,11 +183,27 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   };
 
   Future<void> _initTheme() async {
-    await GetIt.instance<ThemeService>().init();
-    final prefs = await SharedPreferences.getInstance();
-    _privacyAccepted = prefs.getBool(_privacyAcceptedKey) ?? false;
+    // T222：这里原来是裸 await —— ThemeService/SharedPreferences 任何一步卡住，
+    // `_themeInitialized` 就永远不置真，根组件永远停在启动页（界面上那句
+    // 「初始化完成」是 SplashPage 自己写的，跟这一格无关）。
+    // 主题是显示层、隐私开关缺省按"没同意"：读不出来时**降级但不挡启动**。
+    bool? privacyAccepted;
+    try {
+      await GetIt.instance<ThemeService>().init().timeout(
+        const Duration(seconds: 5),
+      );
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 5),
+      );
+      privacyAccepted = prefs.getBool(_privacyAcceptedKey) ?? false;
+    } catch (e) {
+      log('[startup] 主题或隐私开关读取失败（按默认继续）：$e');
+    }
     if (!mounted) return;
-    setState(() => _themeInitialized = true);
+    setState(() {
+      _themeInitialized = true;
+      _privacyAccepted = privacyAccepted ?? false;
+    });
   }
 
   Future<void> _acceptPrivacy() async {

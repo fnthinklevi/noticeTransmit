@@ -3397,6 +3397,12 @@ abstract class AppLocalizations {
   /// **'依赖注入初始化失败，请重启应用'**
   String get initFailedMsg;
 
+  /// No description provided for @initTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'初始化超过 {seconds} 秒没有完成'**
+  String initTimeout(int seconds);
+
   /// No description provided for @retry.
   ///
   /// In zh, this message translates to:
@@ -3414,6 +3420,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。'**
   String get databaseUnavailableBody;
+
+  /// No description provided for @secureStorageUnavailableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全存储不可用'**
+  String get secureStorageUnavailableTitle;
+
+  /// No description provided for @secureStorageUnavailableBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密数据库的钥匙已经失效（Android Keystore 主密钥读不出来），「重试」救不回来。请到系统设置 → 应用 → 通知推送助手 → 存储 → 清除应用数据，然后重新打开；历史与配对会一起丢失，本机不会替你做这一步。'**
+  String get secureStorageUnavailableBody;
 
   /// No description provided for @databaseRecoveryTitle.
   ///
