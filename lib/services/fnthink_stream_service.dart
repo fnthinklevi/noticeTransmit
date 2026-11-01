@@ -17,11 +17,24 @@ import 'fnthink_receiver_service.dart';
 /// 三条连接纪律（与 ntfy/Gotify 那套一致）：
 ///  ① **健康时通知**：连上/断开各回调一次，调用方据此把空闲 poll 退到契约的
 ///     `safetyPollSeconds`、并决定要不要常驻持锁；
-///  ② **断线退避**：5s → 120s 指数退避，连上就清零；
+///  ② **断线退避**：5s → 120s 指数退避，连上就清零；上限按前后台分档
+///     （前台／常驻 30s、后台 120s，见 [fnthinkStreamRetryCap]）；
 ///  ③ **重连换新票**：票是一次性的、90 秒过期，旧票重连只会拿到 403。
 /// T218：门铃的三态。`healthy` = 门铃在岗；`degraded` = 中间层吞流但短轮询可达；
 /// `offline` = 短轮询也失败，按既有退避重连。
 enum FnthinkStreamLinkState { healthy, degraded, offline }
+
+/// T216：门铃重连间隔的**上限**，按前后台分档。
+///
+/// 为什么前台要收紧：门铃连续建不起来时，收货只剩轮询兜着（空闲 hold 25s、失败回落
+/// steady 20s）；退避表原样走完尾巴会让门铃安静**两分钟**，而那两分钟里即时性只能靠轮询。
+/// 后台 isolate 保留 120s：那颗引擎只活一轮、本来就不建门铃（`fnthinkAllowStream` 为 false），
+/// 收紧它只会让"万一将来真建了"的那条路更耗电。
+///
+/// 判据放在这里、由协调者按与 `fnthinkStreamHealthy` 同一层传进服务 —— 页面与流服务
+/// 自己都不许去读前后台标记（两处各读一次就会漂出两套档位）。
+Duration fnthinkStreamRetryCap({required bool backgroundIsolate}) =>
+    Duration(seconds: backgroundIsolate ? 120 : 30);
 
 class FnthinkStreamService {
   FnthinkStreamService({
@@ -34,9 +47,12 @@ class FnthinkStreamService {
     this.degradedProbeInterval,
     FnthinkSseOpen? open,
     List<Duration>? backoff,
+    Duration? maxBackoff,
     int Function()? nowMs,
   }) : _open = open ?? _httpOpen,
        _nowMs = nowMs ?? _defaultNowMs,
+       _maxBackoff =
+           maxBackoff ?? fnthinkStreamRetryCap(backgroundIsolate: false),
        _backoff =
            backoff ??
            const [
@@ -70,6 +86,10 @@ class FnthinkStreamService {
   final FnthinkSseOpen _open;
   final int Function() _nowMs;
   final List<Duration> _backoff;
+
+  /// T216：这一档重连间隔的**上限**（前台／常驻档 30s、后台 isolate 120s）。
+  /// 表本身不动 —— 封的是尾巴那几档，而不是另造一张表。
+  final Duration _maxBackoff;
 
   bool _running = false;
   FnthinkStreamLinkState _state = FnthinkStreamLinkState.offline;
@@ -312,14 +332,31 @@ class FnthinkStreamService {
       return;
     }
     _retryTimer?.cancel();
-    final delay = _attempt < _backoff.length
-        ? _backoff[_attempt]
-        : _backoff.last;
+    final delay = FnthinkStreamService.retryDelayFor(
+      backoff: _backoff,
+      attempt: _attempt,
+      maxBackoff: _maxBackoff,
+    );
     if (_attempt < _backoff.length - 1) _attempt++;
     _retryTimer = Timer(delay, () {
       _retryTimer = null;
       unawaited(_connect());
     });
+  }
+
+  /// 这一档重连该等多久（T216）。
+  ///
+  /// 表照旧（5/10/15/20/30/45/60/120），只把**尾巴**按上限夹住：前台／常驻档
+  /// 夹到 30s ⇒ 5/10/15/20/30/30…；后台 isolate 上限 120s ⇒ 表原样。
+  /// 判据做成纯函数是为了让"夹没夹住"能被用例直接读到 —— 定时器的时长在测试里看不见。
+  @visibleForTesting
+  static Duration retryDelayFor({
+    required List<Duration> backoff,
+    required int attempt,
+    required Duration maxBackoff,
+  }) {
+    final raw = attempt < backoff.length ? backoff[attempt] : backoff.last;
+    return raw > maxBackoff ? maxBackoff : raw;
   }
 
   /// degraded 态的低频重探：不是每 50 秒抖一次，而是每 `safetyPollSeconds`（默认 300s）

@@ -81,4 +81,33 @@ void main() {
       contains('_holdPoll = hold && !shortPollMode'),
     );
   });
+
+  // T216：退避上限按前后台分档。漏接的表现是"前台照样安静两分钟"—— 行为用例
+  // 只看得到夹过的判据，看不见协调者有没有把那个档位交进来。
+  test('T216 协调者按前后台传上限，_scheduleRetry 走夹过的判据', () {
+    final coord = flat(read(coordinatorRel));
+    expect(
+      coord,
+      contains('maxBackoff: fnthinkStreamRetryCap('),
+      reason: '漏这一行 ⇒ 服务退回默认上限，后台那一档也没人管',
+    );
+    expect(
+      coord,
+      contains('backgroundIsolate: fnthinkBackgroundIsolate'),
+      reason: '判据必须读与 fnthinkStreamHealthy 同一层的那一枚',
+    );
+
+    final src = read(streamRel);
+    final schedule = flat(blockAfter(src, 'void _scheduleRetry()'));
+    expect(
+      schedule,
+      contains('FnthinkStreamService.retryDelayFor('),
+      reason: '绕开夹过的判据直接取表 ⇒ 上限形同虚设',
+    );
+    expect(
+      schedule,
+      isNot(contains('_backoff[_attempt]')),
+      reason: '表那一档没有夹；上限必须只在一个地方生效',
+    );
+  });
 }

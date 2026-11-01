@@ -262,6 +262,11 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
           // 门铃一响就跑一轮（不 hold）；与手动「立即收取」走同一条串行入口：
           // 若此刻有一发长轮询在飞，它会先被叫停。
           onWake: () => loop.runOnce(manual: true),
+          // T216：重连退避的尾巴按前后台分档 —— 判据与 `fnthinkStreamHealthy` 同一层，
+          // 由这里交出去；页面与流服务都不许自己读前后台标记。
+          maxBackoff: fnthinkStreamRetryCap(
+            backgroundIsolate: fnthinkBackgroundIsolate,
+          ),
           onLinkStateChanged: (state) {
             final healthy = state == FnthinkStreamLinkState.healthy;
             service.streamHealthy = healthy;

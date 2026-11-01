@@ -411,4 +411,62 @@ void main() {
     await flush();
     expect(tickets, before);
   });
+
+  // T216：退避的尾巴按前后台分档。表本身不动，只夹上限。
+  //
+  // 为什么钉的是这两档：门铃连续建不起来时收货只剩轮询兜着；前台让退避走到 120s
+  // 就是让门铃安静两分钟。而"夹没夹住"在定时器上看不见 —— 判据必须能被直接读到。
+  group('T216 重连退避上限按前后台分档', () {
+    const table = [
+      Duration(seconds: 5),
+      Duration(seconds: 10),
+      Duration(seconds: 15),
+      Duration(seconds: 20),
+      Duration(seconds: 30),
+      Duration(seconds: 45),
+      Duration(seconds: 60),
+      Duration(seconds: 120),
+    ];
+
+    test('前台／常驻档：5/10/15/20/30 之后一直是 30', () {
+      final cap = fnthinkStreamRetryCap(backgroundIsolate: false);
+      expect(cap, const Duration(seconds: 30));
+      final seen = [
+        for (var attempt = 0; attempt < 10; attempt++)
+          FnthinkStreamService.retryDelayFor(
+            backoff: table,
+            attempt: attempt,
+            maxBackoff: cap,
+          ).inSeconds,
+      ];
+      expect(seen, [5, 10, 15, 20, 30, 30, 30, 30, 30, 30]);
+    });
+
+    test('后台 isolate 保留 120（那颗引擎本来就不建门铃）', () {
+      final cap = fnthinkStreamRetryCap(backgroundIsolate: true);
+      expect(cap, const Duration(seconds: 120));
+      expect(
+        [
+          for (var attempt = 0; attempt < table.length; attempt++)
+            FnthinkStreamService.retryDelayFor(
+              backoff: table,
+              attempt: attempt,
+              maxBackoff: cap,
+            ).inSeconds,
+        ],
+        [5, 10, 15, 20, 30, 45, 60, 120],
+      );
+    });
+
+    test('表读完（attempt 越界）时取最后一档，仍受上限夹住', () {
+      expect(
+        FnthinkStreamService.retryDelayFor(
+          backoff: table,
+          attempt: 99,
+          maxBackoff: const Duration(seconds: 30),
+        ),
+        const Duration(seconds: 30),
+      );
+    });
+  });
 }
