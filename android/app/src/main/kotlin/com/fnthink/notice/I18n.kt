@@ -360,6 +360,42 @@ object I18n {
         else -> if (networkType.isEmpty()) "—" else networkType
     }
 
+    // ========== T186 片1：设备态翻转触发的规则推送 ==========
+    /** 状态触发推送的标题：不假装它是某一条应用通知，也不猜命中的是充电还是网络条件。 */
+    fun deviceStateChangedTitle(): String =
+        if (isEn) "Device state changed" else "设备状态变化"
+
+    /** 充电状态标签：三档原值 → 给人看的话；读不到写「未知」，不冒充某一档。 */
+    fun chargingStateLabel(state: String): String = when (state) {
+        "charging" -> if (isEn) "charging" else "充电中"
+        "full" -> if (isEn) "full" else "已充满"
+        "not_charging" -> if (isEn) "not charging" else "未充电"
+        else -> if (isEn) "unknown" else "未知"
+    }
+
+    /**
+     * 状态触发推送的正文：两枚原值（充电档、网络档）＋可读到的电量。
+     *
+     * ⚠ 文案只陈述**当前读数**，不写"已开始充电/已断网"：这条规则可能只按充电条件
+     * 或只按网络条件匹配，猜一个方向就会和规则实际命中的那一半对不上。
+     */
+    fun deviceStateRuleContent(
+        chargingState: String,
+        networkType: String,
+        batteryPercent: Int?,
+    ): String {
+        val charging = chargingStateLabel(chargingState)
+        val network = networkTypeLabel(networkType)
+        val battery = batteryPercent?.let {
+            if (isEn) " · Battery: $it%" else " · 电量：$it%"
+        } ?: ""
+        return if (isEn) {
+            "Charging: $charging · Network: $network$battery"
+        } else {
+            "充电状态：$charging · 网络：$network$battery"
+        }
+    }
+
     fun serviceListenerDisconnected(): String = if (isEn)
         "Notification read permission not granted · listening paused. Enable Notification Access to resume"
     else "未授予通知读取权限，通知监听已暂停"

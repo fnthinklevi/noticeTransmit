@@ -272,6 +272,10 @@ object DeviceSnapshot {
     internal fun chargingStateOf(status: Int): String = when (status) {
         BatteryManager.BATTERY_STATUS_CHARGING -> "charging"
         BatteryManager.BATTERY_STATUS_FULL -> "full"
+        // 拔掉充电器时系统报的是 DISCHARGING（在电池上放电），语义上与
+        // NOT_CHARGING（接了电源但没在充）同属"未充电"这一档。此前只映射了后者，
+        // 真机拔线会读成空串 ⇒ `not_charging` 条件永远匹配不上、翻转也检测不到。
+        BatteryManager.BATTERY_STATUS_DISCHARGING,
         BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "not_charging"
         else -> ""
     }
@@ -290,5 +294,19 @@ object DeviceSnapshot {
             null
         } ?: return ""
         return chargingStateOf(sticky.getIntExtra(BatteryManager.EXTRA_STATUS, -1))
+    }
+
+    /**
+     * T186 片1：模板变量 `%battery%` 的读数（0-100）；读不到返回 null。
+     *
+     * 这里的"读不到"必须是 null 而不是 0：模板会把 null 渲染成空串，而 0 会被
+     * 用户读成"没电了"—— 与快照那一侧"缺字段不许填 0"是同一条纪律。
+     */
+    fun readBatteryPercent(context: Context): Int? = try {
+        (context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager)
+            ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            ?.takeIf { it in 0..100 }
+    } catch (e: Exception) {
+        null
     }
 }

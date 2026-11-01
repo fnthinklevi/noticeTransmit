@@ -93,6 +93,19 @@ class TemplateEngineTest {
     }
 
     @Test
+    fun render_deviceStateVars() {
+        val v = vars.copy(batteryPercent = 55, networkType = "wifi")
+        assertEquals("55|wifi", TemplateEngine.render("%battery%|%network%", v))
+    }
+
+    @Test
+    fun render_deviceStateVars_unreadableBecomeEmpty() {
+        // 读不到 = 空串（电量 null），不拿 0% / 某一网络档冒充
+        val v = vars.copy(batteryPercent = null, networkType = "")
+        assertEquals("|", TemplateEngine.render("%battery%|%network%", v))
+    }
+
+    @Test
     fun isPlatformSupported_matrix() {
         assertTrue(TemplateEngine.isPlatformSupported("default"))
         assertTrue(TemplateEngine.isPlatformSupported("text"))

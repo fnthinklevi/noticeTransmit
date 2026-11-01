@@ -341,4 +341,61 @@ class RuleEngineTest {
         ).removePrefix("[").removeSuffix("]"))
         assertTrue(!RuleEngine.hasDeviceStateCondition(plain))
     }
+
+    // ── 第③刀接线段：触发源闸 / 翻转判据 ──
+
+    @Test
+    fun hasAnyDeviceStateRule_onlyCountsEnabledDeviceRules() {
+        assertTrue(
+            RuleEngine.hasAnyDeviceStateRule(
+                deviceRule("""{"id":"c1","type":"charging_state","value":"charging","logic":"and"}""")
+            )
+        )
+        // 关掉的那条不算：触发源不该为一条永不评估的规则去读连通性
+        assertTrue(
+            !RuleEngine.hasAnyDeviceStateRule(
+                deviceRule(
+                    """{"id":"c1","type":"charging_state","value":"charging","logic":"and"}""",
+                    enabled = false,
+                )
+            )
+        )
+        // 纯通知规则不算：它只在通知到达时评估，没有"状态翻转"这回事
+        assertTrue(
+            !RuleEngine.hasAnyDeviceStateRule(
+                deviceRule("""{"id":"c1","type":"package_name","value":"*","logic":"and"}""")
+            )
+        )
+        assertTrue(!RuleEngine.hasAnyDeviceStateRule(""))
+        // 坏 JSON 按「没有规则」处理：触发源宁可不读，也不许把服务带崩
+        assertTrue(!RuleEngine.hasAnyDeviceStateRule("[{"))
+    }
+
+    @Test
+    fun isDeviceStateFlip_baselineIsNotAFire() {
+        val chargingWifi = RuleEngine.DeviceStateReading("charging", "wifi")
+        assertTrue(
+            "还没有基准时只立基准：否则服务一启动就凭空推一条",
+            !RuleEngine.isDeviceStateFlip(null, chargingWifi),
+        )
+        assertTrue(!RuleEngine.isDeviceStateFlip(chargingWifi, chargingWifi))
+    }
+
+    @Test
+    fun isDeviceStateFlip_eitherDimensionCounts() {
+        val base = RuleEngine.DeviceStateReading("charging", "wifi")
+        assertTrue(RuleEngine.isDeviceStateFlip(base, base.copy(chargingState = "not_charging")))
+        assertTrue(RuleEngine.isDeviceStateFlip(base, base.copy(chargingState = "full")))
+        assertTrue(RuleEngine.isDeviceStateFlip(base, base.copy(networkType = "none")))
+        assertTrue(RuleEngine.isDeviceStateFlip(base, base.copy(networkType = "cellular")))
+    }
+
+    @Test
+    fun isDeviceStateFlip_unreadableDimensionIgnored() {
+        // 空串 = 读不到，不是某一档：拿它当一次翻转会凭空推一条
+        val base = RuleEngine.DeviceStateReading("charging", "wifi")
+        assertTrue(!RuleEngine.isDeviceStateFlip(base, base.copy(networkType = "")))
+        assertTrue(!RuleEngine.isDeviceStateFlip(base.copy(networkType = ""), base))
+        assertTrue(!RuleEngine.isDeviceStateFlip(base, base.copy(chargingState = "")))
+    }
 }

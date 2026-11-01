@@ -19,6 +19,8 @@ import org.json.JSONObject
  *             %timestamp% %durationStr% %callState%
  *             %count% %titles%（F3 聚合推送专用：聚合条数与成员标题摘要；
  *             非聚合推送渲染为空串）
+ *             %battery% %network%（T186 片1 设备态读数：电量 0-100；网络为
+ *             none/vpn/wifi/ethernet/cellular/other 六枚原值；读不到渲染为空串）
  *
  * 平台兼容性：
  * - 企微/钉钉/飞书：text/markdown 生效（修改 msgtype），其他格式回退默认
@@ -61,7 +63,13 @@ object TemplateEngine {
         /** F3 聚合推送：%count% 聚合条数（0 表示非聚合推送，占位符渲染为空） */
         val mergeCount: Int = 0,
         /** F3 聚合推送：%titles% 成员标题摘要（空表示非聚合推送） */
-        val mergeTitles: String = ""
+        val mergeTitles: String = "",
+        /**
+         * T186 片1：%battery% 电量（0-100）；null = 读不到 ⇒ 渲染空串（不拿 0 冒充）。
+         */
+        val batteryPercent: Int? = null,
+        /** T186 片1：%network% 网络类型（六枚原值）；空串 = 读不到 */
+        val networkType: String = ""
     )
 
     /**
@@ -103,6 +111,9 @@ object TemplateEngine {
             // F3 聚合变量：非聚合推送（mergeCount=0）渲染为空串，便于模板条件性使用
             put("count", if (vars.mergeCount > 0) vars.mergeCount.toString() else "")
             put("titles", vars.mergeTitles)
+            // T186 片1 设备态变量：读不到渲染空串（模板里用了也不会留下垃圾字面量）
+            put("battery", vars.batteryPercent?.toString() ?: "")
+            put("network", vars.networkType)
         }
         var result = template
         for ((k, v) in map) {

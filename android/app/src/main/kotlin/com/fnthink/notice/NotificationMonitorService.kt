@@ -228,17 +228,124 @@ class NotificationMonitorService : NotificationListenerService() {
         if (!deviceStateEvaluating.compareAndSet(false, true)) return
         serviceScope.launch {
             try {
-                val info = batteryMonitor.checkBatteryAndNotify() ?: return@launch
-                dispatchDeviceAlert(info)
+                val info = batteryMonitor.checkBatteryAndNotify()
+                if (info != null) dispatchDeviceAlert(info)
             } catch (e: Exception) {
                 Log.e(TAG, "Device state alert dispatch failed", e)
             } finally {
                 deviceStateEvaluating.set(false)
             }
+            // T186 片1：告警与规则两条路径共用同一批触发源，但判据各自独立 ——
+            // 没有告警规则命中（info == null）不代表设备态规则也该沉默。
+            evaluateDeviceStateRules()
         }
     }
 
     private val deviceStateEvaluating = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    // ── T186 片1：设备态翻转触发规则引擎（无通知到达的第二条求值路径）──
+
+    /** 上一次求值时的设备态读数；null = 还没有基准（首轮只立基准，不判翻转）。 */
+    @Volatile private var lastDeviceStateRuleReading: RuleEngine.DeviceStateReading? = null
+
+    /** 单飞：电池广播与网络回调可能同时到，一轮没跑完时后来的变化直接丢弃（同告警路径）。 */
+    private val deviceRuleEvaluating = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * 事件入口：只有规则表里真有启用中的设备态规则，才值得为它读一次连通性
+     * （电池广播／网络回调都很频繁，白读就是白耗电）。
+     */
+    private fun evaluateDeviceStateRules() {
+        if (!monitoringEnabled) return
+        val config = cachedConfig ?: return
+        if (!config.hasDeviceStateRules) return
+        runDeviceRuleEvaluation(decide = true)
+    }
+
+    /**
+     * 配置变更（含新增／删除设备态规则）后重新立基准：只记录当前读数，不判翻转、不推送。
+     *
+     * 不这么做的话，「在充电时新增一条 charging_state 规则」会把当前状态当成一次刚发生的
+     * 翻转，下一次电量变化就凭空推一条。
+     */
+    private fun primeDeviceStateRuleBaseline() {
+        val config = cachedConfig ?: return
+        if (!config.hasDeviceStateRules) {
+            lastDeviceStateRuleReading = null
+            return
+        }
+        runDeviceRuleEvaluation(decide = false)
+    }
+
+    /** 读一次当前两枚原值（各自容错：读不到 = 空串，不把未知伪装成某一档）。 */
+    private fun readDeviceStateReading(): RuleEngine.DeviceStateReading =
+        RuleEngine.DeviceStateReading(
+            chargingState = try {
+                DeviceSnapshot.readChargingState(this)
+            } catch (e: Exception) {
+                ""
+            },
+            networkType = try {
+                DeviceSnapshot.readNetworkType(this) ?: ""
+            } catch (e: Exception) {
+                ""
+            },
+        )
+
+    private fun runDeviceRuleEvaluation(decide: Boolean) {
+        if (!deviceRuleEvaluating.compareAndSet(false, true)) return
+        serviceScope.launch {
+            try {
+                val current = readDeviceStateReading()
+                val previous = lastDeviceStateRuleReading
+                lastDeviceStateRuleReading = current
+                if (!decide) return@launch
+                if (!RuleEngine.isDeviceStateFlip(previous, current)) return@launch
+                val rulesJson = cachedConfig?.rulesJson ?: return@launch
+                val info = buildDeviceStateRuleInfo(current)
+                val decision = RuleEngine.decideDeviceState(info, rulesJson) ?: return@launch
+                applyRuleDecision(info, decision)
+            } catch (e: Exception) {
+                Log.e(TAG, "Device-state rule evaluation failed", e)
+            } finally {
+                deviceRuleEvaluating.set(false)
+            }
+        }
+    }
+
+    /** 状态触发路径的「通知」形状：历史、模板、规则动作都对它一视同仁。 */
+    private fun buildDeviceStateRuleInfo(
+        reading: RuleEngine.DeviceStateReading,
+    ): NotificationInfo {
+        val batteryPercent = try {
+            DeviceSnapshot.readBatteryPercent(this)
+        } catch (e: Exception) {
+            null
+        }
+        val now = System.currentTimeMillis()
+        return NotificationInfo(
+            id = "device_rule_$now",
+            title = I18n.deviceStateChangedTitle(),
+            content = I18n.deviceStateRuleContent(
+                reading.chargingState,
+                reading.networkType,
+                batteryPercent,
+            ),
+            subText = "",
+            packageName = "com.fnthink.notice",
+            appName = I18n.appName(),
+            postTime = now,
+            time = java.text.SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss",
+                java.util.Locale.getDefault(),
+            ).format(java.util.Date(now)),
+            type = "device_state",
+            deviceName = deviceName,
+            chargingState = reading.chargingState,
+            networkType = reading.networkType,
+            batteryPercent = batteryPercent,
+        )
+    }
 
     private fun registerSmsObserver() {
         if (ContextCompat.checkSelfPermission(
@@ -751,99 +858,7 @@ class NotificationMonitorService : NotificationListenerService() {
                         ) {
                             DiagLog.w(TAG, "Local remote command offered from ${info.appName}")
                         }
-                        when (decision) {
-                            RuleEngine.Decision.Block -> {
-                                Log.d(TAG, "Notification blocked by rule: ${info.appName}")
-                            }
-                            RuleEngine.Decision.Record -> {
-                                webhookSender.sendBroadcast(info)
-                                // T150 片2（维护者 2026-10-12 第 6 条）：这一档**没有任何发送器会碰它**，
-                                // 于是那条历史的送达列全部停在初值 `pending` ⇒ 界面替本机说「发送中」。
-                                // 补一发拦截伪通道（与"被黑名单/应用过滤拦下"答的是同一个问题：
-                                // 这条怎么没出去），落的是 `intercepted` + 那句理由。
-                                // ⚠ 不许改成"静默 return"或写 `success`：前者是那三颗字的病根，
-                                //    后者替本机说"发出去了"—— 比"发送中"更坏。
-                                DeliveryNotifier.notify(
-                                    this@NotificationMonitorService,
-                                    info.id,
-                                    "FILTER",
-                                    WebhookResponseParser.ParseResult(
-                                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
-                                        0,
-                                        I18n.ruleRecordOnlyReason(),
-                                        false,
-                                    ),
-                                )
-                                Log.d(TAG, "Notification recorded only: ${info.appName}")
-                            }
-                            is RuleEngine.Decision.Delay -> {
-                                // 立即写入历史（pending 状态），到点后补推 webhook。
-                                // 同一 fireAt 的延迟推送在历史里是同一批（T147② 组行）。
-                                webhookSender.sendBroadcast(
-                                    info,
-                                    "delay:${decision.fireAt}",
-                                    "delay",
-                                )
-                                // T150 片2：上限挤出来的那几条**不是垃圾**，它们同样是"还没发的通知"。
-                                // 旧写法在写盘时把它们筛掉（静默丢），于是那一行永远停在「发送中」；
-                                // 现在交回这里，走与到点同一条推送路径（回执会自己把它推离 pending）。
-                                for (spilled in delayedPushManager.enqueue(info, decision.fireAt)) {
-                                    dispatchToChannels(spilled, alsoBroadcastRecord = false)
-                                }
-                                DiagLog.w(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName}")
-                            }
-                            is RuleEngine.Decision.Merge -> {
-                                // P2 聚合推送：成员先各自记录历史（独立可见），窗口结束时
-                                // 由 MergePushManager 合并为一条聚合推送；成员的送达结果
-                                // 到点以 MERGE 伪通道补标（见 MergePushManager 风险标注 3）
-                                // append 返回「需立即推送的组」（队列超限移出的最旧组 /
-                                // F3 达到 maxItems 提前触发的当前组），需在**锁外**推送。
-                                // 不能在 MergePushManager 内部自行推送：那里处于 @Synchronized
-                                // 临界区且是每条通知的热路径，网络 IO 会长时间占用对象锁
-                                // （阻塞前台通知刷新）并有跨线程死锁风险。
-                                val appendResult = mergePushManager.append(
-                                    info,
-                                    decision.windowMs,
-                                    decision.maxItems,
-                                    decision.groupByTitle,
-                                )
-                                // ⚠ 必须 append 之后才广播：组 id 由 append 决定（新开窗还是并入
-                                //   已有组）。广播在 flush 之前，成员行先落历史，聚合推送再发。
-                                webhookSender.sendBroadcast(
-                                    info,
-                                    appendResult.memberGroupId,
-                                    "merge",
-                                )
-                                for (group in appendResult.toFlush) {
-                                    flushMergedGroup(group)
-                                }
-                                // T150 片2：被摘出聚合的那条成员**不会随聚合发出去**，所以它也有一个
-                                // 送达说法要拿 —— 旧写法让它带着初值 `pending` 留在历史里，界面上
-                                // 一直说「发送中」。报 failed 而不是 intercepted：这不是"规则说不发"，
-                                // 用户仍该能手动补这一条（intercepted 会被重推资格筛掉，等于替他把门关死）。
-                                for (member in appendResult.droppedMembers) {
-                                    DeliveryNotifier.notify(
-                                        this@NotificationMonitorService,
-                                        member.id,
-                                        "MERGE",
-                                        WebhookResponseParser.ParseResult(
-                                            WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
-                                            0,
-                                            I18n.mergeMemberDroppedReason(),
-                                            false,
-                                        ),
-                                    )
-                                    DiagLog.w(TAG, "聚合成员被摘出，已回传未送达: ${member.appName}")
-                                }
-                                updateForegroundNotification()
-                                DiagLog.w(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
-                            }
-                            RuleEngine.Decision.Push -> {
-                                dispatchToChannels(info)
-                                updateForegroundNotification()
-                                DiagLog.w(TAG, "Notification sent: ${info.appName}")
-                            }
-                        }
+                        applyRuleDecision(info, decision)
                     }
                 }
             } catch (e: Exception) {
@@ -875,6 +890,109 @@ class NotificationMonitorService : NotificationListenerService() {
                 } catch (e2: Exception) {
                     Log.e(TAG, "降级历史记录也失败", e2)
                 }
+            }
+        }
+    }
+
+    /**
+     * T186 片1：规则决策的**唯一执行体**。
+     *
+     * 抽出来不是为整洁，而是因为设备态翻转路径要在「没有通知到达」时走**同一套动作语义**
+     * （Block／Record／Delay／Merge／Push 的每一种副作用）。两条路径各写一份的话，
+     * 「规则拦得住通知、拦不住状态触发」这类分叉迟早出现。
+     */
+    private fun applyRuleDecision(info: NotificationInfo, decision: RuleEngine.Decision) {
+        when (decision) {
+            RuleEngine.Decision.Block -> {
+                Log.d(TAG, "Notification blocked by rule: ${info.appName}")
+            }
+            RuleEngine.Decision.Record -> {
+                webhookSender.sendBroadcast(info)
+                // T150 片2（维护者 2026-10-12 第 6 条）：这一档**没有任何发送器会碰它**，
+                // 于是那条历史的送达列全部停在初值 `pending` ⇒ 界面替本机说「发送中」。
+                // 补一发拦截伪通道（与"被黑名单/应用过滤拦下"答的是同一个问题：
+                // 这条怎么没出去），落的是 `intercepted` + 那句理由。
+                // ⚠ 不许改成"静默 return"或写 `success`：前者是那三颗字的病根，
+                //    后者替本机说"发出去了"—— 比"发送中"更坏。
+                DeliveryNotifier.notify(
+                    this@NotificationMonitorService,
+                    info.id,
+                    "FILTER",
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                        0,
+                        I18n.ruleRecordOnlyReason(),
+                        false,
+                    ),
+                )
+                Log.d(TAG, "Notification recorded only: ${info.appName}")
+            }
+            is RuleEngine.Decision.Delay -> {
+                // 立即写入历史（pending 状态），到点后补推 webhook。
+                // 同一 fireAt 的延迟推送在历史里是同一批（T147② 组行）。
+                webhookSender.sendBroadcast(
+                    info,
+                    "delay:${decision.fireAt}",
+                    "delay",
+                )
+                // T150 片2：上限挤出来的那几条**不是垃圾**，它们同样是"还没发的通知"。
+                // 旧写法在写盘时把它们筛掉（静默丢），于是那一行永远停在「发送中」；
+                // 现在交回这里，走与到点同一条推送路径（回执会自己把它推离 pending）。
+                for (spilled in delayedPushManager.enqueue(info, decision.fireAt)) {
+                    dispatchToChannels(spilled, alsoBroadcastRecord = false)
+                }
+                DiagLog.w(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName}")
+            }
+            is RuleEngine.Decision.Merge -> {
+                // P2 聚合推送：成员先各自记录历史（独立可见），窗口结束时
+                // 由 MergePushManager 合并为一条聚合推送；成员的送达结果
+                // 到点以 MERGE 伪通道补标（见 MergePushManager 风险标注 3）
+                // append 返回「需立即推送的组」（队列超限移出的最旧组 /
+                // F3 达到 maxItems 提前触发的当前组），需在**锁外**推送。
+                // 不能在 MergePushManager 内部自行推送：那里处于 @Synchronized
+                // 临界区且是每条通知的热路径，网络 IO 会长时间占用对象锁
+                // （阻塞前台通知刷新）并有跨线程死锁风险。
+                val appendResult = mergePushManager.append(
+                    info,
+                    decision.windowMs,
+                    decision.maxItems,
+                    decision.groupByTitle,
+                )
+                // ⚠ 必须 append 之后才广播：组 id 由 append 决定（新开窗还是并入
+                //   已有组）。广播在 flush 之前，成员行先落历史，聚合推送再发。
+                webhookSender.sendBroadcast(
+                    info,
+                    appendResult.memberGroupId,
+                    "merge",
+                )
+                for (group in appendResult.toFlush) {
+                    flushMergedGroup(group)
+                }
+                // T150 片2：被摘出聚合的那条成员**不会随聚合发出去**，所以它也有一个
+                // 送达说法要拿 —— 旧写法让它带着初值 `pending` 留在历史里，界面上
+                // 一直说「发送中」。报 failed 而不是 intercepted：这不是"规则说不发"，
+                // 用户仍该能手动补这一条（intercepted 会被重推资格筛掉，等于替他把门关死）。
+                for (member in appendResult.droppedMembers) {
+                    DeliveryNotifier.notify(
+                        this@NotificationMonitorService,
+                        member.id,
+                        "MERGE",
+                        WebhookResponseParser.ParseResult(
+                            WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                            0,
+                            I18n.mergeMemberDroppedReason(),
+                            false,
+                        ),
+                    )
+                    DiagLog.w(TAG, "聚合成员被摘出，已回传未送达: ${member.appName}")
+                }
+                updateForegroundNotification()
+                DiagLog.w(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
+            }
+            RuleEngine.Decision.Push -> {
+                dispatchToChannels(info)
+                updateForegroundNotification()
+                DiagLog.w(TAG, "Notification sent: ${info.appName}")
             }
         }
     }
@@ -926,6 +1044,8 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryMonitor.updateDeviceStateRules(configManager.getDeviceStateRules())
 
         cachedConfig = ConfigSnapshot()
+        // T186 片1：配置变更后重新立设备态基准（规则新增时不许把"当前状态"当成一次翻转）
+        primeDeviceStateRuleBaseline()
         // 服务重启后恢复未到期的延迟推送闹钟（进程被杀 → START_STICKY 重建场景）
         delayedPushManager.rescheduleAll()
         // 聚合组恢复：过期组不丢弃（与延迟队列不同），重排闹钟尽快补推
@@ -1188,6 +1308,10 @@ class NotificationMonitorService : NotificationListenerService() {
                         }
                     }
 
+                    // T186 片1：充电/断网翻转要走规则引擎（与电量/温度告警并存，互不等待）。
+                    // 即使上面没有告警规则命中，这里仍要判一次"翻转"。
+                    evaluateDeviceStateRules()
+
                     val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
                     val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
                     val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
@@ -1423,6 +1547,8 @@ class NotificationMonitorService : NotificationListenerService() {
         val deviceName = configManager.getDeviceName()
         val appFilterMode = configManager.getAppFilterMode()
         val rulesJson = configManager.getNotificationRules()
+        /** T186 片1：规则表里有没有启用中的设备态规则（决定状态触发源要不要读连通性） */
+        val hasDeviceStateRules = RuleEngine.hasAnyDeviceStateRule(rulesJson)
         /** T23：设备态告警是否也过关键词约束（默认关） */
         val deviceAlertConstraint = configManager.getDeviceAlertConstraintEnabled()
     }
@@ -1906,7 +2032,10 @@ data class NotificationInfo(
     // ⚠ 刻意**不进** toJson／fromJson：设备态是"那一刻"的事实，延迟队列恢复出来时它已经变了；
     // 把陈旧读数持久化并顺着 webhook 正文带出去，比读不到更容易骗人。
     val chargingState: String = "",
-    val networkType: String = ""
+    val networkType: String = "",
+    // T186 片1：模板变量 %battery% 的读数（0-100；null = 读不到 ⇒ 渲染空串）。
+    // 与上面两枚同一条纪律：不进 toJson／fromJson，延迟推送不拿陈旧电量冒充"此刻"。
+    val batteryPercent: Int? = null
 ) {
     /** 序列化为 JSON（与 WebhookSender.sendBroadcast 字段保持一致，用于延迟推送队列持久化） */
     fun toJson(): org.json.JSONObject = org.json.JSONObject().apply {

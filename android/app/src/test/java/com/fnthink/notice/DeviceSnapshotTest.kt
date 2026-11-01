@@ -125,6 +125,12 @@ class DeviceSnapshotTest {
             "not_charging",
             DeviceSnapshot.chargingStateOf(BatteryManager.BATTERY_STATUS_NOT_CHARGING),
         )
+        // 真机拔线报的是 DISCHARGING（不是 NOT_CHARGING）：漏了这一档的话
+        // `not_charging` 条件与"拔线翻转"在真机上永远不发生
+        assertEquals(
+            "not_charging",
+            DeviceSnapshot.chargingStateOf(BatteryManager.BATTERY_STATUS_DISCHARGING),
+        )
         assertEquals("", DeviceSnapshot.chargingStateOf(BatteryManager.BATTERY_STATUS_UNKNOWN))
         assertEquals("", DeviceSnapshot.chargingStateOf(-1))
     }

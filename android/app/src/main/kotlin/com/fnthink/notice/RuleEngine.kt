@@ -125,6 +125,49 @@ object RuleEngine {
         return decideAmong(sorted, info, null)
     }
 
+    /**
+     * 规则表里是否至少有一条**启用中**的设备态规则。
+     *
+     * 给触发源做「要不要为此读一次连通性」的闸：没有这条规则时，电池广播不该为此
+     * 多花一次 `ConnectivityManager` 调用（每 60s／每次电量变化都读）。
+     */
+    fun hasAnyDeviceStateRule(rulesJson: String): Boolean {
+        if (rulesJson.isBlank()) return false
+        val rules = try {
+            JSONArray(rulesJson)
+        } catch (e: Exception) {
+            Log.w(TAG, "设备态规则 JSON 解析失败，按没有规则处理: ${e.message}")
+            return false
+        }
+        for (i in 0 until rules.length()) {
+            val rule = rules.optJSONObject(i) ?: continue
+            if (rule.optBoolean("enabled", true) && hasDeviceStateCondition(rule)) return true
+        }
+        return false
+    }
+
+    /**
+     * T186 片1：设备态翻转判据（纯函数，状态触发路径对「事件」的定义）。
+     *
+     * 只有**至少一枚**读数相对基准真的变了才算事件。两处细节都是刻意的：
+     * - [previous] 为 null（还没有基准）⇒ **不是**翻转：服务刚起来／规则刚变更时先立基准，
+     *   不把「当前状态」当成一次刚发生的变化；
+     * - 空串 = 读不到，**不参与比较**：读不到不是某一档，拿它当一次翻转会凭空推一条
+     *   （与条件求值「未知一律不匹配」同一条保守口径）。
+     */
+    fun isDeviceStateFlip(previous: DeviceStateReading?, current: DeviceStateReading): Boolean {
+        if (previous == null) return false
+
+        fun changed(before: String, now: String): Boolean =
+            before.isNotEmpty() && now.isNotEmpty() && before != now
+
+        return changed(previous.chargingState, current.chargingState) ||
+            changed(previous.networkType, current.networkType)
+    }
+
+    /** 一次设备态读数（两枚原值；空串 = 读不到）。 */
+    data class DeviceStateReading(val chargingState: String, val networkType: String)
+
     /** 这条规则是否含设备态条件（`charging_state` / `network_type`）。两型词表只在 [evaluateCondition] 一处。 */
     fun hasDeviceStateCondition(rule: JSONObject): Boolean {
         val conditions = rule.optJSONArray("conditions") ?: return false

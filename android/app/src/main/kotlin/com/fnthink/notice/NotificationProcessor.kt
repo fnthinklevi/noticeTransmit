@@ -149,6 +149,13 @@ class NotificationProcessor(private val context: Context) {
                 DeviceSnapshot.readNetworkType(context) ?: ""
             } catch (e: Exception) {
                 ""
+            },
+            // T186 片1：模板变量 %battery% 的读数，与上面两枚同一时刻取；
+            // 读不到 = null ⇒ 渲染空串（不伪装成 0%）。
+            batteryPercent = try {
+                DeviceSnapshot.readBatteryPercent(context)
+            } catch (e: Exception) {
+                null
             }
         )
     }

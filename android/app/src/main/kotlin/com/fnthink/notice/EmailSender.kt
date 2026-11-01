@@ -302,6 +302,9 @@ object EmailSender {
             .replace("%time%", info.time)
             .replace("%postTime%", info.postTime.toString())
             .replace("%type%", info.type)
+            // T186 片1：设备态变量（读不到为空串）
+            .replace("%battery%", info.batteryPercent?.toString() ?: "")
+            .replace("%network%", info.networkType)
             .replace("%date%", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(Date()))
             .replace("%datetime%", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(Date()))
     }

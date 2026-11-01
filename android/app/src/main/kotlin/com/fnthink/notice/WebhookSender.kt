@@ -265,7 +265,10 @@ class WebhookSender(private val context: Context) {
             notifyType = info.type,
             // F3：聚合推送的 %count% / %titles%
             mergeCount = info.mergeCount,
-            mergeTitles = info.mergeTitles
+            mergeTitles = info.mergeTitles,
+            // T186 片1：%battery% / %network%（通知到达那一刻的读数；读不到为空串）
+            batteryPercent = info.batteryPercent,
+            networkType = info.networkType
         )
 
         val plan = ChannelDispatch.plan(

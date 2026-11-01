@@ -259,4 +259,60 @@ void main() {
       }
     }
   });
+
+  test('⑦ 状态翻转真的进了规则引擎：三条事件源都接到同一个求值入口', () {
+    // 求值体必须真的是「翻转 → 规则引擎」：只接了事件、不调 decideDeviceState，
+    // 等于配了 charging_state 的规则永远不会响，而界面上一切正常。
+    final evaluate = slice(
+      kotlinService,
+      'private fun runDeviceRuleEvaluation(',
+      '\n    }',
+      'runDeviceRuleEvaluation',
+    );
+    expect(
+      evaluate,
+      contains('RuleEngine.decideDeviceState('),
+      reason: '状态触发路径没接规则引擎',
+    );
+    expect(
+      evaluate,
+      contains('RuleEngine.isDeviceStateFlip('),
+      reason: '没有翻转判据 ⇒ 每次电量/网络回调都推一条',
+    );
+    // 电池广播是充电翻转唯一可靠的来源（电量/温度告警那套 hasRules 与规则引擎无关）
+    final battery = slice(
+      kotlinService,
+      'private fun startBatteryMonitoring()',
+      'private fun scheduleBatteryAlarm()',
+      'startBatteryMonitoring',
+    );
+    expect(
+      battery,
+      contains('evaluateDeviceStateRules()'),
+      reason: '电池广播没接状态规则 ⇒ 充电/拔线这条路径永远不触发',
+    );
+    final changed = slice(
+      kotlinService,
+      'private fun onDeviceStateChanged()',
+      '\n    }',
+      'onDeviceStateChanged',
+    );
+    expect(
+      changed,
+      contains('evaluateDeviceStateRules()'),
+      reason: '网络/亮度事件源没接状态规则',
+    );
+    // 配置变更后重新立基准：否则新增规则时会把"此刻在充电"当成一次刚发生的翻转
+    final load = slice(
+      kotlinService,
+      'private fun loadConfig()',
+      '\n    }',
+      'loadConfig',
+    );
+    expect(
+      load,
+      contains('primeDeviceStateRuleBaseline()'),
+      reason: '新增规则后不立基准 ⇒ 下一次任意事件凭空推一条',
+    );
+  });
 }

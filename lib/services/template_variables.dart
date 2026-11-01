@@ -41,6 +41,9 @@ const List<TemplateVar> webhookTemplateVars = [
   // F3 聚合推送：非聚合时渲染成空串，所以模板里用了也不会在普通推送里留垃圾。
   TemplateVar('count'),
   TemplateVar('titles'),
+  // T186 片1 设备态读数：读不到时渲染空串（电量 null / 网络空串），同上不会留垃圾。
+  TemplateVar('battery'),
+  TemplateVar('network'),
 ];
 
 /// 邮件通道：`EmailSender.applyTemplate` 支持的变量（与上面**不是**同一份）。
@@ -56,6 +59,9 @@ const List<TemplateVar> emailTemplateVars = [
   TemplateVar('type', common: true),
   TemplateVar('date'),
   TemplateVar('datetime'),
+  // T186 片1 设备态读数（与 webhook 侧同一份语义：读不到为空串）。
+  TemplateVar('battery'),
+  TemplateVar('network'),
 ];
 
 /// 提示行用的完整列表：`%appName% %title% …`
