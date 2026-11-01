@@ -317,7 +317,7 @@ void main() {
     });
     await _step(tester, gateFailures, '4 推送历史页：进页 + 导出 JSON（真落盘）', () async {
       // ── 4. 推送历史页：进入 + 溢出菜单里的导出 JSON（真落盘）─────────────
-      await _tap(tester, find.text('推送历史'), '通知页→推送历史');
+      await _tap(tester, find.text('历史记录'), '通知页→推送历史');
       await _settle(tester, seconds: 2);
       expect(
         find.text('闸门通知一'),
@@ -372,7 +372,7 @@ void main() {
         // 为什么单开一步：T48 第一片把方向做成**数据源切换**（两张表分页口径不同，拼进同一条时间线
         // 的表现是翻页时同一条出现两次或整条不出现），而闸门此前只进过这一页的"转发"那一侧 ——
         // 收件那一档在设备上从没被点开过，与"幻念推送页整页是闸门盲区"是同一类洞。
-        await _tap(tester, find.text('推送历史'), '通知页→推送历史（方向切换）');
+        await _tap(tester, find.text('历史记录'), '通知页→推送历史（方向切换）');
         await _settle(tester, seconds: 2);
         await _tap(tester, _in(HistoryPage, find.text('收件（幻念）')), '历史页→收件（幻念）');
         await _settle(tester, seconds: 2);
@@ -444,7 +444,7 @@ void main() {
         );
         expect(inserted, isTrue, reason: '注入没落库 ⇒ 后面每一条断言都是在演一场空');
 
-        await _tap(tester, find.text('推送历史'), '通知页→推送历史（注入之后）');
+        await _tap(tester, find.text('历史记录'), '通知页→推送历史（注入之后）');
         await _settle(tester, seconds: 2);
         await _tap(
           tester,
@@ -619,7 +619,7 @@ void main() {
           );
           expect(inserted, isTrue, reason: '注入没落库（$id）⇒ 后面每一条断言都是在演一场空');
         }
-        await _tap(tester, find.text('推送历史'), '首页→推送历史（三档那一次）');
+        await _tap(tester, find.text('历史记录'), '首页→推送历史（三档那一次）');
         await _settle(tester, seconds: 2);
         expect(
           _in(HistoryPage, find.byKey(const ValueKey('direction-chip-all'))),
@@ -1825,7 +1825,18 @@ void main() {
         tester,
         find.byKey(const ValueKey('device-status-push')),
         '设备状态→推送设备信息',
+        settleSeconds: 0, // 下面先等那枚 SnackBar：先等 3 秒它就自己过期了
       );
+      // SnackBar 寿命 2 秒（`device_snapshot_page` 的 `showSnackBar`，无 duration 覆盖）：
+      // 先等它出现并当场断言，再等落库。反过来（先 settle 3 秒）在本机实测红在"找不到
+      // 已交给通道推送…"，而记录其实已经进了库 —— 红的是闸门的等待次序，不是产品。
+      await _waitUntil(
+        tester,
+        find.text('已交给通道推送，结果见推送历史'),
+        '设备状态→已交给通道推送提示',
+        seconds: 2,
+      );
+      expect(find.text('已交给通道推送，结果见推送历史'), findsOneWidget);
       await _settle(tester, seconds: 3);
       expect(
         GetIt.instance<NotificationService>().records.any(
@@ -1837,7 +1848,6 @@ void main() {
         isTrue,
         reason: '点了没落历史记录 ⇒ 送达结果没有落点（原生回传按 id 更新）',
       );
-      expect(find.text('已交给通道推送，结果见推送历史'), findsOneWidget);
       await _backToHome(tester);
 
       await _backToHomeQuietly(tester);

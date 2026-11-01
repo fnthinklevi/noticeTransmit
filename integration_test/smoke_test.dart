@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/main.dart' show MyApp;
 import 'package:notice_transmit/update_manager.dart' show VersionCheckResult;
@@ -170,6 +171,11 @@ void main() {
     capturedCalls.clear();
     await GetIt.instance.reset();
     GetIt.instance.allowReassignment = true;
+    // 每条用例的干净起点（与闸门脚本「每次独立调用前 pm clear」同一条纪律）。
+    // ⚠ T133 之后内存列表只是会话工作副本：`_mergeOfflineBatch` 对**库里已有**的 id
+    //   直接跳过、不再补进内存 ⇒ 上一条用例入库的那条会让这一条的 `waitInjected`
+    //   永远等不到（2/4、3/4、4/4 三条就是这么一起红的，2026-11-01 模拟器实测）。
+    await DatabaseHelper().clearAllNotifications();
     setupLocator();
     // 屏蔽真实 CDN 检查更新（避免网络与弹窗干扰主链路）
     GetIt.instance.registerSingleton<UpdateService>(_StubUpdateService());
@@ -228,7 +234,7 @@ void main() {
   /// 把首页里的某张卡滚进视口，之后才允许断言或点击。
   ///
   /// 为什么这两条冒烟需要它（第 26 轮实测：第二、第三条红而 walkthrough 全绿）：
-  /// 首页是 `ListView`，**视口外的行根本没被 build 出来**，于是 `find.text('推送历史')`
+  /// 首页是 `ListView`，**视口外的行根本没被 build 出来**，于是 `find.text('历史记录')`
   /// 命中 0 个 —— 报出来像"仪表盘链路断了"，实际只是"还没滚到"。walkthrough 的 `_tap`
   /// 早就先滚动再 `ensureVisible`（它记着另一坑：`tap()` 打不中时只打印 Warning 不抛异常，
   /// 于是变成点击静默丢失），而这两条用的是裸 finder —— 换一台可用高度更矮的 AVD 就露出来。
@@ -258,8 +264,8 @@ void main() {
     // 先滚到那张卡（标题与条数在同一张卡里，标题必定在 ⇒ 用它当滚动目标）。
     // ⚠ 找不到要在这里点名，别让下面那句"共 1 条记录"超时去替它背锅：
     //    "这张卡不存在"与"这张卡的数字不对"是两种缺陷，界面上一句话看不出来。
-    final revealed = await revealOnHome(tester, find.text('推送历史'));
-    expect(revealed, isTrue, reason: '滚动之后仍找不到「推送历史」这张入口卡 ⇒ 首页真的少了这个入口（不是没滚到）');
+    final revealed = await revealOnHome(tester, find.text('历史记录'));
+    expect(revealed, isTrue, reason: '滚动之后仍找不到「历史记录」这张入口卡 ⇒ 首页真的少了这个入口（不是没滚到）');
     // 仪表盘重算条数也是异步的（notifyListeners → 下一帧），先等再断（同上）
     await waitUntil(tester, find.text('共 1 条记录'));
     // recordCount = 共 N 条记录
@@ -300,16 +306,16 @@ void main() {
     );
 
     // 与冒烟 2 同一手：先滚到那张卡，再 ensureVisible 后点。
-    // 裸 `tap(find.text('推送历史'))` 在这台 AVD 上会命中 0 个（视口外没被 build），
+    // 裸 `tap(find.text('历史记录'))` 在这台 AVD 上会命中 0 个（视口外没被 build），
     // 而即便命中了，未 ensureVisible 的 tap 打不中时只打印 Warning 不抛 ⇒ 静默丢失。
     expect(
-      await revealOnHome(tester, find.text('推送历史')),
+      await revealOnHome(tester, find.text('历史记录')),
       isTrue,
-      reason: '滚动之后仍找不到「推送历史」这张入口卡 ⇒ 历史页根本进不去（不是没滚到）',
+      reason: '滚动之后仍找不到「历史记录」这张入口卡 ⇒ 历史页根本进不去（不是没滚到）',
     );
-    await tester.ensureVisible(find.text('推送历史').first);
+    await tester.ensureVisible(find.text('历史记录').first);
     await tester.pump(const Duration(milliseconds: 120));
-    await tester.tap(find.text('推送历史').first);
+    await tester.tap(find.text('历史记录').first);
     await pumpFor(tester, const Duration(seconds: 2));
     await waitUntil(tester, find.text('冒烟离线通知'));
     // ⚠ T154 片2 之后，每通道的状态词（「推送成功」那一族）收进了行内「查看详情」开出的子页，
