@@ -43,10 +43,15 @@ void main() {
     'pages/more_page.dart': 5,
     'pages/permission_settings_page.dart': 5,
     'pages/update_server_page.dart': 2,
-    'pages/fnthink_settings_page.dart': 7,
+    // T214：身份三行（地址码／口令／身份密钥）搬进共享卡 ⇒ 7 → 4，
+    // 搬走的那三枚登记在下面的 `widgetUsage`，总数仍是 7。
+    'pages/fnthink_settings_page.dart': 4,
     'pages/fnthink_peers_page.dart': 1,
     'pages/fnthink_send_page.dart': 1,
   };
+
+  /// 共享件里画的组标题（T214：两页挂同一张身份卡，三行各一枚）。
+  const widgetUsage = <String, int>{'widgets/fnthink_identity_card.dart': 3};
 
   /// 尺的本体：给定一页**剥注释后**的源码，返回其中没交给公共件的组标题 helper 名。
   ///
@@ -157,9 +162,10 @@ class _State extends State {
 
   test('③ 各页的渲染点数与台账相等（这本账不许为空）', () {
     final code = pageCode();
+    final allCode = libCodeByRel(root);
     expect(usage, isNotEmpty);
-    for (final e in usage.entries) {
-      final src = code[e.key];
+    for (final e in {...usage, ...widgetUsage}.entries) {
+      final src = code[e.key] ?? allCode[e.key];
       expect(src, isNotNull, reason: '${e.key} 读不到了（改名或挪走，账要一起改）');
       final helper = delegated[e.key];
       final drawn = helper == null

@@ -13,7 +13,6 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_endpoint_probe.dart';
 import '../services/fnthink_identity_service.dart';
-import '../services/fnthink_pairing_ack.dart';
 import '../services/fnthink_pairing_lifecycle.dart';
 import '../services/fnthink_peer_presence_display.dart';
 import '../services/fnthink_receive_coordinator.dart';
@@ -24,8 +23,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_info_note_box.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
-import '../widgets/fnthink_outcome.dart';
-import '../widgets/primary_action_button.dart';
+import '../widgets/fnthink_identity_card.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_option_picker.dart';
@@ -159,34 +157,13 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
 
   /// 撤销那一发的结论（null = 这一页还没撤销过）。
   String? _consentResult;
-  FnthinkCredentialStore? _credentials;
 
   /// 契约不可用的原话。非空时整页只显示这一条 —— 设置项的默认值要从契约读，
   /// 拿不到契约还让人改开关与地址，等于把值写进一个说不清含义的地方。
   String? _contractError;
-  String? _addressCode;
-  FnthinkArmedPairingCode? _pairing;
 
-  /// 挂出口令那一发，服务器**有没有**收下。三态各有各的话，不许合并：
-  ///  - `true` 服务器回了过期时间 ⇒ 对端现在拿这串能配上；
-  ///  - `false` 本机写成了但那一发没成 ⇒ 必须当面说，否则界面就是在替一件没发生的事作保
-  ///    （对端扫码只会收到"口令不存在"，而这一台写着"已挂出 5 分钟"）；
-  ///  - `null` 只是进页面时读到本机存着一枚 ⇒ 这一台没发过那一发，**不知道**。
-  /// 剩余时间那一行说的是本机倒计时，所以三态下都可以显示 —— 但必须和这一行一起读。
-  bool? _pairingAcked;
-
-  /// T171：这一枚口令在本机记下的「成功配对过」。
-  bool _pairingConsumed = false;
-
-  /// `_pairingAcked == false` 时服务器/前置给的原话（与状态行同一条纪律：不折叠成"出错了"）。
-  String? _pairingPublishNote;
-
-  /// 本机凭证存量与契约对不上。这是**要人来处理**的状态，不是可自愈的状态，
-  /// 所以它留在页面上直到用户重置，而不是悄悄换一枚然后显示一片绿。
-  String? _credentialError;
-
-  FnthinkDeviceIdentity? _identity;
-  bool _identityUnavailable = false;
+  /// 身份卡要用的凭证存储（T214：卡自己现读，这一页只装配）。
+  FnthinkCredentialStore? _credentials;
 
   String _host = '';
 
@@ -233,6 +210,8 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       return;
     }
     final settings = FnthinkSettings(contract: contract);
+    // 身份卡自己现读（地址码/口令/密钥），这里只把它要用的那两件装配好：
+    // 凭证存储与"取一次身份"这件事（T214）。
     final credentials = FnthinkCredentialStore(contract: contract);
     String host;
     try {
@@ -242,43 +221,71 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       host = '';
       _hostError = e.reason;
     }
-    String? addressCode;
-    FnthinkArmedPairingCode? pairing;
-    try {
-      addressCode = (await credentials.storedAddressCode())?.value;
-      pairing = await credentials.currentPairingCode();
-    } on FnthinkCredentialCorrupted catch (e) {
-      _credentialError = e.reason;
-    }
-    final identity = await _deps.identity.identity();
     // T119：这一页也要说得出"这台同没同意中转"，因为它现在是撤销那一步的两个入口之一。
     // 读的是 prefs 那一枚版本号（与协调者、接收页同一个判据），不在这里另算一遍。
     final consented = await settings.hasRelayConsent();
     final retentionDays = await settings.retentionDays();
-    final pairingConsumed = pairing == null
-        ? false
-        : await FnthinkPairingLifecycleStore.isConsumed();
     if (!mounted) return;
     setState(() {
       _settings = settings;
       _credentials = credentials;
       _host = host;
       _retentionDays = retentionDays;
-      _addressCode = addressCode;
-      _pairing = pairing;
-      _pairingConsumed = pairingConsumed;
-      _identity = identity;
-      _identityUnavailable = identity == null;
       _consented = consented;
     });
     // 开关的真值**只**从 prefs 读：它是用户做过的那个决定。契约那边没有任何一项能替代它
     // （契约管的是节奏与档位，不是"这台设备同不同意被中转"）。
   }
 
-  /// 换一枚地址码。**唯一一处**执行它的地方就在确认之后（T06 那条纪律）。
-  Future<void> _resetAddressCode() async {
+  /// 身份卡的一次现读：读法只有 `loadFnthinkIdentitySnapshot` 一处（T214）。
+  Future<FnthinkIdentitySnapshot> _loadIdentity() {
     final credentials = _credentials;
-    if (credentials == null || _busy) return;
+    if (credentials == null) {
+      // 凭证还没装配好时卡不会被构建（build 里按 `_credentials != null` 判），
+      // 这里只是让签名完整；不拿一份空读数冒充"这一台没有身份"。
+      throw StateError('identity card read before credentials are assembled');
+    }
+    return loadFnthinkIdentitySnapshot(
+      credentials: credentials,
+      identity: _deps.identity.identity,
+    );
+  }
+
+  /// 挂出一枚一次性配对口令（动作那一半，T214 搬进共享卡）。
+  /// 口令是"要被人抄走"的那一件：如果地址码还没生成，此刻补上，否则对方拿着口令
+  /// 却不知道往哪台设备上配。上一枚的「用过」也不能算到这一枚头上。
+  Future<FnthinkArmedPairingCode?> _armPairingForCard() async {
+    final credentials = _credentials;
+    if (credentials == null) return null;
+    final armed = await credentials.armPairingCode();
+    await credentials.ensureAddressCode();
+    await FnthinkPairingLifecycleStore.clear();
+    return armed;
+  }
+
+  /// 把刚挂好的那枚口令发到服务器。结论由共享卡如实落成三态并当场弹一次。
+  Future<({bool ok, String? reason})> _publishPairingForCard(
+    String pairingCode,
+  ) async {
+    final result = await _coordinator.publishPairingCode(pairingCode);
+    return (
+      ok: result.ok,
+      reason: result.ok ? null : (result.reason ?? 'no-answer'),
+    );
+  }
+
+  /// 撤掉口令（共享卡那一枚 destructive；不撤也行 —— 服务端 5 分钟就过期）。
+  Future<void> _clearPairingForCard() async {
+    final credentials = _credentials;
+    if (credentials == null) return;
+    await credentials.clearPairingCode();
+    await FnthinkPairingLifecycleStore.clear();
+  }
+
+  /// 换一枚地址码。**唯一一处**执行它的地方就在确认之后（T06 那条纪律）。
+  Future<void> _resetAddressForCard() async {
+    final credentials = _credentials;
+    if (credentials == null) return;
     final l10n = AppLocalizations.of(context);
     final ok = await IosDialogActions.askConfirm(
       context,
@@ -289,102 +296,13 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       confirmText: l10n.confirm,
     );
     if (!ok || !mounted) return;
-    setState(() => _busy = true);
-    final fresh = await credentials.resetAddressCode();
+    await credentials.resetAddressCode();
     // ⚠ 循环带着的是**启动那一刻**定型的地址码：换了码还让它继续跑，签出去的 target
     // 与本轮要 ack 的那条就不是同一台设备。所以重启，而不是"下次自然生效"。
     if (_coordinator.isRunning) {
       _coordinator.stop();
       await _coordinator.startIfEnabled();
     }
-    if (!mounted) return;
-    setState(() {
-      _addressCode = fresh.value;
-      _credentialError = null;
-      _busy = false;
-    });
-  }
-
-  /// 挂出一枚一次性配对口令。每次点都是新的一枚（契约 `singleUse=true`）。
-  Future<void> _armPairingCode() async {
-    final credentials = _credentials;
-    if (credentials == null || _busy) return;
-    setState(() => _busy = true);
-    FnthinkArmedPairingCode armed;
-    try {
-      armed = await credentials.armPairingCode();
-    } on FnthinkCredentialCorrupted catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _credentialError = e.reason;
-        _busy = false;
-      });
-      return;
-    }
-    // 口令是"要被人抄走"的那一件：如果地址码还没生成，此刻补上，否则对方拿着口令
-    // 却不知道往哪台设备上配。
-    final code = await credentials.ensureAddressCode();
-    if (!mounted) return;
-    setState(() {
-      _pairing = armed;
-      _addressCode = code.value;
-      _pairingConsumed = false;
-      _credentialError = null;
-      // 刚挂的那一发还没问过服务器：先按"不知道"显示，别沿用上一枚的确认状态。
-      _pairingAcked = null;
-      _pairingPublishNote = null;
-      _busy = false;
-    });
-    // T171：上一枚的「用过」不能算到这一枚头上。
-    await FnthinkPairingLifecycleStore.clear();
-    // 本机写完了，还要服务器也认这枚口令 —— 那才是对端能不能配上唯一取决于的东西。
-    await _publishPairingCode(armed.code.value);
-  }
-
-  /// 把刚挂好的那枚口令发到服务器，并把结论**如实**落成三态之一。
-  /// 失败时不清空口令、不回弹：那串码在本机确实还有效（倒计时也在走），用户看到的
-  /// 应该是"只有这台知道它"，而不是"什么都没发生过"。
-  ///
-  /// 这一条被砸过什么（报告在本地 outputs/_page_publish_falsify.report.txt，按约定不入库）：
-  ///  - 不发出那一发 ⇒ 红在「服务器回了过期时间 ⇒ 明说"服务器已收到"」；
-  ///  - 不问结果、一律 `_pairingAcked = true` ⇒ 红在「服务器没确认 ⇒ 说"只有这台记下了"」；
-  ///  - 把"不知道"那一态去掉 ⇒ 红在「进页面读到本机存着一枚 ⇒ 说'没问过服务器'」。
-  /// 三条各自点名、逐字节还原。
-  Future<void> _publishPairingCode(String pairingCode) async {
-    final result = await _coordinator.publishPairingCode(pairingCode);
-    if (!mounted) return;
-    setState(() {
-      _pairingAcked = result.ok;
-      _pairingPublishNote = result.ok ? null : (result.reason ?? 'no-answer');
-    });
-    // T126 片2：这一发是"当场要看得见"最典型的一处 —— 口令没上到服务器时，对端扫码只会
-    // 拿到"口令不存在"，而屏幕上写着"已挂出 5 分钟"。格子里那三态留着（事后还要在），
-    // 这里补一次弹层，句子与格子**同一个作者**（`fnthinkPairingAckText`），不另拼一句。
-    if (!mounted) return;
-    await showFnthinkOutcome(
-      context,
-      ok: result.ok,
-      detail: fnthinkPairingAckText(
-        AppLocalizations.of(context),
-        acked: _pairingAcked,
-        note: _pairingPublishNote,
-      ),
-    );
-  }
-
-  Future<void> _clearPairingCode() async {
-    final credentials = _credentials;
-    if (credentials == null) return;
-    await credentials.clearPairingCode();
-    await FnthinkPairingLifecycleStore.clear();
-    if (!mounted) return;
-    setState(() {
-      _pairing = null;
-      _pairingConsumed = false;
-      // 撤掉之后再进这一页，"服务器收没收"又回到"不知道"：留着上一次的确认会变成假信息。
-      _pairingAcked = null;
-      _pairingPublishNote = null;
-    });
   }
 
   Future<void> _editHost() async {
@@ -734,7 +652,18 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
               text: l10n.fnthinkContractUnavailable(_contractError!),
             )
           else ...[
-            _buildIdentityCard(l10n),
+            // T214：身份那一格搬成共享件（配对页挂同一张）。凭证装配好之前不画 ——
+            // 卡里的读数是它自己现取的，拿空装配画一帧「未生成地址码」是凭空的话。
+            if (_credentials != null)
+              FnthinkIdentityCard(
+                load: _loadIdentity,
+                onArm: _armPairingForCard,
+                onPublish: _publishPairingForCard,
+                onRevoke: _clearPairingForCard,
+                onResetAddress: _resetAddressForCard,
+              )
+            else
+              const SizedBox.shrink(),
             const SizedBox(height: 12),
             _buildServerCard(l10n),
             const SizedBox(height: 20),
@@ -819,203 +748,6 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       _busy = false;
     });
   }
-
-  Widget _buildIdentityCard(AppLocalizations l10n) {
-    final code = _addressCode;
-    final pairing = _pairing;
-    return FnthinkCard(
-      title: l10n.fnthinkIdentitySection,
-      children: [
-        FnthinkRowLabel(
-          label: l10n.fnthinkAddressCode,
-          keyName: 'fnthink-address-code',
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: SelectableText(
-                code ?? l10n.fnthinkAddressCodeNone,
-                key: const ValueKey('fnthink-address-code-value'),
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 15,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            if (code != null)
-              FnthinkInlineAction(
-                label: l10n.fnthinkCopy,
-                tone: FnthinkActionTone.neutral,
-                onPressed: () => fnthinkCopyNotice(context, code),
-              ),
-            FnthinkInlineAction(
-              key: const ValueKey('fnthink-reset-code'),
-              label: l10n.fnthinkResetCode,
-              tone: FnthinkActionTone.destructive,
-              onPressed: code == null ? null : _resetAddressCode,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        FnthinkRowLabel(
-          label: l10n.fnthinkPairingCode,
-          keyName: 'fnthink-pairing-code',
-        ),
-        if (pairing == null)
-          Text(
-            l10n.fnthinkPairingNone,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.secondaryLabel(context),
-            ),
-          )
-        else
-          Row(
-            children: [
-              Expanded(
-                child: SelectableText(
-                  pairing.code.value,
-                  key: const ValueKey('fnthink-pairing-code-value'),
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 15,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-              FnthinkInlineAction(
-                label: l10n.fnthinkCopy,
-                tone: FnthinkActionTone.neutral,
-                onPressed: () => fnthinkCopyNotice(context, pairing.code.value),
-              ),
-            ],
-          ),
-        if (pairing != null) ...[
-          // T171：只有还看起来有效时才报「已挂出 N 秒」；过期/用过/没上到服务器
-          // 再报时长会让用户以为它还有效。
-          if (_pairingLifecycle(pairing) == FnthinkPairingLifecycle.active ||
-              _pairingLifecycle(pairing) == FnthinkPairingLifecycle.unknown)
-            FnthinkNote(
-              keyName: 'fnthink-pairing-age',
-              text: l10n.fnthinkPairingHeld(_heldSeconds(pairing)),
-            ),
-          FnthinkNote(
-            keyName: 'fnthink-pairing-lifecycle',
-            text: _pairingLifecycleText(l10n, pairing),
-          ),
-        ],
-        if (pairing != null &&
-            _pairingLifecycle(pairing) != FnthinkPairingLifecycle.active)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FnthinkInlineAction(
-              key: const ValueKey('fnthink-pairing-regenerate'),
-              label: l10n.fnthinkPairingRegenerate,
-              onPressed: _busy ? null : _armPairingCode,
-            ),
-          ),
-        // 「已挂出」那一句说的是本机的倒计时；这一句才回答"对端能不能拿它来配"。
-        // 三态分开写：没问过服务器与问过但没成，是两种完全不同的用户动作（等一等 vs 重来一次）。
-        // T126 片2：哪一态说哪句话、那一格挂哪个 key，两个映射都在 `fnthink_pairing_ack.dart`
-        // 那一处 —— 页面不再自己写三遍 `if`，而当场弹的那一层（`_publishPairingCode` 末尾）
-        // 与这一格读的是同一个函数，不会出现"弹层说一套、格子说另一套"。
-        if (pairing != null)
-          FnthinkNote(
-            keyName: 'fnthink-pairing-${fnthinkPairingAckKey(_pairingAcked)}',
-            text: fnthinkPairingAckText(
-              l10n,
-              acked: _pairingAcked,
-              note: _pairingPublishNote,
-            ),
-          ),
-        if (pairing != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FnthinkInlineAction(
-              key: const ValueKey('fnthink-revoke-pairing'),
-              label: l10n.fnthinkRevokePairing,
-              tone: FnthinkActionTone.destructive,
-              onPressed: _clearPairingCode,
-            ),
-          ),
-        PrimaryActionButton(
-          key: const ValueKey('fnthink-arm-pairing'),
-          label: l10n.fnthinkArmPairing,
-          onPressed: _armPairingCode,
-        ),
-        Text(
-          l10n.fnthinkPairingExpireNote,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.secondaryLabel(context),
-          ),
-        ),
-        if (_credentialError != null)
-          FnthinkNote(
-            keyName: 'fnthink-credential-error',
-            text: _credentialError!,
-          ),
-        const SizedBox(height: 8),
-        FnthinkRowLabel(
-          label: l10n.fnthinkIdentityKey,
-          keyName: 'fnthink-identity-key',
-        ),
-        Text(
-          _identityText(l10n),
-          key: const ValueKey('fnthink-identity-key-value'),
-          style: TextStyle(
-            fontSize: 13,
-            fontFamily: 'monospace',
-            color: _identityUnavailable
-                ? AppColors.red
-                : AppColors.primaryLabel(context),
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _identityText(AppLocalizations l10n) {
-    final identity = _identity;
-    if (identity == null) return l10n.fnthinkKeystoreUnknown;
-    final backed = identity.keystoreBacked
-        ? l10n.fnthinkKeystoreOn
-        : l10n.fnthinkKeystoreOff;
-    // 公钥整串抄进界面没有意义（用户读不了一串 base64），只留前 8 位当"是不是同一把"的比对。
-    final key = identity.publicKey;
-    final short = key.length <= 8 ? key : '${key.substring(0, 8)}…';
-    return '$short · $backed';
-  }
-
-  /// "挂了多久"。时间戳缺失/不是整数时显示「未知」而不是 0 秒 ——
-  /// 0 秒的字面意思是"刚挂上"，那是另一个结论。
-  String _heldSeconds(FnthinkArmedPairingCode pairing) {
-    final age = pairing.ageMs(DateTime.now().toUtc().millisecondsSinceEpoch);
-    if (age == null) return AppLocalizations.of(context).unknown;
-    return '${(age / 1000).floor()}s';
-  }
-
-  FnthinkPairingLifecycle _pairingLifecycle(FnthinkArmedPairingCode pairing) =>
-      fnthinkPairingLifecycleOf(
-        consumed: _pairingConsumed,
-        looksExpired: pairing.looksExpired(
-          DateTime.now().toUtc().millisecondsSinceEpoch,
-        ),
-        acked: _pairingAcked,
-      );
-
-  String _pairingLifecycleText(
-    AppLocalizations l10n,
-    FnthinkArmedPairingCode pairing,
-  ) => switch (_pairingLifecycle(pairing)) {
-    FnthinkPairingLifecycle.active => l10n.fnthinkPairingLifecycleActive,
-    FnthinkPairingLifecycle.consumed => l10n.fnthinkPairingLifecycleConsumed,
-    FnthinkPairingLifecycle.expired => l10n.fnthinkPairingLifecycleExpired,
-    FnthinkPairingLifecycle.notPublished =>
-      l10n.fnthinkPairingLifecycleNotPublished,
-    FnthinkPairingLifecycle.unknown => l10n.fnthinkPairingLifecycleUnknown,
-  };
 
   /// T47：收件保留的选档弹层（与换服务器同一件形状：标题 + 若干行 + 选中回一个值）。
   /// 取消 ⇒ 什么都不写；写到盘的是"选过那一档"，非法值在 settings 那一格当场抛。

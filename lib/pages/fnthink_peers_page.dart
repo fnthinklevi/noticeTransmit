@@ -10,6 +10,8 @@ import '../models/fnthink_peer.dart';
 import '../models/fnthink_channel.dart';
 import '../services/fnthink_channel_service.dart';
 import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_credential_store.dart';
+import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_pairing_lifecycle.dart';
 import '../services/fnthink_peer_presence_display.dart';
@@ -21,6 +23,7 @@ import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/fnthink_identity_card.dart';
 import '../widgets/fnthink_outcome.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/primary_action_button.dart';
@@ -42,8 +45,10 @@ class FnthinkPeersDeps {
     required this.coordinator,
     required this.loadPeers,
     this.loadPresence,
+    FnthinkIdentityService? identity,
     FnthinkChannelStore? channels,
-  }) : _injectedChannels = channels;
+  }) : _injectedChannels = channels,
+       identity = identity ?? FnthinkIdentityService();
 
   factory FnthinkPeersDeps.fromLocator() {
     final coordinator = GetIt.instance<FnthinkReceiveCoordinator>();
@@ -62,6 +67,10 @@ class FnthinkPeersDeps {
   final FnthinkContractLoader contracts;
   final FnthinkReceiveCoordinator coordinator;
   final Future<List<FnthinkPeer>> Function() loadPeers;
+
+  /// 身份卡那一行的公钥读数（T214）。与设置页同一件服务；测试不接时也能返回 null
+  /// ⇒ 卡片照实说「未知」，不替它编一把。
+  final FnthinkIdentityService identity;
 
   /// 读一次对端在场状态（T156 片2）。null = 这一页没接这条读口。
   final Future<FnthinkPeerPresenceResult> Function()? loadPresence;
@@ -111,6 +120,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
   /// 契约不可用的原话。非空时整页只显示这一条 —— 弹层里的档位名单要从契约读，
   /// 拿不到契约还让人去配对，等于把一次签出去的请求写进一个说不清含义的地方。
   String? _contractError;
+
+  /// 身份卡要用的凭证存储（T214：卡自己现读，这一页只装配）。
+  FnthinkCredentialStore? _credentials;
 
   List<FnthinkPeer>? _peers;
 
@@ -188,13 +200,50 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       return;
     }
     if (!mounted) return;
-    setState(() => _contract = contract);
+    setState(() {
+      _contract = contract;
+      _credentials = FnthinkCredentialStore(contract: contract);
+    });
     // 进这一页先看一眼本机那一份配对账（T116）。为什么不等下一轮 poll：这一页正是用户
     // "去看看有没有回音"的那一屏，慢一轮的表现是"他打开的是空的，而结论其实早就落了"。
     await _coordinator.reloadPairLedger();
     final senderSettings = await FnthinkSenderDisplaySettings.load();
     if (mounted) setState(() => _senderMode = senderSettings.mode);
     await _loadPeers();
+  }
+
+  /// 身份卡的一次现读（T214）：读法只有 `loadFnthinkIdentitySnapshot` 一处。
+  Future<FnthinkIdentitySnapshot> _loadIdentity() {
+    final credentials = _credentials;
+    if (credentials == null) {
+      throw StateError('identity card read before the contract is loaded');
+    }
+    return loadFnthinkIdentitySnapshot(
+      credentials: credentials,
+      identity: _deps.identity.identity,
+    );
+  }
+
+  /// 配对页也能挂一枚口令：这一页正是"现在就需要口令"的现场。
+  /// 撤销与重置地址码是管理动作，留在设置页。
+  Future<FnthinkArmedPairingCode?> _armPairingForCard() async {
+    final credentials = _credentials;
+    if (credentials == null) return null;
+    final armed = await credentials.armPairingCode();
+    await credentials.ensureAddressCode();
+    await FnthinkPairingLifecycleStore.clear();
+    return armed;
+  }
+
+  /// 与设置页同一个发布口（协调者）：配对页这一份不许另判一次"服务器收没收到"。
+  Future<({bool ok, String? reason})> _publishPairingForCard(
+    String pairingCode,
+  ) async {
+    final result = await _coordinator.publishPairingCode(pairingCode);
+    return (
+      ok: result.ok,
+      reason: result.ok ? null : (result.reason ?? 'no-answer'),
+    );
   }
 
   Future<void> _setSenderMode(FnthinkSenderDisplayMode mode) async {
@@ -351,6 +400,17 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
             _buildSentRequests(l10n),
             _buildPairHistory(l10n),
             _buildPeersCard(l10n),
+            // T214：本机身份那一格（与设置页同一件共享卡）。放在名单之后：
+            // 配对现场先看"对面是谁"，要告诉对面本机是什么时再往下就是这两样。
+            if (_credentials != null) ...[
+              const SizedBox(height: 12),
+              FnthinkIdentityCard(
+                load: _loadIdentity,
+                onArm: _armPairingForCard,
+                onPublish: _publishPairingForCard,
+                note: l10n.fnthinkPairingPeersHint,
+              ),
+            ],
           ],
         ],
       ),

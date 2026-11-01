@@ -3761,6 +3761,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The server decides expiry and whether it was used; this phone only puts it out there';
 
   @override
+  String get fnthinkPairingPeersHint =>
+      'The other device needs exactly these two: this device\'s address code and this one-time pairing code';
+
+  @override
   String get fnthinkPairingLifecycleActive =>
       'This code still looks valid: the other device can pair with it now';
 

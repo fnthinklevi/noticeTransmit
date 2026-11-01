@@ -1891,6 +1891,7 @@
     }
   },
   "fnthinkPairingExpireNote": "The server decides expiry and whether it was used; this phone only puts it out there",
+  "fnthinkPairingPeersHint": "The other device needs exactly these two: this device's address code and this one-time pairing code",
   "fnthinkPairingLifecycleActive": "This code still looks valid: the other device can pair with it now",
   "fnthinkPairingLifecycleConsumed": "This code has been used: it paired successfully once and will not be accepted again",
   "fnthinkPairingLifecycleExpired": "This code looks expired: generate a new one",

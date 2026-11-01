@@ -1912,6 +1912,7 @@
     }
   },
   "fnthinkPairingExpireNote": "是否过期、有没有被用掉都由服务器判，这台手机只负责把它挂出来",
+  "fnthinkPairingPeersHint": "对面要的就是这两样：本机地址码与这枚一次性口令",
   "fnthinkPairingLifecycleActive": "这一枚看起来还有效：对端现在可以用它配对",
   "fnthinkPairingLifecycleConsumed": "这一枚已经用过了：成功配对过一次，它不会再被接受",
   "fnthinkPairingLifecycleExpired": "这一枚看起来过期了：请重新生成",

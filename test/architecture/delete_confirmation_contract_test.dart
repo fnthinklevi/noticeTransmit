@@ -63,7 +63,11 @@ void main() {
       'Future<void> _answer(',
       'Future<void> _revoke(',
     ],
-    'lib/pages/fnthink_settings_page.dart': ['Future<void> _resetAddressCode('],
+    'lib/pages/fnthink_settings_page.dart': [
+      // T214：身份那一格搬进共享卡，但"重置地址码"那一枚 destructive 留在设置页
+      // ⇒ 确认咽喉也跟着留在这一个方法的执行处。
+      'Future<void> _resetAddressForCard(',
+    ],
     // ⚠ T97 片B：那两下随「接入端点」独立成页走，名单跟着主语迁。
     //   留在旧文件名下就成了"那里还有一道确认闸"的假账 —— 那两个方法在新页里，
     //   旧页只剩一行入口，点下去连网络都不碰。

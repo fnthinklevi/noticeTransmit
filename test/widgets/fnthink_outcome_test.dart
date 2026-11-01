@@ -132,21 +132,33 @@ void main() {
     );
   });
 
-  test('页面不再自己写那三句：三个词条只出现在单一作者文件里', () {
-    final page = _code(_read('lib/pages/fnthink_settings_page.dart'));
+  test('页面不再自己写那三句：三句与 key 只在共享身份卡那一个作者里', () {
+    final card = _code(_read('lib/widgets/fnthink_identity_card.dart'));
     for (final word in [
       'fnthinkPairingAcked',
       'fnthinkPairingLocalOnly',
       'fnthinkPairingAckUnknown',
     ]) {
       expect(
-        page,
+        card,
         isNot(contains(word)),
-        reason: '$word 被页面直接引用 ⇒ 弹层与小字各说一句的漂移回来了',
+        reason: '$word 被身份卡直接引用 ⇒ 弹层与小字各说一句的漂移回来了',
       );
     }
-    expect(page, contains('fnthinkPairingAckText('));
-    expect(page, contains('fnthinkPairingAckKey('));
+    expect(card, contains('fnthinkPairingAckText('));
+    expect(card, contains('fnthinkPairingAckKey('));
+
+    // T214：设置页只交出动作与现读，不再自己拼这三句（拼一句就会与弹层分叉）。
+    final page = _code(_read('lib/pages/fnthink_settings_page.dart'));
+    for (final word in [
+      'fnthinkPairingAcked',
+      'fnthinkPairingLocalOnly',
+      'fnthinkPairingAckUnknown',
+      'fnthinkPairingAckText(',
+      'fnthinkPairingAckKey(',
+    ]) {
+      expect(page, isNot(contains(word)), reason: '$word 又回到页面 ⇒ 身份卡与页面会各说一句');
+    }
   });
 
   // ── T129 片2：手动问一次配对进度 ────────────────────────────────────────

@@ -6643,6 +6643,12 @@ abstract class AppLocalizations {
   /// **'是否过期、有没有被用掉都由服务器判，这台手机只负责把它挂出来'**
   String get fnthinkPairingExpireNote;
 
+  /// No description provided for @fnthinkPairingPeersHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'对面要的就是这两样：本机地址码与这枚一次性口令'**
+  String get fnthinkPairingPeersHint;
+
   /// No description provided for @fnthinkPairingLifecycleActive.
   ///
   /// In zh, this message translates to:

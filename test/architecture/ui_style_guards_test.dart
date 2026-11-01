@@ -1172,9 +1172,16 @@ class FnthinkStatusMark extends StatelessWidget {
       // T168 加了第 10 枚：**测延迟**（中性档；只读探测，不改地址、不重启收件循环）。
       // T171 加了第 11 枚：**重新生成**配对口令（口令用过/过期之后的下一出口）。
       // T177 加了第 12 枚：**自检**（只读：拉 peer-presence 与 /health 契约版本）。
+      // T214：地址码/口令/身份密钥那一格搬进共享卡 ⇒ 5 枚随卡走（复制×2、重置、
+      // 重新生成、撤销）。本页剩 7 枚，搬走的那 5 枚记在共享卡那一条上。
       expect(
         n('lib/pages/fnthink_settings_page.dart', 'FnthinkInlineAction('),
-        12,
+        7,
+      );
+      expect(
+        n('lib/widgets/fnthink_identity_card.dart', 'FnthinkInlineAction('),
+        5,
+        reason: '身份卡的 5 枚行内动作少了 ⇒ 有人把复制的字号/颜色改回页面自己挑',
       );
       expect(
         n('lib/pages/fnthink_endpoint_page.dart', 'FnthinkInlineAction('),
@@ -1205,7 +1212,9 @@ class FnthinkStatusMark extends StatelessWidget {
         // 钉的就是搬过去的那一枚（少了它，撤销在弹层里就与"改个名字"同一个颜色）。
         'lib/pages/fnthink_peers_page.dart': 1,
         // T119 起设置页有 3 枚：重置地址码、撤销配对口令、**撤销中转同意**。
-        'lib/pages/fnthink_settings_page.dart': 3,
+        // T214：前两枚随身份卡搬走 ⇒ 本页只剩「撤销中转同意」1 枚，另外 2 枚记在共享卡。
+        'lib/pages/fnthink_settings_page.dart': 1,
+        'lib/widgets/fnthink_identity_card.dart': 2,
       };
       const neutral = <String, int>{
         // T153 片3：2 → **1**。「读一次」那枚从中性行内动作换成了 `FnthinkEntryRow`
@@ -1216,7 +1225,9 @@ class FnthinkStatusMark extends StatelessWidget {
         // T168：3 → **4**。新增那一枚是「测延迟」（只读探测）—— 它属于"再看一眼"，
         // 不是"往前走一步"，所以走中性档；改成默认蓝就等于把它升格成主操作。
         // T177：4 → **5**。「自检」同样是只读（peer-presence + /health），走中性档。
-        'lib/pages/fnthink_settings_page.dart': 5,
+        // T214：两枚「复制」随身份卡搬走 ⇒ 5 → 3，另外 2 枚记在共享卡。
+        'lib/pages/fnthink_settings_page.dart': 3,
+        'lib/widgets/fnthink_identity_card.dart': 2,
       };
       for (final (table, needle) in const [
         (destructive, 'FnthinkActionTone.destructive'),
@@ -1350,7 +1361,8 @@ class FnthinkStatusMark extends StatelessWidget {
         'lib/pages/fnthink_endpoint_page.dart',
         'lib/pages/fnthink_receive_page.dart',
         'lib/pages/fnthink_peers_page.dart',
-        'lib/pages/fnthink_settings_page.dart',
+        // T214：设置页那枚「挂出」随身份卡搬进共享件。
+        'lib/widgets/fnthink_identity_card.dart',
         'lib/pages/fnthink_channel_settings_page.dart',
         // T98 片④：那张共用发送页两档各一枚主操作（同一时刻只画其中一档）。
         'lib/pages/fnthink_send_page.dart',

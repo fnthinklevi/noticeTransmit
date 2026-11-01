@@ -3594,6 +3594,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairingExpireNote => '是否过期、有没有被用掉都由服务器判，这台手机只负责把它挂出来';
 
   @override
+  String get fnthinkPairingPeersHint => '对面要的就是这两样：本机地址码与这枚一次性口令';
+
+  @override
   String get fnthinkPairingLifecycleActive => '这一枚看起来还有效：对端现在可以用它配对';
 
   @override

@@ -114,12 +114,11 @@ void main() {
         isNot(contains("import 'fnthink_endpoint_page.dart'")),
         reason: '这一页不该还认识那张页：它只答"这台设备是谁、对着哪台服务器"',
       );
-      // 反向自证：搬走的是那一行，不是这一页本身。
-      expect(
-        settings,
-        contains("'fnthink-address-code'"),
-        reason: '身份那一格没了 ⇒ 上面的 isNot 是删过头造出来的假绿',
-      );
+      // 反向自证：搬走的是那一行，不是这一页本身。身份卡现在住在共享件里（T214），
+      // 所以读物换成"这张卡还在、且只定义一次"——两页各画一份才是这一格真正的风险。
+      expect(hitting("'fnthink-address-code'"), const <String>[
+        'lib/widgets/fnthink_identity_card.dart',
+      ], reason: '身份卡要么被删了、要么又被某一张页抄了一份 ⇒ 两处读数会各自漂移');
     });
 
     test('那一块卡片六行都在，且新增的两行各有自己的 key', () {

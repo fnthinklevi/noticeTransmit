@@ -1082,6 +1082,30 @@ void main() {
       expect(find.text(fresh!), findsOneWidget);
       expect(h.builds(), 2, reason: '循环手里握的是启动那一刻定型的地址码，不重启就是拿旧码签新的请求');
     });
+
+    testWidgets('挂出后配对页读到同一枚（两页各自现读，不缓存）', (tester) async {
+      stubChannels();
+      final h = harness();
+      await pump(tester, h.page);
+      await revealTo(tester, find.byKey(const ValueKey('fnthink-arm-pairing')));
+      await tester.tap(find.byKey(const ValueKey('fnthink-arm-pairing')));
+      await tester.pumpAndSettle();
+      final code = disk[FnthinkCredentialStore.pairingCodeKey]!;
+      expect(find.text(code), findsOneWidget, reason: '设置页先得看到刚挂出的那一枚');
+
+      // 换到配对页：同一枚必须还在。两页是独立路由，卡里不缓存来源 ——
+      // 谁把口令存进页面字段，这条就会红（切页后读到的是另一份旧快照）。
+      await pumpPeers(tester, h);
+      await revealTo(
+        tester,
+        find.byKey(const ValueKey('fnthink-pairing-code-value')),
+      );
+      expect(
+        find.text(code),
+        findsOneWidget,
+        reason: '配对页看不到刚挂出的口令 ⇒ 现场还得跳回设置页读',
+      );
+    });
   });
 
   group('服务地址', () {

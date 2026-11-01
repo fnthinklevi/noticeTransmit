@@ -641,7 +641,10 @@ void main() {
         // 收件档：注入的那一行在，且带着未读点；长按进选择态 → 顶栏说"已选 1 条" → 取消。
         await _tap(
           tester,
-          _in(HistoryPage, find.byKey(const ValueKey('direction-chip-received'))),
+          _in(
+            HistoryPage,
+            find.byKey(const ValueKey('direction-chip-received')),
+          ),
           '历史页→收件档',
         );
         // 切档之后**等那一行自己出现**（墙钟计时有界），不用裸 settle 等它 —— 这台机上
@@ -1978,6 +1981,19 @@ void main() {
           await _openEngineRow(tester, '设备配对');
           await _onPage(tester, FnthinkPeersPage, '设备配对页');
 
+          // T214：配对页也挂着本机身份卡。与 5.15（设置页）**各钉一次**，不合成一条计数：
+          // 同一把 key 出现在两张页，"按 key 定位＝按页定位"就成了一条隐含假设。
+          final identityCard = find.byKey(
+            const ValueKey('fnthink-address-code'),
+          );
+          await _scrollUntil(tester, identityCard);
+          await _settle(tester);
+          expect(
+            identityCard,
+            findsOneWidget,
+            reason: '配对现场看不到本机地址码 ⇒ 还得跳去设置页读、再跳回来敲对面那串',
+          );
+
           final sendEntry = find.byKey(
             const ValueKey('fnthink-peer-send-$gatePeer'),
           );
@@ -2805,7 +2821,6 @@ Finder _appBarText(String label) => find.descendant(
 /// 不限定的 `find.byIcon(Icons.add)` / `find.text('保存')` 会命中别的气泡。
 Finder _in(Type page, Finder f) =>
     find.descendant(of: find.byType(page), matching: f);
-
 
 /// Webhook 详情页里输入框的顺序是「名称 → URL →（密钥/模板，随通道类型的描述符能力位变化）」，
 /// 按下标取会随类型漂移；URL 输入框在**为空时**必定显示占位文案，
