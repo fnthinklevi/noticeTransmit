@@ -2233,7 +2233,7 @@
   "fnthinkPairPeerSubmit": "发过去",
   "fnthinkPairPeerIncomplete": "地址码和口令都填了才发得出去",
   "fnthinkPairPeerPendingNote": "发过去只等于对面那台多了一条待确认：同不同意由它自己点，本机名单里那一行要等下一轮收取才出现。",
-  "fnthinkPairPeerSubmitted": "已提交（请求 {id}，状态 {status}）。现在要等那台设备自己同意 —— 这台还没拿到任何许可。",
+  "fnthinkPairPeerSubmitted": "已发送到服务器，等待对方确认（请求 {id} · 状态 {status}）。这台还没拿到任何许可。",
   "@fnthinkPairPeerSubmitted": {
     "placeholders": {
       "id": {

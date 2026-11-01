@@ -2212,7 +2212,7 @@
   "fnthinkPairPeerSubmit": "Send it",
   "fnthinkPairPeerIncomplete": "Fill in both the address code and the code first",
   "fnthinkPairPeerPendingNote": "Sending it only adds a pending request on the other device: it decides whether to approve, and this device's peer list only shows the row after the next round of receiving.",
-  "fnthinkPairPeerSubmitted": "Submitted (request {id}, status {status}). Now that device has to approve it — this one holds no grant yet.",
+  "fnthinkPairPeerSubmitted": "Sent to the server — waiting for the other device to approve (request {id}, status {status}). This one holds no grant yet.",
   "@fnthinkPairPeerSubmitted": {
     "placeholders": {
       "id": {

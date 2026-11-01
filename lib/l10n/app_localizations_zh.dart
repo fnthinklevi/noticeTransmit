@@ -4112,7 +4112,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkPairPeerSubmitted(String id, String status) {
-    return '已提交（请求 $id，状态 $status）。现在要等那台设备自己同意 —— 这台还没拿到任何许可。';
+    return '已发送到服务器，等待对方确认（请求 $id · 状态 $status）。这台还没拿到任何许可。';
   }
 
   @override

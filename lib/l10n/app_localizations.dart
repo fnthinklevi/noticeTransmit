@@ -7546,7 +7546,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairPeerSubmitted.
   ///
   /// In zh, this message translates to:
-  /// **'已提交（请求 {id}，状态 {status}）。现在要等那台设备自己同意 —— 这台还没拿到任何许可。'**
+  /// **'已发送到服务器，等待对方确认（请求 {id} · 状态 {status}）。这台还没拿到任何许可。'**
   String fnthinkPairPeerSubmitted(String id, String status);
 
   /// No description provided for @fnthinkPairPeerNotConsented.

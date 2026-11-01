@@ -4325,7 +4325,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkPairPeerSubmitted(String id, String status) {
-    return 'Submitted (request $id, status $status). Now that device has to approve it — this one holds no grant yet.';
+    return 'Sent to the server — waiting for the other device to approve (request $id, status $status). This one holds no grant yet.';
   }
 
   @override

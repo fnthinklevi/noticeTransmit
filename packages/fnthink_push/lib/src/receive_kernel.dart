@@ -293,7 +293,9 @@ class FnthinkReceiveKernel {
         reason: _lastReason,
       );
     }
-    if (reply.status != 200) {
+    // T213：`queued`(202) 是契约认可的"异步受理"答复，不是失败。
+    // 只有这一支放宽；ack 那一发仍只认 200（服务端 ack 本来就不回 202）。
+    if (reply.status != 200 && reply.status != contract.statusCodes['queued']) {
       _lastReason = 'http:${reply.status}';
       return FnthinkPollResult(
         status: FnthinkPollStatus.failed,

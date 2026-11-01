@@ -990,6 +990,36 @@ void main() {
       );
     });
 
+    test('T213：服务端回 202（已入队）也算提交成功，但仍要有 requestId', () async {
+      final harness = _Harness(contract, 1800000000000);
+      harness.reply = FnthinkReply(
+        status: contract.statusCodes['queued']!,
+        body: paired(),
+      );
+      final result = await harness.kernel().pair(
+        targetAddressCode: _peer,
+        pairingCode: code,
+        level: wantedLevel,
+      );
+      expect(result.ok, isTrue, reason: '202 是受理，不是失败');
+      expect(result.requestId, 'pr_1');
+    });
+
+    test('T213：202 但没给 requestId ⇒ 仍是失败（成功判据一个都不许松）', () async {
+      final harness = _Harness(contract, 1800000000000);
+      harness.reply = FnthinkReply(
+        status: contract.statusCodes['queued']!,
+        body: paired(id: null),
+      );
+      final result = await harness.kernel().pair(
+        targetAddressCode: _peer,
+        pairingCode: code,
+        level: wantedLevel,
+      );
+      expect(result.ok, isFalse);
+      expect(result.reason, 'pair-acked-without-request');
+    });
+
     test('载荷两项都按契约名单与顺序编进 body（内核不写字面量）', () async {
       final harness = _Harness(contract, 1800000000000);
       final fields = await pairOnce(harness);
