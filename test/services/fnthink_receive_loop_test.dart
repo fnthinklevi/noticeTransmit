@@ -300,6 +300,70 @@ void main() {
     });
   });
 
+  group('T215 片2：连续失败退避', () {
+    FnthinkReceiveOutcome fail(String reason) => FnthinkReceiveOutcome(
+      status: FnthinkPollStatus.transportError,
+      reason: reason,
+      nextDelay: const Duration(seconds: 20),
+    );
+
+    test('连续失败按 5→15→30→60，成功清零', () async {
+      final h = _Harness();
+      final loop = h.loop(
+        pollScript: [
+          fail('transport:SocketException'),
+          fail('transport:SocketException'),
+          fail('gateway-timeout:554'),
+          fail('transport:HandshakeException'),
+          _ok(const []),
+        ],
+      );
+      loop.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.scheduled, [const Duration(seconds: 5)]);
+
+      for (final expected in const [
+        Duration(seconds: 15),
+        Duration(seconds: 30),
+        Duration(seconds: 60),
+        Duration(seconds: 20),
+      ]) {
+        h.callbacks.last();
+        await Future<void>.delayed(Duration.zero);
+        expect(h.scheduled.last, expected);
+      }
+      loop.stop();
+    });
+
+    test('手动取消那一发不算失败，立刻重跑', () async {
+      final h = _Harness();
+      final loop = h.loop(
+        pollScript: [fail('transport:RequestAbortedException')],
+      );
+      loop.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.scheduled.single, Duration.zero);
+      loop.stop();
+    });
+
+    test('429 的 Retry-After 优先于本退避', () async {
+      final h = _Harness();
+      final loop = h.loop(
+        pollScript: [
+          const FnthinkReceiveOutcome(
+            status: FnthinkPollStatus.rateLimited,
+            reason: 'rate-limited:17',
+            nextDelay: Duration(seconds: 17),
+          ),
+        ],
+      );
+      loop.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.scheduled.single, const Duration(seconds: 17));
+      loop.stop();
+    });
+  });
+
   group('⑤ 显示与 ack 的取值', () {
     /// 三条一轮：落库都成功，display 的行为决定每条报的是 displayed 还是 delivered。
     Future<

@@ -168,13 +168,28 @@ class FnthinkReceiveLoop {
       runOnce()
           .then((report) {
             if (!_wantRunning) return;
-            // 服务端给的退避（poll 429 或 ack 全被 429 挡住）原样放行，常驻档只压常态节奏。
-            final serverBackoff =
-                report.status == FnthinkPollStatus.rateLimited ||
-                report.ackSkipped > 0;
-            final next = serverBackoff
-                ? report.nextDelay
-                : (clampDelay?.call(report.nextDelay) ?? report.nextDelay);
+            final Duration next;
+            if (report.skipped) {
+              // 上一轮还在途：不是失败，沿用报告给的保守间隔。
+              next = report.nextDelay;
+            } else if (report.reason == 'transport:RequestAbortedException') {
+              // 手动「立即收取」叫停了这一发长轮询：立刻重跑真正的手动轮。
+              _failureStreak = 0;
+              next = Duration.zero;
+            } else if (_isNetworkFailure(report.status)) {
+              _failureStreak += 1;
+              next = failureBackoff(_failureStreak);
+            } else {
+              _failureStreak = 0;
+              // 服务端给的退避（poll 429 或 ack 全被 429 挡住）原样放行，
+              // 常驻档只压常态节奏。
+              final serverBackoff =
+                  report.status == FnthinkPollStatus.rateLimited ||
+                  report.ackSkipped > 0;
+              next = serverBackoff
+                  ? report.nextDelay
+                  : (clampDelay?.call(report.nextDelay) ?? report.nextDelay);
+            }
             _timer = schedule(next, _tick);
             onRound?.call(report);
           })
@@ -189,6 +204,28 @@ class FnthinkReceiveLoop {
   }
 
   static Duration get _fallbackDelay => const Duration(seconds: 60);
+
+  static bool _isNetworkFailure(FnthinkPollStatus status) =>
+      status == FnthinkPollStatus.transportError ||
+      status == FnthinkPollStatus.gatewayTimeout ||
+      status == FnthinkPollStatus.failed;
+
+  /// T215 片2：连续网络/网关失败的退避表。5 秒只是第一档，别让长轮询把
+  /// 一次边缘故障放大成每 5 秒一次的撞墙。
+  static const List<int> failureBackoffSeconds = [5, 15, 30, 60];
+
+  static Duration failureBackoff(int consecutiveFailures) {
+    var index = consecutiveFailures - 1;
+    if (index < 0) index = 0;
+    if (index >= failureBackoffSeconds.length) {
+      index = failureBackoffSeconds.length - 1;
+    }
+    return Duration(seconds: failureBackoffSeconds[index]);
+  }
+
+  /// 连续失败计数：只在 transport / gateway / 其它 failed 上累加；
+  /// 手动取消（`RequestAbortedException`）与任何服务端结论都不算失败。
+  int _failureStreak = 0;
 
   /// 一轮。公开出来是给调用方（页面手动"立即收取"、测试）一个不带定时器的入口。
   ///
