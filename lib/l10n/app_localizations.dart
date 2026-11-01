@@ -386,6 +386,60 @@ abstract class AppLocalizations {
   /// **'从未探测'**
   String get channelStatusNeverProbed;
 
+  /// No description provided for @channelFailureLastLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近一次失败：{ago} · {kind} · 连续 {count} 次'**
+  String channelFailureLastLine(String ago, String kind, int count);
+
+  /// No description provided for @channelFailureKindNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络没连上'**
+  String get channelFailureKindNetwork;
+
+  /// No description provided for @channelFailureKindHttp.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器返回错误'**
+  String get channelFailureKindHttp;
+
+  /// No description provided for @channelFailureKindRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'平台限流'**
+  String get channelFailureKindRateLimited;
+
+  /// No description provided for @channelFailureKindBusiness.
+  ///
+  /// In zh, this message translates to:
+  /// **'平台业务拒绝'**
+  String get channelFailureKindBusiness;
+
+  /// No description provided for @channelFailureKindInterrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机中断'**
+  String get channelFailureKindInterrupted;
+
+  /// No description provided for @channelFailureKindUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'没对上号'**
+  String get channelFailureKindUnknown;
+
+  /// No description provided for @channelFailureHelpTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近一次失败怎么读'**
+  String get channelFailureHelpTitle;
+
+  /// No description provided for @channelFailureHelpBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一行是取证，不是判决：通道后来恢复了，它照样留着。\n\n网络没连上 —— 请求没到对面（断网、DNS、连接超时）。\n服务器返回错误 —— 对面回了 4xx 或 5xx，具体码在送达记录里。\n平台限流 —— 对面让你慢一点（429），会自动等一会儿再试。\n平台业务拒绝 —— HTTP 通了但平台说内容不合规（errcode 非 0 那一类），重试没用。\n本机中断 —— 这条还没发出去就被本机停了（推送被暂停或引擎不在）。\n没对上号 —— 有 HTTP 码、却是 2xx 或 3xx，也没有业务拒绝的痕迹；我们不猜。\n\n连续 N 次 —— 从这一次失败往前，紧接着连着失败了几条；中间隔了一次成功就重新算。'**
+  String get channelFailureHelpBody;
+
   /// No description provided for @mainBackupSettings.
   ///
   /// In zh, this message translates to:

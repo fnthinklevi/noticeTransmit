@@ -180,6 +180,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get channelStatusNeverProbed => 'Never probed';
 
   @override
+  String channelFailureLastLine(String ago, String kind, int count) {
+    return 'Last failure: $ago · $kind · $count in a row';
+  }
+
+  @override
+  String get channelFailureKindNetwork => 'couldn\'t reach the network';
+
+  @override
+  String get channelFailureKindHttp => 'server returned an error';
+
+  @override
+  String get channelFailureKindRateLimited => 'rate limited by the platform';
+
+  @override
+  String get channelFailureKindBusiness => 'rejected by the platform';
+
+  @override
+  String get channelFailureKindInterrupted => 'stopped on this device';
+
+  @override
+  String get channelFailureKindUnknown => 'unclassified';
+
+  @override
+  String get channelFailureHelpTitle => 'How to read the last failure';
+
+  @override
+  String get channelFailureHelpBody =>
+      'This line is evidence, not a verdict: it stays even after the channel recovers.\n\nCouldn\'t reach the network — the request never got there (no connection, DNS, timeout).\nServer returned an error — the other side answered 4xx or 5xx; the exact code is in the delivery log.\nRate limited — the platform asked you to slow down (429); it retries after a wait.\nRejected by the platform — HTTP worked but the platform refused the content (non-zero errcode); retrying won\'t help.\nStopped on this device — this one was halted before it left (push paused or engine gone).\nUnclassified — there was an HTTP code, but it was 2xx or 3xx and nothing looked like a business rejection; we don\'t guess.\n\nN in a row — how many failures ran back to back ending at this one; a success in between resets the count.';
+
+  @override
   String get mainBackupSettings => 'Primary & Backup';
 
   @override

@@ -9,6 +9,7 @@ import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/pages/channel_status_page.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:notice_transmit/services/channel_display.dart';
+import 'package:notice_transmit/services/channel_failure_summary.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
@@ -42,12 +43,17 @@ void main() {
   String wh1Id = 'wh-1';
   final opened = <String>[];
 
+  /// T220 片2b：这一格由宿主注入（真机上页面自己读送达日志；用例里不能真开库）。
+  /// 默认空 Map = 一条失败都没有 ⇒ 每行都不画「最近一次失败」。
+  Map<String, ChannelFailureSummary> failures = const {};
+
   Widget buildApp() {
     return AppRoot(
       locale: const Locale('zh'),
       dark: false,
       home: ChannelStatusPage(
         onOpenChannel: (family) async => opened.add(family),
+        loadFailures: () async => failures,
       ),
     );
   }
@@ -125,6 +131,7 @@ void main() {
     backupReleasedAt = null;
     backupReleasedAuto = false;
     resetCalls.clear();
+    failures = const {};
     await GetIt.instance.reset();
     SharedPreferences.setMockInitialValues({});
     // 见 base.md（53）（54）：testWidgets 里不接住原生通道，服务侧那一句
@@ -209,6 +216,57 @@ void main() {
     expect(find.textContaining('oapi.dingtalk.com'), findsOneWidget);
     expect(find.textContaining('smtp.example.com:465'), findsOneWidget);
     expect(find.textContaining('从未探测'), findsWidgets);
+  });
+
+  testWidgets('T220 片2b：最近一次失败只在真有失败时画那一行', (tester) async {
+    tester.view.physicalSize = const Size(1200, 2800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await seedAll();
+    failures = const {};
+
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+
+    // 对照组：一条失败都没有 ⇒ 三行都不画那一行（"从未失败"不许立牌子）。
+    expect(
+      find.byKey(ValueKey('channel-failure-webhook-$wh1Id')),
+      findsNothing,
+    );
+    // 六档分类的读法有一枚常驻问号（"按问号弹层给解释"）。
+    expect(
+      find.byKey(const ValueKey('channel-status-failure-help')),
+      findsOneWidget,
+    );
+
+    failures = {
+      channelDeliveryKey('dingtalk'): const ChannelFailureSummary(
+        // 时刻取"现在"，这一行的"多久之前"由现有的分档尺给，不在这里编文案。
+        lastFailedAt: 0,
+        httpCode: 502,
+        message: '服务器错误 HTTP 502',
+        kind: DeliveryFailureKind.http,
+        consecutiveFailures: 3,
+      ),
+    };
+
+    // 换一棵树让 initState 重跑（同一棵树里 State 会复用，读不到刚注入的那一份）。
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(ChannelStatusPage)),
+    );
+    expect(
+      find.byKey(ValueKey('channel-failure-webhook-$wh1Id')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(l10n.channelFailureKindHttp),
+      findsWidgets,
+      reason: '502 必须归到"服务器返回错误"那一档，而不是笼统一句失败',
+    );
   });
 
   testWidgets('凭据不得上屏：URL 的 path 与 query、密钥都不出现', (tester) async {

@@ -4,11 +4,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../database/database_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../services/active_channels.dart';
 import '../services/backup_mode.dart';
 import '../services/channel_config_codec.dart';
 import '../services/channel_display.dart';
+import '../services/channel_failure_summary.dart';
 import '../services/channel_health_store.dart';
 import '../widgets/app_info_note_box.dart';
 import '../widgets/channel_health_badge.dart';
@@ -35,7 +37,18 @@ class ChannelStatusPage extends StatefulWidget {
   /// `MainPage` 里了，不在这里复制第二份。
   final Future<void> Function(String family) onOpenChannel;
 
-  const ChannelStatusPage({super.key, required this.onOpenChannel});
+  /// 每个通道「最近一次失败」的读口（T220 片2b）。null = 页面自己去读送达日志。
+  ///
+  /// 做成注入而不是页面里写死一次 `DatabaseHelper()`：这一格在 widget 用例里没法真开库
+  /// （测试环境的库路径要靠平台通道，齐了也会拖住 `pumpAndSettle`），
+  /// 而"有失败时画那一行、没有就不画"正是这里最该被钉住的判据。
+  final Future<Map<String, ChannelFailureSummary>> Function()? loadFailures;
+
+  const ChannelStatusPage({
+    super.key,
+    required this.onOpenChannel,
+    this.loadFailures,
+  });
 
   @override
   State<ChannelStatusPage> createState() => _ChannelStatusPageState();
@@ -44,6 +57,10 @@ class ChannelStatusPage extends StatefulWidget {
 class _ChannelStatusPageState extends State<ChannelStatusPage> {
   /// 首次进入提示（只弹一次，落 prefs）。键名与 `rule_engine_guide_seen` 同一套写法。
   bool _showGuide = false;
+
+  /// T220 片2b：每个通道「最近一次失败」的读数（读送达日志派生，不新开存储）。
+  /// 空 Map = 还没读到或窗口内没有失败 —— 两种都**不画占位**（"从未失败"不该立个牌子）。
+  Map<String, ChannelFailureSummary> _failures = const {};
 
   /// 备用模式那一格的读数（T12 锁存 + T135 自动切回留痕）。
   /// null = 还没读到 —— 这时**两句都不说**：把"还没读到"画成"没在走备用"或
@@ -66,6 +83,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     super.initState();
     _checkFirstTime();
     _loadBackupMode();
+    unawaited(_loadFailures());
     // 时效一过，"上次探测成功"会被判成「未知」—— 而这一页正是用户看那个"未知"的地方。
     // 所以进页顺手把**过期的**探一遍（#174）：stale-only，不是每进必发请求；
     // 探完 setState 让这张表按新结论重画。
@@ -76,6 +94,23 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
         },
       ),
     );
+  }
+
+  /// 从送达日志派生每个通道的「最近一次失败」（T220 片2b）。读失败不抛：
+  /// 这一格只是取证，读不到就不画那一行，不让整页失败。
+  Future<void> _loadFailures() async {
+    Map<String, ChannelFailureSummary> next = const {};
+    try {
+      next = widget.loadFailures != null
+          ? await widget.loadFailures!()
+          : summarizeChannelFailures(
+              await DatabaseHelper().getRecentDeliveryLogs(),
+            );
+    } catch (_) {
+      // 读不到 ⇒ 保持空 Map（不画那一行），下一轮刷新再试。
+    }
+    if (!mounted) return;
+    setState(() => _failures = next);
   }
 
   Future<void> _loadBackupMode() async {
@@ -102,6 +137,8 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     await widget.onOpenChannel(family);
     // 备用模式可能在离开这一页期间被原生锁存，回来要重读一次
     await _loadBackupMode();
+    // 在配置页里可能重推过一次，失败读数跟着变 —— 同一趟回来一起重取。
+    await _loadFailures();
     if (!mounted) return;
     setState(() {});
   }
@@ -210,6 +247,13 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
       appBar: AppBar(
         title: Text(l10n.channelStatusTitle),
         actions: [
+          // T220 片2b：六档分类的读法收进问号（页面里不许成段堆小字）。
+          HelpNoteButton(
+            keyName: 'channel-status-failure-help',
+            title: l10n.channelFailureHelpTitle,
+            body: l10n.channelFailureHelpBody,
+            bodyHeight: 360,
+          ),
           // 主备设置（T11）的入口在右上角：这一页本身是只读视图，改角色是个动作。
           FnthinkInlineAction(
             key: const ValueKey('channel-status-open-roles'),
@@ -253,6 +297,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   /// （force），顺带重读备用模式。进页那一轮（initState）仍是 stale-only —— 两处不是一件事。
   Future<void> _pullToRefresh() async {
     await _loadBackupMode();
+    await _loadFailures();
     await probeChannelsAcrossFamilies(
       force: true,
       onUpdated: () {
@@ -352,6 +397,17 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
       _probeAge(l10n, channel.health),
     ].where((s) => s.isNotEmpty).join(' · ');
 
+    // T220 片2b：最近一次失败那一行。**只在真有失败时画** —— "从未失败"不立牌子
+    // （那是替用户造一个"有问题"的暗示）。这一格是取证，通道恢复之后照样留着。
+    final failure = _failures[channel.deliveryKey];
+    final failureLine = failure == null
+        ? null
+        : l10n.channelFailureLastLine(
+            fnthinkAgoLabel(l10n, failure.lastFailedAt) ?? '—',
+            channelFailureKindText(l10n, failure.kind),
+            failure.consecutiveFailures,
+          );
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: AppColors.cardBg(context),
@@ -372,12 +428,32 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
             color: AppColors.primaryLabel(context),
           ),
         ),
-        subtitle: Text(
-          details,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.secondaryLabel(context),
-          ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              details,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+            if (failureLine != null)
+              Text(
+                failureLine,
+                // 稳定锚点：用例按 family+id 找这一行，不断文案
+                key: ValueKey(
+                  'channel-failure-${channel.family}-${channel.id}',
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+          ],
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

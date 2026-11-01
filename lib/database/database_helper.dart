@@ -2168,6 +2168,27 @@ class DatabaseHelper
     );
   }
 
+  /// T220 片2b：最近 N 天的送达日志（按时间倒序），供「最近一次失败」读数用。
+  ///
+  /// ⚠ 只取一页（默认 400 条）而不是全表：这一格回答的是"最近一次"，几百条足够覆盖
+  /// 活跃通道的连续失败；取全表会把一次进页变成一次大查询。
+  /// ⚠ 列名是表列（`http_code`），不是送达格里的驼峰键 —— 两类读者各用各的名字。
+  Future<List<Map<String, dynamic>>> getRecentDeliveryLogs({
+    int days = 30,
+    int limit = 400,
+  }) async {
+    final db = await database;
+    final since = DateTime.now()
+        .subtract(Duration(days: days))
+        .millisecondsSinceEpoch;
+    return await db.rawQuery(
+      'SELECT tag, status, http_code, message, timestamp '
+      'FROM webhook_delivery_log WHERE timestamp >= ? '
+      'ORDER BY timestamp DESC LIMIT ?',
+      [since, limit],
+    );
+  }
+
   /// 失败原因 TOP：N 天内按 HTTP 码聚类（code 为空 = 网络/连接类失败）
   Future<List<Map<String, dynamic>>> getTopFailureReasons({
     int days = 7,
