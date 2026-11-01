@@ -96,6 +96,8 @@ curl -s http://127.0.0.1:3456/health # 健康检查验证
 - `type`：`feat` / `fix` / `refactor` / `docs` / `style` / `test` / `chore`
 - `scope`（可选）：`flutter` / `android` / `server` / `docs`
 - 示例：`fix(android): 修复电量规则跨进程重建后 webhook 静默失效`
+- **测试先于提交**：提交前必须跑与改动相关的测试；提交信息正文末尾附「测试：<命令> <例数/结论>」。
+- **一个提交只做一个任务**：禁止把多个任务或大批量、不相干的改动塞进同一个提交。
 
 ---
 

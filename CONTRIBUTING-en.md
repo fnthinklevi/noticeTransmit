@@ -96,6 +96,8 @@ Follow Conventional Commits:
 - `type`: `feat` / `fix` / `refactor` / `docs` / `style` / `test` / `chore`
 - `scope` (optional): `flutter` / `android` / `server` / `docs`
 - Example: `fix(android): prevent webhook silent failure after in-process service recreate`
+- **Tests before commit**: run the tests relevant to the change first; end the commit body with `Tests: <command> <count/result>`.
+- **One task per commit**: never bundle multiple tasks or large unrelated changes into one commit.
 
 ---
 
