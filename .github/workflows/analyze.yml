@@ -93,11 +93,13 @@ jobs:
       # "Failed to load dynamic library" 好读。
       - name: Verify system SQLite for sqlite3 hook
         run: |
-          if ! ldconfig -p | grep -q 'libsqlite3\.so\.0'; then
-            echo "❌ runner 上没有 libsqlite3.so.0 —— pubspec.yaml 的 hooks.user_defines 依赖它"
+          # 与 hook 完全同口径地试 dlopen：bare 名 libsqlite3.so 由 libsqlite3-dev
+          # 的软链解析（runner 镜像预装；ldconfig 只列 .so.0，验不出软链在不在）。
+          if ! python3 -c "import ctypes; ctypes.CDLL('libsqlite3.so')"; then
+            echo "❌ dlopen('libsqlite3.so') 失败 —— pubspec.yaml 的 hooks.user_defines 依赖 runner 预装的 libsqlite3-dev"
             exit 1
           fi
-          echo "✅ 系统 SQLite：$(ldconfig -p | grep -m1 'libsqlite3\.so\.0')"
+          echo "✅ dlopen('libsqlite3.so') OK，版本：$(python3 -c "import ctypes; l=ctypes.CDLL('libsqlite3.so'); l.sqlite3_libversion.restype=ctypes.c_char_p; print(l.sqlite3_libversion().decode())")"
 
       - name: Run unit tests
         run: |

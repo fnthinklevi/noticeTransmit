@@ -118,8 +118,10 @@ dependency_overrides:
 # release 资产 CDN 持续 504（本机与 CI 各连续 15–20 次失败，ninja 等无关仓库同病），
 # 而 hook 不校验 HTTP 状态码 ⇒ 504 错误页字节被原样流进 sha256 ⇒ 测试在
 # "Building native assets" 阶段直接 exit 255，一条用例都没跑。
-# Linux（CI 宿主测试）改为 dlopen 系统库 libsqlite3.so.0，零下载；Ubuntu 的
-# libsqlite3-0 是常规预装依赖，analyze.yml 有存在性守护。
+# Linux（CI 宿主测试）改为 dlopen 系统库，零下载。name 只写裸名 sqlite3：hook 会
+# 按目标平台文件名规则展开成 libsqlite3.so，由 runner 镜像预装的 libsqlite3-dev
+# 软链解析（写 sqlite3.so.0 会被再拼一层 .so ⇒ libsqlite3.so.0.so，2026-11-08 CI
+# 实测）；analyze.yml 用 python3 ctypes 实测 dlopen 做守护。
 # Android 侧这个资产**只被构建、运行时不加载**：集成测试与 app 都不调
 # sqfliteFfiInit()（真机 DB 走 sqflite_sqlcipher），所以同样声明成 system ——
 # 不打包、不下载；万一将来某处真的加载它，会显式报 "Failed to load dynamic
@@ -135,7 +137,7 @@ hooks:
         android: system
         default: sqlite3
       name:
-        linux: sqlite3.so.0
+        linux: sqlite3
         default: sqlite3
 
 flutter_launcher_icons:
