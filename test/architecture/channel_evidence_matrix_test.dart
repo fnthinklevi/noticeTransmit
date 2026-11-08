@@ -85,7 +85,8 @@ void main() {
       expect(
         rows(),
         hasLength(16),
-        reason: 'T08-C 起 email 也算一类，T227 起幻念端点算一类，类型总数是 16；'
+        reason:
+            'T08-C 起 email 也算一类，T227 起幻念端点算一类，类型总数是 16；'
             '这数字变了要先说清楚少了谁',
       );
       expect(payloadKeys(), isNotEmpty, reason: '载荷快照一枚都没解出来 ⇒ 指针核对全体退化成空断言');

@@ -16,7 +16,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.4/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.5/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — 软件介绍、客户端下载与后台管理入口
@@ -79,6 +79,8 @@
 - 📨 **幻念推送通道** —— 第四个转发族：可建多条通道，目标是一台已勾选的绑定设备或一个 webhook 地址；收到通知后自动转发（见 [幻念推送](#幻念推送)）
 - 📤 **多平台适配** —— 自动适配各平台消息格式（ntfy/Gotify 支持自建服务器）
 - 💚 **通道健康探测** —— 对启用通道做轻量连通探测（任何 HTTP 响应即视为连通，仅超时 / DNS 失败 / 连接拒绝判为不可达）；超过 6 小时未探测自动后台补探并持久化；通道卡片显示「✓ 连通 · 延迟 · 探测时间」徽标
+- 🧯 **失败重放与通道分诊** —— 发送失败按通道类型进入各自的重放队列（Webhook / 邮件 / 自建应用），到期自动重排；通道状态页新增「最近一次失败」读数，送达格补上 httpCode、尝试次数与耗时
+- 🔎 **一键全链路自检** —— 通道页右上角一键向每族挑一条通道发最小测试消息（幻念只走探针，不投递、不占额度；自检不写历史）
 
 ### 规则与自动化
 
@@ -88,7 +90,8 @@
 - 📦 **应用通知聚合** —— 同一应用的通知在窗口期内（默认 60 秒，最小 5 秒）合并为一条；支持「满 N 条提前推送」与「按会话分组」；模板支持 `%count%`/`%titles%` 变量；聚合期间前台实时展示待合并列表；无论成败成员内容都先完整入历史并逐条标注真实送达状态
 - 🏷️ **通知优先级分级** —— 原生链路提取系统通知优先级（高/中/低），可作为规则匹配条件
 - ⏰ **定时 / 延迟推送** —— 延迟秒数或定时时间 HH:mm，到点自动补推 webhook 与邮件；进程被杀或重启后任务自动恢复
-- 📝 **推送模板引擎** —— 自定义消息格式（text/markdown/json/xml），变量占位符（`%appName%`/`%title%`/`%content%`），按平台自动包裹 payload 与转义，每条通道独立配置
+- 📝 **推送模板引擎** —— 自定义消息格式（text/markdown/json/xml），变量占位符（`%appName%`/`%title%`/`%content%`/`%battery%`/`%network%`），按平台自动包裹 payload 与转义，每条通道独立配置
+- 🔋 **设备状态条件** —— 电量与网络类型可作为规则条件，在「通知到达那一刻」与原生同口径求值
 - 📱 **应用筛选** / 🏷️ **关键词过滤** —— 白名单与黑名单，精准控制推送内容
 
 ### 历史、统计与健康
@@ -161,6 +164,7 @@
 - 📨 **转发到别处** —— 收到一条幻念推送后，可按配置的**幻念通道**转发给绑定设备或一个 webhook 地址
 - ⚡ **锁屏也在收** —— 空闲时走 25 秒长轮询；SSE 门铃健康时由服务器即时唤醒，门铃断了自动退回长轮询；门铃健康时不常驻持锁，耗电比 5 秒短轮询低一个量级
 - ⚙️ **节奏自动** —— 「收取间隔」滑杆已移除，空闲节奏由长轮询 / SSE 门铃自动决定；旧版本备份里的这一档仍可恢复，但不再影响收取
+- 🚀 **常驻引擎** —— 应用进程在跑时，通知一到达即转发，不再等下一轮轮询；服务引擎起链失败按 60 秒退避，心跳跟随界面收货循环起停
 
 ### 能力分级
 

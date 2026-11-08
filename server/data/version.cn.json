@@ -1,28 +1,28 @@
 {
-  "latestVersion": "1.6.4",
-  "latestBuild": 164,
+  "latestVersion": "1.6.5",
+  "latestBuild": 165,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.75",
   "forceUpdateBuild": 115,
-  "changelog": "稳定性修复：数据库不再被误锁、实时唤醒判定更准（1.6.4）\n\n数据库：修复升级后打不开、历史与回执写不进去；原库保留，悬挂事务下次打开自动回滚。\n实时唤醒：心跳被吞时降级短轮询并每 5 分钟重探，不再每 50 秒断开；门铃健康时显示「实时唤醒已连接」。\n后台：进程被杀后接手间隔恢复 60 秒。\n投递：服务端响应未写到设备即退回队列，不再等 180 秒（需服务端部署）。",
-  "changelogEn": "Stability fixes: database no longer locks itself out, smarter real-time wake-up (1.6.4)\n\nDatabase: fixed the database failing to open after upgrade; the original file is kept and a dangling transaction rolls back on next open.\nReal-time wake-up: when heartbeats are swallowed, degrade to short polling and re-probe every 5 minutes instead of reconnecting every 50 seconds; the receiving card shows \"Real-time wake-up connected\".\nBackground: hand-off returns to 60 seconds after the process is killed.\nDelivery: the server requeues a response that never reached the device immediately instead of waiting 180 seconds (after server deployment).",
+  "changelog": "幻念收件与通道可靠性升级（1.6.5）\n\n幻念收件：常驻引擎通知到达即转发，锁屏持续接收；心跳跟随收货循环，网关异常 5→15→30→60 秒退避、5xx 降级短轮询；错误码翻成人话，配对接受 202。\n通道与送达：失败重放队列与通道分诊，状态页显示最近一次失败；一键全链路自检；送达格补 httpCode/尝试次数/耗时；Webhook 支持自定义请求头与请求方法。\n规则引擎：设备状态条件（电量/网络）进词表，模板新增 %battery% / %network%。\n稳定性：修复启动屏卡死、停止监听后通知残留、部分机型偏好设置读取失败；数据库打不开不再一律按损坏处理；首页历史入口改名「历史记录」。",
+  "changelogEn": "Smarter receiving and channel reliability (1.6.5)\n\nFnthink receiving: the receiver is now a resident engine that forwards on arrival and keeps receiving while locked; heartbeats follow the receive loop; gateway trouble backs off 5→15→30→60 s and 5xx falls back to short polling; error codes are translated and pairing accepts 202.\nChannels and delivery: failed-delivery replay queue with per-channel triage, last-failure readout on the status page, one-tap end-to-end self-check, delivery cells record httpCode/attempts/elapsed; webhooks accept custom headers and HTTP methods.\nRule engine: device-state conditions (battery/network) join the vocabulary and templates add %battery% / %network%.\nStability: fixed the splash-screen hang, the leftover listening notification after stopping, and preference-read failures on some devices; a database that fails to open is no longer treated as corrupt; the home history entry is now \"History\".",
   "downloads": {
-    "all": "https://cdn.fnthink.com/app/notice/update/1.6.4/notice_all_1.6.4+164.apk",
-    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.4/notice_arm32_1.6.4+164.apk",
-    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.4/notice_arm64_1.6.4+164.apk",
-    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.4/notice_x86_1.6.4+164.apk"
+    "all": "https://cdn.fnthink.com/app/notice/update/1.6.5/notice_all_1.6.5+165.apk",
+    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.5/notice_arm32_1.6.5+165.apk",
+    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.5/notice_arm64_1.6.5+165.apk",
+    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.5/notice_x86_1.6.5+165.apk"
   },
   "fileSizes": {
-    "all": 83031544,
-    "arm32": 26347856,
-    "arm64": 30091499,
-    "x86_64": 32206453
+    "all": 83574735,
+    "arm32": 26530597,
+    "arm64": 30257868,
+    "x86_64": 32438334
   },
   "sha256": {
-    "all": "0fd7bbe852d1d423b2e1ef495b3e4d320c5595d677bf9ebf703dbefb8f68ce52",
-    "arm32": "78ad15c366fe25904f6e4f3af65ef8fd0d642d9a04e642d9d5d237d40319cebb",
-    "arm64": "de77cf2c6de7acce1d2fe0aafc149c3a17275c6d1e79faa71fe1c1fb583bc662",
-    "x86_64": "4efe99cb58773213c8344abb57b054ada582e14950d67ea23cea263eaaf23c63"
+    "all": "db3ea63765f048ec15517c94737210f50246d4a6e3e5af4e000b082b15d61d03",
+    "arm32": "bd2a80403c0d1a254370addfe17a49ac36976fa4c5a67ff761a6b7634894c0a4",
+    "arm64": "bace4dd7f89c2f9e21d2deb6d9124bee4235c4f77bacae6ea29efc0320e2f4da",
+    "x86_64": "af6435b9a212174d98677ee9bb5fada7d4d8e80587e8ab2171c85c5d67515091"
   },
   "minSupportedVersion": "1.0.0"
 }

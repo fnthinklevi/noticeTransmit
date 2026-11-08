@@ -83,6 +83,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
 
   /// 自定义请求头（T188 片1 第②刀）：页面里是"每行 `名称: 值`"，保存时编码成对象。
   final TextEditingController _headersController = TextEditingController();
+
   /// 本机当前配置的幻念服务器 host（T227）。自部署端点也要认；读不到就只认官方两域名。
   String? _fnthinkServerHost;
 

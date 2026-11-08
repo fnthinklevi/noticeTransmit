@@ -16,7 +16,7 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.4/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.5/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
 
 🌐 **Official site**: [notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — introduction, client download and admin console
@@ -79,6 +79,8 @@ Fully bilingual (zh / en ARB; key count in the readings table under "Quality & C
 - 📨 **Fnthink Push channel** — a fourth forwarding family: multiple channels, each targeting either a checked bound device or a webhook address; incoming notifications are forwarded automatically (see [Fnthink Push](#fnthink-push))
 - 📤 **Multi-platform Adaptation** — auto-adapt message format for WeChat Work, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus, ntfy, Gotify, Slack, Discord and other platforms (ntfy / Gotify support self-hosted servers); in-app update APKs carry sha256 integrity verification, and Bark business failures are reported truthfully instead of as success
 - 💚 **Channel Health Probe** — the Webhook settings page light-probes enabled channels (any HTTP response counts as reachable; only timeout / DNS failure / connection refused is judged unreachable); channels stale for over 6 hours are re-probed in the background and persisted, and each card shows a "✓ reachable · latency · probe time" badge; business-level health is reflected by the delivery log of the most recent real push
+- 🧯 **Failed-delivery replay and triage** — failures enter per-channel-family replay queues (Webhook / email / self-built app) and are retried when due; the channel status page gained a "last failure" readout, and delivery cells now record httpCode, attempt count and elapsed time
+- 🔎 **One-tap end-to-end self-check** — from the channel page, send one minimal test message through a channel picked from each family (Fnthink uses a probe only: no delivery, no quota; the self-check writes no history)
 
 ### Rules & Automation
 
@@ -89,7 +91,8 @@ Fully bilingual (zh / en ARB; key count in the readings table under "Quality & C
 - 📦 **App Notification Aggregation** — notifications from the same app are merged into a single push within a window (60 s by default, configurable, 5 s minimum), greatly reducing message floods; supports "flush early at N items" (no need to wait for the window) and "group by conversation" (same app, different contacts aggregate separately); custom templates support `%count%` / `%titles%` variables and rule conditions support the `*` wildcard to match any app; a single message during the window is sent as a normal push; while merging, the foreground notification shows the pending list with a countdown; whether aggregation succeeds or fails, member content is always saved to push history first, and each member record is labeled with its real delivery status
 - 🏷️ **Notification Priority Levels** — system notification priority (high / medium / low) extracted natively, matchable via the "notification priority" condition; rule actions truly executed natively — silent ignore / record only / delayed push / push now
 - ⏰ **Scheduled / Delayed Push** — "delayed push" action configurable (delay seconds / schedule HH:mm), auto re-push webhook & mail when due (may be delayed by minutes in deep Doze), tasks auto-recover after process kill or reboot
-- 📝 **Push Template Engine** — custom message format (text / markdown / json / xml), variable placeholders (`%appName%` / `%title%` / `%content%`), auto-wrapped and escaped per platform, configured independently per channel
+- 📝 **Push Template Engine** — custom message format (text / markdown / json / xml), variable placeholders (`%appName%` / `%title%` / `%content%` / `%battery%` / `%network%`), auto-wrapped and escaped per platform, configured independently per channel
+- 🔋 **Device-state conditions** — battery level and network type can be used as rule conditions, evaluated on the native side at the very moment a notification arrives
 - 📟 **Home Screen Widget** — 2×2 / 4×2 dual sizes with adaptive width layout, one-tap push toggle from the home screen; shows daily push count (auto-resets at midnight); one-tap add to home screen
 - 📱 **App Filtering** — customize which apps need notification push
 - 🏷️ **Keyword Filtering** — whitelist and blacklist keyword filtering for precise push control
@@ -156,6 +159,7 @@ The usual convention for notification tools is "you hand your content to a third
 - 📨 **Forward onward** — after receiving a message, forward it through your configured **Fnthink channels** to a bound device or a webhook address
 - ⚡ **Receiving behind a locked screen** — idle polls are long-polled for 25 s; when the SSE doorbell is healthy the server wakes the device instantly, and a dropped stream falls back to long polling automatically. No permanent wake lock while the doorbell is healthy — an order of magnitude less battery than 5-second polling
 - ⚙️ **Automatic cadence** — the poll-interval slider is gone; idle cadence is decided by long polling / the SSE doorbell. An old backup can still restore that setting, but it no longer affects receiving
+- 🚀 **Resident engine** — while the app process is alive, a notification is forwarded as soon as it arrives instead of waiting for the next poll; a failed engine start backs off at 60 seconds, and heartbeats follow the UI receive loop
 
 ### Capability levels
 
