@@ -129,7 +129,11 @@ class DevUiAccessibilityService : AccessibilityService() {
     private fun gesture(
         dir: File,
         label: String,
-        x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long,
+        x1: Int,
+        y1: Int,
+        x2: Int,
+        y2: Int,
+        durationMs: Long,
     ) {
         val path = Path().apply {
             moveTo(x1.toFloat(), y1.toFloat())

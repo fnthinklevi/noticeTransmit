@@ -179,7 +179,7 @@ object RuleEngine {
         return false
     }
 
-    /// 命中第一条即停；[fallback] = 一条都没命中时的结论（通知路径是 Push，状态路径是 null）。
+    // 命中第一条即停；[fallback] = 一条都没命中时的结论（通知路径是 Push，状态路径是 null）。
     private fun decideAmong(
         sorted: List<JSONObject>,
         info: NotificationInfo,
