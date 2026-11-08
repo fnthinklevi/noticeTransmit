@@ -73,6 +73,12 @@ Future<void> fnthinkServiceEntrypoint() async {
   await _syncReceiveOwnership(coordinator, channel);
 }
 
+/// 起链失败后的重试间隔。10 秒的心跳检查照跑，但**不拿它当重试节奏**：
+/// 签名不可用/注册被限流时每 10 秒重来一次既费流量也刷日志。
+const Duration kFnthinkServiceStartRetry = Duration(seconds: 60);
+
+int _nextStartAttemptAt = 0;
+
 /// 心跳检查：新鲜 ⇒ UI 在，服务只停自己的循环（**不动闹钟**，那颗归 UI）；
 /// 过期 ⇒ UI 被收走，服务接管收货。
 Future<void> _syncReceiveOwnership(
@@ -81,17 +87,20 @@ Future<void> _syncReceiveOwnership(
 ) async {
   try {
     final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now().millisecondsSinceEpoch;
     final uiAlive = prefs.getInt(kFnthinkUiAliveKey);
-    final fresh = fnthinkUiAlive(
-      uiAlive,
-      DateTime.now().millisecondsSinceEpoch,
-    );
+    final fresh = fnthinkUiAlive(uiAlive, now);
     if (fresh) {
       if (coordinator.isRunning) coordinator.stopLoopOnly();
-    } else if (!coordinator.isRunning) {
+    } else if (!coordinator.isRunning && now >= _nextStartAttemptAt) {
       final result = await coordinator.startIfEnabled();
-      if (!result.started && result.reason != 'disabled') {
-        debugPrint('[fnthink] 服务引擎收货没起来：${result.reason}');
+      if (result.started) {
+        _nextStartAttemptAt = 0;
+      } else {
+        _nextStartAttemptAt = now + kFnthinkServiceStartRetry.inMilliseconds;
+        if (result.reason != 'disabled') {
+          debugPrint('[fnthink] 服务引擎收货没起来：${result.reason}');
+        }
       }
     }
     // 给原生报活：引擎僵尸时服务侧按 90 秒超时重建。
