@@ -32,6 +32,7 @@ import 'package:notice_transmit/services/fnthink_grant_items.dart';
 import 'package:notice_transmit/services/fnthink_pair_link.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
+import 'package:notice_transmit/services/fnthink_service_bridge.dart';
 import 'package:notice_transmit/services/fnthink_receive_loop.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
@@ -58,6 +59,9 @@ void main() {
 
   setUp(() {
     disk = {};
+    // 心跳是 10 秒周期 Timer：widget 测试的假时钟不会自己收尾，收尾检查会判
+    // "A Timer is still pending"。这一页不测心跳，关掉它，循环本身照起。
+    debugFnthinkUiHeartbeatEnabled = false;
     SharedPreferences.setMockInitialValues({
       'flutter.${'fnthink.consent_version'}': 1,
     });
@@ -67,6 +71,7 @@ void main() {
     );
   });
   tearDown(() => debugFnthinkConsentSettingsOverride = null);
+  tearDown(() => debugFnthinkUiHeartbeatEnabled = true);
   tearDown(clearNativeChannelStubs);
 
   /// `flutter_secure_storage` 与 `getFnthinkIdentity` 共用一枚桩：`disk` 就是那台机的加密盘。

@@ -23,11 +23,15 @@ bool fnthinkUiAlive(int? at, int now) {
 
 Timer? _heartbeat;
 
+/// 测试可关：周期 Timer 会挂在 `testWidgets` 的收尾检查上；生产默认开。
+bool debugFnthinkUiHeartbeatEnabled = true;
+
 /// 在 UI 主 isolate 里起心跳。**幂等**：重复调用不会叠出第二个 Timer。
 ///
-/// 它只回答"UI 引擎还活着"，不回答"收货开关开着"——所以即使用户关掉了收货，
-/// 心跳照写：服务引擎看到新鲜心跳只会停自己的循环，不会替用户去收。
+/// 它只回答"UI 收货循环在跑"，不回答"收货开关开着"——循环停了心跳就停，
+/// 服务引擎才会在窗口过期后接管。
 void startFnthinkUiHeartbeat() {
+  if (!debugFnthinkUiHeartbeatEnabled) return;
   if (_heartbeat != null) return;
   void write() {
     unawaited(() async {
@@ -46,4 +50,13 @@ void startFnthinkUiHeartbeat() {
 
   write();
   _heartbeat = Timer.periodic(const Duration(seconds: 10), (_) => write());
+}
+
+/// 停心跳。**不是清掉那枚时刻**：它自然过期，服务引擎在 30 秒窗口后接管。
+///
+/// 语义是"UI 收货循环停了"，不是"UI isolate 死了"：循环自己停（用户关开关、
+/// 起链失败、内部异常）时心跳必须跟着停，否则服务引擎会以为 UI 还在收货而一直让位。
+void stopFnthinkUiHeartbeat() {
+  _heartbeat?.cancel();
+  _heartbeat = null;
 }

@@ -110,10 +110,26 @@ class FnthinkServiceEngineContractTest {
             "UI 心跳键名不在 bridge 里 ⇒ 服务引擎读不到心跳",
             bridge.contains("kFnthinkUiAliveKey = 'fnthink_ui_alive_at'"),
         )
+        val coordinator = dart("lib/services/fnthink_receive_coordinator.dart")
         ok(
-            "UI 主 isolate 没有 startFnthinkUiHeartbeat / publishFnthinkServiceHandle",
-            dart("lib/main.dart").contains("startFnthinkUiHeartbeat") &&
-                dart("lib/main.dart").contains("publishFnthinkServiceHandle"),
+            "UI 心跳没挂在收货循环上 ⇒ 循环停了心跳仍新鲜、服务引擎不接管",
+            coordinator.contains("startFnthinkUiHeartbeat()"),
+        )
+        ok(
+            "UI 心跳没有按 fnthinkBackgroundIsolate 分档 ⇒ 服务引擎会把自己写成 UI 活着",
+            coordinator.contains("!fnthinkBackgroundIsolate"),
+        )
+        ok(
+            "stopLoopOnly 没停心跳 ⇒ UI 循环停了心跳仍新鲜",
+            coordinator.contains("stopFnthinkUiHeartbeat()"),
+        )
+        ok(
+            "main.dart 又无条件起心跳 ⇒ 循环停了心跳仍新鲜",
+            !dart("lib/main.dart").contains("startFnthinkUiHeartbeat"),
+        )
+        ok(
+            "main.dart 没有发布服务引擎 handle",
+            dart("lib/main.dart").contains("publishFnthinkServiceHandle"),
         )
     }
 

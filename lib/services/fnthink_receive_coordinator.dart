@@ -19,6 +19,7 @@ import 'fnthink_receipt_apply.dart';
 import 'fnthink_receipt_watchdog.dart';
 import 'fnthink_receive_loop.dart';
 import 'fnthink_receiver_service.dart';
+import 'fnthink_service_bridge.dart';
 import 'fnthink_settings.dart';
 import 'fnthink_stream_service.dart';
 import 'native_channel_invalidator.dart';
@@ -853,7 +854,12 @@ class FnthinkReceiveCoordinator {
   /// 按当前设置决定要不要开始。已经在跑就是幂等 ——
   /// 两个循环读同一条队列的表现是同一条 ack 两次、未读数上下跳。
   Future<FnthinkStartResult> startIfEnabled() async {
-    if (isRunning) return (started: true, reason: 'already-running');
+    if (isRunning) {
+      // 心跳跟着"循环在跑"走，不跟着 isolate 走：循环若曾停过又在这里续上，
+      // 心跳也必须重新开始，否则服务引擎会一直以为 UI 还在收货。
+      if (!fnthinkBackgroundIsolate) startFnthinkUiHeartbeat();
+      return (started: true, reason: 'already-running');
+    }
 
     final resolved = await _resolveSpec(requireEnabled: true);
     if (resolved.reason != null) {
@@ -877,6 +883,8 @@ class FnthinkReceiveCoordinator {
     // T181 B：循环一开就把常驻轮询档打开，不要等第一轮跑完（否则第一颗
     // 20 秒的 Timer 还是按旧节奏排的）。
     _presence(keepAwake: true);
+    // UI 心跳 = "UI 这台引擎的收货循环在跑"。服务引擎里（背景 isolate）不写。
+    if (!fnthinkBackgroundIsolate) startFnthinkUiHeartbeat();
     debugPrint('[fnthink] 收货循环已启动 → ${resolved.spec!.baseUri}');
     return (started: true, reason: 'started');
   }
@@ -1840,6 +1848,9 @@ class FnthinkReceiveCoordinator {
   void stopLoopOnly() {
     _loop?.stop();
     _loop = null;
+    // 循环停了，UI 心跳必须跟着停：服务引擎看到旧心跳会一直让位，
+    // 而实际上已经没人收货了。服务引擎那颗 isolate 不写心跳，这里不会误停。
+    if (!fnthinkBackgroundIsolate) stopFnthinkUiHeartbeat();
   }
 
   /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
