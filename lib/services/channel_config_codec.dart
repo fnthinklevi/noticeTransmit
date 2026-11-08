@@ -86,6 +86,10 @@ class ChannelConfigCodec {
     // 用户手动选择，不重探测覆盖。
     if (channelType.isEmpty) {
       channelType = WebhookChannel.detectTypeFromUrl(url).value;
+    } else if (channelType == 'generic' &&
+        WebhookChannel.isOfficialFnthinkHost(url)) {
+      // T227③：已存的通用通道按 URL 就地重判一次（只改 type，不动 URL/密钥/历史）。
+      channelType = WebhookChannelType.fnthink.value;
     }
     return {
       'id': row['id']?.toString() ?? '',

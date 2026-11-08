@@ -18,6 +18,20 @@
       "key": "generic"
     },
     {
+      "capabilities": [],
+      "hosts": [
+        "push.fnthink.com",
+        "push.fnthink.top"
+      ],
+      "nativeType": "FNTHINK",
+      "textLimitChars": null,
+      "iconKey": "fnthink",
+      "family": "webhook",
+      "labelKey": "channelTypeFnthink",
+      "fields": [],
+      "key": "fnthink"
+    },
+    {
       "capabilities": [
         "secretUsed",
         "customTemplate",

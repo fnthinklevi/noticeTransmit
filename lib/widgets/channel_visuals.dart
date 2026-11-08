@@ -169,6 +169,9 @@ const Map<String, ChannelVisual> _channelVisuals = {
     icon: Icons.inbox,
     color: AppColors.purple,
     labelKey: 'fnthinkPush',
+    // T227：描述符类型与内建幻念通道共用 slug，但说明文字各写各的那一句
+    //（这里描述的是「把端点 URL 填进 webhook 通道」这一种用法）。
+    descKey: 'platformFnthinkDesc',
   ),
 };
 
@@ -256,6 +259,8 @@ String channelLabelFor(AppLocalizations l10n, String labelKey) {
       return l10n.channelTypeSlack;
     case 'channelTypeDiscord':
       return l10n.channelTypeDiscord;
+    case 'channelTypeFnthink':
+      return l10n.channelTypeFnthink;
     case 'channelTypeGeneric':
       return l10n.channelTypeGeneric;
     case 'channelTypeWecomApp':
@@ -276,6 +281,8 @@ String channelLabelFor(AppLocalizations l10n, String labelKey) {
       return l10n.platformGeneric;
     case 'platformWechatDesc':
       return l10n.platformWechatDesc;
+    case 'platformFnthinkDesc':
+      return l10n.platformFnthinkDesc;
     case 'platformNtfyDesc':
       return l10n.platformNtfyDesc;
     case 'platformGotifyDesc':

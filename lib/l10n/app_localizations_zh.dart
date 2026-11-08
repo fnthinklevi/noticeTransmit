@@ -1039,6 +1039,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get platformWechatDesc => '文本格式推送';
 
   @override
+  String get platformFnthinkDesc => '自家幻念端点：URL 带端点口令，POST JSON，2xx 即受理';
+
+  @override
   String get platformGenericDesc => '自定义 JSON 格式';
 
   @override
@@ -2854,6 +2857,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get channelTypeDiscord => 'Discord 通知';
+
+  @override
+  String get channelTypeFnthink => '幻念推送';
+
+  @override
+  String get channelTypeRedetect => '重新识别';
+
+  @override
+  String get channelTypeRedetectUnknown => '没认出这家端点，仍按通用 Webhook';
 
   @override
   String get platformNtfyDesc => '向 ntfy topic 推送通知，支持官方与自建服务器（可选访问令牌）';

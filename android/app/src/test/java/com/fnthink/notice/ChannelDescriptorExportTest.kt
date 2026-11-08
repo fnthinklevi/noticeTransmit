@@ -79,8 +79,8 @@ class ChannelDescriptorExportTest {
         val keys = all.map { it["key"] as String }
         assertEquals("描述符 key 不得重复", keys.size, keys.toSet().size)
         assertEquals(
-            "webhook 12 + 应用通道 2 + 邮件 1",
-            mapOf("webhook" to 12, "app" to 2, "email" to 1),
+            "webhook 13 + 应用通道 2 + 邮件 1",
+            mapOf("webhook" to 13, "app" to 2, "email" to 1),
             all.groupBy { it["family"] as String }.mapValues { it.value.size },
         )
         for (d in all) {

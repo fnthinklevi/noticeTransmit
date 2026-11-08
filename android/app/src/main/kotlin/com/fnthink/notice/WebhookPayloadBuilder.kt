@@ -18,6 +18,8 @@ object WebhookPayloadBuilder {
         GOTIFY,
         SLACK,
         DISCORD,
+        // T227：幻念自家端点（webhook 形态）。追加在末尾，不改既有枚举的 ordinal。
+        FNTHINK,
     }
 
     /** 自动识别通道类型：host 规则集中在 ChannelRegistry 描述符表；无匹配回退 GENERIC */

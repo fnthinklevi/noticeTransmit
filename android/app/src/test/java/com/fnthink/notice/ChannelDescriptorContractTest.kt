@@ -416,12 +416,12 @@ class ChannelDescriptorContractTest {
 
     @Test
     fun requiresJsonContract_isDeclaredExplicitly() {
-        // 200 + 非 JSON body 是否算成功。false 的只有 5 家，且必须逐名点出来：
+        // 200 + 非 JSON body 是否算成功。false 的只有 6 家，且必须逐名点出来：
         // 少一家 = 自建端点的 200 "OK" 被误判失败（大面积误报）；
         // 多一家 = 反代/门户回的 200 + HTML 被当成送达（假成功、静默丢内容）。
         val noJsonContract = specs.filter { !it.requiresJsonContract }.map { it.type.name }.toSet()
         assertEquals(
-            setOf("GENERIC", "NTFY", "GOTIFY", "SLACK", "DISCORD"),
+            setOf("GENERIC", "FNTHINK", "NTFY", "GOTIFY", "SLACK", "DISCORD"),
             noJsonContract
         )
         assertEquals(

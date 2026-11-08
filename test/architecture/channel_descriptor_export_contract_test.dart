@@ -34,14 +34,14 @@ void main() {
         ..removeWhere((k, _) => k.startsWith('@'));
 
   group('导出快照自身', () {
-    test('15 条：12 webhook + 2 应用通道 + 1 邮件', () {
-      expect(descriptors, hasLength(15));
+    test('16 条：13 webhook + 2 应用通道 + 1 邮件', () {
+      expect(descriptors, hasLength(16));
       final families = <String, int>{};
       for (final d in descriptors) {
         final f = d['family'] as String;
         families[f] = (families[f] ?? 0) + 1;
       }
-      expect(families, {'webhook': 12, 'app': 2, 'email': 1});
+      expect(families, {'webhook': 13, 'app': 2, 'email': 1});
     });
 
     test('key 唯一且是 slug 口径', () {
@@ -168,12 +168,12 @@ void main() {
   });
 
   group('提示文案不得互相借用（roadmap E8）', () {
-    test('12 个 webhook 通道各有一句自己的说明，且两两不同', () {
+    test('13 个 webhook 通道各有一句自己的说明，且两两不同', () {
       final slugs = descriptors
           .where((d) => d['family'] == 'webhook')
           .map((d) => d['key'] as String)
           .toList();
-      expect(slugs, hasLength(12));
+      expect(slugs, hasLength(13));
 
       final seen = <String, String>{};
       for (final slug in slugs) {

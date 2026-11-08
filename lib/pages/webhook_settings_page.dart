@@ -9,6 +9,7 @@ import '../services/channel_config_codec.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_health_store.dart';
 import '../services/channel_url_policy.dart';
+import '../services/fnthink_settings.dart';
 import '../services/platform_channel.dart';
 import '../services/template_variables.dart';
 import '../services/webhook_service.dart';
@@ -82,6 +83,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
 
   /// 自定义请求头（T188 片1 第②刀）：页面里是"每行 `名称: 值`"，保存时编码成对象。
   final TextEditingController _headersController = TextEditingController();
+  /// 本机当前配置的幻念服务器 host（T227）。自部署端点也要认；读不到就只认官方两域名。
+  String? _fnthinkServerHost;
+
   // 'auto' = 按 URL host 探测，否则为用户手动指定的类型（自建代理等场景）
   String _channelType = 'auto';
 
@@ -97,6 +101,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     _descriptors = GetIt.instance<ChannelDescriptorService>();
     _health = GetIt.instance<ChannelHealthStore>();
     _service = GetIt.instance<WebhookService>();
+    // T227：本机当前配置的幻念服务器 host（读不到就只按官方两域名识别）。
+    unawaited(_loadFnthinkServerHost());
     final wanted = widget.channelId ?? '';
     // ⚠ 只把库里的值**读进本页的标量字段**，不就地改服务里的那条：
     // 未点保存就返回时，列表页按库里的内容重刷，用户不该看到"改了又弹回去"。
@@ -167,13 +173,50 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     super.dispose();
   }
 
+  /// T227：本机当前配置的幻念服务器 host。读不到就只按官方两域名识别。
+  Future<void> _loadFnthinkServerHost() async {
+    try {
+      final host = await GetIt.instance<FnthinkSettings>().host;
+      if (mounted && host.isNotEmpty) {
+        setState(() => _fnthinkServerHost = host);
+      }
+    } catch (_) {
+      // 契约没就绪/设置不可读：不拦保存，只是认不出自部署端点。
+    }
+  }
+
+  Set<String> get _fnthinkHosts =>
+      _fnthinkServerHost == null ? const {} : {_fnthinkServerHost!};
+
+  /// T227：换服务器后老通道不会自动跟着变，这里给一次显式重判（只改类型，
+  /// 不动 URL／密钥／历史）。
+  void _redetectChannelType(BuildContext context) {
+    final detected = WebhookChannel.detectTypeFromUrl(
+      _urlController.text,
+      extraHosts: _fnthinkHosts,
+    );
+    final slug = detected.value;
+    final isGeneric = slug == 'generic';
+    setState(() => _channelType = slug);
+    final l10n = AppLocalizations.of(context);
+    _showToast(
+      isGeneric
+          ? l10n.channelTypeRedetectUnknown
+          : l10n.channelTypeAutoWith(_channelTypeLabel(context, slug)),
+      !isGeneric,
+    );
+  }
+
   /// 本行的**有效类型 slug**：手动指定优先，'auto' 时按 URL host 探测。
   ///
   /// 用 slug 而不是 Dart 枚举（第 5 步起）：「Dart 有没有登记这个平台」不该决定
   /// 界面能不能显示它 —— 原生新增通道时 Dart 不再需要跟着加枚举臂。
   String get _effectiveSlug {
     if (_channelType.isNotEmpty && _channelType != 'auto') return _channelType;
-    return WebhookChannel.detectTypeFromUrl(_urlController.text).value;
+    return WebhookChannel.detectTypeFromUrl(
+      _urlController.text,
+      extraHosts: _fnthinkHosts,
+    ).value;
   }
 
   /// 本行的描述符（原生表）；描述符未拉到时 null，调用方按"不收窄"处理。
@@ -248,7 +291,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       'url': url,
       'name': _nameController.text.trim(),
       'channelType': (manual == 'auto' || manual.isEmpty)
-          ? WebhookChannel.detectTypeFromUrl(url).value
+          ? WebhookChannel.detectTypeFromUrl(
+              url,
+              extraHosts: _fnthinkHosts,
+            ).value
           : manual,
       'enabled': _enabled,
       // 新建通道**不再默认「主」**（维护者 1.5.76 反馈 #2）：起点是「未设置」，由用户去通道

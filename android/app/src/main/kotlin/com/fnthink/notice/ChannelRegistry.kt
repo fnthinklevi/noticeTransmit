@@ -268,6 +268,104 @@ internal object ChannelRegistry {
                 }
             },
         ),
+        // T227：幻念自家端点（官方两域名）。载荷与判定与 GENERIC 同形 ——
+        // 端点用 HTTP 状态表达成败（2xx + {"ok":true,...} 即受理），不另造解析规格。
+        // 自部署服务器不在静态 hosts 里：Dart 保存时把 host 纳入识别并写死 channel_type，
+        // 原生按 storedTokens 认得；这里的名单只给"没写过类型"的兜底。
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.FNTHINK,
+            hosts = listOf("push.fnthink.com", "push.fnthink.top"),
+            // 端点认证靠 URL 里那段长期口令，不验签 —— 签名层必须完全不动请求。
+            signature = SignatureScheme.NONE,
+            // 端点 202 + {"ok":true,...}；反代错误页可能是非 JSON ⇒ 与 GENERIC 同一条宽容规则
+            requiresJsonContract = false,
+            // T227 只做识别与发送形状：端点只接受固定 JSON，模板/格式/自定义头都不适用
+            //（RAW_BODY 与 CUSTOM_HEADERS 都只许通用 webhook）。
+            transport = ChannelTransport(
+                templateSupport = TemplateSupport.DISABLED,
+            ),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildGeneric(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    packageName = packageName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType,
+                    extras = extras
+                )
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                JSONObject().apply {
+                    put("type", "test")
+                    put("title", title)
+                    put("content", content)
+                    put("deviceName", deviceName)
+                    put("timestamp", System.currentTimeMillis())
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("type", "sms")
+                    put("sender", sender)
+                    put("message", message)
+                    put("time", time)
+                    put("deviceName", deviceName)
+                    put("timestamp", System.currentTimeMillis())
+                    if (simInfo != null) put("simInfo", simInfo)
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("type", "call_$state")
+                    put("phoneNumber", phoneNumber)
+                    put("callState", state)
+                    put("time", time)
+                    if (durationStr.isNotEmpty()) put("duration", durationStr)
+                    put("deviceName", deviceName)
+                    put("timestamp", System.currentTimeMillis())
+                    if (simInfo != null) put("simInfo", simInfo)
+                }.toString()
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
+                // 与 GENERIC 同一套判定：code / errcode 为 0 才算业务成功，两者都缺视为 HTTP 成功。
+                val code = json.optInt("code", -1)
+                val errcode = json.optInt("errcode", -1)
+                val message = json.optString(
+                    "message",
+                    json.optString("msg", json.optString("errmsg", ""))
+                )
+                if (json.has("code") && code != 0) {
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
+                        "业务失败 code=$code: $message", false
+                    )
+                } else if (json.has("errcode") && errcode != 0) {
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
+                        "业务失败 errcode=$errcode: $message", false
+                    )
+                } else {
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.SUCCESS, httpCode,
+                        if (message.isNotEmpty()) message else "OK", false
+                    )
+                }
+            },
+        ),
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.WECHAT_WORK,
             hosts = listOf("qyapi.weixin.qq.com"),

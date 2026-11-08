@@ -95,6 +95,19 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: _buildChannelTypeSelector(context)),
+                // T227：换过幻念服务器后老通道不会自动跟着变 —— 这里给一次显式重判。
+                IconButton(
+                  key: const ValueKey('webhook-redetect-type'),
+                  tooltip: l10n.channelTypeRedetect,
+                  onPressed: () => _redetectChannelType(context),
+                  icon: const Icon(Icons.autorenew, size: 18),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                ),
               ],
             ),
             if (_supportsSigning) ...[
@@ -557,8 +570,10 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
   Widget _buildChannelTypeSelector(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isAuto = _channelType.isEmpty || _channelType == 'auto';
-    final detectedSlug = WebhookChannel.detectTypeFromUrl(_urlController.text)
-        .value;
+    final detectedSlug = WebhookChannel.detectTypeFromUrl(
+      _urlController.text,
+      extraHosts: _fnthinkHosts,
+    ).value;
     final display = isAuto
         ? (detectedSlug == 'generic'
               ? l10n.channelTypeAuto
@@ -628,8 +643,10 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
   /// （要么就这样，要么给 `IosPickerOption` 补一个带底色的口）；先按现状换，不自己改样式。
   Future<void> _showChannelTypePicker(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
-    final detectedSlug = WebhookChannel.detectTypeFromUrl(_urlController.text)
-        .value;
+    final detectedSlug = WebhookChannel.detectTypeFromUrl(
+      _urlController.text,
+      extraHosts: _fnthinkHosts,
+    ).value;
 
     final picked = await showIosOptionPicker<String>(
       context,

@@ -1975,6 +1975,12 @@ abstract class AppLocalizations {
   /// **'文本格式推送'**
   String get platformWechatDesc;
 
+  /// No description provided for @platformFnthinkDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'自家幻念端点：URL 带端点口令，POST JSON，2xx 即受理'**
+  String get platformFnthinkDesc;
+
   /// No description provided for @platformGenericDesc.
   ///
   /// In zh, this message translates to:
@@ -5310,6 +5316,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'Discord 通知'**
   String get channelTypeDiscord;
+
+  /// No description provided for @channelTypeFnthink.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念推送'**
+  String get channelTypeFnthink;
+
+  /// No description provided for @channelTypeRedetect.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新识别'**
+  String get channelTypeRedetect;
+
+  /// No description provided for @channelTypeRedetectUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'没认出这家端点，仍按通用 Webhook'**
+  String get channelTypeRedetectUnknown;
 
   /// No description provided for @platformNtfyDesc.
   ///

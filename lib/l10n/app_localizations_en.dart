@@ -1079,6 +1079,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get platformWechatDesc => 'Text format push';
 
   @override
+  String get platformFnthinkDesc =>
+      'Your own Fnthink endpoint: the URL carries the endpoint secret; POST JSON, 2xx means accepted';
+
+  @override
   String get platformGenericDesc => 'Custom JSON format';
 
   @override
@@ -2974,6 +2978,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get channelTypeDiscord => 'Discord Notification';
+
+  @override
+  String get channelTypeFnthink => 'Fnthink Push';
+
+  @override
+  String get channelTypeRedetect => 'Re-detect';
+
+  @override
+  String get channelTypeRedetectUnknown =>
+      'Endpoint not recognized; kept as Generic Webhook';
 
   @override
   String get platformNtfyDesc =>

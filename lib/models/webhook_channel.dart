@@ -16,6 +16,8 @@ enum WebhookChannelType {
   gotify,
   slack,
   discord,
+  // T227：幻念自家端点（webhook 形态）。显示名与送达键复用内建「幻念推送」那一族。
+  fnthink,
 }
 
 extension WebhookChannelTypeExtension on WebhookChannelType {
@@ -45,6 +47,8 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'slack';
       case WebhookChannelType.discord:
         return 'discord';
+      case WebhookChannelType.fnthink:
+        return 'fnthink';
     }
   }
 
@@ -113,6 +117,9 @@ class WebhookChannel {
     (WebhookChannelType.ntfy, ['ntfy.sh']),
     (WebhookChannelType.slack, ['hooks.slack.com']),
     (WebhookChannelType.discord, ['discord.com', 'discordapp.com']),
+    // T227：幻念官方两域名（与契约 `transport` 的两台推送服务器一致）。
+    // 自部署服务器不在这张静态表里，由调用方通过 `extraHosts` 传本机设置里的 host。
+    (WebhookChannelType.fnthink, ['push.fnthink.com', 'push.fnthink.top']),
     // 自建 ntfy / Gotify 的 host 不可枚举：类型由用户手动选择
     //（detectTypeFromUrl 兜底 generic，原生侧同样回退 GENERIC）
   ];
@@ -122,15 +129,35 @@ class WebhookChannel {
   static List<(WebhookChannelType, List<String>)> get platformRules =>
       _platformRules;
 
-  static WebhookChannelType detectTypeFromUrl(String url) {
+  /// [extraHosts]：本机当前配置的幻念服务器 host（自部署）。名单不在这里另存一份 ——
+  /// 调用方从幻念设置那一处读出来传进来；官方两域名在 [_platformRules] 里。
+  static WebhookChannelType detectTypeFromUrl(
+    String url, {
+    Set<String> extraHosts = const {},
+  }) {
     final host = _extractHost(url);
     if (host == null) return WebhookChannelType.generic;
+
+    if (extraHosts.contains(host)) return WebhookChannelType.fnthink;
 
     // host 精确匹配（与 Kotlin 端一致），新增平台只需在 _platformRules 中追加一行
     for (final (type, hosts) in _platformRules) {
       if (hosts.contains(host)) return type;
     }
     return WebhookChannelType.generic;
+  }
+
+  /// 这个 URL 是不是**官方**幻念端点（T227③：已存 generic 老配置就地重判用）。
+  /// 自部署 host 不在静态表里 —— 那要拿本机设置，走 [detectTypeFromUrl] 的 [extraHosts]。
+  static bool isOfficialFnthinkHost(String url) {
+    final host = _extractHost(url);
+    if (host == null) return false;
+    for (final (type, hosts) in _platformRules) {
+      if (type == WebhookChannelType.fnthink && hosts.contains(host)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// 从 URL 提取小写 host（与 Kotlin 端 WebhookPayloadBuilder.extractHost 保持一致）。

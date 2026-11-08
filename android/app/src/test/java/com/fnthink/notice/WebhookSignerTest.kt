@@ -140,6 +140,8 @@ class WebhookSignerTest {
             WebhookPayloadBuilder.WebhookType.DINGTALK to SignatureScheme.URL_TIMESTAMP_MILLIS,
             WebhookPayloadBuilder.WebhookType.FEISHU to SignatureScheme.FEISHU_PAYLOAD_JSON,
             WebhookPayloadBuilder.WebhookType.GENERIC to SignatureScheme.HEADER_HEX_BODY,
+            // 幻念端点用 URL 口令认证，不验签（T227）
+            WebhookPayloadBuilder.WebhookType.FNTHINK to SignatureScheme.NONE,
             WebhookPayloadBuilder.WebhookType.NTFY to SignatureScheme.BEARER_HEADER,
             // 以下平台凭据在 URL / body 里，签名层必须完全不动请求
             WebhookPayloadBuilder.WebhookType.TELEGRAM to SignatureScheme.NONE,

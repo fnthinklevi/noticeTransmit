@@ -1,6 +1,7 @@
 {
   "payloads": {
     "notify:TELEGRAM": "{\"disable_web_page_preview\":true,\"text\":\"【微信】\\n标题：测试标题\\n内容：测试内容\\n时间：2026-01-01 10:00:00\\n设备：我的设备\",\"chat_id\":\"12345\"}",
+    "notify:FNTHINK": "{\"appName\":\"微信\",\"k1\":\"v1\",\"packageName\":\"com.tencent.mm\",\"time\":\"2026-01-01 10:00:00\",\"title\":\"测试标题\",\"type\":\"notification\",\"deviceName\":\"我的设备\",\"content\":\"测试内容\",\"timestamp\":0}",
     "sms:BARK": "{\"title\":\"短信 - 10086\",\"body\":\"【新短信】\\n发送号码：10086\\n短信内容：验证码 1234\\n时间：2026-01-01 10:00:00\\n设备：我的设备\\n卡1，中国移动\"}",
     "call:PUSH_PLUS": "{\"title\":\"来电 [卡1，中国移动] - 13800138000\",\"content\":\"【来电提醒】\\n来电号码：13800138000\\n时间：2026-01-01 10:00:00\\n设备：我的设备\\n卡1，中国移动\"}",
     "test:DINGTALK": "{\"text\":{\"content\":\"【测试通知】\\n这是一条测试消息，Webhook 配置成功！\\n\\n设备：我的设备\"},\"msgtype\":\"text\"}",
@@ -18,6 +19,7 @@
     "notify:DISCORD": "{\"content\":\"【微信】\\n标题：测试标题\\n内容：测试内容\\n时间：2026-01-01 10:00:00\\n设备：我的设备\"}",
     "sms:GOTIFY": "{\"title\":\"短信 - 10086\",\"message\":\"【新短信】\\n发送号码：10086\\n短信内容：验证码 1234\\n时间：2026-01-01 10:00:00\\n设备：我的设备\\n卡1，中国移动\"}",
     "notify:NTFY": "【微信】\n标题：测试标题\n内容：测试内容\n时间：2026-01-01 10:00:00\n设备：我的设备",
+    "test:FNTHINK": "{\"type\":\"test\",\"title\":\"测试通知\",\"deviceName\":\"我的设备\",\"content\":\"这是一条测试消息，Webhook 配置成功！\",\"timestamp\":0}",
     "test:FEISHU": "{\"msg_type\":\"text\",\"content\":{\"text\":\"【测试通知】\\n这是一条测试消息，Webhook 配置成功！\\n\\n设备：我的设备\"}}",
     "notify:WECHAT_WORK": "{\"text\":{\"content\":\"【微信】\\n标题：测试标题\\n内容：测试内容\\n时间：2026-01-01 10:00:00\\n设备：我的设备\"},\"msgtype\":\"text\"}",
     "notify:PUSH_PLUS": "【微信】\n标题：测试标题\n内容：测试内容\n时间：2026-01-01 10:00:00\n设备：我的设备",
@@ -43,12 +45,14 @@
     "sms:WECHAT_WORK": "{\"text\":{\"content\":\"【新短信】\\n发送号码：10086\\n短信内容：验证码 1234\\n时间：2026-01-01 10:00:00\\n设备：我的设备\\n卡1，中国移动\"},\"msgtype\":\"text\"}",
     "sms:DINGTALK": "{\"text\":{\"content\":\"【新短信】\\n发送号码：10086\\n短信内容：验证码 1234\\n时间：2026-01-01 10:00:00\\n设备：我的设备\\n卡1，中国移动\"},\"msgtype\":\"text\"}",
     "test:SLACK": "{\"text\":\"【测试通知】\\n这是一条测试消息，Webhook 配置成功！\\n\\n设备：我的设备\"}",
+    "call:FNTHINK": "{\"phoneNumber\":\"13800138000\",\"simInfo\":\"卡1，中国移动\",\"time\":\"2026-01-01 10:00:00\",\"type\":\"call_ringing\",\"deviceName\":\"我的设备\",\"callState\":\"ringing\",\"timestamp\":0}",
     "test:GOTIFY": "{\"title\":\"测试通知\",\"message\":\"这是一条测试消息，Webhook 配置成功！\\n\\n设备：我的设备\"}",
     "notify:SLACK": "{\"text\":\"【微信】\\n标题：测试标题\\n内容：测试内容\\n时间：2026-01-01 10:00:00\\n设备：我的设备\"}",
     "call:SLACK": "{\"text\":\"【来电提醒】\\n来电号码：13800138000\\n时间：2026-01-01 10:00:00\\n设备：我的设备\\n卡1，中国移动\"}",
     "test:WECHAT_WORK": "{\"text\":{\"content\":\"【测试通知】\\n这是一条测试消息，Webhook 配置成功！\\n\\n设备：我的设备\"},\"msgtype\":\"text\"}",
     "call:GOTIFY": "{\"title\":\"来电 [卡1，中国移动] - 13800138000\",\"message\":\"【来电提醒】\\n来电号码：13800138000\\n时间：2026-01-01 10:00:00\\n设备：我的设备\\n卡1，中国移动\"}",
     "call:WECHAT_WORK": "{\"text\":{\"content\":\"【来电提醒】\\n来电号码：13800138000\\n时间：2026-01-01 10:00:00\\n设备：我的设备\\n卡1，中国移动\"},\"msgtype\":\"text\"}",
+    "sms:FNTHINK": "{\"sender\":\"10086\",\"simInfo\":\"卡1，中国移动\",\"time\":\"2026-01-01 10:00:00\",\"type\":\"sms\",\"message\":\"验证码 1234\",\"deviceName\":\"我的设备\",\"timestamp\":0}",
     "test:PUSH_PLUS": "{\"title\":\"测试通知\",\"deviceName\":\"我的设备\",\"content\":\"这是一条测试消息，Webhook 配置成功！\\n\\n设备：我的设备\"}"
   },
   "parses": {

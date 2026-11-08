@@ -175,7 +175,7 @@ void main() {
         12,
         reason: '未从描述符表解析到 12 个数字序号（0..11），守卫会假绿',
       );
-      expect(kotlinNames.length, 12, reason: '描述符表条目数与 WebhookType 枚举不符（12 个）');
+      expect(kotlinNames.length, 13, reason: '描述符表条目数与 WebhookType 枚举不符（13 个）');
 
       final dartSrc = stripComments(
         File('$root/lib/services/channel_display.dart').readAsStringSync(),

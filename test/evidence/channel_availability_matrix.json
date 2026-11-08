@@ -111,6 +111,14 @@
       "realSend": { "state": "unverified" }
     },
     {
+      "type": "fnthink",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
       "type": "wecom_app",
       "family": "app",
       "payloadEvidence": "jvm:AppChannelSpecTest",

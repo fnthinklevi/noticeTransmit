@@ -205,10 +205,10 @@ class ChannelBehaviorGoldenTest {
         val actual = payloadMatrix()
         val (golden, _) = loadOrGenerate(actual, parseMatrix())
         assertTrue(
-            "载荷快照条目数应为 50（实际 ${golden.size}）：48 条 notify/test/sms/call + 2 条 body 覆写。" +
+            "载荷快照条目数应为 54（实际 ${golden.size}）：52 条 notify/test/sms/call（13 类 × 4）+ 2 条 body 覆写。" +
                 "数量掉了说明矩阵用例被删/合并，零 diff 就不再是证据；" +
                 "确实要改条目数时，连同本行与 §12.3 基线一起显式改",
-            golden.size == 50
+            golden.size == 54
         )
         val drift = actual.filter { (k, v) -> golden[k] != v }
         assertEquals(

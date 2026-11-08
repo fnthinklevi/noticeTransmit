@@ -34,13 +34,13 @@ void main() {
   void answer(Object? Function(MethodCall) h) => handler = h;
 
   group('解析', () {
-    test('导出快照能整份解析：15 条、族分布正确', () async {
+    test('导出快照能整份解析：16 条、族分布正确', () async {
       answer(descriptorCallResponse);
       final service = ChannelDescriptorService();
       await service.load();
       expect(service.isReady, isTrue);
-      expect(service.all, hasLength(15));
-      expect(service.webhook, hasLength(12));
+      expect(service.all, hasLength(16));
+      expect(service.webhook, hasLength(13));
       expect(service.appChannels, hasLength(2));
       expect(service.email, isNotNull);
     });

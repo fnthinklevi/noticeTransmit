@@ -84,13 +84,14 @@ void main() {
     test('矩阵与 golden 快照的规模固定（拦住"筛出 0 行 ⇒ 下面所有循环空跑"的假绿）', () {
       expect(
         rows(),
-        hasLength(15),
-        reason: 'T08-C 起 email 也算一类，类型总数是 15；这数字变了要先说清楚少了谁',
+        hasLength(16),
+        reason: 'T08-C 起 email 也算一类，T227 起幻念端点算一类，类型总数是 16；'
+            '这数字变了要先说清楚少了谁',
       );
       expect(payloadKeys(), isNotEmpty, reason: '载荷快照一枚都没解出来 ⇒ 指针核对全体退化成空断言');
       expect(
         rowsWithPayload('golden'),
-        hasLength(12),
+        hasLength(13),
         reason: 'golden 指针行数漂了：下面那条"四个场景键都在"覆盖的行数就变了',
       );
       expect(
