@@ -59,6 +59,13 @@ class FnthinkPresenceWorker(appContext: Context, params: WorkerParameters) :
 
     override fun doWork(): Result {
         FnthinkDiag.markWorkerStarted(applicationContext)
+        // T197 片3：常驻服务引擎已经在跑收货循环时，这一轮 one-shot 是重复的 ——
+        // 再起一颗引擎只会让两条 poll 并行（重复 ack、未读数上下跳）。
+        if (FnthinkServiceEngine.isAlive()) {
+            Log.i(TAG, "presence-round-skipped:service-engine-alive")
+            FnthinkDiag.markWorkerFinished(applicationContext, "skipped:service-engine")
+            return Result.success()
+        }
         val prefs =
             applicationContext.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         // 入口 handle 由 Dart 在前台写（PluginUtilities.getCallbackHandle）。键名带 `flutter.`

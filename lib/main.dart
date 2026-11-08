@@ -21,6 +21,8 @@ import 'services/locale_service.dart';
 import 'services/archive_worker.dart';
 import 'services/fnthink_receive_coordinator.dart';
 import 'services/fnthink_fanout_entrypoint.dart';
+import 'services/fnthink_service_bridge.dart';
+import 'services/fnthink_service_entrypoint.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +59,10 @@ void main() {
       // 表现是每一条通知都落进待发队列然后被原生丢掉（日志一行 no-entry-handle），
       // 而界面上看不出任何异常。写失败不拦启动：这一族不写只是不自动转发。
       unawaited(publishFnthinkFanoutEntryHandle());
+      // T197 片3：服务里的常驻引擎入口 + UI 存活心跳。两者一起写/起：
+      // 服务引擎靠心跳判断"UI 还在不在"，没有心跳它会一直以为自己该接管。
+      unawaited(publishFnthinkServiceHandle());
+      startFnthinkUiHeartbeat();
     },
     (error, stackTrace) {
       log('全局未捕获异常: $error', error: error, stackTrace: stackTrace);

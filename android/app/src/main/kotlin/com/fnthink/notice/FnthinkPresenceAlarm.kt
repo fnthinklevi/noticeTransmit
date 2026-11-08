@@ -168,7 +168,7 @@ class FnthinkPresenceAlarm(private val context: Context) {
      * ⚠ 键名是两端各写一份的字符串 —— Dart 那边改名，这里永远读到 false，表现是"闹钟从此
      * 不在开机后重排"，而全场测试仍然绿。那对关系由 `test/architecture/fnthink_presence_guard_test.dart` 钉。
      */
-    private fun receiveEnabled(): Boolean = try {
+    internal fun receiveEnabled(): Boolean = try {
         flutterPrefs().getBoolean("flutter.fnthink.receive_enabled", false)
     } catch (e: Exception) {
         false

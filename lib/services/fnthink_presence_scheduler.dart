@@ -88,8 +88,16 @@ class FnthinkPresenceScheduler {
     }
 
     if (!await publishEntryHandle()) {
-      debugPrint('[fnthink] 拿不到后台入口 handle ⇒ 这次不排闹钟（排了也起不了引擎，白耗一次唤醒）');
-      return;
+      // 服务里的常驻引擎是另一颗 isolate：`PluginUtilities.getCallbackHandle` 在
+      // 非根 isolate 里拿不到新 handle，但 prefs 里那枚由 UI 写好的仍然有效 ——
+      // 只要它还在就继续排。旧写法在这里直接 return，结果是从服务引擎起的那一轮
+      // **再也不排兜底闹钟**，进程被 ROM 收走后没有任何东西接手。
+      final prefs = await SharedPreferences.getInstance();
+      if ((prefs.getInt(kFnthinkPresenceHandleKey) ?? 0) == 0) {
+        debugPrint('[fnthink] 拿不到后台入口 handle ⇒ 这次不排闹钟（排了也起不了引擎，白耗一次唤醒）');
+        return;
+      }
+      debugPrint('[fnthink] 后台入口 handle 没重写成功，沿用 prefs 里已有的那一枚');
     }
     // 常驻档活着时，闹钟只当"进程被杀"的兜底：退到契约允许的**最慢**那一档，
     // 循环还在跑时它不会真的响；循环一停，最迟那一档之后由 worker 接手。

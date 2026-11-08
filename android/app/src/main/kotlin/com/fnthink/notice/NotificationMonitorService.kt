@@ -171,6 +171,9 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookSender.activate()
         appChannelSender = AppChannelSender(this)
         configManager = ConfigManager(this)
+        // T197 片3：服务里的常驻幻念引擎。周期 ensure 而不是只在 onCreate 建一次 ——
+        // App 首次冷启动前 handle 还不存在，用户也可能中途才开启幻念通道。
+        startFnthinkServiceEngineLoop()
         registerDelayedPushReceiver()
         registerMergePushReceiver()
 
@@ -206,6 +209,28 @@ class NotificationMonitorService : NotificationListenerService() {
         // 永久丢失（通知仍驻留通知栏），延迟 1.5 秒（等初始化完成）后按持久化水位
         // 补扫仍驻留的通知（主线程调用，activeNotifications 仅主线程可读）
         mainHandler.postDelayed({ recoverMissedOnStartup() }, 1500L)
+    }
+
+    // T197 片3：常驻幻念引擎的 ensure 环。
+    //
+    // 30 秒一轮而不是只在 onCreate 建一次，理由有三：
+    //  - App 首次冷启动前 `fnthink_service_handle` 还不存在；
+    //  - 用户可能中途才开启幻念通道（配置读的是当下值）；
+    //  - 引擎僵尸由 `FnthinkServiceEngine` 自己按 alive 超时重建，这里只负责叫它。
+    private fun startFnthinkServiceEngineLoop() {
+        serviceScope.launch {
+            while (isActive) {
+                try {
+                    val wanted =
+                        configManager.getFnthinkChannelConfigs().isNotEmpty() ||
+                            FnthinkPresenceAlarm(this@NotificationMonitorService).receiveEnabled()
+                    FnthinkServiceEngine.ensure(applicationContext, wanted)
+                } catch (e: Exception) {
+                    Log.w(TAG, "fnthink-service-engine ensure failed", e)
+                }
+                delay(30_000L)
+            }
+        }
     }
 
     // —— 短信库兜底监听：SMS_RECEIVED 广播丢失时，改从短信库捕获并补推 ——
@@ -795,6 +820,7 @@ class NotificationMonitorService : NotificationListenerService() {
         stopDeviceStateWatchers()
         RetryQueue.stopWatching()
         FnthinkScreenLock.release()
+        FnthinkServiceEngine.stop()
         stopFnthinkWakeTriggers()
         // 小部件存活证据：进程还在的最后一刻把"我停了"写下去并重绘 —— 这是划掉应用后
         // 能**立刻**变灰的唯一时机（serviceScope 已 cancel，故走同步 commit）。
@@ -1959,7 +1985,9 @@ class NotificationMonitorService : NotificationListenerService() {
                     )
                     DiagLog.w(TAG, "幻念待发队列已满，最旧一条未转发，已回传未送达: ${dropped.appName}")
                 }
-                FnthinkFanoutWorker.schedule(this)
+                // T197 片3：常驻引擎在服务里就直接排空（通知到达即发，不再等 WorkManager
+                // 的作业调度/60 秒闹钟）；引擎不可用才退回 WorkManager 那枚 one-shot。
+                FnthinkFanoutNow.request(this)
                 Log.d(
                     TAG,
                     "Fnthink fanout queued: ${devices.size} device targets, dropped ${result.dropped.size}",

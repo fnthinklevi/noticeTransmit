@@ -59,26 +59,34 @@ class FnthinkFanoutQueueTest {
     // ===== 落队这一发只有一处 =====
 
     @Test
-    fun `落队与排引擎只出现在 dispatchToChannels 里`() {
+    fun `落队与触发引擎只出现在 dispatchToChannels 里`() {
         val svc = native("NotificationMonitorService.kt")
         assertEquals(
             1,
             Regex("""FnthinkFanoutQueue\(""").findAll(svc).count(),
             "幻念落队点出现了第二处 ⇒ 有一条路径绕过了收口函数的推送暂停与主备裁决"
         )
+        // T197 片3：服务里只许触发常驻引擎；WorkManager 那枚 one-shot 是兜底，
+        // 只许住在 FnthinkServiceEngine 里。服务里再出现第二处就是绕过了常驻引擎。
         assertEquals(
-            1,
+            0,
             Regex("""FnthinkFanoutWorker\.schedule\(""").findAll(svc).count(),
-            "排引擎出现了第二处 ⇒ 那一处多半没排在落队之后（队列会攒着不发）"
+            "服务里仍有直接排 WorkManager 的点 ⇒ 通知到达时会绕过常驻引擎"
+        )
+        val engine = native("FnthinkServiceEngine.kt")
+        assertEquals(
+            2,
+            Regex("""FnthinkFanoutWorker\.schedule\(""").findAll(engine).count(),
+            "常驻引擎的两处兜底缺一不可：引擎调用失败一处、根本没有引擎（FnthinkFanoutNow）一处"
         )
         // 两件事必须**相邻**：先排后落队的表现是这一轮起引擎时读到空队列，
         // 而那一条会一直留到下一条通知才被带出去。
         val funnel = svc.substringAfter("private fun dispatchFnthink(").substringBefore("\n    }\n")
         val enqueueAt = funnel.indexOf("queue.enqueue(")
-        val scheduleAt = funnel.indexOf("FnthinkFanoutWorker.schedule(")
+        val scheduleAt = funnel.indexOf("FnthinkFanoutNow.request(")
         assertTrue(
             enqueueAt >= 0 && scheduleAt >= 0 && enqueueAt < scheduleAt,
-            "必须先落队再排引擎（源码里顺序反了）"
+            "必须先落队再触发引擎（源码里顺序反了）"
         )
     }
 

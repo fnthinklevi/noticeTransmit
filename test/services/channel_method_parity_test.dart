@@ -133,10 +133,13 @@ void main() {
     // 与持锁。Dart 侧每轮续一次、关接收时撤一次；原生那一头对应 `FnthinkLiveMode`。
     // 127 → 128（T197 片2）：`refreshFnthinkScreenLock` —— 用户在本页翻「锁屏持续接收」
     // 或总开关时，让服务按此刻屏幕/开关立刻对一次锁；不主动叫就要等 5 分钟续期。
-    test('原生方法总数 == 129（防止分支被静默删除/新增未登记）', () {
+    // 128 → 130（T197 片3）：服务常驻引擎的 `alive`（Dart 报活，原生据此判断僵尸）
+    // 与 `fanoutNow`（原生叫 Dart 排空待发队列）。两枚都挂在独立通道
+    // `com.fnthink.notice/service` 上，由 `FnthinkServiceEngine` 自己注册 handler。
+    test('原生方法总数 == 130（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        129,
+        130,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -182,6 +185,9 @@ void main() {
         // 与上面那个形状相同、通道不同 —— 合成一个 worker 会让「收货要等下一次闹钟」
         // 和「转发要等下一条通知」共用一个 latch，而它们的截止时刻完全不同。
         'FnthinkFanoutWorker': 1,
+        // T197 片3：服务里的常驻引擎。`alive` 是 Dart 主动报活（原生据此判僵尸）；
+        // 它不走 ChannelDispatcher，和上面两个 worker 同一类独立 handler。
+        'FnthinkServiceEngine': 1,
       });
     });
 
@@ -296,6 +302,9 @@ Map<String, List<String>> _nativeChannelMethods(String root) {
         'FnthinkPresenceWorker.kt',
     '$root/android/app/src/main/kotlin/com/fnthink/notice/'
         'FnthinkFanoutWorker.kt',
+    // T197 片3：常驻服务引擎的独立通道（`alive` 回报口）。
+    '$root/android/app/src/main/kotlin/com/fnthink/notice/'
+        'FnthinkServiceEngine.kt',
   ];
 
   final branchPattern = RegExp(r'"([A-Za-z0-9_]+)"\s*->');

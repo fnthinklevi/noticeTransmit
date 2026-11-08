@@ -1833,10 +1833,18 @@ class FnthinkReceiveCoordinator {
     }
   }
 
-  /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
-  void stop() {
+  /// 只停自己这颗 isolate 的循环，**不动闹钟**。
+  ///
+  /// 服务引擎在 UI 心跳回来时用它交班：闹钟归 UI 那颗 isolate 排，
+  /// 这里再撤一次会把 UI 刚排上的那颗顶掉（两边共用一个原生 PendingIntent）。
+  void stopLoopOnly() {
     _loop?.stop();
     _loop = null;
+  }
+
+  /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
+  void stop() {
+    stopLoopOnly();
     // 关掉接收 ⇒ 闹钟一起撤（与 `startIfEnabled` 那条早退同一口径：醒着的意义就是去取货）。
     _presence(keepAwake: false);
   }
