@@ -208,6 +208,12 @@ function ingressFromContract(contract) {
         '是一件要写下来并连同理由一起改的决定，不是实现里顺手的一个 if',
     );
   }
+  if (typeof src.acceptAppName !== 'boolean') {
+    throw shapeError(
+      'endpoint.ingress.acceptAppName 必须是布尔：端点形态到底接不接来源应用名（T226）' +
+        '是一件要写下来并连同理由一起改的决定，不是实现里顺手的一个 if',
+    );
+  }
   const grant = capabilities.endpointGrant(contract);
   return {
     pathPattern,
@@ -217,6 +223,8 @@ function ingressFromContract(contract) {
     methodStatus: Number(src.postOnlyMethodStatus ?? ep.postOnlyMethodStatus),
     maxTitleChars: intOf(src.maxTitleChars, 'maxTitleChars'),
     maxBodyChars,
+    acceptAppName: src.acceptAppName,
+    maxAppNameChars: intOf(src.maxAppNameChars, 'maxAppNameChars'),
     unifiedPushMaxPayloadBytes: upMax,
     endpointGrant: grant,
     capabilityReceipt: String(src.rejectedCapabilityReceipt || 'rejected_capability'),
@@ -263,6 +271,12 @@ function readIngress(contract, query, body) {
   return {
     title: pickField(contract, 'title', source),
     body: pickField(contract, 'body', source),
+    // T226：可选来源应用名（别名表在契约 fieldTolerance.appName）。它不参与裁决，
+    // 只随 title/body 一起封进已签信封的 `a` 键。
+    appName:
+      (((contract || {}).endpoint || {}).ingress || {}).acceptAppName === true
+        ? pickField(contract, 'appName', source)
+        : '',
     type: coerceIngressType(contract, one('type')),
     level: one('level'),
     item: one('item'),
@@ -489,7 +503,8 @@ function decideIngress(contract, ingress, state, input) {
     }
     if (
       [...message.title].length > ingress.maxTitleChars ||
-      [...message.body].length > ingress.maxBodyChars
+      [...message.body].length > ingress.maxBodyChars ||
+      [...String(message.appName || '')].length > ingress.maxAppNameChars
     ) {
       return {
         ok: false,

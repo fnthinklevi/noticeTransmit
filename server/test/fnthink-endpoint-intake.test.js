@@ -95,7 +95,7 @@ describe('端点收单：两种形态与字段容错（T39）', () => {
     // 目标不是请求里给的（maySpecifyTarget=false），而是端点记录上那台设备
     expect(mine.sender).toBe(`endpoint:${endpoint.id}`);
     const content = ms.decryptBodyFor(contract, process.env.ENCRYPTION_KEY, mine.body);
-    expect(content).toEqual({ title: '机箱', body: '温度 63 度' });
+    expect(content).toEqual({ title: '机箱', body: '温度 63 度', appName: '' });
   });
 
   test('POST + Bearer 形态收单 ⇒ 202，正文字段优先于同名 query', async () => {
@@ -130,6 +130,34 @@ describe('端点收单：两种形态与字段容错（T39）', () => {
       expect(stored).not.toHaveProperty(stray);
     }
     expect(JSON.stringify(res.body)).not.toContain('没人认的键');
+  });
+
+  test('T226：端点可带来源应用名 ⇒ 与标题/正文同封一个信封，设备侧才读得到', async () => {
+    const res = await request(app)
+      .post(postPath())
+      .set(bearer())
+      .send({ title: '构建完成', body: '3 分 12 秒', appName: 'GitHub Actions' });
+    expect(res.status).toBe(status);
+    const stored = ms.loadMessages()[res.body.messageId];
+    // 应用名不建列：记录里没有这个键（不进审计、不进日志），它只在信封里。
+    expect(stored).not.toHaveProperty('appName');
+    const content = ms.decryptBodyFor(contract, process.env.ENCRYPTION_KEY, stored.body);
+    expect(content.appName).toBe('GitHub Actions');
+    expect(content.title).toBe('构建完成');
+  });
+
+  test('T226：应用名超长是 400，不静默截断也不落消息', async () => {
+    const before = Object.keys(ms.loadMessages()).length;
+    const res = await request(app)
+      .post(postPath())
+      .set(bearer())
+      .send({
+        title: '标题',
+        body: '正文',
+        appName: 'x'.repeat(ingress.maxAppNameChars + 1),
+      });
+    expect(res.status).toBe(statusCode(contract, 'badRequest'));
+    expect(Object.keys(ms.loadMessages()).length).toBe(before);
   });
 
   // T99：第三方推进来的正文十有八九嵌一层。旧实现只读顶层，于是钉钉/企业微信那种

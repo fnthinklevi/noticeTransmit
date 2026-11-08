@@ -1324,6 +1324,8 @@ function handleEndpointIngress(req, res, endpointId, secret, method) {
       title: verdict.opaque ? '' : message.title,
       body: verdict.opaque ? verdict.payload.toString('base64') : message.body,
       dedupeId: verdict.opaque ? '' : message.dedupeId,
+      // T226：端点形态带来的来源应用名，随信封一起封（不建列、不进日志）。
+      appName: verdict.opaque ? '' : message.appName,
     },
     now,
     process.env.ENCRYPTION_KEY,

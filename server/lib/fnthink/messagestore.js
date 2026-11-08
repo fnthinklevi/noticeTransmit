@@ -52,13 +52,22 @@ function isPollable(contract, state) {
 
 /// 标题与正文一起装进同一个密信封 —— 分开存就是把标题明文留在盘上，
 /// 而验证码、金额、姓名常常就在标题里。
-function sealContent(contract, envKey, title, body) {
-  return encryptBody(contract, envKey, JSON.stringify({ t: title || '', b: body || '' }));
+function sealContent(contract, envKey, title, body, appName = '') {
+  return encryptBody(
+    contract,
+    envKey,
+    JSON.stringify({ t: title || '', b: body || '', a: appName || '' }),
+  );
 }
 
 function openContent(contract, envKey, envelope) {
   const parsed = JSON.parse(decryptBody(contract, envKey, envelope));
-  return { title: parsed.t || '', body: parsed.b || '' };
+  return {
+    title: parsed.t || '',
+    body: parsed.b || '',
+    // T226：端点入口带来的来源应用名。不建列、不进日志，只封在同一个信封里。
+    appName: typeof parsed.a === 'string' ? parsed.a : '',
+  };
 }
 
 /// 管理面（T45 投递状态视图）能看到的一行。**逐字段挑，不许 spread**：
@@ -143,9 +152,9 @@ function appendTrail(contract, message, step, now) {
   message.trail = overflow > 0 ? entries.slice(overflow) : entries;
 }
 
-/// 这两个是**输入**而不是存储字段：标题被装进密信封、dedupe_id 被折成摘要。
+/// 这几个是**输入**而不是存储字段：标题与应用名被装进密信封、dedupe_id 被折成摘要。
 /// 把它们算进 droppedFields 会让调用方以为"我给的字段被扔了"，其实是被换了个形式存。
-const CONSUMED = ['title', 'dedupeId'];
+const CONSUMED = ['title', 'dedupeId', 'appName'];
 
 /// 白名单裁剪：名单之外的入参一律丢弃。
 /// 「只保留必要字段」没有名单就只是一句愿望，所以名单在契约 `retention.storedFields` 里。
@@ -269,7 +278,7 @@ function enqueue(contract, messages, input, now, envKey) {
       }
       const { node, dropped } = pickStoredFields(contract, input);
       Object.assign(existing, node);
-      existing.body = sealContent(contract, envKey, input.title, input.body);
+      existing.body = sealContent(contract, envKey, input.title, input.body, input.appName);
       existing.queuedAt = now;
       existing.updatedAt = now;
       messages[existing.messageId] = existing;
@@ -306,7 +315,7 @@ function enqueue(contract, messages, input, now, envKey) {
     // 与"这条留痕是空的"是两件事。
     trail: [],
     trailDropped: 0,
-    body: sealContent(contract, envKey, input.title, input.body),
+    body: sealContent(contract, envKey, input.title, input.body, input.appName),
   };
 
   messages[message.messageId] = message;

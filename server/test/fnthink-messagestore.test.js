@@ -69,6 +69,8 @@ describe('正文静态加密（T34-B 的核心那条）', () => {
     expect(store.decryptBodyFor(contract, KEY, message.body)).toEqual({
       title: '标题7',
       body: '正文7-MARKER-7',
+      // T226：应用名与标题/正文同封一个信封；签名面没带就回空串。
+      appName: '',
     });
   });
 

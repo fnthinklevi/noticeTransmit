@@ -197,6 +197,10 @@
       "content.text",
       "data.content"
     ],
+    "appName": [
+      "appName",
+      "app_name"
+    ],
     "rule": "first-non-empty",
     "ignoreUnknownFields": true,
     "_why": "每接一个第三方平台都要改服务端是不可接受的；别名表就是这份契约的一部分",
@@ -355,6 +359,9 @@
       },
       "maxTitleChars": 200,
       "maxBodyChars": 4000,
+      "acceptAppName": true,
+      "maxAppNameChars": 100,
+      "_appNameWhy": "T226：端点形态也要能把来源应用名带进收件行（此前只有签名面 T172 的信封里有 `a`，端点在 readIngress 处把它丢了）。它不是协议动作、不参与裁决，只是那条通知自己的展示字段 ⇒ 可选、缺失回空串、超长按 maxAppNameChars 判 400（与 title/body 同一条「不静默截断」纪律）。服务端只把它封进同一个已签信封的 `a` 键（deviceSend.titleEnvelope.appNameKey），不建列、不进日志、不进审计。",
       "_sizeWhy": "超了是 400 明确拒，**不是静默截断** —— 通知正文被剪掉一半而发送方以为发出去了，比拒收更难排查（这条是产品不变量里「不静默丢」那一半）。两个数都不许大于 limits.requestBodyMaxBytes：字符数上限比字节闸还宽等于没有这条限制。",
       "insecureTransport": "reject",
       "_insecureTransportWhy": "明文传输时口令就裸奔在路径段里（谁在链路上都能看到），HTTPS-only 因此是协议承诺而不是运维建议，默认 reject。本地或内网直连 http 的部署要显式打开 `FNTHINK_ALLOW_INSECURE_ENDPOINT=1` —— 开关放在环境变量而不是契约里，因为它是**部署事实**，不是协议事实（把部署事实写进协议文件，就会出现「改了协议文件才能连本机」这种荒谬）。",
@@ -363,7 +370,7 @@
       "_unknownTypeAsWhy": "第三方 webhook 载荷里那枚 `type` 是**它自己的通知分类**（资讯类应用写 `msg`、监控写 `alert`、CI 写 `warning`），不是向我们申请一个协议动作。旧实现把它裸读成协议字段、拿去 `capabilities.messageTypes` 查，查不到就 403 + rejected_capability —— 表现是「这一面当不了通用 webhook」，而这一面存在的全部理由就是接住任意第三方（维护者 2026-10-09 定的口径：要的是能接收三方对 webhook 的调用，不是为自家软件做特调）。所以取值**不在词表上**的 `type` 一律折成本值再进裁决。⚠ 折价只在这一支：写着词表内的 `action`／`setting`（或 `level` 高于本面档位上限）仍然是 403，那是明确的越权请求，本面给不了。为什么这样不降权：本面投出去的东西由 `capabilities.endpointMaxLevel` 定死，载荷里的字只能让它更少、不能让它更多。⚠ 双端校验器各钉两条方向：本值必须在 `capabilities.messageTypes` 的键上（不许拿一个词表外的词当「回退」，那是把 unknown-type 那道闸往后推给设备），且它的 `minLevel` 不许高于 `endpointMaxLevel`（回退这一发本身不许是升权）。",
       "ignoreItemField": true,
       "_ignoreItemFieldWhy": "`item` 是设备侧的**动作钩子**（从 `capabilities.itemRequiredFromLevel` 那一档起逐条勾选）。本面的授权清单恒为空（`capabilities.endpointGrant`），落队那一位也**恒写成空串**（`server/lib/fnthink/routes.js` 里 enqueue 的 `item: ''`，由用例钉住）⇒ 第三方带来的 `item` 结构上不可能变成一次动作，它只是那条通知自己的一个字段名（工单、电商、监控都叫它 `item`）。true = 当噪音忽略；false = 旧行为（带 item 一律 403 + rejected_capability）。⚠ 把它读成 true 的前提是「落队那一发不转发 item」这条实现不变量还在，两处要同一批改 —— 少了这个前提，忽略就等于把动作钩子放进一条普通通知。",
-      "_levelWhy": "端点这一面**产出的东西**由 `capabilities.endpointMaxLevel`（当前 L1）决定，不由载荷决定：`type` 与 `level` 只有写着词表内那三个词／档位内那三档时才算越权请求，才 403 + rejected_capability，而且走 `capabilities.endpointGrant` 那份裁决（**不在这里再写一份档位表**）；词表外的取值按 `unknownTypeAs` 折价或忽略，`item` 按 `ignoreItemField` 处理。⚠ 「多余的字段一律忽略」这句对外话今天只对了一半：`appName`／`timestamp`／`level: high`／`item: 4521` 确实被忽略，唯一还会被拒的是载荷里恰好写着 `action`／`setting`／`L2`／`L3` 这几个词。教程、README 与部署手册都按这一句写，别再写成无条件的一律忽略。"
+      "_levelWhy": "端点这一面**产出的东西**由 `capabilities.endpointMaxLevel`（当前 L1）决定，不由载荷决定：`type` 与 `level` 只有写着词表内那三个词／档位内那三档时才算越权请求，才 403 + rejected_capability，而且走 `capabilities.endpointGrant` 那份裁决（**不在这里再写一份档位表**）；词表外的取值按 `unknownTypeAs` 折价或忽略，`item` 按 `ignoreItemField` 处理。⚠ 「多余的字段一律忽略」这句对外话今天要按字段说：`appName` 自 T226 起**可选接受**（见 `_appNameWhy`，只进已签信封、不参与裁决），`timestamp`／`level: high`／`item: 4521` 确实被忽略，唯一还会被拒的是载荷里恰好写着 `action`／`setting`／`L2`／`L3` 这几个词。教程、README 与部署手册都按这一句写，别再写成无条件的一律忽略。"
     },
     "probe": {
       "_why": "端点档的**干跑**（T106 片①b）：问一句「这条入口现在收不收得进」，而一条都不投递。它存在的理由与签名面那条 `/probe` 完全同一条：没有它，一个 webhook 目标的通道就只能靠真发一条去测（对面会收到一条他没要过的消息），于是这一族的健康度永远只由人手动测那两枚写。⚠ 它**不是** clientEvents.probe 的第二份实现，也不许合并成一条路由：那边靠 Ed25519 签名证明是谁、查的是「这台到那台的关系与档位立不立得住」，这边靠一把共享长期口令、查的是「这把口令还对吗、这个来源被允许吗、这条端点还活着且绑着设备吗」。两类发送方的鉴权根本不同 —— 硬共用的话，口令就得塞进被签的载荷，而每一条 clientEvents 的 mayNotCarry 里明令禁的正是 endpointSecret 这一件事。",
