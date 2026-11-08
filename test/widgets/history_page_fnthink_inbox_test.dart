@@ -17,6 +17,7 @@ import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart';
+import 'package:notice_transmit/widgets/history_row_tile.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
 
 import '../test_setup.dart';
@@ -553,6 +554,24 @@ void main() {
         find.textContaining('${l10n(tester).fnthinkReceivedAt}\uff1a'),
         findsOneWidget,
         reason: '收件档那个时间是**本机收到**的时刻，不写词就会被当作对方发的时刻读',
+      );
+    });
+
+    testWidgets('收件/发出的时刻显示到秒', (tester) async {
+      table = [row('m_sec')];
+      await pump(tester);
+      await toInbox(tester);
+      final expected = historyRowTime(1780000000000, withSeconds: true);
+      expect(
+        find.text(expected),
+        findsOneWidget,
+        reason: '行内时刻只到分 ⇒ 对延迟时长的读数只能精确到分钟',
+      );
+      await open(tester, 'm_sec');
+      expect(
+        find.textContaining(expected),
+        findsWidgets,
+        reason: '详情里那一句「接收时间」也必须到秒',
       );
     });
 

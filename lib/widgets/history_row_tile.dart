@@ -266,9 +266,12 @@ enum HistoryRowCorner {
 /// 此前 `history_page` 与 `device_snapshot_page` 各写一份 `MM-dd HH:mm`（形状恰好一样），
 /// 而远程执行那一页**根本没有时间**：不是漏了一列，是那一页没有可借的那一支笔。
 /// 0 与 null 都回空串（调用方据此**不画那一格**，别画一个 1970）。
-String historyRowTime(int? ms) {
+String historyRowTime(int? ms, {bool withSeconds = false}) {
   if (ms == null || ms == 0) return '';
   final dt = DateTime.fromMillisecondsSinceEpoch(ms);
   String two(int v) => v.toString().padLeft(2, '0');
-  return '${two(dt.month)}-${two(dt.day)} ${two(dt.hour)}:${two(dt.minute)}';
+  final clock =
+      '${two(dt.hour)}:${two(dt.minute)}'
+      '${withSeconds ? ':${two(dt.second)}' : ''}';
+  return '${two(dt.month)}-${two(dt.day)} $clock';
 }

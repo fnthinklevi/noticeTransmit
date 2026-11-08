@@ -874,12 +874,12 @@ class _HistoryPageState extends State<HistoryPage> {
 
   /// 时间那一格的格式化在 `widgets/history_row_tile.dart`（T148：那一列此前每页一份笔）。
   /// 这里只留"输入可能是 String"这一层（DB 里存的形态两种都有）。
-  String _formatTime(dynamic timestamp) {
+  String _formatTime(dynamic timestamp, {bool withSeconds = false}) {
     if (timestamp == null) return '';
     final ms = timestamp is int
         ? timestamp
         : int.tryParse(timestamp.toString()) ?? 0;
-    return historyRowTime(ms);
+    return historyRowTime(ms, withSeconds: withSeconds);
   }
 
   Color _getTypeColor(BuildContext context, String? type) {
@@ -2352,7 +2352,7 @@ class _HistoryPageState extends State<HistoryPage> {
       // 时间此前混在那串散文里（`发件人 · 备用 · 03-01 12:00`），拆成自己的格子才有对齐的右列
       // —— 这是 T148 差异②（各页时间列不一致）里收件那一半。
       // ⚠ 发出档里 `receivedAt` 记的是本机**发出**的时刻（含义随方向变，与 `sender` 同一套两用）。
-      time: historyRowTime(m.receivedAt),
+      time: historyRowTime(m.receivedAt, withSeconds: true),
       source: outgoing ? '${l10n.fnthinkRecipient}：$peer' : peer,
       badges: [
         // 未读点只跟着表里的 read 那一列；已读就**不画**这个点（不画 ≠ 画一个透明的占位）。
@@ -2594,17 +2594,17 @@ class _HistoryPageState extends State<HistoryPage> {
                     outgoing
                         ? '${l10n.fnthinkRecipient}：'
                               '${message.sender.isEmpty ? l10n.unknown : _senderText(message.sender)} · '
-                              '${l10n.fnthinkSentAt}：${_formatTime(message.receivedAt)}'
+                              '${l10n.fnthinkSentAt}：${_formatTime(message.receivedAt, withSeconds: true)}'
                               // T105 片③：对面收下那一刻（服务端回执带回来的）。
                               // 0＝还不知道（对面还没 ack／旧服务端）—— 那时这一句不出现。
-                              '${message.ackedAt > 0 ? ' · ${l10n.fnthinkPeerAckedAt}：${_formatTime(message.ackedAt)}' : ''}'
+                              '${message.ackedAt > 0 ? ' · ${l10n.fnthinkPeerAckedAt}：${_formatTime(message.ackedAt, withSeconds: true)}' : ''}'
                               '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}'
                         : '${l10n.fnthinkSender}：'
                               '${message.sender.isEmpty ? l10n.unknown : _senderText(message.sender)} · '
-                              '${l10n.fnthinkReceivedAt}：${_formatTime(message.receivedAt)}'
+                              '${l10n.fnthinkReceivedAt}：${_formatTime(message.receivedAt, withSeconds: true)}'
                               // T105 片②：服务端给过受理时刻才出这一句
                               // （旧行与旧服务端是 0 ⇒ 不出现，而不是画一个 1970 年的时刻）。
-                              '${message.sentAt > 0 ? ' · ${l10n.fnthinkSentAt}：${_formatTime(message.sentAt)}' : ''}'
+                              '${message.sentAt > 0 ? ' · ${l10n.fnthinkSentAt}：${_formatTime(message.sentAt, withSeconds: true)}' : ''}'
                               '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}',
                     style: TextStyle(
                       fontSize: 12,
@@ -2922,7 +2922,7 @@ class _HistoryPageState extends State<HistoryPage> {
       identity: group.id,
       title: group.isDelay ? l10n.historyGroupDelay : l10n.historyGroupMerge,
       subtitle: group.title.isEmpty ? null : group.title,
-      time: historyRowTime(group.at),
+      time: historyRowTime(group.at, withSeconds: true),
       source: group.appName.isEmpty ? null : group.appName,
       badges: [_tagBadge(context, l10n.historyGroupBadge, AppColors.blue)],
       statusMessage: l10n.historyGroupTally(view.total, view.failed),
@@ -3059,7 +3059,7 @@ class _HistoryPageState extends State<HistoryPage> {
       keyNamespace: 'history-group-member',
       identity: record.id,
       title: record.title.isEmpty ? l10n.noTitle : record.title,
-      time: historyRowTime(record.postTime),
+      time: historyRowTime(record.postTime, withSeconds: true),
       subtitle: record.content.isEmpty ? null : record.content,
       source: record.appName.isEmpty ? null : record.appName,
       statusMessage: [
@@ -3095,7 +3095,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final title = record.title.isNotEmpty ? record.title : l10n.noTitle;
     final content = record.content;
     final appName = record.appName;
-    final time = _formatTime(record.postTime);
+    final time = _formatTime(record.postTime, withSeconds: true);
     final isKnownType = _isKnownType(type);
     final color = isKnownType
         ? _getTypeColor(context, type)

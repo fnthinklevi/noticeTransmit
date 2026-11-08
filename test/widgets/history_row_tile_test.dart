@@ -44,6 +44,14 @@ void main() {
       );
       expect(t, '10-12 09:07');
     });
+
+    test('withSeconds 时多到秒，给幻念收发与转发那一族用', () {
+      final t = historyRowTime(
+        DateTime(2026, 10, 12, 9, 7, 5).millisecondsSinceEpoch,
+        withSeconds: true,
+      );
+      expect(t, '10-12 09:07:05');
+    });
   });
 
   group('行的形状与 key', () {

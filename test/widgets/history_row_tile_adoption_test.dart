@@ -53,7 +53,7 @@ void main() {
       'appName': '驿站',
       'packageName': 'com.example.station',
       // ⚠ 这里的戳必须**按本地时区造**，不能写裸毫秒数。`historyRowTime` 用
-      // `DateTime.fromMillisecondsSinceEpoch`（本地解释），而期望值 `'09-25 10:40'`
+      // `DateTime.fromMillisecondsSinceEpoch`（本地解释），而期望值 `'09-25 10:40:00'`
       // 是本地读数：写死 1758768000000 只在 +08 的机器上等于 10:40，CI 的 runner 是
       // UTC ⇒ 那一格画成 `09-25 02:40`，本机绿而 CI 红（2026-10-14 实测：TZ=UTC 可复现）。
       // 同仓 `history_row_tile_test.dart` 里那支笔自己的用例用的就是这个造法。
@@ -132,7 +132,7 @@ void main() {
     await pumpHistory(tester, oneRecord());
 
     expect(find.byKey(const ValueKey('history-time-n-adopt')), findsOneWidget);
-    expect(find.text('09-25 10:40'), findsOneWidget);
+    expect(find.text('09-25 10:40:00'), findsOneWidget);
   });
 
   testWidgets('长按那一行还是出菜单（换壳不许把差异⑤换没了）', (tester) async {
@@ -221,8 +221,8 @@ void main() {
       tester
           .widget<Text>(find.byKey(const ValueKey('fnthink-inbox-time-m-in')))
           .data,
-      historyRowTime(1780000000000),
-      reason: '时间格交给件里那支笔（差异②：各页时间列不一致）',
+      historyRowTime(1780000000000, withSeconds: true),
+      reason: '时间格交给件里那支笔；幻念收发行要求到秒（差异②：各页时间列不一致）',
     );
     expect(
       tester
