@@ -32,6 +32,30 @@ import androidx.core.content.edit
 import com.fnthink.notice.BuildConfig
 import kotlinx.coroutines.*
 
+/**
+ * 历史广播里的 `routedChannels`：本轮真正交给发送器的通道类型（跨语言线值）。
+ *
+ * 为什么必须带：Dart 入库时会给**所有启用通道**预置 `pending`，而主备路由只把其中
+ * 一部分交给发送器 —— 没被选中的备用通道永远等不到回执，历史就一直显示「在途」。
+ * 带过去的这一份让 Dart 只给真正会发出去的通道建快照。
+ *
+ * 线值必须与送达回传同源：webhook 取枚举名（`WECHAT_WORK`），应用取 `cfg.type`
+ * （`wecom_app`），邮件/幻念各一枚固定值。Dart 侧 `channelDeliveryKey` 负责归一。
+ */
+internal fun routedDeliveryTypes(
+    webhookTypes: List<String>,
+    appTypes: List<String>,
+    hasEmail: Boolean,
+    hasFnthink: Boolean,
+): List<String> {
+    val out = ArrayList<String>(webhookTypes.size + appTypes.size + 2)
+    out.addAll(webhookTypes)
+    out.addAll(appTypes)
+    if (hasEmail) out.add("EMAIL")
+    if (hasFnthink) out.add("fnthink")
+    return out.distinct()
+}
+
 class NotificationMonitorService : NotificationListenerService() {
     companion object {
         private const val TAG = "NotificationMonitorService"
@@ -1728,7 +1752,11 @@ class NotificationMonitorService : NotificationListenerService() {
             { r: WebhookResponseParser.ParseResult -> outer(r, routed.viaBackup) }
         }
 
-        if (alsoBroadcastRecord) webhookSender.sendBroadcast(info)
+        if (alsoBroadcastRecord) {
+            // 只有这一条路知道本轮真正路由到哪些通道；历史快照必须按这一份建，
+            // 否则没被选中的备用通道会在历史里永远停在「在途」。
+            webhookSender.sendBroadcast(info, routedChannels = routed.deliveryTypes)
+        }
         webhookSender.sendWebhooksOnly(
             info,
             force = force,
@@ -1764,7 +1792,18 @@ class NotificationMonitorService : NotificationListenerService() {
         val fnthinks: List<FnthinkChannelConfig>,
         /** 本轮为「降级走备用」：直接取 [ChannelRouting.Decision.engagedBackup]，不自行推断 */
         val viaBackup: Boolean,
-    )
+    ) {
+        /**
+         * 本轮真正交给发送器的通道类型。历史广播带这一份，Dart 才不会把没被选中的
+         * 备用通道也预置成「在途」。线值与送达回传同源，见 [routedDeliveryTypes]。
+         */
+        val deliveryTypes: List<String> = routedDeliveryTypes(
+            webhooks.map { it.type.name },
+            apps.map { it.type },
+            emails.isNotEmpty(),
+            fnthinks.isNotEmpty(),
+        )
+    }
 
     /**
      * 主备路由（T12）：四族候选合成**一次**决策。

@@ -326,4 +326,46 @@ class ChannelRoutingContractTest {
         // 两条链**各自**调没调 applyDecision：那条口径在 WebhookRoutingTest（它按文件计数），
         // 这里只钉"这个键只有一个所有者"，同一个判断不写两遍。
     }
+
+    @Test
+    fun `本轮路由到哪些通道要随历史广播带给 Dart`() {
+        assertEquals(
+            listOf("WECHAT_WORK", "DINGTALK", "wecom_app", "EMAIL", "fnthink"),
+            routedDeliveryTypes(
+                listOf("WECHAT_WORK", "DINGTALK"),
+                listOf("wecom_app"),
+                hasEmail = true,
+                hasFnthink = true,
+            ),
+            "四族线值必须与送达回传同源（webhook 枚举名 / 应用 cfg.type / EMAIL / fnthink）",
+        )
+        assertEquals(
+            listOf("WECHAT_WORK"),
+            routedDeliveryTypes(
+                listOf("WECHAT_WORK", "WECHAT_WORK"),
+                emptyList(),
+                hasEmail = false,
+                hasFnthink = false,
+            ),
+            "同一类型多条配置共用一个送达键，广播里不许重复",
+        )
+        assertEquals(
+            emptyList<String>(),
+            routedDeliveryTypes(emptyList(), emptyList(), hasEmail = false, hasFnthink = false),
+            "一条都没路由到 ⇒ 快照就该是空的，不许回退成全部启用通道",
+        )
+
+        val svc = native("NotificationMonitorService.kt")
+        val funnel = svc.substringAfter("private fun dispatchToChannels(")
+        assertTrue(
+            Regex("""sendBroadcast\(info, routedChannels = routed\.deliveryTypes\)""")
+                .containsMatchIn(funnel),
+            "正常历史广播没带本轮路由结果 ⇒ 没被选中的备用通道会在历史里永远显示「在途」",
+        )
+        val sender = native("WebhookSender.kt")
+        assertTrue(
+            sender.contains("put(\"routedChannels\", JSONArray(routedChannels))"),
+            "广播载荷没有 routedChannels 这一格：Dart 只能继续预置所有启用通道",
+        )
+    }
 }

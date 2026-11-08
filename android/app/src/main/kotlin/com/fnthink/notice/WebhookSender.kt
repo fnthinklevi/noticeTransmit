@@ -6,6 +6,7 @@ import android.util.Log
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -193,6 +194,7 @@ class WebhookSender(private val context: Context) {
         info: NotificationInfo,
         historyGroupId: String = "",
         historyGroupKind: String = "",
+        routedChannels: List<String>? = null,
     ) {
         try {
             val json = JSONObject().apply {
@@ -211,6 +213,10 @@ class WebhookSender(private val context: Context) {
                 if (historyGroupId.isNotEmpty()) {
                     put("historyGroupId", historyGroupId)
                     put("historyGroupKind", historyGroupKind)
+                }
+                // 缺这一格 = 老原生/调度时刻/补推：Dart 沿用“所有启用通道”的旧口径。
+                if (routedChannels != null) {
+                    put("routedChannels", JSONArray(routedChannels))
                 }
             }
             // 同步写入离线缓存：即使 MainActivity 被销毁，Flutter 重启后也能从缓存拉取

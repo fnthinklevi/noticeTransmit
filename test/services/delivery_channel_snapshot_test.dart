@@ -224,5 +224,52 @@ void main() {
       // 本用例应改为断言 contains('chan:email')。
       expect(service.records.first.deliveryStatus.keys, ['chan:wechat_work']);
     });
+
+    test('广播带 routedChannels ⇒ 只给本轮路由到的通道建快照', () async {
+      await seedWebhook();
+      emailService.cachedChannels = [enabledEmail()];
+
+      service.addRecord({
+        ...record(id: 'pkg:tag:routed'),
+        'routedChannels': <String>['WECHAT_WORK'],
+      });
+
+      final saved = service.records.first;
+      expect(saved.channels, ['chan:wechat_work']);
+      expect(saved.deliveryStatus.keys, ['chan:wechat_work']);
+      expect(
+        saved.deliveryStatus.containsKey('chan:email'),
+        isFalse,
+        reason: '没被路由到的备用通道永远等不到回执，预置它只会让历史停在「在途」',
+      );
+    });
+
+    test('routedChannels 去重后建快照（同类型多条配置共用一个送达键）', () async {
+      await seedWebhook();
+      emailService.cachedChannels = [enabledEmail()];
+
+      service.addRecord({
+        ...record(id: 'pkg:tag:routed-dedupe'),
+        'routedChannels': <String>['WECHAT_WORK', 'wechat_work', 'EMAIL'],
+      });
+
+      final saved = service.records.first;
+      expect(saved.channels, ['chan:wechat_work', 'chan:email']);
+      expect(saved.deliveryStatus.keys, ['chan:wechat_work', 'chan:email']);
+    });
+
+    test('routedChannels 为空 ⇒ 快照为空，不回退成全部启用通道', () async {
+      await seedWebhook();
+      emailService.cachedChannels = [enabledEmail()];
+
+      service.addRecord({
+        ...record(id: 'pkg:tag:routed-empty'),
+        'routedChannels': <String>[],
+      });
+
+      final saved = service.records.first;
+      expect(saved.channels, isEmpty);
+      expect(saved.deliveryStatus, isEmpty);
+    });
   });
 }

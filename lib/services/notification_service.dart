@@ -307,8 +307,9 @@ class NotificationService {
         debugPrint('离线缓存去重查 DB 失败，按新记录照插: $e');
       }
 
-      map['channels'] = _getActiveChannels();
-      map['deliveryStatus'] = _buildInitialDeliveries(map['channels']);
+      final channels = _broadcastRoutedChannels(map) ?? _getActiveChannels();
+      map['channels'] = channels;
+      map['deliveryStatus'] = _buildInitialDeliveries(channels);
       final record = NotificationRecord.fromMap(map);
       _records.insert(0, record);
       await DatabaseHelper().insertNotification(record.toMap());
@@ -391,8 +392,9 @@ class NotificationService {
         ),
       );
     }
-    record['channels'] = _getActiveChannels();
-    record['deliveryStatus'] = _buildInitialDeliveries(record['channels']);
+    final channels = _broadcastRoutedChannels(record) ?? _getActiveChannels();
+    record['channels'] = channels;
+    record['deliveryStatus'] = _buildInitialDeliveries(channels);
     final notificationRecord = NotificationRecord.fromMap(record);
     // 取消保存上限（P1）：新记录全量保留，不再截断内存列表
     _records.insert(0, notificationRecord);
@@ -406,6 +408,24 @@ class NotificationService {
   /// 「哪些通道算启用」不在这里判 —— 与首页显示的清单同一来源（`collectActiveChannels`），
   /// 否则会出现「首页三条、记录按两条算」。
   List<String> _getActiveChannels() => deliveryKeysOfActiveChannels();
+
+  /// 广播里「本轮真正路由到的通道类型」→ 入库快照的送达键。
+  ///
+  /// 缺这一格（旧原生、延时/聚合的调度时刻、手动补推）返回 null，沿用
+  /// [deliveryKeysOfActiveChannels] 的旧口径；带这一格时**只**给真正会发出去的通道
+  /// 建 `pending` —— 主备路由没选中的那条永远等不到回执，预置它只会让历史停在「在途」。
+  List<String>? _broadcastRoutedChannels(Map<String, dynamic> record) {
+    final raw = record['routedChannels'];
+    if (raw is! List) return null;
+    final keys = <String>[];
+    for (final value in raw) {
+      final type = value?.toString().trim() ?? '';
+      if (type.isEmpty) continue;
+      final key = channelDeliveryKey(type);
+      if (!keys.contains(key)) keys.add(key);
+    }
+    return keys;
+  }
 
   /// 初始送达状态：所有启用通道标记为 pending（发送中）
   Map<String, dynamic> _buildInitialDeliveries(List<String> channels) {
