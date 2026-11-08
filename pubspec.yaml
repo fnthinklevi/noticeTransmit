@@ -98,9 +98,20 @@ dev_dependencies:
 # 表现是"后台引擎留下的悬挂事务"把前台开库永久卡死（真机 2026-10-29 实测）。
 # vendored 补丁只改两处 cast，详见 third_party/sqflite_common/PATCHES.md。
 # 上游修复后删除本 override 与 third_party 目录。
+#
+# shared_preferences_android 2.5.x 把读路换成 JNI，其类型转换表只认
+# Long/Double/String/Boolean/数组/List/Map，不认 Integer/Float；而原生往
+# FlutterSharedPreferences 写过 putInt（FnthinkLiveMode / ChannelAvailability），
+# 存量设备文件里就有 <int> ⇒ getAll 抛 ArgumentError(JObject)，全应用
+# SharedPreferences.getInstance() 失败（真机 2026-11-08：初始化失败 + 每次弹
+# 隐私政策 + 界面"已停止"但原生仍在监听）。上游截至 2.5.4 无修复。
+# 2.4.x 读路走 pigeon method channel，标准 codec 天然认 Integer/Float。
+# 抬回 2.5.x 的前提：上游 readValue 补 Integer/Float，或原生长整型化＋存量迁移。
+# 守卫：test/architecture/shared_preferences_jni_integer_guard_test.dart。
 dependency_overrides:
   sqflite_common:
     path: third_party/sqflite_common
+  shared_preferences_android: 2.4.28
 
 flutter_launcher_icons:
   android: "ic_launcher"
