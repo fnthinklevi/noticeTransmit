@@ -350,7 +350,7 @@ class NotificationProcessor(private val context: Context) {
             val pm = context.packageManager
             val appInfo = pm.getApplicationInfo(packageName, 0)
             val label = pm.getApplicationLabel(appInfo).toString()
-            val friendlyName = getFriendlyAppName(packageName)
+            val friendlyName = AppNameResolution.friendlyAppName(packageName)
 
             val isLabelSuspicious = label.isEmpty() ||
                 label == packageName ||
@@ -368,28 +368,7 @@ class NotificationProcessor(private val context: Context) {
                 friendlyName
             }
         } catch (e: Exception) {
-            getFriendlyAppName(packageName)
-        }
-    }
-
-    private fun getFriendlyAppName(packageName: String): String {
-        val pkg = packageName.lowercase()
-        return when {
-            pkg.startsWith("com.tencent.mm") -> "微信"
-            pkg.startsWith("com.tencent.mobileqq") -> "QQ"
-            pkg.startsWith("com.android.mms") || pkg.startsWith("com.google.android.apps.messaging") || pkg.contains("sms") || pkg.contains(".mms") -> "短信"
-            pkg.startsWith("com.android.dialer") || pkg.startsWith("com.android.incallui") || pkg.startsWith("com.android.phone") || pkg.contains("incallui") || pkg.contains("dialer") -> "电话"
-            pkg.startsWith("com.android.settings") -> "设置"
-            pkg.startsWith("com.android.systemui") -> "系统界面"
-            pkg.startsWith("com.xiaomi.xmsf") -> "小米推送"
-            pkg.startsWith("com.huawei.android.push") -> "华为推送"
-            pkg.startsWith("com.vivo.push") -> "vivo推送"
-            pkg.startsWith("com.meizu.cloud") || pkg.startsWith("com.meizu.push") -> "魅族推送"
-            pkg.startsWith("com.coloros.push") || pkg.startsWith("com.oppo.push") -> "OPPO推送"
-            pkg.startsWith("com.google.android.gms") || pkg.contains("fcm") -> "Google服务"
-            pkg.startsWith("com.eg.android.AlipayGphone") -> "支付宝"
-            pkg.startsWith("com.alibaba.android.rimet") -> "钉钉"
-            else -> packageName
+            AppNameResolution.friendlyAppName(packageName)
         }
     }
 
@@ -507,44 +486,13 @@ class NotificationProcessor(private val context: Context) {
             null
         }
         if (!channelId.isNullOrEmpty()) {
-            val channelLower = channelId.lowercase()
-
-            val meizuMatch = Regex("mzpush_oripacname_(.+)").find(channelLower)
-            if (meizuMatch != null) {
-                val origPkg = meizuMatch.groupValues[1]
-                return getAppNameByPackage(origPkg)
-            }
-
-            if (channelLower.contains("miui") || channelLower.contains("xmsf")) {
-                val pkgMatch = Regex("([a-z]+\\.[a-z]+\\.[a-z]+)").find(channelLower)
-                if (pkgMatch != null) {
-                    val origPkg = pkgMatch.groupValues[1]
-                    val candidate = getAppNameByPackage(origPkg)
-                    if (candidate != origPkg && candidate.isNotEmpty()) {
-                        return candidate
-                    }
-                }
-            }
-
-            if (channelLower.contains("hw") || channelLower.contains("hms")) {
-                val pkgMatch = Regex("([a-z]+\\.[a-z]+\\.[a-z]+)").find(channelLower)
-                if (pkgMatch != null) {
-                    val origPkg = pkgMatch.groupValues[1]
-                    val candidate = getAppNameByPackage(origPkg)
-                    if (candidate != origPkg && candidate.isNotEmpty()) {
-                        return candidate
-                    }
-                }
-            }
-
-            val pkgMatch = Regex("[a-z]+\\.[a-z]+\\.[a-z.]+").findAll(channelLower)
-            for (match in pkgMatch) {
-                val origPkg = match.value
-                if (origPkg.length > 10 && origPkg.contains(".")) {
-                    val candidate = getAppNameByPackage(origPkg)
-                    if (candidate != origPkg && candidate.isNotEmpty()) {
-                        return candidate
-                    }
+            // ⚠ 候选包名必须保留渠道 ID 里的原始大小写：PackageManager 按包名精确匹配，
+            // 先 lowercase() 再查会让 com.eg.android.AlipayGphone 查不到 ⇒ 回落成包名
+            // （2026-11-08 魅族推送支付宝通知实测）。
+            for (origPkg in AppNameResolution.channelPackageCandidates(channelId)) {
+                val candidate = getAppNameByPackage(origPkg)
+                if (candidate != origPkg && candidate.isNotEmpty()) {
+                    return candidate
                 }
             }
         }
