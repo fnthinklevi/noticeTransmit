@@ -108,6 +108,46 @@ function assertSupported(contract) {
       ),
     );
   }
+  // 边缘回源超时是这组数字的外部上限：EdgeOne 当前 60s（控制台规则 `push回源超时60s`），
+  // Cloudflare 默认 100s。被 hold 的请求一旦超过最紧的 60s，边缘会先放弃连接并回 524/554；
+  // 而源站可能已把消息取成 delivering ⇒ 客户端收不到响应，要等 ackDeadlineSeconds 才退回。
+  // 这一闸放在启动闸里：宁可协议面降级 503，也不让一台"必被边缘掐"的配置上线。
+  const presence = contract.presence || {};
+  const stream = presence.stream || {};
+  const longPoll = presence.longPoll || {};
+  const gateway = presence.gatewayTimeouts || {};
+  const edgeoneSeconds = gateway.edgeoneSeconds;
+  const cloudflareSeconds = gateway.cloudflareSeconds;
+  if (
+    !(typeof edgeoneSeconds === 'number' && edgeoneSeconds > 0) ||
+    !(typeof cloudflareSeconds === 'number' && cloudflareSeconds > 0)
+  ) {
+    throw tagged(
+      CONTRACT_SHAPE,
+      new Error(
+        'presence.gatewayTimeouts 必须是正数 edgeoneSeconds/cloudflareSeconds：' +
+          '边缘回源超时是心跳/长轮询的唯一上限来源',
+      ),
+    );
+  }
+  const gatewayTimeout = Math.min(edgeoneSeconds, cloudflareSeconds);
+  for (const [name, value] of [
+    ['presence.stream.heartbeatSeconds', stream.heartbeatSeconds],
+    ['presence.longPoll.waitSeconds', longPoll.waitSeconds],
+    ['presence.longPoll.maxWaitSeconds', longPoll.maxWaitSeconds],
+  ]) {
+    if (value === undefined) continue;
+    if (!(typeof value === 'number' && value < gatewayTimeout)) {
+      throw tagged(
+        CONTRACT_SHAPE,
+        new Error(
+          `${name}=${value} 必须严格小于边缘回源超时 ${gatewayTimeout}s` +
+            `（EdgeOne ${edgeoneSeconds}s / Cloudflare ${cloudflareSeconds}s）：` +
+            '否则边缘会先放弃被 hold 的连接并回 524/554，被取走的消息要等 ack 期限才退回',
+        ),
+      );
+    }
+  }
   return contract;
 }
 

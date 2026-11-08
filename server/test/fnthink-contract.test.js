@@ -45,6 +45,26 @@ describe('fnthink 协议契约（服务端侧）', () => {
     expect(() => assertSupported(v2)).toThrow(/只实现到 v/);
   });
 
+  test('心跳与 longPoll hold 严格小于边缘回源超时（EdgeOne 60s / CF 100s）', () => {
+    const stream = c.presence.stream || {};
+    const longPoll = c.presence.longPoll || {};
+    const gateway = c.presence.gatewayTimeouts || {};
+    expect(gateway.edgeoneSeconds).toBe(60);
+    expect(gateway.cloudflareSeconds).toBe(100);
+    for (const [name, value] of [
+      ['presence.stream.heartbeatSeconds', stream.heartbeatSeconds],
+      ['presence.longPoll.waitSeconds', longPoll.waitSeconds],
+      ['presence.longPoll.maxWaitSeconds', longPoll.maxWaitSeconds],
+    ]) {
+      expect(typeof value).toBe('number');
+      expect(value).toBeLessThan(gateway.edgeoneSeconds);
+      expect(value).toBeLessThan(gateway.cloudflareSeconds);
+    }
+    const bad = JSON.parse(JSON.stringify(c));
+    bad.presence.stream.heartbeatSeconds = gateway.edgeoneSeconds;
+    expect(() => assertSupported(bad)).toThrow(/heartbeatSeconds/);
+  });
+
   test('签名规范化顺序与 Dart 侧逐字段相同（换序就是换签名）', () => {
     expect(canonicalOrder(c)).toEqual(['version', 'type', 'target', 'ts', 'nonce', 'body']);
     expect(c.signature.timestampSource).toBe('serverTime');

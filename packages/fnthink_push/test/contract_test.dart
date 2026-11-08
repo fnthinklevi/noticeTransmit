@@ -331,6 +331,54 @@ void main() {
     expect(c.validate(), isEmpty);
   });
 
+  test('心跳与 longPoll hold 严格小于边缘回源超时（EdgeOne 60s / Cloudflare 100s）', () {
+    final edgeone = c.intOf(const [
+      'presence',
+      'gatewayTimeouts',
+      'edgeoneSeconds',
+    ]);
+    final cloudflare = c.intOf(const [
+      'presence',
+      'gatewayTimeouts',
+      'cloudflareSeconds',
+    ]);
+    expect(
+      edgeone,
+      isNotNull,
+      reason: 'presence.gatewayTimeouts.edgeoneSeconds 缺失',
+    );
+    expect(
+      cloudflare,
+      isNotNull,
+      reason: 'presence.gatewayTimeouts.cloudflareSeconds 缺失',
+    );
+    expect(edgeone, 60, reason: 'EdgeOne 当前回源超时是 60s；改了边缘规则才改这一枚');
+    expect(cloudflare, 100, reason: 'Cloudflare 默认回源超时是 100s');
+    final holds = <(String, int?)>[
+      (
+        'presence.stream.heartbeatSeconds',
+        c.intOf(const ['presence', 'stream', 'heartbeatSeconds']),
+      ),
+      (
+        'presence.longPoll.waitSeconds',
+        c.intOf(const ['presence', 'longPoll', 'waitSeconds']),
+      ),
+      (
+        'presence.longPoll.maxWaitSeconds',
+        c.intOf(const ['presence', 'longPoll', 'maxWaitSeconds']),
+      ),
+    ];
+    for (final (name, value) in holds) {
+      expect(value, isNotNull, reason: '$name 缺失：边缘超时守卫无从判断');
+      expect(value, lessThan(edgeone!), reason: '$name 必须严格小于 EdgeOne 回源超时');
+      expect(
+        value,
+        lessThan(cloudflare!),
+        reason: '$name 也必须小于 Cloudflare 默认值',
+      );
+    }
+  });
+
   test('服务端那一半读的是同一个文件、同一个 major', () {
     // 跨语言守卫：两侧各读各的 JSON 没问题，但如果 JS 指向了另一份文件或另写一个
     // SUPPORTED_MAJOR，"双端一致"就只剩名字了。
@@ -364,6 +412,20 @@ void main() {
       final caps = raw['capabilities'] as Map<String, Object?>;
       return caps['remoteExecution'] as Map<String, Object?>;
     }
+
+    test('心跳/长轮询 hold 改到 60s ⇒ 报（边缘回源超时）', () {
+      for (final path in [
+        ['presence', 'stream', 'heartbeatSeconds'],
+        ['presence', 'longPoll', 'waitSeconds'],
+        ['presence', 'longPoll', 'maxWaitSeconds'],
+      ]) {
+        expectProblem(
+          edited(path, 60),
+          path.join('.'),
+          'EdgeOne 回源超时 = 60s（Cloudflare 100s），等号也不许',
+        );
+      }
+    });
 
     // ── 远程执行（片1：五组条款，判据与用例成对）──
 

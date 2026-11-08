@@ -211,6 +211,12 @@
       "max": 60
     },
     "_pollIntervalSecondsWhy": "min/max 是**设备侧那格设置的允许范围**（T88：开放给用户选，范围不许在 Dart 里另写一份）。下界 5s 而不是更低：服务端 `/poll` 那格的额度是按 `burstWhenPending.intervalSeconds` 推导的（`ceil(60/5)+pollBurstSlack=14` 次/分），常态 5s 正好是 12 次/分 ⇒ 仍在额度内，不用重算限流；再往下（3s、1s）不仅会常态比提频还快（语义倒挂），还会把按设备地址算的那桶打穿。上界 60s（维护者 2026-10-01 把建议的 180s 收到 60s）：间隔同时决定「对端发现新消息的最坏延迟」与「本机掉线后还被显示在线多久」，60s 两头都还在即时通知的语义里；再长就不是慢而是**在线状态失真**。default 20s 不动 ⇒ 从没设过这一档的设备行为与今天完全一致。",
+    "gatewayTimeouts": {
+      "cloudflareSeconds": 100,
+      "edgeoneSeconds": 60,
+      "_why": "边缘回源超时是这组数字的**外部上限**：Cloudflare 默认 100s，EdgeOne 当前 60s（控制台规则 `push回源超时60s`，HOST=push.fnthink.com）。本段所有被 hold 的请求——SSE 心跳与 longPoll 等待——必须严格小于两者中更紧的一档（当前是 EdgeOne 60s）；否则边缘会在自己的超时点先放弃并回 524/554，而源站已经把消息取成 delivering，客户端收不到响应，要等 ackDeadlineSeconds=180 才退回。改大 heartbeatSeconds / waitSeconds / maxWaitSeconds 前，先同步边缘回源超时；Dart validate()、服务端 assertSupported() 与两端契约测试各有一条守卫。",
+      "_which": "计算守卫阈值取 min(cloudflareSeconds, edgeoneSeconds)；当前 EdgeOne 更紧（60s）。"
+    },
     "onlineThresholdMultiplier": 3,
     "states": [
       "online",

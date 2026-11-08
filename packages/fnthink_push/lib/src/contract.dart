@@ -2077,6 +2077,66 @@ class FnthinkContract {
       need(false, 'presence.pollIntervalSeconds 缺失');
     }
 
+    // ── 边缘回源超时：被 hold 的请求必须严格小于最紧的一档 ──
+    // 阈值只有一个出处：presence.gatewayTimeouts（Cloudflare 默认 100s / EdgeOne 当前 60s）。
+    // 超过边缘超时后边缘先放弃连接，而源站可能已把消息取成 delivering ⇒ 客户端收不到响应，
+    // 要等 ackDeadlineSeconds 才退回（2026-10-28 的"稳定 3 分钟"就是这条链）。
+    // 改大数字前先同步边缘配置；Dart 与 Node 两侧的守卫都从这份契约取值。
+    final gatewayTimeouts = map(const ['presence', 'gatewayTimeouts']);
+    need(
+      gatewayTimeouts != null,
+      'presence.gatewayTimeouts 必须存在：边缘回源超时是心跳/长轮询的上限',
+    );
+    final edgeoneSeconds = intOf(const [
+      'presence',
+      'gatewayTimeouts',
+      'edgeoneSeconds',
+    ]);
+    final cloudflareSeconds = intOf(const [
+      'presence',
+      'gatewayTimeouts',
+      'cloudflareSeconds',
+    ]);
+    need(
+      edgeoneSeconds != null && edgeoneSeconds > 0,
+      'presence.gatewayTimeouts.edgeoneSeconds 必须是正数',
+    );
+    need(
+      cloudflareSeconds != null && cloudflareSeconds > 0,
+      'presence.gatewayTimeouts.cloudflareSeconds 必须是正数',
+    );
+    if (edgeoneSeconds != null &&
+        cloudflareSeconds != null &&
+        edgeoneSeconds > 0 &&
+        cloudflareSeconds > 0) {
+      final gatewayTimeoutSeconds = edgeoneSeconds < cloudflareSeconds
+          ? edgeoneSeconds
+          : cloudflareSeconds;
+      final gatewayHolds = <(String, int?)>[
+        (
+          'presence.stream.heartbeatSeconds',
+          intOf(const ['presence', 'stream', 'heartbeatSeconds']),
+        ),
+        (
+          'presence.longPoll.waitSeconds',
+          intOf(const ['presence', 'longPoll', 'waitSeconds']),
+        ),
+        (
+          'presence.longPoll.maxWaitSeconds',
+          intOf(const ['presence', 'longPoll', 'maxWaitSeconds']),
+        ),
+      ];
+      for (final (name, value) in gatewayHolds) {
+        if (value == null) continue;
+        need(
+          value < gatewayTimeoutSeconds,
+          '$name=$value 必须严格小于边缘回源超时 ${gatewayTimeoutSeconds}s'
+          '（EdgeOne ${edgeoneSeconds}s / Cloudflare ${cloudflareSeconds}s）：'
+          '否则边缘会先放弃被 hold 的连接并回 524/554，被取走的消息要等 ack 期限才退回',
+        );
+      }
+    }
+
     // ── 对端年龄那条读口（T156 片1：presence.peerReadout）──
     // 这一段值得逐条钉，因为它的每一枚键都是"响应里那个数叫什么、谁能读到"：
     // 名字漂一边不报错，只会让设备侧永远读到 null 而显示成"还不知道"（与 probeReadyField 同一条教训）。
