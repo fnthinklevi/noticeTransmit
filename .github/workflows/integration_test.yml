@@ -54,6 +54,14 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
+      # kotlin-compiler-embeddable 的 jar 由 Maven Central 302 到 GitHub release，
+      # 后者 CDN 持续 504（2026-11-08，与 analyze.yml 同一步的说明同源）。
+      - name: Install kotlin-embeddable mirror init script
+        run: |
+          GRADLE_HOME_DIR="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          mkdir -p "$GRADLE_HOME_DIR/init.d"
+          cp .github/scripts/kotlin_embeddable_mirror.init.gradle "$GRADLE_HOME_DIR/init.d/"
+
       - name: Run smoke + instrumented tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -139,6 +147,13 @@ jobs:
 
       - name: Pub get
         run: flutter pub get
+
+      # 同 device-basic 的说明：kotlin-embeddable 走 aliyun 独占镜像。
+      - name: Install kotlin-embeddable mirror init script
+        run: |
+          GRADLE_HOME_DIR="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          mkdir -p "$GRADLE_HOME_DIR/init.d"
+          cp .github/scripts/kotlin_embeddable_mirror.init.gradle "$GRADLE_HOME_DIR/init.d/"
 
       - name: Run full-feature click gate on emulator
         uses: reactivecircus/android-emulator-runner@v2

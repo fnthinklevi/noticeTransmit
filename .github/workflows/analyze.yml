@@ -132,6 +132,16 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      # kotlin-compiler-embeddable 的 jar 由 Maven Central 302 到 GitHub release，
+      # 后者 CDN 持续 504（2026-11-08）。init 脚本把这一个模块独占给 aliyun 缓存，
+      # 机制与证据见 .github/scripts/kotlin_embeddable_mirror.init.gradle 头注释。
+      # 放 init.d：引擎插件 includeBuild 的解析本仓库 settings 管不到。
+      - name: Install kotlin-embeddable mirror init script
+        run: |
+          GRADLE_HOME_DIR="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          mkdir -p "$GRADLE_HOME_DIR/init.d"
+          cp .github/scripts/kotlin_embeddable_mirror.init.gradle "$GRADLE_HOME_DIR/init.d/"
+
       - name: Android unit tests (JVM)
         working-directory: android
         run: |

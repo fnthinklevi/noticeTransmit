@@ -1,0 +1,37 @@
+// 为什么需要这个 init 脚本（2026-11-08 analyze job「Android unit tests」实测）：
+//   kotlin-compiler-embeddable 的 jar 在 Maven Central 上是「边缘命中直接 200 /
+//   未命中 302 到 github.com/JetBrains/kotlin/releases」的服务形态；而 GitHub
+//   release 资产 CDN 当天持续 504 ⇒ Gradle 解析 kotlinBuildToolsApiClasspath
+//   （Flutter 引擎插件这个 includeBuild 的 :gradle:compileKotlin）必然失败：
+//     Could not GET 'https://github.com/JetBrains/kotlin/releases/download/
+//     v2.4.10/kotlin-compiler-embeddable-2.4.10.jar' → 504
+//   实测两个事实（2026-11-08）：
+//     · repo.maven.apache.org 边缘命中时 200 直出 60MB jar（CF-Cache-Status: HIT）
+//     · maven.aliyun.com/repository/central 已缓存同字节，200 直出
+//
+//   为什么用 exclusiveContent 而不是「把 aliyun 加到仓库列表」：
+//   settings.gradle.kts 的注释写得很清楚——aliyun 在境外偶尔 502，而 Gradle 会把
+//   出错的仓库标为 disabled 并拖垮整轮解析。exclusiveContent 把影响面锁死在
+//   这一个模块上：只有 kotlin-compiler-embeddable 走 aliyun，其余一切照旧；
+//   若 aliyun 也挂，失败范围也不会比现状更大。
+//
+//   为什么放在 init.d 而不是 settings.gradle.kts：解析发生在 Flutter SDK 的
+//   引擎插件 includeBuild 里（:gradle），它用自己的 settings 与仓库声明，
+//   本仓库的 android/settings.gradle.kts 管不到它；init.d 对复合构建里的
+//   每个 build 都生效。CI 各 job 把它写进 $GRADLE_USER_HOME/init.d/ 即可，
+//   flutter test / gradlew 所有调用路径都被覆盖。
+gradle.beforeProject { project ->
+    project.repositories {
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = 'aliyunCentralKotlinEmbeddable'
+                    url = project.uri('https://maven.aliyun.com/repository/central')
+                }
+            }
+            filter {
+                includeModule('org.jetbrains.kotlin', 'kotlin-compiler-embeddable')
+            }
+        }
+    }
+}
