@@ -113,6 +113,31 @@ dependency_overrides:
     path: third_party/sqflite_common
   shared_preferences_android: 2.4.28
 
+# sqlite3（dev 依赖，经 sqflite_common_ffi 供宿主侧 Dart 测试）的 build hook 默认
+# 从 GitHub release 下载预编译库并用包内钉值校验 sha256。2026-11-08 起 GitHub
+# release 资产 CDN 持续 504（本机与 CI 各连续 15–20 次失败，ninja 等无关仓库同病），
+# 而 hook 不校验 HTTP 状态码 ⇒ 504 错误页字节被原样流进 sha256 ⇒ 测试在
+# "Building native assets" 阶段直接 exit 255，一条用例都没跑。
+# Linux（CI 宿主测试）改为 dlopen 系统库 libsqlite3.so.0，零下载；Ubuntu 的
+# libsqlite3-0 是常规预装依赖，analyze.yml 有存在性守护。
+# Android 侧这个资产**只被构建、运行时不加载**：集成测试与 app 都不调
+# sqfliteFfiInit()（真机 DB 走 sqflite_sqlcipher），所以同样声明成 system ——
+# 不打包、不下载；万一将来某处真的加载它，会显式报 "Failed to load dynamic
+# library libsqlite3.so"（而不是静默指向 ABI 不同的系统 libsqlite.so）。
+# 其余平台（本机 Windows 的 flutter test、Apple 构建）仍用包内自带二进制，
+# SQLite 版本与钉值行为不变。
+# 写法依据 sqlite3 包 doc/hook.md 的 source / name 按目标 OS 取 map 的语法。
+hooks:
+  user_defines:
+    sqlite3:
+      source:
+        linux: system
+        android: system
+        default: sqlite3
+      name:
+        linux: sqlite3.so.0
+        default: sqlite3
+
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: false

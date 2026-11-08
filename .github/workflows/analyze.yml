@@ -87,12 +87,17 @@ jobs:
       # 真要复杂度/断言治理请单独评估后继独立 CLI `dcm`，**不要**把这个依赖加回来；
       # 上面那步改成 `--fatal-infos` 才是这道门禁该有的样子。
 
-      # sqlite3（dev 依赖，经 sqflite_common_ffi）的 build hook 要从 GitHub release
-      # 下载 libsqlite3.x64.linux.so；GitHub 资产 CDN 2026-11-08 起全站间歇 504，
-      # 而 hook 不校验 HTTP 状态码，错误页字节直接进 sha256 校验 ⇒ exit 255。
-      # 带 hash 校验地重试预取进 hook 共享缓存，命中后 hook 不再联网（机制见脚本头注释）。
-      - name: Preseed sqlite3 native asset（CDN 抖动对策）
-        run: bash .github/scripts/preseed_sqlite3_asset.sh libsqlite3.x64.linux.so libsqlite3.so
+      # sqlite3 的 build hook 在 Linux 上被 pubspec.yaml 的 hooks.user_defines 指到
+      # 系统库（GitHub release 资产 CDN 持续 504，下载路径已不可用）。这步只确认
+      # dlopen 目标在：缺了就是 runner 画像变了，直接点名比让测试报
+      # "Failed to load dynamic library" 好读。
+      - name: Verify system SQLite for sqlite3 hook
+        run: |
+          if ! ldconfig -p | grep -q 'libsqlite3\.so\.0'; then
+            echo "❌ runner 上没有 libsqlite3.so.0 —— pubspec.yaml 的 hooks.user_defines 依赖它"
+            exit 1
+          fi
+          echo "✅ 系统 SQLite：$(ldconfig -p | grep -m1 'libsqlite3\.so\.0')"
 
       - name: Run unit tests
         run: |

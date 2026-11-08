@@ -54,11 +54,6 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
-      # x86_64 模拟器的 debug 构建同样要过 sqlite3 hook 下载预编译库；CDN 抖动对策
-      # 与 analyze.yml 相同（机制见脚本头注释）。
-      - name: Preseed sqlite3 native asset（CDN 抖动对策）
-        run: bash .github/scripts/preseed_sqlite3_asset.sh libsqlite3.x64.android.so libsqlite3.so
-
       - name: Run smoke + instrumented tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -144,10 +139,6 @@ jobs:
 
       - name: Pub get
         run: flutter pub get
-
-      # 同 device-basic 的说明：sqlite3 hook 资产走 CDN 抖动对策。
-      - name: Preseed sqlite3 native asset（CDN 抖动对策）
-        run: bash .github/scripts/preseed_sqlite3_asset.sh libsqlite3.x64.android.so libsqlite3.so
 
       - name: Run full-feature click gate on emulator
         uses: reactivecircus/android-emulator-runner@v2
