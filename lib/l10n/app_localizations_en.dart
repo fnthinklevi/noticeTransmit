@@ -3695,6 +3695,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Gateway timeout (origin did not respond within 25s)';
 
   @override
+  String get fnthinkPollRoundInProgress =>
+      'Previous round still running — skipped';
+
+  @override
   String fnthinkPollGatewayUnavailable(String code) {
     return 'Gateway temporarily unavailable (HTTP $code)';
   }

@@ -41,6 +41,48 @@ void main() {
     });
   });
 
+  group('T228：本轮跳过不是失败', () {
+    test('round-in-progress 翻成人话，不把 failed 前缀摊在脸上', () {
+      final zh = AppLocalizationsZh();
+      final en = AppLocalizationsEn();
+      expect(
+        fnthinkPollStatusText(zh, 'failed:round-in-progress'),
+        zh.fnthinkPollRoundInProgress,
+      );
+      expect(
+        fnthinkPollStatusText(en, 'failed:round-in-progress'),
+        en.fnthinkPollRoundInProgress,
+      );
+      expect(
+        fnthinkPollStatusText(zh, 'failed:round-in-progress'),
+        isNot('failed:round-in-progress'),
+      );
+    });
+
+    test('跳过词条里不许出现 failed / 失败', () {
+      for (final text in [
+        AppLocalizationsZh().fnthinkPollRoundInProgress,
+        AppLocalizationsEn().fnthinkPollRoundInProgress,
+      ]) {
+        expect(text.toLowerCase(), isNot(contains('failed')));
+        expect(text, isNot(contains('失败')));
+      }
+    });
+
+    test('「协议面就绪」对跳过不出结论', () {
+      expect(fnthinkPollStatusReachable('failed:round-in-progress'), isNull);
+    });
+
+    test('真正的失败仍原样返回（含 signing-unavailable）', () {
+      final zh = AppLocalizationsZh();
+      expect(fnthinkPollStatusText(zh, 'failed:http:404'), 'failed:http:404');
+      expect(
+        fnthinkPollStatusText(zh, 'failed:signing-unavailable'),
+        'failed:signing-unavailable',
+      );
+    });
+  });
+
   test('页面三处读数都接到同一份判据', () {
     final root = projectRoot();
     final src = stripComments(

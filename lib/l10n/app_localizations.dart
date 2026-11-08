@@ -6529,6 +6529,12 @@ abstract class AppLocalizations {
   /// **'网关超时（源站 25 秒内没有响应）'**
   String get fnthinkPollGatewayTimeout;
 
+  /// No description provided for @fnthinkPollRoundInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一轮还在跑，本次跳过'**
+  String get fnthinkPollRoundInProgress;
+
   /// No description provided for @fnthinkPollGatewayUnavailable.
   ///
   /// In zh, this message translates to:

@@ -249,6 +249,44 @@ void main() {
       expect(h.pollCalls, 1, reason: '被跳过的那一轮不该产生任何 IO');
     });
 
+    test('跳过不算失败：在途时连点两次，排期仍停在保守值', () async {
+      final h = _Harness();
+      var calls = 0;
+      final hold = Completer<FnthinkReceiveOutcome>();
+      final loop = FnthinkReceiveLoop(
+        poll: () {
+          calls++;
+          return calls == 1 ? Future.value(_ok(const [])) : hold.future;
+        },
+        ack: h.ack,
+        persist: h.persist,
+        nowMs: () => 1700000000000,
+        schedule: h.schedule,
+      );
+      loop.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.scheduled, isNotEmpty);
+      // 第二轮进入在途
+      h.callbacks.last();
+      await Future<void>.delayed(Duration.zero);
+      // 在途时连点两次：两次都 skipped
+      h.callbacks.last();
+      await Future<void>.delayed(Duration.zero);
+      h.callbacks.last();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.scheduled.length, greaterThanOrEqualTo(3));
+      for (final d in h.scheduled.skip(1)) {
+        expect(
+          d,
+          const Duration(seconds: 60),
+          reason: '跳过用保守间隔（60s），不许按 failureBackoff 缩到 5/15/30s',
+        );
+      }
+      hold.complete(_ok(const []));
+      await Future<void>.delayed(Duration.zero);
+      loop.stop();
+    });
+
     test('start 立刻跑一轮并按 nextDelay 排下一轮；stop 之后不再排', () async {
       final h = _Harness();
       final loop = h.loop(

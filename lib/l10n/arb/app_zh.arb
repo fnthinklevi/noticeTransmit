@@ -1842,6 +1842,7 @@
   "fnthinkHealthReachable": "协议面就绪：最近一次幻念请求成功",
   "fnthinkHealthUnreachable": "协议面不可用：最近一次幻念请求失败",
   "fnthinkPollGatewayTimeout": "网关超时（源站 25 秒内没有响应）",
+  "fnthinkPollRoundInProgress": "上一轮还在跑，本次跳过",
   "fnthinkPollGatewayUnavailable": "网关暂时不可用（HTTP {code}）",
   "@fnthinkPollGatewayUnavailable": {
     "placeholders": {

@@ -5,6 +5,13 @@ import '../l10n/app_localizations.dart';
 /// 554/524 是 EdgeOne 的网关超时，不是协议结论；其余 5xx 也只是边缘/源站暂时不可用。
 /// 非网关那几档原样返回 —— 本函数只负责"别把网关码糊在用户脸上"，不替内核改判。
 String fnthinkPollStatusText(AppLocalizations l10n, String raw) {
+  // T228：并发闸的「本轮跳过」是合成状态（零 IO、零 ack），不是一次 HTTP 结论。
+  // 它带着 `failed:` 前缀，直接摊在诊断行里会被读成故障；这一档翻人话，且词条里
+  // 不许出现 failed／失败。真正的失败（含 signing-unavailable）仍原样返回。
+  if (raw == 'failed:round-in-progress' ||
+      raw.startsWith('failed:round-in-progress:')) {
+    return l10n.fnthinkPollRoundInProgress;
+  }
   final code = RegExp(r'(?:http:|gateway-timeout:)(\d+)')
       .firstMatch(raw)
       ?.group(1);

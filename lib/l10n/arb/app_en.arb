@@ -1821,6 +1821,7 @@
   "fnthinkHealthReachable": "Protocol plane ready: the last Fnthink request succeeded",
   "fnthinkHealthUnreachable": "Protocol plane unavailable: the last Fnthink request failed",
   "fnthinkPollGatewayTimeout": "Gateway timeout (origin did not respond within 25s)",
+  "fnthinkPollRoundInProgress": "Previous round still running — skipped",
   "fnthinkPollGatewayUnavailable": "Gateway temporarily unavailable (HTTP {code})",
   "@fnthinkPollGatewayUnavailable": {
     "placeholders": {

@@ -3531,6 +3531,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPollGatewayTimeout => '网关超时（源站 25 秒内没有响应）';
 
   @override
+  String get fnthinkPollRoundInProgress => '上一轮还在跑，本次跳过';
+
+  @override
   String fnthinkPollGatewayUnavailable(String code) {
     return '网关暂时不可用（HTTP $code）';
   }
