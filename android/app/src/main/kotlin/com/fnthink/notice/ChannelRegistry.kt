@@ -138,6 +138,12 @@ internal class ChannelSpec(
      * - ntfy / Gotify / Slack / Discord：语义就是 HTTP 状态码（回 text/plain 或 204 空 body）。
      */
     val requiresJsonContract: Boolean = true,
+    /**
+     * T251：该通道的重试预算（单发协程内重试次数 + 队列最大重放次数）。
+     * 默认 3+3；限额敏感平台（Server酱/PushPlus，官方"失败也计数/同内容限流"）收紧为 1+1。
+     * 数据驱动——发送层读这张表，不许按 WebhookType 分支。
+     */
+    val retryBudget: RetryBudget = RetryBudget.DEFAULT,
 ) {
     /**
      * 存储/跨端可用的全部写法：枚举名、小写、去下划线小写 + 手写的早期数字。
@@ -299,10 +305,13 @@ internal object ChannelRegistry {
                 JSONObject().apply {
                     put("msgtype", "text")
                     put("text", JSONObject().apply {
-                        put("content", WebhookPayloadBuilder.buildTextBody(
-                            title = title, content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            sender = sender, message = message, simFooter = simFooter
+                        put("content", WebhookPayloadBuilder.truncateWecomRobotContent(
+                            WebhookPayloadBuilder.buildTextBody(
+                                title = title, content = "", appName = "",
+                                time = time, deviceName = deviceName,
+                                sender = sender, message = message, simFooter = simFooter
+                            ),
+                            markdown = false,
                         ))
                     })
                 }.toString()
@@ -314,22 +323,28 @@ internal object ChannelRegistry {
                 JSONObject().apply {
                     put("msgtype", "text")
                     put("text", JSONObject().apply {
-                        put("content", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            state = state, phoneNumber = phoneNumber,
-                            durationStr = durationStr, simFooter = simFooter
+                        put("content", WebhookPayloadBuilder.truncateWecomRobotContent(
+                            WebhookPayloadBuilder.buildTextBody(
+                                title = "", content = "", appName = "",
+                                time = time, deviceName = deviceName,
+                                state = state, phoneNumber = phoneNumber,
+                                durationStr = durationStr, simFooter = simFooter
+                            ),
+                            markdown = false,
                         ))
                     })
                 }.toString()
             },
             platformPayload = { vars, rendered, format, chatId ->
+                // T249：text 2048B / markdown 4096B（官方 91770，超限 45002 拒收）——
+                // 自定义模板的正文同样走字节预截断
+                val bounded = WebhookPayloadBuilder.truncateWecomRobotContent(rendered, format == "markdown")
                 JSONObject().apply {
                     put("msgtype", format) // text / markdown
                     if (format == "markdown") {
-                        put("markdown", JSONObject().apply { put("content", rendered) })
+                        put("markdown", JSONObject().apply { put("content", bounded) })
                     } else {
-                        put("text", JSONObject().apply { put("content", rendered) })
+                        put("text", JSONObject().apply { put("content", bounded) })
                     }
                 }.toString()
             },
@@ -343,7 +358,9 @@ internal object ChannelRegistry {
                         WebhookResponseParser.DeliveryStatus.SUCCESS, httpCode,
                         if (errmsg.isNotEmpty()) errmsg else "OK", false
                     )
-                    errcode == 45009 -> WebhookResponseParser.ParseResult(
+                    // T250：11232 是自定义机器人限流码（官方 add-custom-bot：100 次/分钟、
+                    // 5 次/秒，超限回 11232），与 45009/130101 同一档。
+                    errcode == 45009 || errcode == 11232 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
                         "限流 errcode=$errcode: $errmsg", true
                     )
@@ -535,7 +552,11 @@ internal object ChannelRegistry {
                         WebhookResponseParser.DeliveryStatus.SUCCESS, httpCode,
                         if (msg.isNotEmpty()) msg else "OK", false
                     )
-                    code == 99991663 || code == 99991664 -> WebhookResponseParser.ParseResult(
+                    code == 99991663 || code == 99991664 ||
+                        // T250：自建应用 im/v1/messages 的官方频率限制码（create 文档 230020）——
+                        // 应用通道复用本管线按 host 回退到本判定。11232 归企微自定义机器人
+                        //（errcode），不在这里认。
+                        code == 230020 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
                         "限流 code=$code: $msg", true
                     )
@@ -719,6 +740,8 @@ internal object ChannelRegistry {
             type = WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
             hosts = listOf("sctapi.ftqq.com"),
             legacyTokens = listOf("6"),
+            // T251：官方 FAQ——免费每天 5 条、失败也计数、失控重试 429 封 24h ⇒ 预算收紧
+            retryBudget = RetryBudget(inlineRetries = 1, queueReplays = 1),
             transport = ChannelTransport(
                 contentType = "application/x-www-form-urlencoded; charset=utf-8",
                 templateSupport = TemplateSupport.DISABLED,
@@ -808,6 +831,8 @@ internal object ChannelRegistry {
             type = WebhookPayloadBuilder.WebhookType.PUSH_PLUS,
             hosts = listOf("www.pushplus.plus", "pushplus.plus"),
             legacyTokens = listOf("7"),
+            // T251：官方限额页——相同内容 1 小时限 3 条（重放同一载荷正好撞上）⇒ 预算收紧
+            retryBudget = RetryBudget(inlineRetries = 1, queueReplays = 1),
             transport = ChannelTransport(
                 requiredUrlParam = UrlParam.TOKEN,
                 missingParamReason = "PushPlus 链接缺少 token 参数",

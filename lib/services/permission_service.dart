@@ -134,6 +134,23 @@ class PermissionService {
   Future<void> requestBatteryOptimization() =>
       _requestPermission('requestBatteryOptimization');
 
+  /// T246：一次性**现读**电池优化豁免状态。
+  ///
+  /// 不走 [checkAllPermissions] 的缓存——排查卡要的是"此刻"的读数：用户可能刚在
+  /// 系统设置里改过豁免，缓存里的旧值会把"已豁免"显示成"未豁免"（反之亦然）。
+  /// 读失败（平台通道不可用等）按 false 处理：fail-closed 显示"未豁免"，让用户去
+  /// 点一次「去设置」——重申豁免是无害动作，比误报"已豁免"诚实。
+  Future<bool> queryBatteryOptimizationIgnored() async {
+    try {
+      return await _channel.invokeMethod('isIgnoringBatteryOptimizations')
+              as bool? ??
+          false;
+    } catch (e) {
+      debugPrint('读取电池优化豁免失败（按未豁免处理）: $e');
+      return false;
+    }
+  }
+
   /// T137 验收③：跳到「幻念推送 · 收件」那枚渠道**自己的**系统设置页。
   ///
   /// 只有"跳"没有"读"：厂商（MIUI 等）的按应用悬浮/锁屏/声音开关不在 AOSP 可读

@@ -35,24 +35,43 @@ object WebhookResponseParser {
         // （配置/暂停/未激活那种"一个请求都没发出去"的结局，以及口径不同的短信/邮件链路）。
         // 0 在 Dart 侧表示"未知"，不会覆盖上一次的真读数。
         val attempts: Int = 0,
-        val elapsedMs: Int = 0
+        val elapsedMs: Int = 0,
+        // T248：限流响应官方给出的等待秒数（Telegram parameters.retry_after /
+        // Slack+Discord 的 Retry-After 头）。null = 对端没给或非限流——发送层据此
+        // 校准限流退避；队列重放冷却不受它影响（冷却另有 15 分钟纪律）。
+        val retryAfterSeconds: Int? = null,
     )
 
     fun parse(
         type: WebhookPayloadBuilder.WebhookType,
         httpCode: Int,
-        responseBody: String
-    ): ParseResult = parseBySpec(ChannelRegistry.spec(type), type, httpCode, responseBody)
+        responseBody: String,
+        retryAfterHeader: Int? = null,
+    ): ParseResult = parseBySpec(ChannelRegistry.spec(type), type, httpCode, responseBody, retryAfterHeader)
+
+    /**
+     * T248：429 响应体里的 Telegram 官方语义 `parameters.retry_after`（秒）。
+     * 头里的 Retry-After 优先（Slack/Discord 官方语义）；两者都缺 → null。
+     */
+    private fun retryAfterFromBody(responseBody: String): Int? = try {
+        val params = JSONObject(responseBody).optJSONObject("parameters")
+        params?.optInt("retry_after", -1)?.takeIf { it > 0 }
+    } catch (_: Exception) {
+        null
+    }
 
     /**
      * 按**描述符**判定（第 4 步）：不查全局注册表，因此未登记的合成描述符也能走同一条路。
      * [type] 仅用于给业务码判定回传原始类型（parse lambda 的既有签名），可为 null。
+     * [retryAfterHeader]：HTTP `Retry-After` 头的秒数（T248，Slack/Discord 官方语义）——
+     * 仅在 429 终点回传时挂到结果上。
      */
     internal fun parseBySpec(
         spec: ChannelSpec,
         type: WebhookPayloadBuilder.WebhookType?,
         httpCode: Int,
-        responseBody: String
+        responseBody: String,
+        retryAfterHeader: Int? = null,
     ): ParseResult {
         // HTTP 5xx → 可重试
         if (httpCode in 500..599) {
@@ -65,7 +84,8 @@ object WebhookResponseParser {
         if (httpCode == 429) {
             return ParseResult(
                 DeliveryStatus.RATE_LIMITED, httpCode,
-                "限流 HTTP 429: ${responseBody.take(200)}", true
+                "限流 HTTP 429: ${responseBody.take(200)}", true,
+                retryAfterSeconds = retryAfterHeader ?: retryAfterFromBody(responseBody),
             )
         }
         // HTTP 4xx → 业务失败不重试（除 429）

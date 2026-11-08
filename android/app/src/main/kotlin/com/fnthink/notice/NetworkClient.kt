@@ -1,5 +1,7 @@
 package com.fnthink.notice
 
+import android.content.Context
+import android.os.PowerManager
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +24,9 @@ class NetworkClient {
         private const val MAX_RETRIES = 3
         private const val RETRY_DELAY_MS = 2000L
         private const val RATE_LIMIT_RETRY_DELAY_MS = 10_000L // 限流时退避更长
+
+        /** T244：单次发送生命周期（含 3 次重试与退避）的 wake lock 硬上限。 */
+        internal const val SEND_WAKE_LOCK_MS = 60_000L
 
         /**
          * 隐私脱敏：webhook URL 含平台 secret（Telegram bot token / Bark key /
@@ -53,9 +58,22 @@ class NetworkClient {
             else WebhookPayloadBuilder.detectType(url)
 
         @Volatile private var isActive = true
+        // T244/T245：发送路径的电源态读数需要 Context（ wake lock / isDeviceIdleMode）。
+        // 无 Context 时两处都降级为不持锁 / 不附注——发送照常，只是少一层韧性少一行取证。
+        @Volatile private var appContext: Context? = null
         // 作用域在 destroy() 时 cancel，activate() 时重建，避免重试协程在服务销毁后仍回调
         private var scope = newScope()
         private fun newScope() = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        /**
+         * 幂等注入应用上下文（NotificationMonitorService.onCreate 调用）。
+         * T244 wake lock 与 T245 电源态取证位共用这一份。
+         */
+        fun init(context: Context) {
+            if (appContext == null) {
+                appContext = context.applicationContext
+            }
+        }
 
         /**
          * 全局发送并发上限（背压）。
@@ -164,78 +182,130 @@ class NetworkClient {
             }
             scope.launch {
                 sendLimiter.withPermit {
-                    // 发送前签名（仅一次，重试时复用同一签名）
-                    val signed = WebhookSigner.sign(webhookType, url, payload, secret)
+                    // T251：内联重试次数读通道描述符的重试预算（数据驱动，不按类型分支）。
+                    // Server酱/PushPlus 这类「失败也计数」的平台预算为 1。
+                    val inlineRetries = ChannelRegistry.spec(
+                        resolveWebhookType(webhookType, url)
+                    ).retryBudget.inlineRetries
+                    // T244：发送生命周期持 partial wake lock（Doze 下被系统忽略无害；
+                    // 豁免用户的灭屏/轻度 idle 段生效——没有它 CPU 可能在 TLS 握手/写入
+                    // 中途睡眠，把 15s 超时拖成 3 连败）。60s 硬上限 = 3×15s 超时 + 退避
+                    // 的最坏覆盖，finally 恒释放。
+                    val wakeLock = acquireSendWakeLock()
+                    try {
+                        // 发送前签名（仅一次，重试时复用同一签名）
+                        val signed = WebhookSigner.sign(webhookType, url, payload, secret)
 
-                    var retryCount = 0
-                    var lastResult: WebhookResponseParser.ParseResult? = null
-                    // T220：取证从"真的开始发"算起 —— 排队等信号量的那段不算这一发的耗时。
-                    val startedAtMs = System.currentTimeMillis()
+                        var retryCount = 0
+                        var lastResult: WebhookResponseParser.ParseResult? = null
+                        // T220：取证从"真的开始发"算起 —— 排队等信号量的那段不算这一发的耗时。
+                        val startedAtMs = System.currentTimeMillis()
 
-                    while (retryCount < MAX_RETRIES) {
-                        val result = sendOnce(signed, tag, retryCount, contentType, extraHeaders, webhookType, method)
-                        lastResult = result
+                        while (retryCount < inlineRetries) {
+                            val result = sendOnce(signed, tag, retryCount, contentType, extraHeaders, webhookType, method)
+                            lastResult = result
 
-                        // 成功或不可重试 → 终止
-                        if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
-                            Log.d(TAG, "$tag delivered (attempt ${retryCount + 1}): ${result.message}")
-                            onResult?.invoke(result.withTelemetry(startedAtMs, retryCount + 1))
-                            return@withPermit
-                        }
-                        if (!result.retryable) {
-                            Log.e(TAG, "$tag delivery failed (no retry): ${result.message}")
-                            onResult?.invoke(result.withTelemetry(startedAtMs, retryCount + 1))
-                            return@withPermit
-                        }
-
-                        Log.w(TAG, "$tag delivery failed (attempt ${retryCount + 1}), will retry: ${result.message}")
-                        retryCount++
-
-                        if (retryCount < MAX_RETRIES) {
-                            // 指数退避（2s, 4s, ...）；平台限流（如企业微信 45009）用更长基数
-                            val backoff = 1L shl (retryCount - 1)
-                            val delayMs = if (result.status == WebhookResponseParser.DeliveryStatus.RATE_LIMITED) {
-                                RATE_LIMIT_RETRY_DELAY_MS * backoff
-                            } else {
-                                RETRY_DELAY_MS * backoff
+                            // 成功或不可重试 → 终止
+                            if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
+                                Log.d(TAG, "$tag delivered (attempt ${retryCount + 1}): ${result.message}")
+                                onResult?.invoke(result.withTelemetry(startedAtMs, retryCount + 1))
+                                return@withPermit
                             }
-                            delay(delayMs)
-                        }
-                    }
+                            if (!result.retryable) {
+                                Log.e(TAG, "$tag delivery failed (no retry): ${result.message}")
+                                onResult?.invoke(result.withTelemetry(startedAtMs, retryCount + 1))
+                                return@withPermit
+                            }
 
-                    // 重试耗尽
-                    Log.e(TAG, "$tag delivery exhausted retries: ${lastResult?.message}")
-                    // N4 自动重试队列：仅 webhook 推送（tag == "notification"）且失败状态
-                    // 属可重试类（HTTP_FAIL / NETWORK_FAIL / RATE_LIMITED）时入队。
-                    // 手动「现在推送」（force = true）失败不再自动排队；
-                    // BIZ_FAIL 为业务性拒绝（重试无意义）；PAUSED 在入口已短路不会到此；
-                    // tag = sms / phone / notification_retry 的链路各自处理，不入本队列。
-                    if (tag == "notification" && !force && lastResult != null) {
-                        when (lastResult.status) {
-                            WebhookResponseParser.DeliveryStatus.HTTP_FAIL,
-                            WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
-                            WebhookResponseParser.DeliveryStatus.RATE_LIMITED -> RetryQueue.enqueue(
-                                url = url,
-                                payload = payload,
-                                webhookType = webhookType,
-                                secret = secret,
-                                contentType = contentType,
-                                recordId = recordId ?: "",
-                                extraHeaders = extraHeaders,
-                                appChannelId = appChannelId,
-                                appTypeLabel = appTypeLabel,
-                                method = method,
+                            Log.w(TAG, "$tag delivery failed (attempt ${retryCount + 1}), will retry: ${result.message}")
+                            retryCount++
+
+                            if (retryCount < MAX_RETRIES) {
+                                // 指数退避（2s, 4s, ...）；平台限流（如企业微信 45009）用更长基数。
+                                // T248：对端官方给出 Retry-After 时遵循之——夹紧到 [1,60] 秒：
+                                // 低于下限容易再撞限流；高于 60 秒的（如 Server酱 24h 封禁）不.inline
+                                // 干等，靠既有队列冷却节奏消化（结果仍可重试，耗尽后自然入队）。
+                                val backoff = 1L shl (retryCount - 1)
+                                val delayMs = when (result.status) {
+                                    WebhookResponseParser.DeliveryStatus.RATE_LIMITED -> {
+                                        val official = result.retryAfterSeconds
+                                        if (official != null && official > 0) {
+                                            official.coerceIn(1, 60) * 1000L
+                                        } else {
+                                            RATE_LIMIT_RETRY_DELAY_MS * backoff
+                                        }
+                                    }
+                                    else -> RETRY_DELAY_MS * backoff
+                                }
+                                delay(delayMs)
+                            }
+                        }
+
+                        // 重试耗尽
+                        Log.e(TAG, "$tag delivery exhausted retries: ${lastResult?.message}")
+                        // N4 自动重试队列：仅 webhook 推送（tag == "notification"）且失败状态
+                        // 属可重试类（HTTP_FAIL / NETWORK_FAIL / RATE_LIMITED）时入队。
+                        // 手动「现在推送」（force = true）失败不再自动排队；
+                        // BIZ_FAIL 为业务性拒绝（重试无意义）；PAUSED 在入口已短路不会到此；
+                        // tag = sms / phone / notification_retry 的链路各自处理，不入本队列。
+                        //
+                        // T241：入队**成功**时把回传改判 QUEUED（非终态）——历史格显示「已转入
+                        // 自动重试」而不是红色失败，重放成功后照 N4 既有链路翻绿；入队失败
+                        // （未初始化/空参数）回传原失败结果，保持诚实。
+                        var enqueued = false
+                        if (tag == "notification" && !force && lastResult != null) {
+                            when (lastResult.status) {
+                                WebhookResponseParser.DeliveryStatus.HTTP_FAIL,
+                                WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
+                                WebhookResponseParser.DeliveryStatus.RATE_LIMITED -> enqueued = RetryQueue.enqueue(
+                                    url = url,
+                                    payload = payload,
+                                    webhookType = webhookType,
+                                    secret = secret,
+                                    contentType = contentType,
+                                    recordId = recordId ?: "",
+                                    extraHeaders = extraHeaders,
+                                    appChannelId = appChannelId,
+                                    appTypeLabel = appTypeLabel,
+                                    method = method,
+                                )
+                                else -> {}
+                            }
+                        }
+                        // 重试耗尽终点（T241 后仍是一个打戳点，DeliveryTelemetrySourceGuardTest 锁着）：
+                        // enqueued ⇒ QUEUED（已转自动重试）；否则原失败结果
+                        val terminal = if (enqueued && lastResult != null) {
+                            lastResult.copy(
+                                status = WebhookResponseParser.DeliveryStatus.QUEUED,
+                                message = "发送失败已转入自动重试队列，解锁/联网后自动补发 · ${lastResult.message}",
                             )
-                            else -> {}
+                        } else {
+                            lastResult ?: WebhookResponseParser.ParseResult(
+                                WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
+                                0, "Unknown failure after $inlineRetries attempts", false
+                            )
+                        }
+                        onResult?.invoke(terminal.withTelemetry(startedAtMs, retryCount))
+                    } finally {
+                        wakeLock?.let {
+                            try {
+                                if (it.isHeld) it.release()
+                            } catch (_: Exception) {}
                         }
                     }
-                    onResult?.invoke(
-                        (lastResult ?: WebhookResponseParser.ParseResult(
-                            WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
-                            0, "Unknown failure after $MAX_RETRIES attempts", false
-                        )).withTelemetry(startedAtMs, retryCount)
-                    )
                 }
+            }
+        }
+
+        /** T244：拿发送期 wake lock；无 Context / 异常时返回 null（发送照常，只是不持锁）。 */
+        private fun acquireSendWakeLock(): PowerManager.WakeLock? {
+            val ctx = appContext ?: return null
+            return try {
+                val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return null
+                pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "fnthink:webhook-send")
+                    .apply { acquire(SEND_WAKE_LOCK_MS) }
+            } catch (_: Exception) {
+                null
             }
         }
 
@@ -290,11 +360,15 @@ class NetworkClient {
                     // okhttp 5 起 `Response.body` 是**非空**的（4.x 是 `ResponseBody?`）⇒
                     // 这里不再需要 `?.`（留着会吃一条 "unnecessary safe call" 警告）。
                     val respBody = response.body.string()
+                    // T248：限流退避遵循对端官方语义——Slack/Discord 的 Retry-After 头
+                    // （Telegram 的 parameters.retry_after 在体里，由解析器读）
+                    val retryAfter = response.header("Retry-After")?.trim()?.toIntOrNull()
                     val parser = WebhookResponseParser.parse(
                         // 显式声明优先，GENERIC 才按 host 回退（见 resolveWebhookType 注释）
                         resolveWebhookType(webhookType, signed.url),
                         response.code,
-                        respBody
+                        respBody,
+                        retryAfter,
                     )
                     Log.d(TAG, "$tag HTTP ${response.code} (attempt ${attempt + 1}): ${parser.message}")
                     parser
@@ -303,7 +377,10 @@ class NetworkClient {
                 Log.e(TAG, "$tag network error (attempt ${attempt + 1}): ${e.message}")
                 WebhookResponseParser.ParseResult(
                     WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
-                    0, "Network error: ${e.message}", true
+                    // T245：失败消息附设备电源态取证位（[idle]/[light]/[no-exempt]）——
+                    // 真机一条失败即可区分「Doze 挂起网络 / Flyme 叠加限制 / 普通网络抖动」，
+                    // 不再靠猜。读不到 Context / PowerManager 时不附注。
+                    0, "Network error: ${e.message}${powerStateSuffix()}", true
                 )
             }
         }
@@ -322,5 +399,37 @@ class NetworkClient {
             }
             Log.d(TAG, "NetworkClient activated")
         }
+
+        /** T245：电源态取证位。JVM 判据在 [PowerStateTags]；这里只负责读数与降级。 */
+        private fun powerStateSuffix(): String {
+            val ctx = appContext ?: return ""
+            val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return ""
+            return try {
+                PowerStateTags.suffix(
+                    deviceIdle = pm.isDeviceIdleMode,
+                    batteryExempt = pm.isIgnoringBatteryOptimizations(ctx.packageName),
+                )
+            } catch (_: Exception) {
+                ""
+            }
+        }
+    }
+}
+
+/**
+ * T245 取证位的**纯判据**（JVM 可测）：把设备电源态折成短标签追加进失败消息。
+ *
+ * - `[idle]`：深睡（deep Doze）——官方语义：未豁免应用网络挂起；
+ * - `[no-exempt]`：**未**豁免电池优化——Doze 限制全套生效。
+ * 两个读数独立附注，可组合（`[idle][no-exempt]` = 深睡且未豁免，教科书 Doze 形态）。
+ * ⚠ 轻度 Doze 的读数（isLightDeviceIdleMode）在本 SDK 桩上不可见，缺席——
+ *   D4 拍板的门控也只判深 Doze，口径一致。
+ */
+internal object PowerStateTags {
+    fun suffix(deviceIdle: Boolean, batteryExempt: Boolean): String {
+        var s = ""
+        if (deviceIdle) s += "[idle]"
+        if (!batteryExempt) s += "[no-exempt]"
+        return s
     }
 }

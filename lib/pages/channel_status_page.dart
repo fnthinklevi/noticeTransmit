@@ -13,8 +13,10 @@ import '../services/channel_display.dart';
 import '../services/channel_failure_summary.dart';
 import '../services/channel_health_store.dart';
 import '../services/chain_self_check.dart';
+import '../services/permission_service.dart';
 import '../widgets/app_info_note_box.dart';
 import '../widgets/channel_health_badge.dart';
+import '../widgets/lockscreen_diagnostic_card.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
@@ -52,11 +54,24 @@ class ChannelStatusPage extends StatefulWidget {
   /// 结果对话框会列四行"正是这里最该被钉住的判据。
   final Future<List<ChainCheckEntry>> Function()? selfCheck;
 
+  /// T246 排查卡的读数（豁免状态 + 近 24h 失败计数）。null = 生产实现（现读权限 + 送达日志）。
+  ///
+  /// 注入理由与 [loadFailures] 同一条：widget 用例里不能真开库/读平台通道，
+  /// 而"豁免/未豁免、有失败/无失败"正是这张卡最该被钉住的形状。
+  final Future<LockscreenDiagnosticData> Function()? loadLockscreenDiagnostics;
+
+  /// T246：未豁免时「去设置」那一发的动作。null = 生产实现（系统豁免弹窗）。
+  /// 弹窗回来后卡片要不要变绿，由 [_refreshLockscreenDiagnostics] 重读决定——
+  /// 这里只负责发起申请，不假定结果。
+  final Future<void> Function()? onRequestBatteryExempt;
+
   const ChannelStatusPage({
     super.key,
     required this.onOpenChannel,
     this.loadFailures,
     this.selfCheck,
+    this.loadLockscreenDiagnostics,
+    this.onRequestBatteryExempt,
   });
 
   @override
@@ -73,6 +88,10 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
 
   /// T220 片2c：自检在跑（按钮据此变灰并改文案，避免连点两次把四族各发两遍）。
   bool _checking = false;
+
+  /// T246：排查卡读数。null = 还没读到——卡片**不画**（"还没读到"不该画成任何结论，
+  /// 与 [_backup] 的 null 纪律同一条）。
+  LockscreenDiagnosticData? _lockscreenDiag;
 
   /// 备用模式那一格的读数（T12 锁存 + T135 自动切回留痕）。
   /// null = 还没读到 —— 这时**两句都不说**：把"还没读到"画成"没在走备用"或
@@ -96,6 +115,8 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     _checkFirstTime();
     _loadBackupMode();
     unawaited(_loadFailures());
+    // T246：排查卡读数（豁免 + 近 24h 失败计数）进页读一轮，下拉刷新再读一轮。
+    unawaited(_refreshLockscreenDiagnostics());
     // 时效一过，"上次探测成功"会被判成「未知」—— 而这一页正是用户看那个"未知"的地方。
     // 所以进页顺手把**过期的**探一遍（#174）：stale-only，不是每进必发请求；
     // 探完 setState 让这张表按新结论重画。
@@ -123,6 +144,49 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     }
     if (!mounted) return;
     setState(() => _failures = next);
+  }
+
+  /// T246：排查卡读数（豁免状态 + 近 24h 失败计数）。读失败不抛：
+  /// 卡片整块不画（与 [_loadFailures] "读不到就不画"同一纪律），下一轮刷新再试。
+  Future<void> _refreshLockscreenDiagnostics() async {
+    LockscreenDiagnosticData? next;
+    try {
+      next = widget.loadLockscreenDiagnostics != null
+          ? await widget.loadLockscreenDiagnostics!()
+          : await _loadLockscreenDiagnosticsFromSources();
+    } catch (_) {
+      next = null;
+    }
+    if (!mounted) return;
+    setState(() => _lockscreenDiag = next);
+  }
+
+  /// T246 生产实现：现读豁免状态（不走缓存）+ 送达日志统计。
+  Future<LockscreenDiagnosticData>
+  _loadLockscreenDiagnosticsFromSources() async {
+    final results = await Future.wait([
+      PermissionService().queryBatteryOptimizationIgnored(),
+      DatabaseHelper().recentDeliveryFailureStats(),
+    ]);
+    return LockscreenDiagnosticData(
+      batteryExempt: results[0] as bool,
+      failureCount: (results[1] as (int, DateTime?)).$1,
+      latestFailureAt: (results[1] as (int, DateTime?)).$2,
+    );
+  }
+
+  /// T246：未豁免时的「去设置」——发起系统豁免弹窗，回来后重读刷新卡片
+  /// （用户可能同意也可能拒绝，重读是唯一诚实的路径）。
+  Future<void> _requestBatteryExempt() async {
+    if (widget.onRequestBatteryExempt != null) {
+      await widget.onRequestBatteryExempt!();
+    } else {
+      await PermissionService().requestBatteryOptimization();
+    }
+    // 弹窗关闭后稍候一拍再读：系统设置页返回时状态已落，立即读是安全的。
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    await _refreshLockscreenDiagnostics();
   }
 
   /// 一键全链路自检（T220 片2c）：先确认（要真发测试消息），再串行跑四族，最后一张结果框。
@@ -382,6 +446,13 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
               onPressed: _checking ? null : _runSelfCheck,
             ),
           ),
+          // T246：锁屏后推送失败的自助排查卡（豁免状态/失败计数/官方语义说明）。
+          // 数据没读到（null）就整块不画——"还没读到"不该画成任何结论。
+          if (_lockscreenDiag != null)
+            LockscreenDiagnosticCard(
+              data: _lockscreenDiag!,
+              onRequestExempt: _requestBatteryExempt,
+            ),
           for (final family in _familyOrder)
             ..._familySection(context, l10n, family, [
               ...channels.where((c) => c.family == family),
@@ -396,6 +467,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   Future<void> _pullToRefresh() async {
     await _loadBackupMode();
     await _loadFailures();
+    await _refreshLockscreenDiagnostics();
     await probeChannelsAcrossFamilies(
       force: true,
       onUpdated: () {

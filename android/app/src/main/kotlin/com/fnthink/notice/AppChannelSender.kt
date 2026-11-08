@@ -136,7 +136,7 @@ class AppChannelSender(private val context: Context) {
         )
         val markdown = cfg.messageFormat == "markdown" && spec.type == AppChannelTypes.WECOM_APP
         val payload = try {
-            spec.buildPayload(cfg, content, markdown)
+            spec.buildPayload(cfg, content, markdown, info.id)
         } catch (e: IllegalArgumentException) {
             val fail = WebhookResponseParser.ParseResult(
                 WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, e.message ?: "载荷构造失败", false
@@ -156,7 +156,38 @@ class AppChannelSender(private val context: Context) {
                     )
                 }
             } catch (e: Exception) {
-                // 兜底捕获所有异常（TokenFetchException / JSONException / 网络异常等）：
+                // T242：token 阶段的失败要**分诊**，不再一刀切 BIZ_FAIL——
+                // 网络类异常（Doze 下 gettoken 连不上）本质是 NETWORK_FAIL，应入自动重试
+                // 队列（重放走 replayStored，会重取新 token）；此前任何异常都归业务失败
+                // ⇒ 自建应用通道在长锁屏场景零自动恢复（PRD R5，E3 审计坐实）。
+                if (AppChannelFailurePolicy.isNetworkFailure(e)) {
+                    val rawMsg = e.message ?: "获取 token 失败"
+                    val enqueued = RetryQueue.enqueue(
+                        url = cfg.baseUrl,
+                        payload = payload,
+                        webhookType = WebhookPayloadBuilder.WebhookType.GENERIC,
+                        secret = null,
+                        contentType = ChannelDispatch.JSON_CONTENT_TYPE,
+                        recordId = info.id,
+                        appChannelId = cfg.id,
+                        appTypeLabel = cfg.type,
+                    )
+                    val result = if (enqueued) {
+                        WebhookResponseParser.ParseResult(
+                            WebhookResponseParser.DeliveryStatus.QUEUED, 0,
+                            "获取 token 失败已转入自动重试队列，解锁/联网后自动补发 · $rawMsg", false
+                        )
+                    } else {
+                        WebhookResponseParser.ParseResult(
+                            WebhookResponseParser.DeliveryStatus.NETWORK_FAIL, 0,
+                            "获取 token 失败（网络原因）：$rawMsg", true
+                        )
+                    }
+                    notifyDeliveryResult(info.id, cfg.type, result, cfg.baseUrl, viaBackup)
+                    onResultDone?.invoke(result)
+                    return
+                }
+                // 兜底捕获其余异常（TokenFetchException / JSONException / 网络异常等）：
                 // 任一异常都统一回传终态失败，避免冒泡导致进程崩溃或通道静默失效
                 val msg = (e as? AppChannelTokenManager.TokenFetchException)?.message
                     ?: e.message ?: "获取 token 失败"
@@ -200,9 +231,18 @@ class AppChannelSender(private val context: Context) {
     /**
      * 失败重试队列重放入口（RetryQueue 对 app 通道的重放走此方法）：
      * 用重放时新鲜的 token 重新发送队列中保存的载荷。
+     *
+     * ⚠ 整个重放挪到工作线程：调用方是闹钟到点的 BroadcastReceiver（主线程），
+     * token 的 runBlocking + OkHttp 在主线程就是 NetworkOnMainThreadException——
+     * 且异常被 catch 吞成一行 Log.w，整轮重放就静默消失（2026-11-07 真机实证）。
      */
     fun replayStored(item: RetryItem) {
         if (ChannelMirrorInvalidator.isPending(context)) return
+        Log.i(TAG, "重放应用通道: id=${item.id} channel=${item.appChannelId} record=${item.recordId}")
+        Thread { replayStoredInternal(item) }.start()
+    }
+
+    private fun replayStoredInternal(item: RetryItem) {
         val cfg = ConfigManager(context).findAppChannelById(item.appChannelId)
         if (cfg == null) {
             Log.w(TAG, "重放跳过：应用通道已删除 id=${item.appChannelId}")
@@ -283,4 +323,23 @@ private class SpecTokenFetcher(
     private val client: OkHttpClient,
 ) : AppChannelTokenManager.TokenFetcher {
     override suspend fun fetch(): Pair<String, Int> = spec.fetchToken(cfg, base, client)
+}
+
+/**
+ * T242 token 失败分诊的**纯判据**（JVM 可测）：
+ * 网络类异常 ⇒ 改判 NETWORK_FAIL 并入自动重试队列（重放会重取 token）；
+ * [AppChannelTokenManager.TokenFetchException]（端点回了业务错误码）⇒ 凭据/配置问题，
+ * 重试无意义，保持 BIZ_FAIL；其余（JSON 解析等编程类）同样 BIZ_FAIL。
+ */
+internal object AppChannelFailurePolicy {
+    fun isNetworkFailure(e: Exception): Boolean = when (e) {
+        is AppChannelTokenManager.TokenFetchException -> false
+        is java.net.UnknownHostException -> true
+        is java.net.ConnectException -> true
+        is java.net.SocketTimeoutException -> true
+        is java.net.SocketException -> true
+        is javax.net.ssl.SSLException -> true
+        is java.io.IOException -> true
+        else -> false
+    }
 }

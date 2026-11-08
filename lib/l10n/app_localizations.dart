@@ -344,6 +344,60 @@ abstract class AppLocalizations {
   /// **'未配置推送通道'**
   String get noChannels;
 
+  /// No description provided for @lockscreenDiagTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁屏后推送失败？'**
+  String get lockscreenDiagTitle;
+
+  /// No description provided for @lockscreenDiagExemptOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池优化白名单：已豁免（深睡下网络可用）'**
+  String get lockscreenDiagExemptOk;
+
+  /// No description provided for @lockscreenDiagExemptMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池优化白名单：未豁免'**
+  String get lockscreenDiagExemptMissing;
+
+  /// No description provided for @lockscreenDiagGoSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'去设置'**
+  String get lockscreenDiagGoSettings;
+
+  /// No description provided for @lockscreenDiagFailCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 24 小时推送失败：{n} 次'**
+  String lockscreenDiagFailCount(int n);
+
+  /// No description provided for @lockscreenDiagFailCountWithTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 24 小时推送失败：{n} 次（最近一次 {month}-{day} {hour}:{minute}）'**
+  String lockscreenDiagFailCountWithTime(
+    int n,
+    String month,
+    String day,
+    String hour,
+    String minute,
+  );
+
+  /// No description provided for @lockscreenDiagFailNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 24 小时推送失败：无'**
+  String get lockscreenDiagFailNone;
+
+  /// No description provided for @lockscreenDiagExplain.
+  ///
+  /// In zh, this message translates to:
+  /// **'灭屏静置且未充电时，Android 会进入 Doze 深睡并暂停应用网络（官方文档原文：Suspends network access）；已加入电池优化白名单的应用在深睡下可继续使用网络并持有唤醒锁。锁屏期间失败的推送已自动转入重试队列，解锁或联网后会自动补发。'**
+  String get lockscreenDiagExplain;
+
   /// No description provided for @statusOk.
   ///
   /// In zh, this message translates to:

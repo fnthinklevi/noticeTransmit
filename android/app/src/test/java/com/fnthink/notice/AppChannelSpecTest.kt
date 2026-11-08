@@ -2,6 +2,7 @@ package com.fnthink.notice
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -130,7 +131,7 @@ class AppChannelSpecTest {
     @Test
     fun wecomPayload_textWithAgentidAndTouser() {
         val spec = AppChannelRegistry.spec(AppChannelTypes.WECOM_APP)!!
-        val payload = spec.buildPayload(wecomConfig(), "通知内容", false)
+        val payload = spec.buildPayload(wecomConfig(), "通知内容", false, "rec-1")
         val json = JSONObject(payload)
         assertEquals("text", json.getString("msgtype"))
         assertEquals("通知内容", json.getJSONObject("text").getString("content"))
@@ -141,7 +142,7 @@ class AppChannelSpecTest {
     @Test
     fun wecomPayload_markdownMode() {
         val spec = AppChannelRegistry.spec(AppChannelTypes.WECOM_APP)!!
-        val json = JSONObject(spec.buildPayload(wecomConfig(), "内容", true))
+        val json = JSONObject(spec.buildPayload(wecomConfig(), "内容", true, "rec-1"))
         assertEquals("markdown", json.getString("msgtype"))
         assertEquals("内容", json.getJSONObject("markdown").getString("content"))
     }
@@ -152,7 +153,7 @@ class AppChannelSpecTest {
             config = JSONObject().put("corpid", "corp-demo").put("agentid", 0),
         )
         try {
-            AppChannelRegistry.spec(AppChannelTypes.WECOM_APP)!!.buildPayload(cfg, "内容", false)
+            AppChannelRegistry.spec(AppChannelTypes.WECOM_APP)!!.buildPayload(cfg, "内容", false, "rec-1")
             throw AssertionError("agentid=0 应抛出 IllegalArgumentException")
         } catch (_: IllegalArgumentException) {
         }
@@ -161,7 +162,7 @@ class AppChannelSpecTest {
     @Test
     fun feishuPayload_textWithReceiveIdAndNestedContent() {
         val spec = AppChannelRegistry.spec(AppChannelTypes.FEISHU_APP)!!
-        val payload = spec.buildPayload(feishuConfig(), "通知内容", false)
+        val payload = spec.buildPayload(feishuConfig(), "通知内容", false, "rec-1")
         val json = JSONObject(payload)
         assertEquals("text", json.getString("msg_type"))
         assertEquals("oc-demo", json.getString("receive_id"))
@@ -176,7 +177,7 @@ class AppChannelSpecTest {
             config = JSONObject().put("app_id", "cli-demo").put("receive_id_type", "chat_id"),
         )
         try {
-            AppChannelRegistry.spec(AppChannelTypes.FEISHU_APP)!!.buildPayload(cfg, "内容", false)
+            AppChannelRegistry.spec(AppChannelTypes.FEISHU_APP)!!.buildPayload(cfg, "内容", false, "rec-1")
             throw AssertionError("receive_id 为空应抛出 IllegalArgumentException")
         } catch (_: IllegalArgumentException) {
         }
@@ -266,5 +267,26 @@ class AppChannelSpecTest {
             val keys = spec.configSchema.map { it.key }
             assertEquals("${spec.type} configSchema 存在重复 key", keys.size, keys.toSet().size)
         }
+    }
+
+    // ===== T247：飞书自建应用 uuid 去重键 =====
+
+    @Test
+    fun feishuPayload_carriesRecordIdAsUuid() {
+        val spec = AppChannelRegistry.spec(AppChannelTypes.FEISHU_APP)!!
+        val json = JSONObject(spec.buildPayload(feishuConfig(), "内容", false, "rec-1"))
+        assertEquals("rec-1", json.getString("uuid"))
+    }
+
+    @Test
+    fun feishuUuid_capsAt50AndIsStablePerRecord() {
+        val spec = AppChannelRegistry.spec(AppChannelTypes.FEISHU_APP)!!
+        val longId = "r".repeat(80)
+        val first = JSONObject(spec.buildPayload(feishuConfig(), "内容", false, longId))
+        val again = JSONObject(spec.buildPayload(feishuConfig(), "内容", false, longId))
+        val other = JSONObject(spec.buildPayload(feishuConfig(), "内容", false, "rec-2"))
+        assertEquals(50, first.getString("uuid").length)
+        assertEquals("同一条记录重放的 uuid 必须不变", first.getString("uuid"), again.getString("uuid"))
+        assertNotEquals("不同记录的 uuid 必须不同", first.getString("uuid"), other.getString("uuid"))
     }
 }

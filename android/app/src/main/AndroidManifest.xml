@@ -617,6 +617,13 @@
             </intent-filter>
         </receiver>
 
+        <!-- T239：失败队列重放到点闹钟（AllowWhileIdle；显式 PendingIntent 投递，
+             不需要 intent-filter；exported=false 只收本包闹钟） -->
+        <receiver
+            android:name=".RetryAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <receiver
             android:name=".SmsReceiver"
             android:enabled="true"

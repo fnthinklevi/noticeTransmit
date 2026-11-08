@@ -384,6 +384,32 @@ internal object ChannelLimits {
 
     /** 飞书自建应用正文上限（字符） */
     const val FEISHU_APP_CHARS = 3000
+
+    /** T249：企微**群机器人** text content 上限（UTF-8 字节，超出回 45002 报错——与
+     *  自建应用 message/send 的"服务端截断"不同，群机器人是直接拒收，必须客户端预截断） */
+    const val WECHAT_WORK_TEXT_BYTES = 2048
+
+    /** T249：企微群机器人 markdown content 上限（UTF-8 字节，官方 91770 文档） */
+    const val WECHAT_WORK_MARKDOWN_BYTES = 4096
+}
+
+/**
+ * T251：通道的**重试预算**（官方文档对照，D5=A 拍板）。
+ *
+ * - [inlineRetries]：单发在协程内的重试次数（NetworkClient 的 while 循环）。
+ * - [queueReplays]：失败入自动重试队列后的最大重放次数（RetryQueue 的取出即 attempts++）。
+ *
+ * 为什么默认 3+3 而个别通道收紧：Server酱**失败也计数**、失控重试会 429 封 24h（免费
+ * 每天仅 5 条）；PushPlus **相同内容 1 小时限 3 条**（重放同一载荷正好撞上）。这类
+ * 限额敏感平台的预算收在描述符里（数据驱动，发送层不许按类型分支）。
+ */
+data class RetryBudget(
+    val inlineRetries: Int = 3,
+    val queueReplays: Int = 3,
+) {
+    companion object {
+        val DEFAULT = RetryBudget()
+    }
 }
 
 /**

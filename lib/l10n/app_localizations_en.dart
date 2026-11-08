@@ -157,6 +157,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noChannels => 'No channels configured';
 
   @override
+  String get lockscreenDiagTitle => 'Push failing after screen lock?';
+
+  @override
+  String get lockscreenDiagExemptOk =>
+      'Battery optimization whitelist: exempt (network available in Doze)';
+
+  @override
+  String get lockscreenDiagExemptMissing =>
+      'Battery optimization whitelist: not exempt';
+
+  @override
+  String get lockscreenDiagGoSettings => 'Open settings';
+
+  @override
+  String lockscreenDiagFailCount(int n) {
+    return 'Delivery failures in last 24h: $n';
+  }
+
+  @override
+  String lockscreenDiagFailCountWithTime(
+    int n,
+    String month,
+    String day,
+    String hour,
+    String minute,
+  ) {
+    return 'Delivery failures in last 24h: $n (latest $month-$day $hour:$minute)';
+  }
+
+  @override
+  String get lockscreenDiagFailNone => 'Delivery failures in last 24h: none';
+
+  @override
+  String get lockscreenDiagExplain =>
+      'With the screen off, stationary and unplugged, Android enters Doze and suspends app network access (official docs: \"Suspends network access\"); apps on the battery-optimization whitelist may keep using the network and hold wake locks in Doze. Pushes that failed while locked are queued automatically and resent after unlock or network recovery.';
+
+  @override
   String get statusOk => 'Normal';
 
   @override

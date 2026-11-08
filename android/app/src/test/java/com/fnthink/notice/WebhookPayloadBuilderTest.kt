@@ -161,4 +161,34 @@ class WebhookPayloadBuilderTest {
         assertEquals("txt", json.getString("template"))
         assertEquals("标题", json.getString("title"))
     }
+
+    // ===== T249：企微群机器人 content 字节预截断（官方 91770）=====
+
+    @Test
+    fun wecomRobotText_truncatesTo2048BytesWithoutSplittingChars() {
+        val text = "中".repeat(1000) // 3000 UTF-8 字节
+        val out = B.truncateWecomRobotContent(text, markdown = false)
+        assertTrue("必须落进 text 上限", out.toByteArray(Charsets.UTF_8).size <= 2048)
+        assertTrue("不能截成空串", out.isNotEmpty())
+        assertEquals(
+            "不能拆坏多字节字符",
+            out,
+            String(out.toByteArray(Charsets.UTF_8), Charsets.UTF_8),
+        )
+    }
+
+    @Test
+    fun wecomRobotMarkdown_truncatesTo4096Bytes() {
+        val text = "中".repeat(2000) // 6000 UTF-8 字节
+        val out = B.truncateWecomRobotContent(text, markdown = true)
+        val bytes = out.toByteArray(Charsets.UTF_8).size
+        assertTrue("必须落进 markdown 上限", bytes <= 4096)
+        assertTrue("markdown 上限应比 text 宽", bytes > 2048)
+    }
+
+    @Test
+    fun wecomRobotShortContent_unchanged() {
+        assertEquals("短消息", B.truncateWecomRobotContent("短消息", markdown = false))
+        assertEquals("**短消息**", B.truncateWecomRobotContent("**短消息**", markdown = true))
+    }
 }

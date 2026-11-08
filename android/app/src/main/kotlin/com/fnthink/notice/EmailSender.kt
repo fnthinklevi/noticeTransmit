@@ -59,12 +59,18 @@ object EmailSender {
         val role: ChannelRole = ChannelRole.PRIMARY
     )
 
-    /** 发送通知邮件（失败自动重试 1 次，错误经分类后回传，供历史失败原因展示） */
+    /**
+     * 发送通知邮件（失败自动重试 1 次，错误经分类后回传，供历史失败原因展示）。
+     *
+     * T243：回调带 [subject]/[body]（本次渲染成品）与 [retryable]（是否瞬时类失败）——
+     * 调用方据此决定是否入邮件自动重放队列；把成品带出来而不是让调用方重排模板，
+     * 是同一封信"入队的那份"与"失败的那份"必须逐字相同（重放不再重排模板）。
+     */
     fun sendNotification(
         configs: List<EmailConfig>,
         info: NotificationInfo,
         scope: CoroutineScope,
-        onResult: ((Boolean, String) -> Unit)? = null
+        onResult: ((config: EmailConfig, subject: String, body: String, success: Boolean, message: String, retryable: Boolean) -> Unit)? = null
     ) {
         for (config in configs) {
             scope.launch(Dispatchers.IO) {
@@ -73,15 +79,16 @@ object EmailSender {
                 try {
                     sendEmail(config, subject, body)
                     Log.d(TAG, "邮件发送成功 → ${config.toEmails.joinToString()}")
-                    onResult?.invoke(true, "邮件发送成功")
+                    onResult?.invoke(config, subject, body, true, "邮件发送成功", false)
                 } catch (e: Exception) {
                     // 网络抖动类失败重试 1 次（指数退避 2s）；配置类失败（认证/地址错误）重试无意义，直接报错
-                    if (isTransientFailure(e)) {
+                    val transient = isTransientFailure(e)
+                    if (transient) {
                         try {
                             delay(2000)
                             sendEmail(config, subject, body)
                             Log.d(TAG, "邮件重试成功 → ${config.toEmails.joinToString()}")
-                            onResult?.invoke(true, "邮件发送成功（重试后）")
+                            onResult?.invoke(config, subject, body, true, "邮件发送成功（重试后）", false)
                             return@launch
                         } catch (retry: Exception) {
                             Log.e(TAG, "邮件重试仍失败: ${retry.message}", retry)
@@ -89,7 +96,7 @@ object EmailSender {
                     }
                     val msg = classifyError(e)
                     Log.e(TAG, "邮件发送失败: $msg", e)
-                    onResult?.invoke(false, msg)
+                    onResult?.invoke(config, subject, body, false, msg, transient)
                 }
             }
         }
@@ -282,6 +289,24 @@ object EmailSender {
         }
 
         Transport.send(message)
+    }
+
+    /**
+     * T243 重放专用入口：把队列里**渲染好的** subject/body 原样再寄一遍。
+     * 返回 (成功?, 分类后的原因)——成功与否由异常路径判定，原因复用 [classifyError]
+     * 与实发/测试同一套文案。
+     */
+    fun resend(config: EmailConfig, subject: String, body: String): Pair<Boolean, String> {
+        return try {
+            sendEmail(config, subject, body)
+            Pair(true, "邮件发送成功")
+        } catch (e: Exception) {
+            // message 可能为 null（如 NetworkOnMainThreadException）——带异常类名，
+            // 否则历史/日志只剩一句空文案无从排查
+            val msg = classifyError(e)
+            Log.e(TAG, "邮件重放失败: $msg", e)
+            Pair(false, msg)
+        }
     }
 
     /**

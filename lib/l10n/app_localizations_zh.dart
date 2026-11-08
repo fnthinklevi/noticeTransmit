@@ -153,6 +153,41 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noChannels => '未配置推送通道';
 
   @override
+  String get lockscreenDiagTitle => '锁屏后推送失败？';
+
+  @override
+  String get lockscreenDiagExemptOk => '电池优化白名单：已豁免（深睡下网络可用）';
+
+  @override
+  String get lockscreenDiagExemptMissing => '电池优化白名单：未豁免';
+
+  @override
+  String get lockscreenDiagGoSettings => '去设置';
+
+  @override
+  String lockscreenDiagFailCount(int n) {
+    return '近 24 小时推送失败：$n 次';
+  }
+
+  @override
+  String lockscreenDiagFailCountWithTime(
+    int n,
+    String month,
+    String day,
+    String hour,
+    String minute,
+  ) {
+    return '近 24 小时推送失败：$n 次（最近一次 $month-$day $hour:$minute）';
+  }
+
+  @override
+  String get lockscreenDiagFailNone => '近 24 小时推送失败：无';
+
+  @override
+  String get lockscreenDiagExplain =>
+      '灭屏静置且未充电时，Android 会进入 Doze 深睡并暂停应用网络（官方文档原文：Suspends network access）；已加入电池优化白名单的应用在深睡下可继续使用网络并持有唤醒锁。锁屏期间失败的推送已自动转入重试队列，解锁或联网后会自动补发。';
+
+  @override
   String get statusOk => '状态正常';
 
   @override

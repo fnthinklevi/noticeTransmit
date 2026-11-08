@@ -45,7 +45,9 @@ data class AppChannelConfig(
  * 单个应用通道模板：
  * - [fetchToken]：两阶段第一步，凭据换 token（同步 HTTP，调用方保证 IO 线程）
  * - [sendTarget]：两阶段第二步的端点与鉴权头（企微 token 走 query、飞书走 Bearer header）
- * - [buildPayload]：消息载荷（content 已截断；markdown 由模板决定是否支持）
+ * - [buildPayload]：消息载荷（content 已截断；markdown 由模板决定是否支持）。
+ *   [recordId] 是这条通知的历史记录 id（T247：飞书用它派生 `uuid` 做服务端去重——
+ *   官方语义「相同 uuid 1 小时内至多成功一条」，重放同一载荷时由服务端挡双发）。
  * - [truncate]：正文截断（各平台上限不同）
  */
 class AppChannelSpec(
@@ -53,7 +55,7 @@ class AppChannelSpec(
     val officialBase: String,
     val fetchToken: (AppChannelConfig, String, OkHttpClient) -> Pair<String, Int>,
     val sendTarget: (AppChannelConfig, String, String) -> Pair<String, Map<String, String>>,
-    val buildPayload: (AppChannelConfig, String, Boolean) -> String,
+    val buildPayload: (AppChannelConfig, String, Boolean, String) -> String,
     val truncate: (String) -> String,
     val configSchema: List<ConfigField>,
     /** Dart ARB 资源名（通道类型标签）。译文只在 ARB。 */
@@ -128,7 +130,7 @@ object AppChannelRegistry {
                 AppChannelTokenHelper.urlEncode(token)
             Pair(url, emptyMap())
         },
-        buildPayload = { config, content, markdown ->
+        buildPayload = { config, content, markdown, recordId ->
             val agentid = config.config.optString("agentid", "0").trim().toLongOrNull() ?: 0L
             require(agentid > 0) { "agentid 无效（须为正整数）" }
             val touser = config.config.optString("touser", "").ifEmpty { "@all" }
@@ -184,7 +186,7 @@ object AppChannelRegistry {
                 AppChannelTokenHelper.urlEncode(receiveIdType)
             Pair(url, mapOf("Authorization" to "Bearer $token"))
         },
-        buildPayload = { config, content, markdown ->
+        buildPayload = { config, content, markdown, recordId ->
             // 飞书自建应用 IM 消息：text 原生支持；markdown 需 post/interactive 卡片，
             // 通知转发场景统一降级为 text（换行保留），保证送达
             val receiveId = config.config.optString("receive_id", "").trim()
@@ -194,6 +196,9 @@ object AppChannelRegistry {
                 .put("receive_id", receiveId)
                 .put("msg_type", "text")
                 .put("content", contentJson)
+                // T247：uuid 去重键（官方语义「相同 uuid 1 小时内至多成功一条」）——
+                // 同一条通知的重放载荷带同一 uuid，服务端挡双发；上限 50 字符。
+                .put("uuid", recordId.take(50))
                 .toString()
         },
         truncate = { text -> truncateByChars(text, ChannelLimits.FEISHU_APP_CHARS) },

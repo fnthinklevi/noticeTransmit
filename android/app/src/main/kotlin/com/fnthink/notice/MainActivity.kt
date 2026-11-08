@@ -681,7 +681,8 @@ class MainActivity : FlutterActivity() {
                         )
                     }
                     val (url, headers) = spec.sendTarget(cfg, base, token)
-                    val payload = spec.buildPayload(cfg, content, false)
+                    // T247：uuid 用当下时间派生——同一发「仅测试」连点两次由服务端 1 小时窗口去重
+                    val payload = spec.buildPayload(cfg, content, false, "test_${System.currentTimeMillis()}".take(50))
                     val request = Request.Builder()
                         .url(url)
                         .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))

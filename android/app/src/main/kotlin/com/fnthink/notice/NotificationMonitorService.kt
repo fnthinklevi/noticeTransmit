@@ -204,6 +204,11 @@ class NotificationMonitorService : NotificationListenerService() {
 
         // N4 失败推送自动重试队列：初始化上下文 + 启动重放（服务启动 + 网络恢复触发）
         RetryQueue.startWatching(applicationContext)
+        // T243：邮件族失败重放队列与 RetryQueue 同一套触发面（启动 + 网络恢复 + T239 解锁亮屏）
+        EmailRetryQueue.init(applicationContext)
+        EmailRetryQueue.replayIfEligible()
+        // T244/T245：给发送层注入应用上下文（wake lock / 电源态取证位的读数来源）
+        NetworkClient.init(applicationContext)
 
         // N9 漏通知修复：启动补扫 —— 进程被系统回收期间 onNotificationPosted 事件
         // 永久丢失（通知仍驻留通知栏），延迟 1.5 秒（等初始化完成）后按持久化水位
@@ -728,6 +733,9 @@ class NotificationMonitorService : NotificationListenerService() {
                                 this@NotificationMonitorService,
                                 "screen",
                             )
+                            // T239：同一份屏上事件再喂给失败队列重放（E2 实证：解锁/亮屏
+                            // 原本不在 RetryQueue 的触发面里，长锁屏后排队的推送无人叫醒）
+                            RetryQueueWake.wake(action)
                         }
                     }
                 }
@@ -2073,15 +2081,32 @@ class NotificationMonitorService : NotificationListenerService() {
                 return
             }
 
-            EmailSender.sendNotification(selected, info, serviceScope) { success, msg ->
-                val result = if (success) {
-                    WebhookResponseParser.ParseResult(
+            // T243：回调带渲染成品（subject/body）与 retryable——瞬时类失败入邮件自动
+            // 重放队列（配置类失败不入：重放无意义且会拿账号撞厂商认证封禁）；入队成功
+            // 回传 QUEUED（非终态，重放成功后翻绿），入队失败回传原失败结果保持诚实。
+            EmailSender.sendNotification(selected, info, serviceScope) { config, subject, body, success, msg, retryable ->
+                val result = when {
+                    success -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.SUCCESS, 0, msg, false
                     )
-                } else {
-                    WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, msg, false
-                    )
+                    else -> {
+                        val enqueued = retryable && EmailRetryQueue.enqueue(
+                            configId = config.id,
+                            subject = subject,
+                            body = body,
+                            recordId = info.id,
+                        )
+                        if (enqueued) {
+                            WebhookResponseParser.ParseResult(
+                                WebhookResponseParser.DeliveryStatus.QUEUED, 0,
+                                "发送失败已转入自动重试队列，解锁/联网后自动补发 · $msg", false
+                            )
+                        } else {
+                            WebhookResponseParser.ParseResult(
+                                WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, msg, false
+                            )
+                        }
+                    }
                 }
                 DeliveryNotifier.notify(this, info.id, "EMAIL", result, viaBackup = viaBackup)
             }

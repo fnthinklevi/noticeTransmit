@@ -19,6 +19,7 @@ class RetryQueueTest {
     private fun item(
         id: String = "r1",
         attempts: Int = 0,
+        queueReplays: Int = 3,
         nextAttemptAt: Long = now,
         createdAt: Long = now,
     ) = RetryItem(
@@ -30,6 +31,7 @@ class RetryQueueTest {
         contentType = "application/json; charset=utf-8",
         recordId = "rec_$id",
         attempts = attempts,
+        queueReplays = queueReplays,
         nextAttemptAt = nextAttemptAt,
         createdAt = createdAt,
         headers = mapOf("X-Api-Key" to "k-1"),
@@ -62,6 +64,43 @@ class RetryQueueTest {
         // 边界内侧：恰好 24h 仍未过期
         val boundary = item(createdAt = now - RetryQueueLogic.MAX_AGE_MS)
         assertTrue(RetryQueueLogic.isReplayable(boundary, now))
+    }
+
+    // ===== T251 重试预算（queueReplays 按通道盖戳）=====
+
+    @Test
+    fun budgetLimitedItem_notReplayableAfterItsOwnBudget() {
+        // Server酱/PushPlus 形态：预算 1 ⇒ 1 次取出即耗尽（旧的全局常量是 3）
+        val tight = item(id = "tight", attempts = 1, queueReplays = 1)
+        assertFalse(RetryQueueLogic.isReplayable(tight, now))
+        // 还没取出（attempts=0）时照常可重放
+        assertTrue(RetryQueueLogic.isReplayable(item(id = "fresh", queueReplays = 1), now))
+    }
+
+    @Test
+    fun legacyJsonWithoutBudgetField_defaultsToThree() {
+        // 升级前落盘的条目没有 queueReplays 键 ⇒ 默认 3（当时的全局预算，不是猜的）
+        val legacy = """[{"id":"l1","url":"https://e.com","payload":"p","attempts":2,"createdAt":$now}]"""
+        val parsed = RetryQueueLogic.parse(legacy).single()
+        assertEquals(3, parsed.queueReplays)
+        assertTrue(RetryQueueLogic.isReplayable(parsed, now))
+    }
+
+    @Test
+    fun jsonRoundTrip_preservesBudget() {
+        val items = listOf(item(id = "tight", queueReplays = 1, attempts = 0))
+        val parsed = RetryQueueLogic.parse(RetryQueueLogic.toJson(items)).single()
+        assertEquals(1, parsed.queueReplays)
+    }
+
+    @Test
+    fun purge_dropsBudgetExhausted() {
+        val items = listOf(
+            item(id = "ok", queueReplays = 3, attempts = 1),
+            item(id = "tight-done", queueReplays = 1, attempts = 1),
+        )
+        val cleaned = RetryQueueLogic.purge(items, now)
+        assertEquals(listOf("ok"), cleaned.map { it.id })
     }
 
     // ===== purge =====

@@ -1648,6 +1648,31 @@ class DatabaseHelper
     );
   }
 
+  /// T246：近 [window] 的推送失败计数与最近一次失败时间（送达日志，status='failed'）。
+  ///
+  /// 口径是**全部失败**——BIZ_FAIL 与网络类在日志里同为 `failed`（原始枚举名不落库），
+  /// 所以返回值只说「推送失败」；排查卡的文案不得冒充"网络类"区分。
+  /// 返回 (计数, 最近一次失败时间)；无失败返回 (0, null)。
+  Future<(int, DateTime?)> recentDeliveryFailureStats({
+    Duration window = const Duration(hours: 24),
+  }) async {
+    final db = await database;
+    final cutoff = DateTime.now().subtract(window).millisecondsSinceEpoch;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c, MAX(timestamp) AS latest '
+      'FROM webhook_delivery_log WHERE status = ? AND timestamp >= ?',
+      ['failed', cutoff],
+    );
+    final row = rows.isEmpty ? null : rows.first;
+    final c = row?['c'];
+    final count = c is int ? c : int.tryParse('$c') ?? 0;
+    final latestMs = row?['latest'] as int?;
+    return (
+      count,
+      latestMs == null ? null : DateTime.fromMillisecondsSinceEpoch(latestMs),
+    );
+  }
+
   // ── 自建应用通道（app_channels，DB v10）──
 
   /// 「这台已监听的短信留存」那一路（T124 ①）：只读 `type='sms'` 那些行，按时间倒序。

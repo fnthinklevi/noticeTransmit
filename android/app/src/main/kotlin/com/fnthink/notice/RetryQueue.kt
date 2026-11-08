@@ -3,6 +3,7 @@ package com.fnthink.notice
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.os.PowerManager
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -30,6 +31,11 @@ data class RetryItem(
     /** 应用通道（自建应用体系）：非空时重放走 AppChannelSender（token 按凭据重取），v1.5.73 */
     val appChannelId: String = "",
     val appType: String = "",
+    /**
+     * T251：这一条在队列里的**最大重放次数**（通道自己的重试预算，默认 3；
+     * Server酱/PushPlus 这类「失败也计数」的平台为 1）。入队时由调用方按通道盖戳。
+     */
+    val queueReplays: Int = 3,
     /**
      * T188 片1：入队那一刻的**请求方法**。
      *
@@ -62,17 +68,17 @@ object RetryQueueLogic {
     const val MAX_ATTEMPTS = 3
     const val COOLDOWN_MS = 15 * 60 * 1000L
 
-    /** 是否可重放：未超限流冷却、未超重放次数、未过期（恰好 24h 仍可重放，超过才过期） */
+    /** 是否可重放：未超**本条自己的**重放预算（T251，默认 3）、未过期、过了冷却 */
     fun isReplayable(item: RetryItem, now: Long): Boolean {
-        if (item.attempts >= MAX_ATTEMPTS) return false
+        if (item.attempts >= item.queueReplays) return false
         if (now - item.createdAt > MAX_AGE_MS) return false
         return now >= item.nextAttemptAt
     }
 
-    /** 清扫：丢弃已超重放次数 / 已超过 24h 的条目（其历史记录保持「推送失败」如实状态） */
+    /** 清扫：丢弃已超本条预算 / 已超过 24h 的条目（其历史记录保持「推送失败」如实状态） */
     fun purge(items: List<RetryItem>, now: Long): List<RetryItem> =
         items.filter { item ->
-            item.attempts < MAX_ATTEMPTS && now - item.createdAt <= MAX_AGE_MS
+            item.attempts < item.queueReplays && now - item.createdAt <= MAX_AGE_MS
         }
 
     /** 上限保护：超出 [MAX_RECORDS] 时保留最新（按 createdAt 降序取前 N） */
@@ -100,6 +106,7 @@ object RetryQueueLogic {
                     put("appType", item.appType)
                     put("method", item.method)
                     put("headers", JSONObject(item.headers))
+                    put("queueReplays", item.queueReplays)
                     put("attempts", item.attempts)
                     put("nextAttemptAt", item.nextAttemptAt)
                     put("createdAt", item.createdAt)
@@ -133,6 +140,8 @@ object RetryQueueLogic {
                         }
                     ),
                     attempts = o.optInt("attempts", 0),
+                    // 升级前落盘的队列没有这一枚 ⇒ 3（当时的全局预算，不是猜的）
+                    queueReplays = o.optInt("queueReplays", 3),
                     nextAttemptAt = o.optLong("nextAttemptAt", 0L),
                     createdAt = o.optLong("createdAt", 0L),
                 )
@@ -141,6 +150,21 @@ object RetryQueueLogic {
             emptyList()
         }
     }
+}
+
+/**
+ * T240 重放门控的纯判据：深睡（deep Doze）且**未**豁免电池优化 ⇒ 本轮延后。
+ *
+ * 官方语义（developer.android.com / Optimize for Doze and App Standby）：
+ * 豁免名单内的应用在 Doze 期间**可以使用网络并持有 partial wake lock** —— 所以豁免用户
+ * 的重放照常跑；未豁免用户的深睡窗口里重放注定失败，而 `replayIfEligible` 是**取出时**
+ * 就 attempts++（防网络回调风暴的既有设计），照跑会把宝贵的 3 次重放烧在不可用窗口里
+ * （E3 真机实证：45 分钟长锁屏后队列即被烧空）。轻度 Doze 网络可用概率高，不过度门控
+ * （D4 拍板：仅深 Doze）。JVM 可测。
+ */
+internal object RetryIdleGatePolicy {
+    fun shouldDefer(deviceIdle: Boolean, batteryExempt: Boolean): Boolean =
+        deviceIdle && !batteryExempt
 }
 
 /**
@@ -184,7 +208,13 @@ object RetryQueue {
 
     private fun prefs(context: Context) = SecurePrefs.get(context)
 
-    /** 入队（NetworkClient 重试耗尽时调用）：去重按 url+recordId，上限 50 保留最新 */
+    /**
+     * 入队（NetworkClient 重试耗尽时调用）：去重按 url+recordId，上限 50 保留最新。
+     *
+     * T241：返回 **true = 已写盘**——调用方（NetworkClient）据此把回传结果改判 QUEUED
+     * （「失败已入自动重试队列」而非终态失败）；false（未初始化 / 空 url / 空 payload）时
+     * 调用方回传原失败结果，保持诚实。
+     */
     fun enqueue(
         url: String,
         payload: String,
@@ -196,12 +226,12 @@ object RetryQueue {
         appChannelId: String? = null,
         appTypeLabel: String? = null,
         method: String = HttpMethods.DEFAULT,
-    ) {
+    ): Boolean {
         val context = appContext ?: run {
             Log.w(TAG, "enqueue skipped: queue not initialized")
-            return
+            return false
         }
-        if (url.isEmpty() || payload.isEmpty()) return
+        if (url.isEmpty() || payload.isEmpty()) return false
         val now = System.currentTimeMillis()
         val item = RetryItem(
             id = "retry_${now}_${(url.hashCode().toLong() and 0xFFFFL)}",
@@ -212,6 +242,9 @@ object RetryQueue {
             contentType = contentType,
             recordId = recordId,
             attempts = 0,
+            // T251：入队即按通道盖重放预算戳（Server酱/PushPlus=1，其余 3）——
+            // 重放判据读条目自己的这份，不再读全局常量
+            queueReplays = ChannelRegistry.spec(webhookType).retryBudget.queueReplays,
             nextAttemptAt = RetryQueueLogic.nextAttemptAfter(now),
             createdAt = now,
             appChannelId = appChannelId ?: "",
@@ -232,6 +265,25 @@ object RetryQueue {
             prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(capped)).commit()
         }
         Log.i(TAG, "重试入队: ${NetworkClient.sanitizeUrlHost(url)} record=$recordId")
+        // T239：入队成功即排重放闹钟（AllowWhileIdle，Doze 官方点名机制；Flyme 不投递
+        // 屏事件广播，闹钟是唯一 ROM 无关的到点触发源）
+        RetryReplayAlarm.schedule(context)
+        return true
+    }
+
+    /** T239：最早到期时间（供重放闹钟排程）。无待重放条目返回 0。 */
+    fun earliestDueAt(now: Long): Long {
+        val context = appContext ?: return 0L
+        return synchronized(lock) {
+            RetryQueueLogic.parse(
+                prefs(context).getString(SECURE_KEY, "[]") ?: "[]"
+            )
+                .filter {
+                    it.attempts < it.queueReplays &&
+                        now - it.createdAt <= RetryQueueLogic.MAX_AGE_MS
+                }
+                .minOfOrNull { it.nextAttemptAt } ?: 0L
+        }
     }
 
     /**
@@ -241,6 +293,9 @@ object RetryQueue {
     fun startWatching(context: Context) {
         init(context)
         replayIfEligible()
+        // T243：邮件队列与 webhook 队列共用同一套触发面（启动/网络恢复；T239 补解锁亮屏）
+        EmailRetryQueue.init(context)
+        EmailRetryQueue.replayIfEligible()
         if (!watching.compareAndSet(false, true)) return
         val cm = appContext?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         if (cm == null) {
@@ -252,6 +307,7 @@ object RetryQueue {
                 override fun onAvailable(network: Network) {
                     Log.i(TAG, "网络恢复，重放失败队列")
                     replayIfEligible()
+                    EmailRetryQueue.replayIfEligible()
                 }
             }
             cm.registerDefaultNetworkCallback(callback)
@@ -279,12 +335,31 @@ object RetryQueue {
 
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
-    /** 重放所有可重放条目：推送暂停时保持队列不动（与「用户主动暂停」语义一致） */
+    /**
+     * 重放所有可重放条目：推送暂停时保持队列不动（与「用户主动暂停」语义一致）。
+     *
+     * T240：深睡（deep Doze）且未豁免电池优化时本轮**延后**——不取出、不 attempts++、
+     * 不写盘（E3 实证：那个窗口里重放注定失败，取出即烧次数；豁免用户的窗口网络可用，
+     * 照常跑，官方语义由 E5 真机背书）。半途加豁免不解冻（E4），所以这里每次触发都现读
+     * 电源态，不缓存。
+     */
     fun replayIfEligible() {
         val context = appContext ?: return
         if (ChannelMirrorInvalidator.isPending(context)) return
         if (!PushToggleManager.isPushActive()) {
             Log.d(TAG, "推送暂停中，重试队列保持不动")
+            return
+        }
+        val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        if (pm != null && RetryIdleGatePolicy.shouldDefer(
+                deviceIdle = pm.isDeviceIdleMode,
+                batteryExempt = pm.isIgnoringBatteryOptimizations(context.packageName),
+            )
+        ) {
+            Log.i(TAG, "深睡中且未豁免电池优化，重放延后（不烧次数）")
+            // T239：门控延后必须有下一颗闹钟兜底，否则延后这一次之后没有任何触发源
+            // 会再叫醒队列（屏事件在部分 ROM 上不投递；网络回调依赖连通性变化）
+            RetryReplayAlarm.scheduleAfter(context, RetryReplayAlarm.DEFER_RETRY_MS)
             return
         }
         val now = System.currentTimeMillis()
@@ -312,6 +387,8 @@ object RetryQueue {
             due to cleaned
         }
         if (replayable.isEmpty()) return
+        // T239：本轮取出即重排了冷却（attempts++ + nextAttemptAt），排下一颗闹钟兜底
+        RetryReplayAlarm.schedule(context)
         Log.i(TAG, "重放失败队列：${replayable.size} 条")
         for (item in replayable) {
             sendOne(context, item)

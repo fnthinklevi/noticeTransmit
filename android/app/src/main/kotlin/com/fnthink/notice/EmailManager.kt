@@ -158,4 +158,14 @@ object EmailManager {
             null
         }
     }
+
+    /**
+     * T243 重放用：按 id 取一条**当前启用**的邮件通道配置（含密码）。
+     * 返回 null = 已删除 / 已停用 / 改为不参与——调用方（EmailRetryQueue）据此把
+     * 排队条目移出并回传失败，而不是拿一条用户已停用的通道继续发信。
+     */
+    fun findChannelById(context: Context, id: String): EmailSender.EmailConfig? {
+        if (id.isEmpty()) return null
+        return getEnabledConfigs(context).firstOrNull { it.id == id }
+    }
 }

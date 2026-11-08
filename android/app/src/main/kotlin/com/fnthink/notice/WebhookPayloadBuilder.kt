@@ -151,9 +151,14 @@ object WebhookPayloadBuilder {
         deviceName: String,
         notifyType: String
     ): String {
-        val text = buildTextBody(
-            title = title, content = content, appName = appName,
-            time = time, deviceName = deviceName, notifyType = notifyType
+        // T249：官方群机器人文档（91770）——text content ≤2048 字节（UTF-8），超限回
+        // 45002 直接拒收（对比自建应用 message/send 的"服务端截断"）。客户端预截断保送达。
+        val text = ChannelDefaults.truncateBytes(
+            buildTextBody(
+                title = title, content = content, appName = appName,
+                time = time, deviceName = deviceName, notifyType = notifyType
+            ),
+            ChannelLimits.WECHAT_WORK_TEXT_BYTES,
         )
         return JSONObject().apply {
             put("msgtype", "text")
@@ -235,6 +240,18 @@ object WebhookPayloadBuilder {
      */
     fun truncateForDiscord(text: String): String =
         ChannelDefaults.truncateChars(text, ChannelLimits.DISCORD_CHARS)
+
+    /**
+     * T249：企微**群机器人** content 的字节级预截断（text 2048B / markdown 4096B，
+     * 官方 91770：超限回 45002 直接拒收——与自建应用 message/send 的"服务端截断"不同）。
+     * 按 UTF-8 **字节**计（与 Telegram/Discord 的字符截断不同源）。
+     * 供 ChannelRegistry 的 notify/platformPayload/sms/call 各 lambda 共用（单一作者）。
+     */
+    internal fun truncateWecomRobotContent(text: String, markdown: Boolean): String =
+        ChannelDefaults.truncateBytes(
+            text,
+            if (markdown) ChannelLimits.WECHAT_WORK_MARKDOWN_BYTES else ChannelLimits.WECHAT_WORK_TEXT_BYTES,
+        )
 
     // truncateForWecomApp 已删除（第 4 步）：零调用点，且与 AppChannelRegistry.truncateByBytes
     // 是同一件事的第二份实现（企微应用正文上限现在统一由 ChannelLimits.WECOM_APP_BYTES 声明）。

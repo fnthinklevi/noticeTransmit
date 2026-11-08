@@ -4,6 +4,7 @@ import com.fnthink.notice.WebhookPayloadBuilder.WebhookType
 import com.fnthink.notice.WebhookResponseParser.DeliveryStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -235,5 +236,70 @@ class WebhookResponseParserTest {
     fun pushPlus_codeNot200_bizFail() {
         val r = parse(WebhookType.PUSH_PLUS, 200, """{"code":903,"msg":"invalid token"}""")
         assertEquals(DeliveryStatus.BIZ_FAIL, r.status)
+    }
+
+    // ===== T248：限流等待秒数（对端官方语义）=====
+
+    @Test
+    fun http429_retryAfterHeaderWinsOverBody() {
+        val r = WebhookResponseParser.parse(
+            WebhookType.GENERIC, 429,
+            """{"parameters":{"retry_after":17}}""",
+            42,
+        )
+        assertEquals(DeliveryStatus.RATE_LIMITED, r.status)
+        assertEquals(42, r.retryAfterSeconds)
+    }
+
+    @Test
+    fun http429_telegramBodyRetryAfter() {
+        val r = WebhookResponseParser.parse(
+            WebhookType.TELEGRAM, 429,
+            """{"ok":false,"error_code":429,"parameters":{"retry_after":17}}""",
+        )
+        assertEquals(DeliveryStatus.RATE_LIMITED, r.status)
+        assertEquals(17, r.retryAfterSeconds)
+    }
+
+    @Test
+    fun http429_withoutHint_hasNullRetryAfter() {
+        val r = WebhookResponseParser.parse(WebhookType.GENERIC, 429, "Too Many Requests")
+        assertEquals(DeliveryStatus.RATE_LIMITED, r.status)
+        assertNull(r.retryAfterSeconds)
+    }
+
+    @Test
+    fun non429_neverCarriesRetryAfter() {
+        assertNull(
+            WebhookResponseParser.parse(WebhookType.GENERIC, 500, "err", 42).retryAfterSeconds,
+        )
+        assertNull(
+            WebhookResponseParser.parse(WebhookType.GENERIC, 200, "ok", 42).retryAfterSeconds,
+        )
+    }
+
+    // ===== T250：企微机器人限流码 11232（与 45009/130101 同一档）=====
+
+    @Test
+    fun wechatWork_errcode11232_isRateLimited() {
+        val r = parse(WebhookType.WECHAT_WORK, 200, """{"errcode":11232,"errmsg":"rate limit"}""")
+        assertEquals(DeliveryStatus.RATE_LIMITED, r.status)
+        assertTrue(r.retryable)
+        assertTrue("失败文案必须带原始码，便于取证", r.message.contains("11232"))
+    }
+
+    @Test
+    fun feishu_code230020_isRateLimited() {
+        // 飞书自建应用 im/v1/messages 的官方频率限制码，走 host 回退到 FEISHU 判定
+        val r = parse(WebhookType.FEISHU, 200, """{"code":230020,"msg":"freq limit"}""")
+        assertEquals(DeliveryStatus.RATE_LIMITED, r.status)
+        assertTrue(r.retryable)
+    }
+
+    @Test
+    fun feishu_otherBizCode_isBizFail() {
+        val r = parse(WebhookType.FEISHU, 200, """{"code":9499,"msg":"bad request"}""")
+        assertEquals(DeliveryStatus.BIZ_FAIL, r.status)
+        assertFalse(r.retryable)
     }
 }
