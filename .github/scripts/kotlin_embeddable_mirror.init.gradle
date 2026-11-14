@@ -20,13 +20,18 @@
 //   本仓库的 android/settings.gradle.kts 管不到它；init.d 对复合构建里的
 //   每个 build 都生效。CI 各 job 把它写进 $GRADLE_USER_HOME/init.d/ 即可，
 //   flutter test / gradlew 所有调用路径都被覆盖。
-gradle.beforeProject { project ->
-    project.repositories {
+//
+//   ⚠ 2026-11-14：Gradle 9.8.2 起 default preferSettingsRepositories 禁止
+//   beforeProject 往 project.repositories 注入仓库，直接 BUILD FAILED。
+//   改用 beforeSettings 在 settings 阶段操作 dependencyResolutionManagement，
+//   对所有 settings 对象（包括 Flutter SDK 引擎插件的 includeBuild）生效。
+gradle.beforeSettings { settings ->
+    settings.dependencyResolutionManagement.repositories {
         exclusiveContent {
             forRepository {
                 maven {
                     name = 'aliyunCentralKotlinEmbeddable'
-                    url = project.uri('https://maven.aliyun.com/repository/central')
+                    url = settings.uri('https://maven.aliyun.com/repository/central')
                 }
             }
             filter {
