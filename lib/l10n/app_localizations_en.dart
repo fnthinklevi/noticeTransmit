@@ -362,7 +362,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupAutoSwitchOffNote =>
-      'When off, every notification picks its own channel: nothing remembers \"switched to backup\", and nothing switches back on its own.';
+      'When off, only the primary channel is used: it is still attempted even when judged unavailable, failures are retried automatically, and the backup channel is never used.';
 
   @override
   String get permSettings => 'Permissions';

@@ -676,7 +676,7 @@ abstract class AppLocalizations {
   /// No description provided for @backupAutoSwitchOffNote.
   ///
   /// In zh, this message translates to:
-  /// **'关掉之后每条通知各自判断走哪条通道，不再记住「已切到备用」，也不会自动切回。'**
+  /// **'关掉之后只发主通道：即使判主通道不可用也照发，失败自动重试，绝不切到备用通道。'**
   String get backupAutoSwitchOffNote;
 
   /// No description provided for @permSettings.

@@ -349,7 +349,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backupAutoSwitchOffNote =>
-      '关掉之后每条通知各自判断走哪条通道，不再记住「已切到备用」，也不会自动切回。';
+      '关掉之后只发主通道：即使判主通道不可用也照发，失败自动重试，绝不切到备用通道。';
 
   @override
   String get permSettings => '权限设置';

@@ -145,7 +145,7 @@ class WebhookRoutingTest {
     }
 
     @Test
-    fun `那枚开关关掉时短信与来电这两条链也不锁存（开关管全部三条链）`() {
+    fun `那枚开关关掉时短信与来电这两条链也只发主（开关管全部三条链）`() {
         // 只在一处判开关 = "转发的切了、短信的没切"，而 backup_engaged 是**设备级**的一格。
         val (s, _) = select(
             listOf(
@@ -154,9 +154,13 @@ class WebhookRoutingTest {
             ),
             autoBackup = false,
         )
-        assertEquals(listOf("b1"), ids(s))
+        assertEquals(
+            "关掉之后只发主：主判不可用也照发，绝不碰备用（失败走自动重试）",
+            listOf("p1"),
+            ids(s),
+        )
         assertFalse("关掉的那一条绝不写 backup_engaged", s.engagedBackup)
-        assertTrue("当轮推的不是主档 ⇒ 那一发历史仍然要标「走了备用」", s.viaBackup)
+        assertFalse("这一轮推的就是主档，不许标「走了备用」", s.viaBackup)
     }
 
     // ── 形状：短信与来电两条链不许再各走各的 ──

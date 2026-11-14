@@ -8,7 +8,7 @@ package com.fnthink.notice
  * ## 规则（逐条对应下面的测试）
  * 1. `NONE`（不参与）永不进候选；
  * 2. 有可用主通道 → 只推主通道；
- * 3. 主通道都不可用 **且** 存在可用备用 → 推备用，并**锁存**；
+ * 3. 主通道都不可用 **且** 存在可用备用 **且开关开着** → 推备用，并**锁存**；
  * 4. 锁存期间也绝不丢弃：备用全不可用就退回可用主通道，再不行就推全部候选 ——
  *    "不静默丢失"是比"严格照判据"更高优先级的既有约束；
  * 5. 压根没配主通道（全设成备用/不参与）不算降级，不锁存；
@@ -19,10 +19,13 @@ package com.fnthink.notice
  *    少一件都不算（每件一条用例，见 [Recovery]）：那份读数**新鲜**、它是**降级之后**新写的、
  *    而它自己是**连续第 [RECOVERY_SUCCESS_COUNT] 次**成功。一次成功就切 = 把
  *    `BackupModeStore` 原话点名的抖动原样放回来，而且比老行为更吵。
- * 8. 那枚「主不可用时自动切备」的开关（T135 ③，缺省开）关掉时：**当轮仍按 1–6 判该推谁，
- *    但 [Decision.engagedBackup] 永远不置起**（"关掉后绝不写 `backup_engaged`"就落在这一个
- *    return 上），而已经锁着的那一份当轮就解除（[Decision.releasedBackup]）—— 留着它，
- *    状态页那句"已切到备用"就不再是这台设备的真相。
+ * 8. 那枚「主不可用时自动切备」的开关（T135 ③，缺省开）关掉时（T252，2026-11-14 语义裁定）：
+ *    **只发主通道** —— 即使探测判主通道全不可用，当轮也照发主，失败交给自动重试，
+ *    **绝不碰备用**；已经锁着的那一份当轮就解除（[Decision.releasedBackup]）—— 留着它，
+ *    状态页那句"已切到备用"就不再是这台设备的真相。压根没配主通道时规则 5 照旧
+ *    （那不是"切换"，开关管的是"要不要自动切"，不是"禁用备用"）。
+ *    旧语义（"当轮仍按 1–6 判该推谁，只是不锁存"）已废：用户关掉开关后仍看到切备，
+ *    与开关承诺直接矛盾 —— 长锁屏后主通道被判不可用的那一轮就是案发现场。
  */
 object ChannelRouting {
 
@@ -63,7 +66,7 @@ object ChannelRouting {
      *   T132 之前它俩是同一个字段，于是规则 4 那条兜底（"主备都判成不可用也要照推，一条不能少"）
      *   推了却不标 —— 用户看到的历史是"走了主通道"，而那次其实谁都不可用。
      *   默认跟随 [engagedBackup]，只有兜底那一档显式置 true（它标、但不锁存）。
-     *   开关关掉那一档也标（规则 8：那一轮推的确实不是主档），但同样不锁存。
+     *   开关关掉那一档**不标**：那一轮推的就是主档（规则 8：判成不可用也照发），也不锁存。
      * @param releasedBackup 本次之后那份锁存**不再代表任何事**，调用方要把它解除
      *   （[BackupModeStore.applyDecision]）。落盘点只有那一处，
      *   所以自动切回这件事在两条链上表现一致。
@@ -77,7 +80,7 @@ object ChannelRouting {
 
     /**
      * @param backupEngaged 当前那份锁存
-     * @param autoBackup 用户那枚「主不可用时自动切备」的开关（缺省开：今天的行为就是自动切备）
+     * @param autoBackup 用户那枚「主不可用时自动切备」的开关（缺省开；关 ⇒ 只发主，见规则 8）
      * @param engagedAtMs 锁存开始的时刻；0 = 不知道（升级前就锁着的老数据），
      *   那一档按"很久以前锁上的"处理 ⇒ 攒够证据就放人，见 [ChannelAvailability.engagedAt]
      */
@@ -120,6 +123,13 @@ object ChannelRouting {
 
         okPrimaries.ifNotEmpty {
             return Decision(keysOf(it), false, releasedBackup = dropLatch)
+        }
+
+        if (!autoBackup && primaries.isNotEmpty()) {
+            // 规则 8（T252）：关掉开关 ⇒ 只发主。探测判主全不可用也照发主通道，失败走自动重试
+            // （通知链内联重试耗尽后入 RetryQueue），绝不碰备用 ——
+            // "不静默丢失"在这一档由重试接住，而不是由备用接住。
+            return Decision(keysOf(primaries), false, releasedBackup = dropLatch)
         }
 
         if (primaries.isNotEmpty() && okBackups.isNotEmpty()) {

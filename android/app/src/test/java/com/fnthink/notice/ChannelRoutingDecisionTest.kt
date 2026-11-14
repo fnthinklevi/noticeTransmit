@@ -350,11 +350,13 @@ class ChannelRoutingDecisionTest {
     }
 
     // ── 「主不可用时自动切备」那枚开关（T135 ③，默认开）──────────────────
-    // 拍板的形状是「仍按当轮判据推，但不锁存」，所以这一档有三件事必须成立：
-    // 绝不写 backup_engaged、已经锁着的那份要说解就解、兜底那一档一条都不能少。
+    // 2026-11-14 裁定的形状（T252）是「关 ⇒ 只发主，失败进重试，绝不碰备用」：
+    // 探测判主不可用也照发主（失败由重试路接住）、已锁着的当轮解除、
+    // 没配主通道时规则 5 不受影响。旧形状（仍推备用只是不锁存）已废 ——
+    // 用户关掉开关后仍被切备，与开关承诺直接矛盾。
 
     @Test
-    fun `关掉自动切备：当轮仍推可用备用，但绝不锁存`() {
+    fun `关掉自动切备：主被判不可用也照发主，绝不碰备用`() {
         val d = ChannelRouting.route(
             listOf(
                 m("webhook:wh-1", ChannelRole.PRIMARY, false),
@@ -363,9 +365,13 @@ class ChannelRoutingDecisionTest {
             backupEngaged = false,
             autoBackup = false,
         )
-        assertEquals(listOf("app:app-1"), d.keys)
+        assertEquals(
+            "关掉之后只发主：失败由自动重试接住，备用一把都不许碰",
+            listOf("webhook:wh-1"),
+            d.keys,
+        )
         assertFalse("关掉的那一条绝不写 backup_engaged", d.engagedBackup)
-        assertTrue("那一轮推的确实不是主档 ⇒ 送达记录该说真话", d.viaBackup)
+        assertFalse("这一轮推的就是主档（判不可用也照发），不许标「走了备用」", d.viaBackup)
     }
 
     @Test
@@ -386,7 +392,7 @@ class ChannelRoutingDecisionTest {
     }
 
     @Test
-    fun `关掉自动切备也不丢通知：主备都不可用时照推全部候选`() {
+    fun `关掉自动切备也不丢通知：主备都不可用时照发主，失败进重试`() {
         val d = ChannelRouting.route(
             listOf(
                 m("webhook:wh-1", ChannelRole.PRIMARY, false),
@@ -395,9 +401,13 @@ class ChannelRoutingDecisionTest {
             backupEngaged = false,
             autoBackup = false,
         )
-        assertEquals(listOf("webhook:wh-1", "app:app-1"), d.keys)
+        assertEquals(
+            "「不静默丢失」在这一档由重试路接住：仍只发主，备用不碰",
+            listOf("webhook:wh-1"),
+            d.keys,
+        )
         assertFalse(d.engagedBackup)
-        assertTrue(d.viaBackup)
+        assertFalse(d.viaBackup)
     }
 
     @Test
@@ -410,6 +420,69 @@ class ChannelRoutingDecisionTest {
         )
         assertFalse(d.releasedBackup)
         assertFalse(d.engagedBackup)
+    }
+
+    @Test
+    fun `关掉自动切备：多条主全不可用时照发全部主，不是只挑一条`() {
+        val d = ChannelRouting.route(
+            listOf(
+                m("webhook:wh-1", ChannelRole.PRIMARY, false),
+                m("webhook:wh-2", ChannelRole.PRIMARY, false),
+                backupOk,
+            ),
+            backupEngaged = false,
+            autoBackup = false,
+        )
+        assertEquals(listOf("webhook:wh-1", "webhook:wh-2"), d.keys)
+        assertFalse(d.engagedBackup)
+        assertFalse(d.viaBackup)
+    }
+
+    @Test
+    fun `关掉自动切备：压根没配主通道时仍推可用备用（开关只管「切换」）`() {
+        // 开关承诺的是"不自动切备"，不是"禁用备用"：全设备用的人一条都不发 = 静默丢失。
+        val d = ChannelRouting.route(
+            listOf(backupOk),
+            backupEngaged = false,
+            autoBackup = false,
+        )
+        assertEquals(listOf("app:app-1"), d.keys)
+        assertFalse(d.engagedBackup)
+        assertFalse(d.viaBackup)
+    }
+
+    @Test
+    fun `关掉自动切备：锁存期也只发主，并把那份锁存当轮解除`() {
+        val d = ChannelRouting.route(
+            listOf(
+                m("webhook:wh-1", ChannelRole.PRIMARY, false),
+                backupOk,
+            ),
+            backupEngaged = true,
+            autoBackup = false,
+        )
+        assertEquals(listOf("webhook:wh-1"), d.keys)
+        assertTrue("不解除的话状态页还在主张「已切到备用」", d.releasedBackup)
+        assertFalse(d.engagedBackup)
+        assertFalse(d.viaBackup)
+    }
+
+    @Test
+    fun `关掉自动切备：未设置的通道不跟着主通道一起推`() {
+        val d = ChannelRouting.route(
+            listOf(
+                m("webhook:wh-1", ChannelRole.PRIMARY, false),
+                m("app:app-new", ChannelRole.UNSET, true),
+                backupOk,
+            ),
+            backupEngaged = false,
+            autoBackup = false,
+        )
+        assertEquals(
+            "只发主 = 结果里只有主；UNSET 跟着推就是往用户还没决定的通道发",
+            listOf("webhook:wh-1"),
+            d.keys,
+        )
     }
 
     @Test

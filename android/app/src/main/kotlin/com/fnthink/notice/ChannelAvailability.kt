@@ -276,7 +276,7 @@ object BackupModeStore {
         return Release(at = at, auto = p.getBoolean(KEY_RELEASED_AUTO, false))
     }
 
-    /** 那枚开关：关掉 ⇒ 本轮仍按当轮判据走，但**绝不写 [KEY_ENGAGED]**（见 [applyDecision]） */
+    /** 那枚开关：关掉 ⇒ 只发主（判不可用也照发、失败走重试），且**绝不写 [KEY_ENGAGED]**（见 [applyDecision] 与 ChannelRouting 规则 8） */
     fun autoBackupEnabled(context: Context): Boolean = context
         .getSharedPreferences(ConfigManager.FLUTTER_PREFS_NAME, Context.MODE_PRIVATE)
         .getBoolean(KEY_AUTO_BACKUP, true)

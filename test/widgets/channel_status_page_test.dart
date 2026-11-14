@@ -650,7 +650,7 @@ void main() {
         reason: '默认档必须是开：今天的行为本来就是自动切备',
       );
       expect(
-        find.textContaining('每条通知各自判断'),
+        find.textContaining('只发主通道'),
         findsNothing,
         reason: '默认档不需要说明书；那句"关掉会怎样"是关掉之后才要说的',
       );
@@ -666,9 +666,9 @@ void main() {
       );
       expect(tester.widget<CupertinoSwitch>(switchFinder).value, isFalse);
       expect(
-        find.textContaining('每条通知各自判断'),
+        find.textContaining('只发主通道'),
         findsOneWidget,
-        reason: '关掉之后"不再记住已切到备用、也不会自动切回"必须当场说清，不然下一屏就是"我的通知怎么不切了"',
+        reason: '关掉之后"只发主、失败自动重试、绝不切备"必须当场说清，不然下一屏就是"我的通知怎么不切了"',
       );
     });
 
