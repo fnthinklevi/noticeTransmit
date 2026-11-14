@@ -32,6 +32,9 @@ class IosDialogActions {
   IosDialogActions._();
 
   /// 单动作的说明框（T90 片5）。不返回什么 —— 它没有任何"用户的选择"要带走。
+  ///
+  /// [retryLabel] + [onRetry] 是 P3 新加的：调用方想多一枚"重试"按钮就传，不传就
+  /// 和以前一样只有"好"。重试按钮排在"好"**之前**（iOS 习惯：次要/危险动作在左）。
   static Future<void> showInfo(
     BuildContext context, {
     required String title,
@@ -39,6 +42,8 @@ class IosDialogActions {
     String? okText,
     String? helpText,
     VoidCallback? onHelp,
+    String? retryLabel,
+    VoidCallback? onRetry,
   }) {
     final l10n = AppLocalizations.of(context);
     return showCupertinoDialog<void>(
@@ -51,6 +56,15 @@ class IosDialogActions {
           child: Text(message),
         ),
         actions: [
+          // P3：重试按钮排在 ok 之前（iOS 习惯：次要动作在左）。两者必须成对传。
+          if (retryLabel != null && onRetry != null)
+            CupertinoDialogAction(
+              onPressed: () {
+                Navigator.pop(ctx);
+                onRetry();
+              },
+              child: Text(retryLabel),
+            ),
           // T201 ⑤：失败结论旁那一枚说明入口（成功那一发不传，两个都不出现）。
           if (helpText != null && onHelp != null)
             CupertinoDialogAction(

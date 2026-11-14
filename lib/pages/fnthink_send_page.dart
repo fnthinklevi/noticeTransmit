@@ -430,7 +430,18 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     // 但"发出去没有"是一个需要立刻知道答案的问题 —— 12px 灰字常驻，
     // 用户视线回到输入框时并不会去扫它（这正是 T126 那一条报的现象）。
     // ⚠ 正文只有这一个作者：弹层与小字读同一句，两处不许各拼一遍。
-    await showFnthinkOutcome(context, ok: _sent, detail: note);
+    //
+    // P3：transportError（传输层失败）时多一枚「重试」按钮 —— P1 已经自动重试了一次，
+    // 但那是在用户还不知道的情况下发生的；两次都失败后弹层里给用户一个明确的选择。
+    // 只给 transportError：服务端明确拒绝（rejectedUnsigned / rateLimited…）重试没用。
+    final retryable = result.status == FnthinkSendStatus.transportError;
+    await showFnthinkOutcome(
+      context,
+      ok: _sent,
+      detail: note,
+      retryLabel: retryable ? l10n.retry : null,
+      onRetry: retryable ? () => unawaited(_sendNotice()) : null,
+    );
   }
 
   /// 远程指令那一档：载荷编成 [RemoteCommandEnvelope] 之后走**同一发**。
@@ -538,7 +549,17 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     // T126 片3：指令那一档同样当场弹一次，正文与小字同一个作者（`note`）。
     // 这一档比消息那一档更需要它：`remoteSendStartedNote` 说的是"已交出去"，
     // 而对面到底肯不肯做是后面两段回执的事 —— 弹层里不许提前说成"做完了"。
-    await showFnthinkOutcome(context, ok: sent, detail: note, reason: code);
+    //
+    // P3：和消息档同一个 transportError 重试逻辑。
+    final retryable = result.status == FnthinkSendStatus.transportError;
+    await showFnthinkOutcome(
+      context,
+      ok: sent,
+      detail: note,
+      reason: code,
+      retryLabel: retryable ? l10n.retry : null,
+      onRetry: retryable ? () => unawaited(_sendCommand()) : null,
+    );
   }
 
   @override

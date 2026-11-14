@@ -37,6 +37,8 @@ Future<void> showFnthinkOutcome(
   required bool ok,
   required String detail,
   String reason = '',
+  String? retryLabel,
+  VoidCallback? onRetry,
 }) {
   final l10n = AppLocalizations.of(context);
   final miss = reason.isEmpty || remoteReasonIsKnown(reason) ? 0 : 1;
@@ -45,6 +47,8 @@ Future<void> showFnthinkOutcome(
     title: ok ? l10n.fnthinkOutcomeDone : l10n.fnthinkOutcomeFailed,
     message: detail,
     helpText: ok ? null : l10n.remoteReasonHelpShort,
+    retryLabel: retryLabel,
+    onRetry: onRetry,
     onHelp: ok
         ? null
         : () => IosDialogActions.showExplainer<void>(
