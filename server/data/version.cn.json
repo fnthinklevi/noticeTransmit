@@ -1,28 +1,28 @@
 {
-  "latestVersion": "1.6.5",
-  "latestBuild": 165,
+  "latestVersion": "1.6.6",
+  "latestBuild": 166,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.75",
   "forceUpdateBuild": 115,
-  "changelog": "幻念收件与通道可靠性升级（1.6.5）\n\n幻念收件：常驻引擎通知到达即转发，锁屏持续接收；心跳跟随收货循环，网关异常 5→15→30→60 秒退避、5xx 降级短轮询；错误码翻成人话，配对接受 202。\n通道与送达：失败重放队列与通道分诊，状态页显示最近一次失败；一键全链路自检；送达格补 httpCode/尝试次数/耗时；Webhook 支持自定义请求头与请求方法。\n规则引擎：设备状态条件（电量/网络）进词表，模板新增 %battery% / %network%。\n稳定性：修复启动屏卡死、停止监听后通知残留、部分机型偏好设置读取失败；数据库打不开不再一律按损坏处理；首页历史入口改名「历史记录」。",
-  "changelogEn": "Smarter receiving and channel reliability (1.6.5)\n\nFnthink receiving: the receiver is now a resident engine that forwards on arrival and keeps receiving while locked; heartbeats follow the receive loop; gateway trouble backs off 5→15→30→60 s and 5xx falls back to short polling; error codes are translated and pairing accepts 202.\nChannels and delivery: failed-delivery replay queue with per-channel triage, last-failure readout on the status page, one-tap end-to-end self-check, delivery cells record httpCode/attempts/elapsed; webhooks accept custom headers and HTTP methods.\nRule engine: device-state conditions (battery/network) join the vocabulary and templates add %battery% / %network%.\nStability: fixed the splash-screen hang, the leftover listening notification after stopping, and preference-read failures on some devices; a database that fails to open is no longer treated as corrupt; the home history entry is now \"History\".",
+  "changelog": "锁屏恢复与发信可靠性修复（1.6.6）\n\n锁屏卡死与启动：修复部分机型锁屏恢复后卡在「加载通知记录」的长时间无界等待（连接隔离、busy_timeout 有界锁、计划内关闭引擎连接、启动页逐步有界步骤）；路由关掉自动切备后只发主通道、失败进重试；传输层异常兜住转 transportError、可恢复失败自动重试一次；runNow 发送前先 cancel debounce Timer 防锁屏恢复重复触发；发送失败弹层加「重试」按钮。历史页：三个 Tab 统一选择态，幻念消息支持直接导出。",
+  "changelogEn": "Wake-from-lock & send reliability (1.6.6)\n\nSplash-screen hang & startup: fixed the long unbounded wait stuck on \"loading notification record\" after waking from lock on some devices (connection isolation, bounded busy_timeout for lock contention, planned engine-connection closes, per-step splash budget with timeout); routing no longer touches fallback channels after failover toggle removal, failed deliveries retry on primary only; transport-layer exceptions caught and translated to transportError with one automatic retry; runNow cancels the previous debounce timer before sending to prevent duplicate triggers; the transportError dialog on failed sends now has a Retry button. History page: unified selection mode across all three tabs, Fnthink messages can be exported directly.",
   "downloads": {
-    "all": "https://cdn.fnthink.com/app/notice/update/1.6.5/notice_all_1.6.5+165.apk",
-    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.5/notice_arm32_1.6.5+165.apk",
-    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.5/notice_arm64_1.6.5+165.apk",
-    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.5/notice_x86_1.6.5+165.apk"
+    "all": "https://cdn.fnthink.com/app/notice/update/1.6.6/notice_all_1.6.6+166.apk",
+    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.6/notice_arm32_1.6.6+166.apk",
+    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.6/notice_arm64_1.6.6+166.apk",
+    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.6/notice_x86_1.6.6+166.apk"
   },
   "fileSizes": {
-    "all": 83574735,
-    "arm32": 26530597,
-    "arm64": 30257868,
-    "x86_64": 32438334
+    "all": 83607531,
+    "arm32": 26563411,
+    "arm64": 30257901,
+    "x86_64": 32438378
   },
   "sha256": {
-    "all": "db3ea63765f048ec15517c94737210f50246d4a6e3e5af4e000b082b15d61d03",
-    "arm32": "bd2a80403c0d1a254370addfe17a49ac36976fa4c5a67ff761a6b7634894c0a4",
-    "arm64": "bace4dd7f89c2f9e21d2deb6d9124bee4235c4f77bacae6ea29efc0320e2f4da",
-    "x86_64": "af6435b9a212174d98677ee9bb5fada7d4d8e80587e8ab2171c85c5d67515091"
+    "all": "3058bae970a085f3f30dd52a0b12ab867ba96aaede873e995622ef66e7457147",
+    "arm32": "21090ca62737b0a36b3a961d6f8cf837bd0d3de831296bb50ec15bdcd9941535",
+    "arm64": "972c9371cdc37be64aebb8b134de89e3417358adc07e002dcbf607ecf968fd73",
+    "x86_64": "8e2fe7da88e534b1a6e59bdde37cc53650a9026165ba6ea8afe1defc3ccbe3f9"
   },
   "minSupportedVersion": "1.0.0"
 }
