@@ -107,6 +107,9 @@ class DatabaseHelper
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
   static const int dbVersion = 29;
 
+  /// 开库后给每条连接的锁等待上界（毫秒）。机制说明见 [_tuneOpen]。
+  static const int busyTimeoutMs = 5000;
+
   /// T199 ③（第一刀）：这一颗 isolate 允不允许做**破坏性**的开库动作。
   ///
   /// 破坏性＝备份改名（`.corrupt-*`）／丢密钥重建／清理旧明文库的迁移／让原生通道镜像失效。
@@ -229,12 +232,16 @@ class DatabaseHelper
     await _migrateOldDatabaseIfNeeded(oldPath, encryptedPath, password);
 
     try {
-      return await openDatabase(
-        encryptedPath,
-        password: password,
-        version: dbVersion,
-        onCreate: _onCreate,
-        onUpgrade: _onUpgrade,
+      return await _tuneOpen(
+        await openDatabase(
+          encryptedPath,
+          password: password,
+          version: dbVersion,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+          // T253：不复用别的 isolate 留下的连接（病根与两条约束见 [_tuneOpen]）。
+          singleInstance: false,
+        ),
       );
     } catch (e) {
       // T199：只有“文件本身坏了”才允许改名重建。旧写法把任何异常（含一次
@@ -254,18 +261,59 @@ class DatabaseHelper
       await _backupDatabaseFile(encryptedPath);
       await _backupDatabaseFile(oldPath);
       try {
-        return await openDatabase(
-          encryptedPath,
-          password: password,
-          version: dbVersion,
-          onCreate: _onCreate,
-          onUpgrade: _onUpgrade,
+        return await _tuneOpen(
+          await openDatabase(
+            encryptedPath,
+            password: password,
+            version: dbVersion,
+            onCreate: _onCreate,
+            onUpgrade: _onUpgrade,
+            singleInstance: false,
+          ),
         );
       } catch (retryError) {
         // 备份之后仍打不开：原库已保留，不许再改名第二次；交给页面显式报错/重试。
         DatabaseHealth.recordOpenFailure(retryError);
         throw DatabaseUnavailableException(retryError);
       }
+    }
+  }
+
+  /// T253：开库之后的两条连接级约束（2026-11-14 真机：长锁屏后 splash 永远停在
+  /// 「加载通知记录」，force-stop 才恢复）。
+  ///
+  /// 病根在插件的连接复用：`singleInstance` 缺省 true ⇒ 跨 isolate 复用**同一个**
+  /// Database 对象；后台引擎死在事务中途时，那条连接与它持有的事务不会被 detach 关掉，
+  /// 前台再写就排在它后面等框架连接池，而那个等待**没有超时**。
+  ///  - 调用点传 `singleInstance: false` ⇒ 每个引擎各持一条连接，锁冲突退化成
+  ///    SQLite 层的 BUSY，不再有"排在别人的悬挂事务后面"这条无界等待；
+  ///  - `busy_timeout` 让 BUSY 在 [busyTimeoutMs] 内变成可捕获的错误 ⇒
+  ///    界面能显式报错并给出恢复入口（启动页那一步见 `runBoundedStartupStep`）。
+  /// 读路径（WAL）不受影响。
+  Future<Database> _tuneOpen(Database db) async {
+    try {
+      await db.execute('PRAGMA busy_timeout = $busyTimeoutMs');
+    } catch (e) {
+      // 设不上不改变开库结论：连接已经是本 isolate 独占的，最坏是锁冲突回到框架默认档。
+      debugPrint('设置 busy_timeout 失败（不影响开库）: $e');
+    }
+    return db;
+  }
+
+  /// 计划内停止（后台那一轮跑完）时把连接还回去。**不是**给界面用的。
+  ///
+  /// 为什么必须显式关：插件 3.4.1 的 `onDetachedFromEngine` **不关库**（只清 channel），
+  /// 而调用点已改成 `singleInstance: false` —— 每条连接都是独占的一份，不关就只会在
+  /// 插件的静态表里越积越多；死在中途的那几条还攥着 WAL 写锁。
+  /// 关不掉不改变"下一次懒打开"的结论：_database 已先清空。
+  Future<void> close() async {
+    final old = _database;
+    _database = null;
+    if (old == null || !old.isOpen) return;
+    try {
+      await old.close();
+    } catch (e) {
+      debugPrint('关闭数据库连接失败（下次懒打开会重试）: $e');
     }
   }
 

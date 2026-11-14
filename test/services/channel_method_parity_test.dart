@@ -136,10 +136,12 @@ void main() {
     // 128 → 130（T197 片3）：服务常驻引擎的 `alive`（Dart 报活，原生据此判断僵尸）
     // 与 `fanoutNow`（原生叫 Dart 排空待发队列）。两枚都挂在独立通道
     // `com.fnthink.notice/service` 上，由 `FnthinkServiceEngine` 自己注册 handler。
-    test('原生方法总数 == 130（防止分支被静默删除/新增未登记）', () {
+    // 130 → 131（T253）：`restartApp` —— 启动页卡死（库被后台残留连接占住）的一键重启，
+    // 挂在 DeviceChannelHandler 上；杀进程是唯一能清掉进程内残留连接的动作。
+    test('原生方法总数 == 131（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        130,
+        131,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -159,7 +161,8 @@ void main() {
         // 这一域只剩 `canScheduleExactAlarms`（读授权）与 `requestExactAlarmPermission`（跳系统页）。
         'PermissionChannelHandler': 29,
         // 首页第三态那两发挂在这一域（读推送开关 + 恢复推送）。15 → 17。
-        'DeviceChannelHandler': 17,
+        // T253 起 18：`restartApp`（启动页卡死时的一键重启，杀进程清残留连接）。
+        'DeviceChannelHandler': 18,
         'FileChannelHandler': 12,
         // 9 → 8（T131）：`syncDailyPushCount` 已删（见上面总数那段的理由）。
         'StatsChannelHandler': 8,

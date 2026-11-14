@@ -1825,6 +1825,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重试';
 
   @override
+  String get startupDbStalled => '数据库被后台残留连接占用，初始化无法继续。请点「重启应用」恢复（已保存的数据不受影响）。';
+
+  @override
+  String get restartApp => '重启应用';
+
+  @override
   String get databaseUnavailableTitle => '数据库打不开';
 
   @override

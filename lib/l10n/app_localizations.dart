@@ -3469,6 +3469,18 @@ abstract class AppLocalizations {
   /// **'重试'**
   String get retry;
 
+  /// No description provided for @startupDbStalled.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据库被后台残留连接占用，初始化无法继续。请点「重启应用」恢复（已保存的数据不受影响）。'**
+  String get startupDbStalled;
+
+  /// No description provided for @restartApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'重启应用'**
+  String get restartApp;
+
   /// No description provided for @databaseUnavailableTitle.
   ///
   /// In zh, this message translates to:

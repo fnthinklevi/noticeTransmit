@@ -908,6 +908,8 @@
     }
   },
   "retry": "重试",
+  "startupDbStalled": "数据库被后台残留连接占用，初始化无法继续。请点「重启应用」恢复（已保存的数据不受影响）。",
+  "restartApp": "重启应用",
   "databaseUnavailableTitle": "数据库打不开",
   "databaseUnavailableBody": "加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。",
   "secureStorageUnavailableTitle": "安全存储不可用",

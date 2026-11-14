@@ -1904,6 +1904,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get startupDbStalled =>
+      'The database is held by a leftover background connection, so startup cannot continue. Tap \"Restart app\" to recover (saved data is not affected).';
+
+  @override
+  String get restartApp => 'Restart app';
+
+  @override
   String get databaseUnavailableTitle => 'Database unavailable';
 
   @override

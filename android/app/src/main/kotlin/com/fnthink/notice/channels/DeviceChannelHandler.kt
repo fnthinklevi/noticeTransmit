@@ -69,6 +69,17 @@ internal class DeviceChannelHandler(activity: MainActivity) : ChannelHandler(act
             "getDeviceModel" -> {
                 result.success(Build.MODEL)
             }
+            "restartApp" -> {
+                // T253：启动页卡死（数据库被后台残留连接占住）时的唯一真出口。
+                // 残留连接与它的悬挂事务活在**本进程**的静态表里 —— 重建 Activity/引擎都不释放，
+                // 只有换一个进程能清掉（服务是 START_STICKY，系统会把它拉回来）。
+                // 先回 success 再杀进程：直接杀会让 IPC 回包断在半路，Dart 侧读成调用失败。
+                result.success(true)
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                    { android.os.Process.killProcess(android.os.Process.myPid()) },
+                    150,
+                )
+            }
             "getManufacturer" -> {
                 result.success(Build.MANUFACTURER)
             }

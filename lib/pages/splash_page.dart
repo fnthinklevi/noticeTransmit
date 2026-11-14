@@ -6,8 +6,44 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/locale_service.dart';
+import '../services/platform_channel.dart';
 import '../services/services.dart';
 import '../theme/app_colors.dart';
+
+/// 装配链**每一步**的期限（T253）。
+///
+/// 20 秒的 watchdog 只回答"整条链没跑完"，不回答"卡在哪一步"——而数据库被后台残留
+/// 连接占住时，那一步的 `await` 根本不会回来（框架连接池的等待没有超时）。
+/// 8 秒还没回来就把它交给显式出口，比等 watchdog 再显示一句"初始化超过 20 秒"有用。
+const Duration kStartupStepDeadline = Duration(seconds: 8);
+
+/// 某一步超过 [kStartupStepDeadline] 仍未完成（启动页把它显示成"库被占用"的显式错误）。
+class StartupStalledException implements Exception {
+  const StartupStalledException(this.step);
+
+  final String step;
+
+  @override
+  String toString() =>
+      'startup step "$step" exceeded ${kStartupStepDeadline.inSeconds}s';
+}
+
+/// 有界跑一步：超时 ⇒ [StartupStalledException]（**不吞**，交给启动页的显式出口）；
+/// 其余异常照旧只记一行日志、不挡启动（与原来每一步的 try/catch 同语义）。
+Future<void> runBoundedStartupStep(
+  String step,
+  Future<void> Function() action, {
+  Duration deadline = kStartupStepDeadline,
+}) async {
+  try {
+    await action().timeout(deadline);
+  } on TimeoutException {
+    log('[startup] $step 超过 ${deadline.inSeconds} 秒未完成');
+    throw StartupStalledException(step);
+  } catch (e) {
+    log('$step失败: $e');
+  }
+}
 
 class SplashPage extends StatefulWidget {
   final VoidCallback onInitCompleted;
@@ -26,6 +62,10 @@ class _SplashPageState extends State<SplashPage>
 
   /// T222：初始化失败的显式出口。**不许**再让界面停在「初始化完成」等一个不会再来的结果。
   String? _error;
+
+  /// T253：当前这个错误是"某一步卡死"（库被后台残留连接占住）而不是普通异常 ——
+  /// 只有这一档才显示「重启应用」：残留连接与悬挂事务活在**本进程**里，重试只会再卡一次。
+  bool _stalled = false;
   Timer? _watchdog;
   bool _done = false;
 
@@ -65,14 +105,34 @@ class _SplashPageState extends State<SplashPage>
     setState(() {
       _error = null;
       _statusText = null;
+      _stalled = false;
       _done = false;
     });
     _startInit();
   }
 
+  /// 启动页上唯一的真出口（T253）：残留连接与它的悬挂事务活在**本进程**的静态表里，
+  /// 重建页面/引擎都不释放，只有换一个进程能清掉。原生收到这一发先回 success 再杀进程。
+  Future<void> _restartApp() async {
+    try {
+      await AppChannels.notification.invokeMethod<bool>('restartApp');
+    } catch (e) {
+      log('[startup] 重启应用调用失败: $e');
+    }
+  }
+
   Future<void> _initServices() async {
     try {
       await _initServicesInner();
+    } on StartupStalledException catch (e, stack) {
+      log('[startup] SplashPage 初始化卡死：${e.step}', error: e, stackTrace: stack);
+      if (!mounted) return;
+      _watchdog?.cancel();
+      setState(() {
+        _done = true;
+        _stalled = true;
+        _error = AppLocalizations.of(context).startupDbStalled;
+      });
     } catch (e, stack) {
       log('[startup] SplashPage 初始化失败：$e', error: e, stackTrace: stack);
       if (!mounted) return;
@@ -94,76 +154,55 @@ class _SplashPageState extends State<SplashPage>
     // 非中文、应用内选中文的用户会在 loadRecords / drainPendingDeliveries 阶段写出
     // 中英双键（历史重复徽标 / 旧键永远「发送中」）。DB v11 起存储键改为与语言无关的
     // chan:<slug>，该缺陷类别从根上消除；此处顺序约束只剩显示层。
-    try {
+    await runBoundedStartupStep('locale', () async {
       await GetIt.instance<LocaleService>().init();
-    } catch (e) {
-      log('初始化语言失败: $e');
-    }
+    });
 
     // 通道描述符（第 5 步）：设置页的表单字段、类型选择器、secret/模板显隐都按它渲染。
     // 顺序约束 = 必须早于 `onInitCompleted()`（那之后通道页才可达）。取不到时服务
     // 保持未就绪，页面自己会再 load() 一次，且不会因此把已存配置写空。
-    try {
-      log('加载通道描述符');
+    log('加载通道描述符');
+    await runBoundedStartupStep('channel-descriptor', () async {
       await GetIt.instance<ChannelDescriptorService>().load();
-    } catch (e) {
-      // 描述符是显示层的表：读不出来不许挡住启动（页面自己会再 load 一次）。
-      log('加载通道描述符失败: $e');
-    }
+    });
     // 健康度缓存同样先装载：徽标是同步渲染的（build 里读内存快照），装载晚于装配
     // 就等于首帧没徽标、且各页面会各自去读 prefs（三份实现的旧账）。
-    try {
-      log('加载通道健康缓存');
+    log('加载通道健康缓存');
+    await runBoundedStartupStep('channel-health', () async {
       await GetIt.instance<ChannelHealthStore>().load();
-    } catch (e) {
-      log('加载通道健康缓存失败: $e');
-    }
+    });
 
-    try {
-      if (mounted) setState(() => _statusText = l10n.loadWebhook);
-      log('加载 Webhook 配置');
-      final webhookService = GetIt.instance<WebhookService>();
-      await webhookService.loadChannels();
-    } catch (e) {
-      log('加载 Webhook 配置失败: $e');
-    }
+    if (mounted) setState(() => _statusText = l10n.loadWebhook);
+    log('加载 Webhook 配置');
+    await runBoundedStartupStep('webhook', () async {
+      await GetIt.instance<WebhookService>().loadChannels();
+    });
 
-    try {
-      if (mounted) setState(() => _statusText = l10n.loadBattery);
-      log('加载电池配置');
-      final batteryService = GetIt.instance<BatteryService>();
-      await batteryService.loadSettings();
-    } catch (e) {
-      log('加载电池配置失败: $e');
-    }
+    if (mounted) setState(() => _statusText = l10n.loadBattery);
+    log('加载电池配置');
+    await runBoundedStartupStep('battery', () async {
+      await GetIt.instance<BatteryService>().loadSettings();
+    });
 
-    try {
-      if (mounted) setState(() => _statusText = l10n.loadRecords);
-      log('加载通知记录');
+    if (mounted) setState(() => _statusText = l10n.loadRecords);
+    log('加载通知记录');
+    await runBoundedStartupStep('records', () async {
       final notificationService = GetIt.instance<NotificationService>();
       await notificationService.loadRecords();
       await notificationService.loadServiceState();
-    } catch (e) {
-      log('加载通知记录失败: $e');
-    }
+    });
 
-    try {
-      if (mounted) setState(() => _statusText = l10n.loadFilter);
-      log('加载过滤配置');
-      final filterService = GetIt.instance<FilterService>();
-      await filterService.loadSettings();
-    } catch (e) {
-      log('加载过滤配置失败: $e');
-    }
+    if (mounted) setState(() => _statusText = l10n.loadFilter);
+    log('加载过滤配置');
+    await runBoundedStartupStep('filter', () async {
+      await GetIt.instance<FilterService>().loadSettings();
+    });
 
-    try {
-      if (mounted) setState(() => _statusText = l10n.initUpdate);
-      log('初始化更新服务');
-      final updateService = GetIt.instance<UpdateService>();
-      await updateService.init();
-    } catch (e) {
-      log('初始化更新服务失败: $e');
-    }
+    if (mounted) setState(() => _statusText = l10n.initUpdate);
+    log('初始化更新服务');
+    await runBoundedStartupStep('update', () async {
+      await GetIt.instance<UpdateService>().init();
+    });
 
     if (mounted) setState(() => _statusText = l10n.initComplete);
     log('=== 所有服务初始化完成 ===');
@@ -253,6 +292,16 @@ class _SplashPageState extends State<SplashPage>
                   onPressed: _retry,
                   child: Text(l10n.retry),
                 ),
+                // T253：卡死档（库被后台残留连接占住）光重试没用 —— 残留连接活在
+                // 本进程里，只有换一个进程能清掉。这一枚只在卡死档出现，别的错误不误导。
+                if (_stalled) ...[
+                  const SizedBox(height: 12),
+                  FilledButton.tonal(
+                    key: const ValueKey('splash-restart'),
+                    onPressed: _restartApp,
+                    child: Text(l10n.restartApp),
+                  ),
+                ],
               ] else ...[
                 Text(
                   _statusText ?? l10n.initializing,

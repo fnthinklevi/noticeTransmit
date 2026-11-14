@@ -63,6 +63,9 @@ Future<void> fnthinkFanoutEntrypoint(List<String>? args) async {
     // 后台 isolate 里没有 UI 也没有崩溃上报入口：留一行可 grep 的日志，不悄悄吞。
     debugPrint('[fnthink] 后台转发那一轮失败：$e');
   } finally {
+    // T253：这一轮的计划内终点 —— 先还连接，再交回结果（worker 收到 fanoutDone 就拆引擎；
+    // 让它拆在一个已关闭的连接上，而不是一条半开着的连接上）。
+    await DatabaseHelper().close();
     try {
       await channel.invokeMethod<void>('fanoutDone');
     } catch (e) {

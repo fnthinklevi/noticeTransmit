@@ -856,5 +856,12 @@ Future<void> fnthinkBackgroundRound() async {
   // 前台进程里整棵树已经装好了（`registerLazySingleton` 二次注册会抛，别重复装）；
   // 后台 isolate 里 getIt 是空的 —— 那一次由这里补上，且必须在收货之前。
   if (!getIt.isRegistered<FnthinkReceiveCoordinator>()) setupLocator();
-  await getIt<FnthinkReceiveCoordinator>().receiveOnce();
+  try {
+    await getIt<FnthinkReceiveCoordinator>().receiveOnce();
+  } finally {
+    // T253：这一轮的计划内终点 —— 把连接还回去。插件 detach 不关库（3.4.1），
+    // 而连接已是本 isolate 独占的一份（singleInstance:false）：不关就只剩静态表里越积越多，
+    // 死在中途的那几条还会攥着 WAL 写锁，让前台下一次写等到超时。
+    await DatabaseHelper().close();
+  }
 }

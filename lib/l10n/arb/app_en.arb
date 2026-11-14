@@ -908,6 +908,8 @@
     }
   },
   "retry": "Retry",
+  "startupDbStalled": "The database is held by a leftover background connection, so startup cannot continue. Tap \"Restart app\" to recover (saved data is not affected).",
+  "restartApp": "Restart app",
   "databaseUnavailableTitle": "Database unavailable",
   "databaseUnavailableBody": "The encrypted database could not be opened. Your data was kept; tap Retry to try again.",
   "secureStorageUnavailableTitle": "Secure storage unavailable",
