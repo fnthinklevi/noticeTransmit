@@ -57,8 +57,15 @@ class FnthinkReceiptWatchdog {
   }
 
   /// 回前台 / 冷启动 / 唤醒：立刻跑一次，并等它结束（清扫排在它之后）。
+  ///
+  /// P2：锁屏恢复时 cancel 掉锁屏前可能挂着的 debounce Timer —— 它在 isolate 挂起
+  /// 期间暂停，恢复后再按"暂停前的剩余时间"继续触发，导致 resumed 事件刚手动跑过
+  /// 一次 runNow，debounce 又马上跑第二次。两次 runNow 被 `_inFlight` 合并不是 bug，
+  /// 但 cancel 更干净 —— resumed 就是最权威的触发点，debounce 只服务"连续发送合并"。
   Future<void> runNow() {
     if (_disposed) return Future<void>.value();
+    _debounceTimer?.cancel();
+    _debounceTimer = null;
     final running = _inFlight;
     if (running != null) return running;
     final future = _run();
