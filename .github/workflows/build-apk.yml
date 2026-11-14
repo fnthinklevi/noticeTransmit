@@ -126,13 +126,42 @@ jobs:
           ls -la android/app/key.jks
           sha256sum android/app/key.jks
 
-      - name: Build APK (arm64)
-        run: flutter build apk --release --target-platform android-arm64
+      - name: Build all 4 APKs (arm64 / arm32 / x86_64 / all)
+        id: build_apks
+        run: |
+          # ⚠ 每次构建前停掉 Gradle daemon — daemon 进程不继承新 step 的 env: 环境变量
+          # （KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD），
+          # 复用 daemon 会导致 signingConfig 读到 null，KeytoolException。
+          cd android && ./gradlew --stop >/dev/null 2>&1 || true
+          cd ..
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          BUILD=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f2)
+
+          build_arch() {
+            local plat=$1
+            local tag=$2
+            local out="build/app/outputs/flutter-apk/app-release.apk"
+            flutter build apk --release --target-platform "$plat" || exit 1
+            mv "$out" "build/app/outputs/flutter-apk/notice_${tag}_${VERSION}+${BUILD}.apk"
+            echo "✅ built notice_${tag}_${VERSION}+${BUILD}.apk"
+          }
+
+          build_arch android-arm64  arm64
+          build_arch android-arm32  arm32
+          build_arch android-x86_64 x86_64
+
+          # 融合包（all ABIs）：不传 --target-platform 即默认全架构
+          flutter build apk --release || exit 1
+          mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/notice_all_${VERSION}+${BUILD}.apk"
+          echo "✅ built notice_all_${VERSION}+${BUILD}.apk"
+
+          echo "APK_DIR=build/app/outputs/flutter-apk" >> $GITHUB_OUTPUT
+          echo "APK_ALL=notice_all_${VERSION}+${BUILD}.apk" >> $GITHUB_OUTPUT
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEYSTORE_FILE: key.jks
+          KEYSTORE_FILE: android/app/key.jks
 
       - name: Get version
         id: version
@@ -141,37 +170,53 @@ jobs:
           BUILD=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
-          echo "APK_NAME=notice_all_${VERSION}+${BUILD}.apk" >> $GITHUB_OUTPUT
 
       - name: 纯净度 + 版本号双闸（base.md §10.2 步骤 6.5 铁律）
         run: |
-          APK=build/app/outputs/flutter-apk/app-release.apk
-          # 单架构包必须只含一种 .so：--target-platform 管不住第三方依赖的 ABI，
-          # 而 abiFilters 在 FLUTTER_TARGET_PLATFORM 缺失时会回退成全架构 —— 只有
-          # 事后校验能拦住「按 arm64 名义归档的伪融合包」。
-          python3 tools/verify_apk_purity.py "$APK" arm64
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          BUILD=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f2)
           AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
-          BADGING="$("$AAPT" dump badging "$APK" | head -2)"
-          echo "$BADGING"
-          echo "$BADGING" | grep -q "versionCode='${{ steps.version.outputs.build }}'" || { echo "❌ versionCode 与 pubspec 不符（Gradle daemon 配置缓存吞掉了版本变更），禁止归档"; exit 1; }
-          echo "$BADGING" | grep -q "versionName='${{ steps.version.outputs.version }}'" || { echo "❌ versionName 与 pubspec 不符，禁止归档"; exit 1; }
-          echo "✅ 纯净度与版本号双闸通过"
 
-      - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/${{ steps.version.outputs.APK_NAME }}
+          check_apk() {
+            local apk=$1
+            local arch=$2
+            python3 tools/verify_apk_purity.py "$apk" "$arch" || exit 1
+            local badging="$("$AAPT" dump badging "$apk" | head -2)"
+            echo "$badging"
+            echo "$badging" | grep -q "versionCode='$BUILD'" || { echo "❌ versionCode 与 pubspec 不符"; exit 1; }
+            echo "$badging" | grep -q "versionName='$VERSION'" || { echo "❌ versionName 与 pubspec 不符"; exit 1; }
+          }
 
-      - name: Upload APK artifact
+          check_apk "build/app/outputs/flutter-apk/notice_arm64_${VERSION}+${BUILD}.apk" arm64
+          check_apk "build/app/outputs/flutter-apk/notice_arm32_${VERSION}+${BUILD}.apk" arm32
+          check_apk "build/app/outputs/flutter-apk/notice_x86_64_${VERSION}+${BUILD}.apk" x86_64
+          # all 包不校验纯净度（融合包本身就含多 ABI），只校验版本号
+          all_badging="$("$AAPT" dump badging "build/app/outputs/flutter-apk/notice_all_${VERSION}+${BUILD}.apk" | head -2)"
+          echo "$all_badging"
+          echo "$all_badging" | grep -q "versionCode='$BUILD'" || { echo "❌ all 包 versionCode 不符"; exit 1; }
+          echo "$all_badging" | grep -q "versionName='$VERSION'" || { echo "❌ all 包 versionName 不符"; exit 1; }
+          echo "✅ 纯净度与版本号双闸通过（4 个 APK）"
+
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.version.outputs.APK_NAME }}
-          path: build/app/outputs/flutter-apk/${{ steps.version.outputs.APK_NAME }}
+          name: release-apks-${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}
+          path: |
+            build/app/outputs/flutter-apk/notice_arm64_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
+            build/app/outputs/flutter-apk/notice_arm32_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
+            build/app/outputs/flutter-apk/notice_x86_64_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
+            build/app/outputs/flutter-apk/notice_all_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           name: v${{ steps.version.outputs.version }}
-          files: build/app/outputs/flutter-apk/${{ steps.version.outputs.APK_NAME }}
+          files: |
+            build/app/outputs/flutter-apk/notice_arm64_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
+            build/app/outputs/flutter-apk/notice_arm32_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
+            build/app/outputs/flutter-apk/notice_x86_64_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
+            build/app/outputs/flutter-apk/notice_all_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
