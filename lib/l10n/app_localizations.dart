@@ -5173,6 +5173,24 @@ abstract class AppLocalizations {
   /// **'通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。'**
   String get exportConfirmDesc;
 
+  /// No description provided for @fnthinkExportInboxDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念收件记录（{count} 条）将导出为 JSON 文件，包含消息内容与设备信息。'**
+  String fnthinkExportInboxDesc(Object count);
+
+  /// No description provided for @fnthinkExportSentDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念发件记录（{count} 条）将导出为 JSON 文件，包含消息内容与设备信息。'**
+  String fnthinkExportSentDesc(Object count);
+
+  /// No description provided for @exportDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出完成'**
+  String get exportDone;
+
   /// No description provided for @historyMoreActions.
   ///
   /// In zh, this message translates to:

@@ -2781,6 +2781,19 @@ class AppLocalizationsZh extends AppLocalizations {
       '通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。';
 
   @override
+  String fnthinkExportInboxDesc(Object count) {
+    return '幻念收件记录（$count 条）将导出为 JSON 文件，包含消息内容与设备信息。';
+  }
+
+  @override
+  String fnthinkExportSentDesc(Object count) {
+    return '幻念发件记录（$count 条）将导出为 JSON 文件，包含消息内容与设备信息。';
+  }
+
+  @override
+  String get exportDone => '导出完成';
+
+  @override
   String get historyMoreActions => '更多操作';
 
   @override

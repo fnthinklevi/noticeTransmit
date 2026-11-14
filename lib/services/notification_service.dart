@@ -1002,6 +1002,21 @@ class NotificationService {
     return deleted;
   }
 
+  /// 删除单条通知记录。
+  Future<void> deleteRecord(String id) async {
+    await DatabaseHelper().deleteNotification(id);
+    _records.removeWhere((r) => r.id == id);
+  }
+
+  /// 批量按 id 删除通知记录。返回实际删除的行数。
+  Future<int> deleteRecords(List<String> ids) async {
+    if (ids.isEmpty) return 0;
+    final deleted = await DatabaseHelper().deleteNotificationsMany(ids);
+    final doomed = ids.toSet();
+    _records.removeWhere((r) => doomed.contains(r.id));
+    return deleted;
+  }
+
   Future<bool> stopService() async {
     try {
       await _channel.invokeMethod('stopNotificationListener');

@@ -1563,6 +1563,21 @@ class DatabaseHelper
     );
   }
 
+  /// 全量幻念消息（导出用），按 received_at 倒序，不受分页上限约束。
+  /// [direction] 决定查收件档（`kFnthinkDirectionIn`）还是发件档（`kFnthinkDirectionOut`），
+  /// 两者都走同一张表，但导出时不能混——用户导出"我收过的"时不该看到"我发过的"。
+  Future<List<Map<String, dynamic>>> getAllFnthinkInboxByDirection(
+    String direction,
+  ) async {
+    final db = await database;
+    return await db.query(
+      FnthinkInboxMessage.table,
+      where: 'direction = ?',
+      whereArgs: [direction],
+      orderBy: 'received_at DESC',
+    );
+  }
+
   /// LIKE 通配符转义（配合 ESCAPE '\'，避免用户输入 % _ 引起意外匹配）
   static String escapeLike(String v) => v
       .trim()
@@ -2004,6 +2019,31 @@ class DatabaseHelper
       }
       return (byAge: byAge, byCap: doomed);
     });
+  }
+
+  /// 删除单条幻念消息（收件或发出都走这一条，message_id 是主键）。
+  /// 返回是否命中了那一行 —— false 表示这条已被 prune 或从未存在。
+  Future<bool> deleteFnthinkInbox(String messageId) async {
+    final db = await database;
+    final affected = await db.delete(
+      FnthinkInboxMessage.table,
+      where: 'message_id = ?',
+      whereArgs: [messageId],
+    );
+    return affected > 0;
+  }
+
+  /// 批量删除幻念消息：id 全进 `IN (…)`（一次 DELETE，不在这里循环调单条）。
+  /// 返回实际删除的行数（被 prune 裁掉的那些不会计入）。
+  Future<int> deleteFnthinkInboxMany(List<String> messageIds) async {
+    if (messageIds.isEmpty) return 0;
+    final db = await database;
+    final marks = List.filled(messageIds.length, '?').join(',');
+    return db.delete(
+      FnthinkInboxMessage.table,
+      where: 'message_id IN ($marks)',
+      whereArgs: messageIds,
+    );
   }
 
   // ── 本机配对名单（T42 前置，表 `fnthink_peers`）────────────────────────────
@@ -2518,6 +2558,19 @@ class DatabaseHelper
   Future<void> deleteNotification(String id) async {
     final db = await database;
     await db.delete('notifications', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// 批量按 id 删除通知记录：id 全进 `IN (…)`（一次 DELETE）。
+  /// 返回实际删除的行数。
+  Future<int> deleteNotificationsMany(List<String> ids) async {
+    if (ids.isEmpty) return 0;
+    final db = await database;
+    final marks = List.filled(ids.length, '?').join(',');
+    return await db.delete(
+      'notifications',
+      where: 'id IN ($marks)',
+      whereArgs: ids,
+    );
   }
 
   /// 清除今日（T133 量级①）：判据与 [getTodayCount] 同一条（post_time 本地半开区间），

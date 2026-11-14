@@ -30,7 +30,6 @@ import '../services/fnthink_remote_action_labels.dart';
 import '../services/fnthink_remote_execution_state_words.dart';
 import '../services/fnthink_remote_reason_words.dart';
 import '../widgets/app_input_style.dart';
-import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_visuals.dart';
 import '../services/fnthink_remote_out_record.dart';
 import '../widgets/history_row_tile.dart';
@@ -120,6 +119,10 @@ class HistoryPage extends StatefulWidget {
   final Future<int> Function(List<String> messageIds)? inboxMarkReadMany;
   final Future<int> Function()? inboxMarkReadAll;
   final Future<int> Function()? inboxUnreadCount;
+
+  /// 幻念消息（收件/发件都行）批量删除的写口。默认走 `FnthinkInboxService.deleteMessages`，
+  /// 测试注入替身 —— 与 `inboxLoader` 同一条理由（widget 测试不开真库）。
+  final Future<int> Function(List<String> messageIds)? inboxDeleteMany;
 
   /// 批量标已读之后的通知（T208）：首页那张「幻念收件」卡要用**同一个算法**重算未读，
   /// 页面不许自己减（它手上只有分页过的列表，数出来永远偏小）。
@@ -212,6 +215,7 @@ class HistoryPage extends StatefulWidget {
     this.inboxMarkReadMany,
     this.inboxMarkReadAll,
     this.inboxUnreadCount,
+    this.inboxDeleteMany,
     this.onInboxChanged,
     this.inboxFindPeer,
     this.inboxSendTo,
@@ -271,9 +275,12 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 解决 AppBar 图标过多的问题；样式与长按屏蔽菜单一致（iOS 底部弹层）。
   void _showMoreActionsSheet() {
     final l10n = AppLocalizations.of(context);
-    // T133 量级①：有没有可操作的东西看分页读数（头一页还没回来时先不给点，
-    // 与"列表还在加载"同一形状，而不是假装里面是空的）。
-    final canAct = _searchResults?.isNotEmpty ?? false;
+    // T133 量级①：转发档看 _searchResults（分页读数），幻念档看已加载的列表
+    final canAct = _isFnthinkTab
+        ? (_inboxLoaded
+              ? (_searchQuery.isEmpty ? _inbox : _filteredInbox).isNotEmpty
+              : false)
+        : (_searchResults?.isNotEmpty ?? false);
     showModalBottomSheet(
       context: context,
       // 颜色与圆角交给 sheet 自己的 Material：以前涂在中间层 Container 的
@@ -314,7 +321,16 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _enterBatchMode();
+                  // 统一通过长按进入选择模式后点底部「批量重发」来触发
+                  // 转发档默认全选当前页可重发的记录
+                  if (_displayedRecords.isNotEmpty) {
+                    setState(() {
+                      _selectMode = true;
+                      _selected
+                        ..clear()
+                        ..addAll(_batchPool.map((r) => r.id));
+                    });
+                  }
                 },
               ),
               // T208：「一键已读」**只在收件档出现** —— 发出档那本账没有"未读"这一列
@@ -409,9 +425,9 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  // ── F2 批量补推 ──
-  bool _batchMode = false;
-  final Set<String> _batchSelected = {};
+  // ── 统一选择模式（三个 tab 共用）──
+  bool _selectMode = false;
+  final Set<String> _selected = {};
 
   /// T133 片2：哪些记录的通道 chip 被展开了。
   ///
@@ -420,6 +436,26 @@ class _HistoryPageState extends State<HistoryPage> {
 
   /// 当前展示的记录（统一走分页读数；null = 头一页还没回来）
   List<NotificationRecord> get _displayedRecords => _searchResults ?? const [];
+
+  /// 当前 tab 是否支持批量重发（转发和幻念发件支持）
+  bool get _canResend =>
+      _direction == 'forwarded' || _direction == 'sent';
+
+  /// 当前 tab 是否有独立数据源（幻念收件/发件走 inbox 列表）
+  bool get _isFnthinkTab =>
+      _direction == 'received' || _direction == 'sent';
+
+  /// 幻念档搜索过滤后的列表
+  List<FnthinkInboxMessage> get _filteredInbox {
+    if (!_isFnthinkTab) return const [];
+    if (_searchQuery.isEmpty) return _inbox;
+    final q = _searchQuery.toLowerCase();
+    return _inbox.where((m) {
+      return m.title.toLowerCase().contains(q) ||
+          m.body.toLowerCase().contains(q) ||
+          m.sender.toLowerCase().contains(q);
+    }).toList();
+  }
 
   /// T147②：转发行 + 组行按时间混排；挂着筛选时只给转发行（理由见 `_refreshGroups`）。
   /// 返回 `Object` 是因为两种行不是同一类型 —— 列表 builder 按 `is` 分派，不靠字段猜。
@@ -435,72 +471,140 @@ class _HistoryPageState extends State<HistoryPage> {
       ? row.group.at
       : (row as NotificationRecord).postTime;
 
-  /// 可补推池：当前展示列表里**可以再发一次**的那些（判据见 `repush_eligibility.dart`）。
-  ///
-  /// ⚠ 它与搜索精筛的「失败」**不是同一个集合**：筛的是"送达了吗"（含被拦截的），
-  /// 这里问的是"可以再发一次吗"（用户自己拦下的不算）。T133 之前两者共用一个
-  /// `hasFailedChannel`，界面上就表现为"筛得出、选不中"。
+  /// 可补推池（仅转发档使用）：当前展示列表里**可以再发一次**的那些。
   List<NotificationRecord> get _batchPool => _displayedRecords
       .where((r) => recordNeedsRepush(r.deliveryStatus))
       .toList();
 
-  void _enterBatchMode() {
-    final l10n = AppLocalizations.of(context);
-    final pool = _batchPool;
-    if (pool.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.batchPushNothingToResend)));
-      return;
+  /// 当前 tab 所有可选记录的 id 列表（用于全选/反选）
+  List<String> get _allSelectableIds {
+    if (_isFnthinkTab) {
+      return _filteredInbox.map((m) => m.messageId).toList();
     }
+    return _displayedRecords.map((r) => r.id).toList();
+  }
+
+  /// 长按进入选择模式，选中当前这一条
+  void _enterSelectMode(String id) {
     setState(() {
-      _batchMode = true;
-      // 默认全选当前列表里可再发的那些，用户可再取消
-      _batchSelected
+      _selectMode = true;
+      _selected
         ..clear()
-        ..addAll(pool.map((r) => r.id));
+        ..add(id);
     });
   }
 
-  void _exitBatchMode() {
+  void _exitSelectMode() {
     setState(() {
-      _batchMode = false;
-      _batchSelected.clear();
+      _selectMode = false;
+      _selected.clear();
     });
   }
 
-  void _toggleBatchSelect(NotificationRecord record) {
-    if (!recordNeedsRepush(record.deliveryStatus)) return; // 没有可再发的通道：不可选
+  /// 切换一条记录的选中状态（转发 NotificationRecord）
+  void _toggleSelectRecord(String id) {
     setState(() {
-      if (_batchSelected.contains(record.id)) {
-        _batchSelected.remove(record.id);
+      if (_selected.contains(id)) {
+        _selected.remove(id);
       } else {
-        _batchSelected.add(record.id);
+        _selected.add(id);
       }
     });
   }
 
-  void _selectAllRepushable() {
+  /// 全选当前页所有可选记录
+  void _selectAllCurrent() {
     setState(() {
-      _batchSelected
+      _selected
         ..clear()
-        ..addAll(_batchPool.map((r) => r.id));
+        ..addAll(_allSelectableIds);
     });
   }
 
-  /// 批量补推：二次确认 → 逐条顺序提交（带进度）→ 汇总反馈
-  Future<void> _runBatchPush() async {
+  /// 反选：选中当前页未选中的，取消选中已选中的
+  void _invertSelection() {
+    final all = _allSelectableIds.toSet();
+    final inverted = all.difference(_selected);
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(inverted);
+    });
+  }
+
+  /// 批量删除所有 tab 共用
+  Future<void> _runBatchDelete() async {
     final l10n = AppLocalizations.of(context);
-    final targets = _displayedRecords
-        .where((r) => _batchSelected.contains(r.id))
-        .toList();
-    if (targets.isEmpty) return;
-    if (widget.onPushNow == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.batchPushUnsupported)));
+    if (_selected.isEmpty) return;
+    final count = _selected.length;
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.clearRecords,
+      message: l10n.clearConfirmMsg(count),
+      confirmText: l10n.confirm,
+      cancelText: l10n.cancel,
+      destructive: true,
+      barrierDismissible: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    var deleted = 0;
+    if (_isFnthinkTab) {
+      final fnthinkDelete = widget.inboxDeleteMany ?? _inboxService.deleteMessages;
+      deleted = await fnthinkDelete(_selected.toList());
+    } else {
+      deleted = await GetIt.instance<NotificationService>().deleteRecords(
+        _selected.toList(),
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectMode = false;
+      _selected.clear();
+    });
+    // 重新读表/刷新分页
+    if (_isFnthinkTab) {
+      await _loadInbox();
+    } else {
+      unawaited(_loadSearch(reset: true));
+      unawaited(_refreshTotal());
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.clearedN(deleted)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// 批量重发（仅转发和幻念发件档）
+  Future<void> _runBatchResend() async {
+    final l10n = AppLocalizations.of(context);
+    if (_selected.isEmpty) return;
+
+    if (_isFnthinkTab) {
+      // 幻念发件：不能直接"重发"，需要打开发送页让用户确认目标
+      // 这里我们提供一个简单的提示，说明幻念发件的重发方式
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.batchPushNothingToResend)),
+      );
       return;
     }
-    // T90 片13：确认那一发换成唯一装配点（外壳与钮的形状从此只有一份作者）。
-    // 点外面 = 没答 = 不推（`barrierDismissible: true` 照旧的 Material 默认保留）。
+
+    if (widget.onPushNow == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.batchPushUnsupported)),
+      );
+      return;
+    }
+
+    final targets = _displayedRecords
+        .where((r) => _selected.contains(r.id))
+        .toList();
+    if (targets.isEmpty) return;
+
     final confirmed = await IosDialogActions.askConfirm(
       context,
       title: l10n.batchPushConfirmTitle,
@@ -513,9 +617,6 @@ class _HistoryPageState extends State<HistoryPage> {
     if (!confirmed || !mounted) return;
 
     final progress = ValueNotifier<int>(0);
-    // T90 片17：这枚进度框换进共享外壳 `IosProgressDialog`。
-    // ⚠ 两件必须原样保留的东西：**没有标题**（批量补推没有标题那一行）与 **barrierDismissible: false**
-    //   （补推到一半被点掉，下一幕是"用户以为推完了"）。
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -542,11 +643,12 @@ class _HistoryPageState extends State<HistoryPage> {
     if (!mounted) return;
     Navigator.of(context, rootNavigator: true).pop();
     setState(() {
-      _batchMode = false;
-      _batchSelected.clear();
+      _selectMode = false;
+      _selected.clear();
     });
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.batchPushDone(submitted))));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.batchPushDone(submitted))),
+    );
   }
 
   @override
@@ -1802,12 +1904,70 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _handleExport() async {
+    // 按 tab 分发：转发档走 widget.onExport，幻念档走自有的 buildExportJson + saveFile
+    if (_isFnthinkTab) {
+      await _handleExportFnthink();
+    } else {
+      await _handleExportForwarded();
+    }
+  }
+
+  Future<void> _handleExportForwarded() async {
     final l10n = AppLocalizations.of(context);
     try {
       final result = await widget.onExport();
       if (!mounted) return;
       final message = result['message']?.toString() ?? '';
       if (message.isEmpty || message == l10n.exportCancelled) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.errorWithDetail(e.toString())),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// 幻念档导出：自己弹确认、调 FnthinkInboxService.buildExportJson、走同一个原生 saveFile。
+  /// 文件名后缀区分档（`fnthink_inbox_` / `fnthink_sent_`），方便用户事后区分。
+  Future<void> _handleExportFnthink() async {
+    final l10n = AppLocalizations.of(context);
+    final isSent = _direction == 'sent';
+    final confirm = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.confirmExport,
+      message: isSent
+          ? l10n.fnthinkExportSentDesc(_inbox.length)
+          : l10n.fnthinkExportInboxDesc(_inbox.length),
+      confirmText: l10n.exportBtn,
+      destructive: false,
+    );
+    if (!confirm || !mounted) return;
+    try {
+      final json = await _inboxService.buildExportJson(
+        isSent ? kFnthinkDirectionOut : kFnthinkDirectionIn,
+      );
+      final suffix = isSent ? 'fnthink_sent' : 'fnthink_inbox';
+      final result = await AppChannels.notification.invokeMethod(
+        'saveFile',
+        {
+          'fileName': '${suffix}_${DateTime.now().millisecondsSinceEpoch}.json',
+          'content': json,
+        },
+      );
+      if (!mounted) return;
+      final message = result is Map
+          ? (result['message']?.toString() ?? l10n.exportDone)
+          : l10n.exportDone;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
@@ -1980,61 +2140,6 @@ class _HistoryPageState extends State<HistoryPage> {
     if (mounted) setState(() {});
   }
 
-  /// 长按记录弹出操作菜单（屏蔽应用 / 屏蔽内容）。
-  /// 打开前强制刷新过滤配置：FilterService 内存态可能尚未加载（冷启动直进历史页），
-  /// 以空名单误判「全推模式 / 不在范围」是本菜单第一版的核心缺陷。
-  Future<void> _showRecordActionsSheet(NotificationRecord record) async {
-    final l10n = AppLocalizations.of(context);
-    await _filterService.loadSettings();
-    if (!mounted) return;
-    final isAllowMode = _filterService.appFilterMode == 'allow';
-    final inList = _filterService.enabledPackages.contains(record.packageName);
-    // 与 FilterEngine 的实际行为对齐：
-    // - allow 模式 + 名单为空 = 推送全部应用（此时任何应用都在推送范围内）；
-    // - allow 模式 + 名单非空 = 仅名单内应用推送；
-    // - block 模式 = 名单内应用被屏蔽，其余推送。
-    final allowPushesAll =
-        isAllowMode && _filterService.enabledPackages.isEmpty;
-    // 副标题动态说明当前模式下将执行的动作（或已屏蔽状态）。
-    // 特判：本应用自身通知由电量规则控制，应用屏蔽不适用。
-    // 其余情况菜单项始终可点、始终执行（幂等）——白名单例外在点击后以
-    // toast 提示，而不是用「无需操作」把用户挡回去（真机反馈：误导）。
-    final blockAppDesc = record.packageName == _selfPackage
-        ? l10n.historyActionBlockAppDescSelf
-        : isAllowMode
-        ? (allowPushesAll
-              ? l10n.historyActionBlockAppDescAllowAll
-              : (inList
-                    ? l10n.historyActionBlockAppDescAllow
-                    : l10n.historyActionBlockAppDescAlreadyExcluded))
-        : (inList
-              ? l10n.historyActionBlockAppDescAlreadyBlocked
-              : l10n.historyActionBlockAppDescBlock);
-    final textPreview = record.content.isNotEmpty
-        ? record.content
-        : record.title;
-
-    await CardActionSheet.show(
-      context,
-      actions: [
-        CardAction(
-          icon: Icons.block,
-          iconColor: AppColors.red,
-          label: l10n.historyActionBlockApp,
-          description: blockAppDesc,
-          onTap: () => _blockApp(record),
-        ),
-        CardAction(
-          icon: Icons.playlist_remove,
-          iconColor: AppColors.orange,
-          label: l10n.historyActionBlockContent,
-          description: textPreview,
-          onTap: () => _blockContent(record),
-        ),
-      ],
-    );
-  }
-
   // ── T48 收件档（表 `fnthink_messages`，别人推给本机的消息）──
   //
   // ⚠ "方向"是**数据源切换**，不是又一个筛选条件：转发记录与收件行来自两张表、分页口径不同，
@@ -2043,11 +2148,6 @@ class _HistoryPageState extends State<HistoryPage> {
   late String _direction;
   List<FnthinkInboxMessage> _inbox = const [];
   bool _inboxLoaded = false;
-
-  /// T208：收件档的选项态（长按进入）。**只对收件行有意义** —— 发出与转发没有 `read` 那一列，
-  /// 给它们长出一个"标已读"就是把"我发的"也画成"别人推给我的、我还没看"。
-  bool _inboxSelectMode = false;
-  final Set<String> _inboxSelected = {};
 
   /// 收件未读数（「一键已读」那一格的可用性与确认框里的 N）。**只是缓存一个读数**：
   /// 数法只有 `FnthinkInboxService.unreadCount` 一处，页面不自己数列表（列表有 limit）。
@@ -2159,10 +2259,9 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _enterInboxSelect(FnthinkInboxMessage m) {
-    if (_inboxDirection != kFnthinkDirectionIn) return;
     setState(() {
-      _inboxSelectMode = true;
-      _inboxSelected
+      _selectMode = true;
+      _selected
         ..clear()
         ..add(m.messageId);
     });
@@ -2170,18 +2269,18 @@ class _HistoryPageState extends State<HistoryPage> {
 
   void _toggleInboxSelect(FnthinkInboxMessage m) {
     setState(() {
-      if (!_inboxSelected.remove(m.messageId)) {
-        _inboxSelected.add(m.messageId);
+      if (!_selected.remove(m.messageId)) {
+        _selected.add(m.messageId);
       }
     });
   }
 
   /// 退出选项态。`inSetState: false` 给"已经在 setState 里"的调用点（切档那一处）。
   void _exitInboxSelect({bool inSetState = true}) {
-    if (!_inboxSelectMode && _inboxSelected.isEmpty) return;
+    if (!_selectMode && _selected.isEmpty) return;
     void clear() {
-      _inboxSelectMode = false;
-      _inboxSelected.clear();
+      _selectMode = false;
+      _selected.clear();
     }
 
     if (inSetState) {
@@ -2192,7 +2291,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _runMarkReadSelected() async {
-    final ids = _inboxSelected.toList(growable: false);
+    final ids = _selected.toList(growable: false);
     if (ids.isEmpty) return;
     final l10n = AppLocalizations.of(context);
     final mark = widget.inboxMarkReadMany ?? _inboxService.markReadMany;
@@ -2340,8 +2439,8 @@ class _HistoryPageState extends State<HistoryPage> {
     // 不编一句「还没执行」—— 存量行与刚落库未判定的那一瞬都是这个形状。
     final command = outgoing ? null : RemoteCommandEnvelope.decode(m.body);
     final record = command == null ? null : _commandRecords[m.messageId];
-    // T208：选项态只对**收件行**开（发出档那本账没有"未读"这一列，见上面那段判据②）。
-    final selectable = !outgoing && _inboxDirection == kFnthinkDirectionIn;
+    // T208：选项态现在所有幻念档都支持（收件、发件）
+    final selectable = true;
     final tile = HistoryRowTile(
       keyNamespace: 'fnthink-inbox',
       identity: m.messageId,
@@ -2397,19 +2496,19 @@ class _HistoryPageState extends State<HistoryPage> {
                 : HistoryRowCorner.middle),
       // T208：选项态下点行**只切勾选**，不打开详情 —— 那一下要是不拦，勾第二条时就会
       // 弹出它自己的详情页，选择态在用户眼里"看不见了"。长按进入（行件本来就有这个槽）。
-      onTap: selectable && _inboxSelectMode
+      onTap: selectable && _selectMode
           ? () => _toggleInboxSelect(m)
           : () => _showInboxDetail(m, outgoing: outgoing),
-      onLongPress: selectable && !_inboxSelectMode
+      onLongPress: selectable && !_selectMode
           ? () => _enterInboxSelect(m)
           : null,
     );
 
-    if (!selectable || !_inboxSelectMode) return tile;
+    if (!selectable || !_selectMode) return tile;
     return Row(
       children: [
         Checkbox(
-          value: _inboxSelected.contains(m.messageId),
+          value: _selected.contains(m.messageId),
           activeColor: AppColors.blue,
           onChanged: (_) => _toggleInboxSelect(m),
         ),
@@ -2448,6 +2547,7 @@ class _HistoryPageState extends State<HistoryPage> {
     if (!_inboxLoaded) {
       return const Center(child: CircularProgressIndicator());
     }
+    final list = _filteredInbox;
     if (_inbox.isEmpty) {
       return Center(
         child: Text(
@@ -2461,16 +2561,27 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
       );
     }
+    if (list.isEmpty && _searchQuery.isNotEmpty) {
+      return Center(
+        child: Text(
+          l10n.noMatchRecords,
+          style: TextStyle(
+            color: AppColors.secondaryLabel(context),
+            fontSize: 15,
+          ),
+        ),
+      );
+    }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: _inbox.length,
+      itemCount: list.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) => _inboxRow(
         l10n,
-        _inbox[index],
+        list[index],
         outgoing: _inboxDirection == kFnthinkDirectionOut,
         index: index,
-        total: _inbox.length,
+        total: list.length,
       ),
     );
   }
@@ -3140,11 +3251,13 @@ class _HistoryPageState extends State<HistoryPage> {
           : (index == total - 1
                 ? HistoryRowCorner.last
                 : HistoryRowCorner.middle),
-      // F2：批量模式下点行切换选中（不打开详情），长按菜单禁用
-      onTap: _batchMode
-          ? () => _toggleBatchSelect(record)
+      // 统一选择模式下点行切换选中（不打开详情），长按也进入选择模式
+      onTap: _selectMode
+          ? () => _toggleSelectRecord(record.id)
           : () => _showRecordDetail(record),
-      onLongPress: _batchMode ? null : () => _showRecordActionsSheet(record),
+      onLongPress: !_selectMode
+          ? () => _enterSelectMode(record.id)
+          : null,
       lines: [
         _buildDeliveryTallyLine(record, rows, l10n),
         // 每一条转发行都有这一枚（T133 片9 走 (b)）：口径由文案说清楚，判据住在作者那一处，
@@ -3153,34 +3266,24 @@ class _HistoryPageState extends State<HistoryPage> {
       ],
     );
 
-    // F2：批量模式左侧加勾选框（不可再发的那几条不可选 —— 判据与 `_batchPool` 同一个作者）
-    if (!_batchMode) return item;
-    final selectable = recordNeedsRepush(record.deliveryStatus);
+    // 统一选择模式：所有记录都可选
+    if (!_selectMode) return item;
     return Row(
       children: [
         Checkbox(
-          value: _batchSelected.contains(record.id),
+          value: _selected.contains(record.id),
           activeColor: AppColors.blue,
-          onChanged: selectable ? (_) => _toggleBatchSelect(record) : null,
+          onChanged: (_) => _toggleSelectRecord(record.id),
         ),
-        Expanded(
-          child: Opacity(opacity: selectable ? 1 : 0.5, child: item),
-        ),
+        Expanded(child: item),
       ],
     );
   }
 
-  /// F2：批量模式底部操作栏（取消 / 补推 N 条）
-  ///
-  /// T148 差异⑧ 第三格（片8）：「取消」走幻念那一族的行内动作件、tone 取中性
-  /// （**这一枚不让人动手做什么，只是退出**），于是底栏只剩「补推」那一枚实心。
-  /// ⚠ 「补推」这一枚 T148 片15 起走 `FnthinkFilledAction`（差异⑧ 从片8 挂在账上的那枚
-  /// Material 例外就此收掉）。当时留着的理由是"公共件没有图标槽"，而那条前提选错了对象：
-  /// `PrimaryActionButton` 是**一页一枚的全宽主操作**，底栏这一行左边还有「取消」，本来就不该用它 ——
-  /// 缺的是"按内容宽 + 带图标 + 能置灰"这一档，不是给全宽件加参数去牵动它 9 个调用点。
-  /// 图标留着：「把这 N 条再发一次」有一半信息量在那个 replay 上。
+  /// 统一选择模式底部操作栏（取消 / 标已读（收件）/ 删除 / 重发）
   Widget _buildBatchBar(BuildContext context, AppLocalizations l10n) {
-    final count = _batchSelected.length;
+    final count = _selected.length;
+    final isReceivedTab = _direction == 'received';
     return Container(
       color: AppColors.cardBg(context),
       child: SafeArea(
@@ -3192,19 +3295,37 @@ class _HistoryPageState extends State<HistoryPage> {
               FnthinkInlineAction(
                 key: const ValueKey('history-batch-cancel'),
                 label: l10n.cancel,
-                // 中性色：它只退出批量模式，不改任何一条的状态（差异④ 那一族
-                // "动作要让某样东西从此不可用才配红"在这里不成立）。
                 tone: FnthinkActionTone.neutral,
-                onPressed: _exitBatchMode,
+                onPressed: _exitSelectMode,
               ),
               const Spacer(),
+              if (isReceivedTab) ...[
+                // 批量标已读（仅收件档）
+                FnthinkFilledAction(
+                  key: const ValueKey('history-batch-mark-read'),
+                  icon: Icons.mark_email_read_outlined,
+                  label: l10n.inboxMarkReadAction,
+                  onPressed: count == 0 ? null : _runMarkReadSelected,
+                ),
+                const SizedBox(width: 8),
+              ],
+              // 批量删除（所有 tab 都有）
               FnthinkFilledAction(
-                key: const ValueKey('history-batch-push'),
-                icon: Icons.replay,
-                label: l10n.batchPushAction(count),
-                // 一条都没勾选：置灰留着，不藏起来（藏掉用户读到的是"选了却没地方按"）。
-                onPressed: count == 0 ? null : _runBatchPush,
+                key: const ValueKey('history-batch-delete'),
+                icon: Icons.delete_outline,
+                label: l10n.clearRecords,
+                onPressed: count == 0 ? null : _runBatchDelete,
               ),
+              if (_canResend) ...[
+                const SizedBox(width: 8),
+                // 批量重发（转发和幻念发件档才有）
+                FnthinkFilledAction(
+                  key: const ValueKey('history-batch-push'),
+                  icon: Icons.replay,
+                  label: l10n.batchPushAction(count),
+                  onPressed: count == 0 ? null : _runBatchResend,
+                ),
+              ],
             ],
           ),
         ),
@@ -3304,54 +3425,44 @@ class _HistoryPageState extends State<HistoryPage> {
     // 挂着筛选（标题数是"已加载的筛选结果"，不是全表总数）。
     final searchMode = _hasActiveFilter;
     final records = _displayedRecords;
-    // 批量模式只对真实记录勾选；组行是摘要，不参与补推选择。
-    final rows = _batchMode ? records : _forwardedRows;
+    // 批量模式下转发行只显示记录（不混排组行）
+    final rows = _selectMode && !_isFnthinkTab ? records : _forwardedRows;
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        // T208：收件档的选项态与转发档的批量补推**共用这套顶栏**（取消 / 已选 N / 右侧那一枚），
-        // 但两套状态各自独立（`_batchMode` 管转发行、`_inboxSelectMode` 管收件行）：
-        // 一份状态装两件事，就会出现"勾了收件行、按下去补推"那种串台的按钮。
-        leading: (_batchMode || _inboxSelectMode)
+        // 统一选择模式顶栏
+        leading: _selectMode
             ? IconButton(
                 icon: const Icon(Icons.close),
                 tooltip: l10n.cancel,
-                onPressed: _batchMode ? _exitBatchMode : _exitInboxSelect,
+                onPressed: _exitSelectMode,
               )
             : null,
         title: Text(
-          _batchMode
-              ? l10n.batchSelectedCount(_batchSelected.length)
-              : _inboxSelectMode
-              ? l10n.batchSelectedCount(_inboxSelected.length)
+          _selectMode
+              ? l10n.batchSelectedCount(_selected.length)
               : searchMode
               ? l10n.searchResultCount(records.length)
               // 无筛选的标题数是**全表总数**（读口注入）—— 分页之后 loaded.length
               // 只是"已加载的前几页"，拿来当总数就是骗人（写着 (200)，库里 5000 条）。
               : l10n.historyTitle(_forwardedTotal ?? records.length),
         ),
-        actions: _batchMode
+        actions: _selectMode
             ? [
                 IconButton(
                   icon: const Icon(Icons.select_all),
                   tooltip: l10n.batchSelectAll,
-                  onPressed: _selectAllRepushable,
+                  onPressed: _selectAllCurrent,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.check_box_outline_blank),
+                  tooltip: l10n.invertSelection,
+                  onPressed: _invertSelection,
                 ),
                 IconButton(
                   icon: const Icon(Icons.deselect),
                   tooltip: l10n.batchSelectNone,
-                  onPressed: () => setState(_batchSelected.clear),
-                ),
-              ]
-            // 一条都没勾：置灰留着（藏掉用户读到的是"选了却没地方按"）。
-            : _inboxSelectMode
-            ? [
-                FnthinkInlineAction(
-                  key: const ValueKey('history-inbox-mark-read'),
-                  label: l10n.inboxMarkReadAction,
-                  onPressed: _inboxSelected.isEmpty
-                      ? null
-                      : _runMarkReadSelected,
+                  onPressed: () => setState(_selected.clear),
                 ),
               ]
             : [
@@ -3541,7 +3652,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
           ),
           // F2：批量模式底部操作栏
-          if (_batchMode) _buildBatchBar(context, l10n),
+          if (_selectMode) _buildBatchBar(context, l10n),
         ],
       ),
     );

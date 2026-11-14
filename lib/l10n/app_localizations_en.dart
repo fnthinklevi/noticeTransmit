@@ -2902,6 +2902,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'Records will be exported as a JSON file containing notification content and device info. Choose a save location and keep the file safe or delete it promptly.';
 
   @override
+  String fnthinkExportInboxDesc(Object count) {
+    return 'Fnthink inbox messages ($count) will be exported as a JSON file with message content and device info.';
+  }
+
+  @override
+  String fnthinkExportSentDesc(Object count) {
+    return 'Fnthink sent messages ($count) will be exported as a JSON file with message content and device info.';
+  }
+
+  @override
+  String get exportDone => 'Export complete';
+
+  @override
   String get historyMoreActions => 'More actions';
 
   @override
