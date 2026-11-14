@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
+
 import 'dart:convert';
+
 import 'package:fnthink_push/fnthink_push.dart';
 
 import '../database/database_helper.dart';
@@ -112,7 +114,8 @@ class FnthinkInboxService {
   /// [direction] 决定导收件档（`kFnthinkDirectionIn`）还是发件档（`kFnthinkDirectionOut`）。
   /// 全量直读 DB（不受分页上限约束），字段格式与通知导出 `NotificationService.buildExportJson`
   /// 保持同构（recordCount + records 数组），文件名后缀由调用方区分。
-  Future<String> buildExportJson(String direction, {
+  Future<String> buildExportJson(
+    String direction, {
     String deviceName = '',
     String deviceModel = '',
     String manufacturer = '',
@@ -120,13 +123,16 @@ class FnthinkInboxService {
     List<Map<String, dynamic>> records;
     try {
       final rows = await _db.getAllFnthinkInboxByDirection(direction);
-      records = rows.map((row) => FnthinkInboxMessage.fromDbRow(row).toDbRow()).toList();
+      records = rows
+          .map((row) => FnthinkInboxMessage.fromDbRow(row).toDbRow())
+          .toList();
     } catch (e) {
       debugPrint('[fnthink] 导出读取 DB 失败，回退空列表: $e');
       records = [];
     }
     final data = {
-      '_warning': '此文件包含幻念推送消息（${direction == kFnthinkDirectionOut ? "发出" : "收件"}档），请妥善保管。',
+      '_warning':
+          '此文件包含幻念推送消息（${direction == kFnthinkDirectionOut ? "发出" : "收件"}档），请妥善保管。',
       'exportTime': DateTime.now().toIso8601String(),
       'deviceName': deviceName,
       'deviceModel': deviceModel,

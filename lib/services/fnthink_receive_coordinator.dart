@@ -1715,7 +1715,9 @@ class FnthinkReceiveCoordinator {
     } catch (e) {
       // P0 兜底：service.dispose 要在 finally 里，但如果 service 构造本身也可能抛（虽然
       // buildFnthinkReceiveService 今天不会），这一层必须也收 —— 否则还是会炸到页面。
-      debugPrint('[fnthink] coordinator.sendNotice 未预期异常: ${e.runtimeType}: $e');
+      debugPrint(
+        '[fnthink] coordinator.sendNotice 未预期异常: ${e.runtimeType}: $e',
+      );
       result = FnthinkSendResult(
         status: FnthinkSendStatus.transportError,
         reason: 'coordinator-guard:${e.runtimeType}',
@@ -1731,7 +1733,9 @@ class FnthinkReceiveCoordinator {
     // badInput / credentialCorrupted…）重试没有意义 —— 那是配置/签名问题，第二次结果一样。
     if (_isRetryableSendFailure(result.status)) {
       retryUsed = 1;
-      debugPrint('[fnthink] sendNotice 第 1 次失败(${result.status.name})，500ms 后自动重试');
+      debugPrint(
+        '[fnthink] sendNotice 第 1 次失败(${result.status.name})，500ms 后自动重试',
+      );
       await Future<void>.delayed(const Duration(milliseconds: 500));
       final retryService = _serviceFactory(resolved.spec!);
       try {
@@ -1742,7 +1746,9 @@ class FnthinkReceiveCoordinator {
           appName: appName,
         );
       } catch (e) {
-        debugPrint('[fnthink] coordinator.sendNotice 重试未预期异常: ${e.runtimeType}: $e');
+        debugPrint(
+          '[fnthink] coordinator.sendNotice 重试未预期异常: ${e.runtimeType}: $e',
+        );
         result = FnthinkSendResult(
           status: FnthinkSendStatus.transportError,
           reason: 'coordinator-retry-guard:${e.runtimeType}',
@@ -1841,7 +1847,9 @@ class FnthinkReceiveCoordinator {
     );
     // P1：重试发生时记一条 debug —— 不进 hook typedef（那是跨模块契约，不值得为一枚计数器拆了）。
     if (retryCount > 0) {
-      debugPrint('[fnthink] sendNotice 重试$retryCount次后 ${result.status.name}，${result.reason}');
+      debugPrint(
+        '[fnthink] sendNotice 重试$retryCount次后 ${result.status.name}，${result.reason}',
+      );
     }
   }
 

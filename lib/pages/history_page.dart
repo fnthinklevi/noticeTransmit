@@ -438,12 +438,10 @@ class _HistoryPageState extends State<HistoryPage> {
   List<NotificationRecord> get _displayedRecords => _searchResults ?? const [];
 
   /// 当前 tab 是否支持批量重发（转发和幻念发件支持）
-  bool get _canResend =>
-      _direction == 'forwarded' || _direction == 'sent';
+  bool get _canResend => _direction == 'forwarded' || _direction == 'sent';
 
   /// 当前 tab 是否有独立数据源（幻念收件/发件走 inbox 列表）
-  bool get _isFnthinkTab =>
-      _direction == 'received' || _direction == 'sent';
+  bool get _isFnthinkTab => _direction == 'received' || _direction == 'sent';
 
   /// 幻念档搜索过滤后的列表
   List<FnthinkInboxMessage> get _filteredInbox {
@@ -550,7 +548,8 @@ class _HistoryPageState extends State<HistoryPage> {
 
     var deleted = 0;
     if (_isFnthinkTab) {
-      final fnthinkDelete = widget.inboxDeleteMany ?? _inboxService.deleteMessages;
+      final fnthinkDelete =
+          widget.inboxDeleteMany ?? _inboxService.deleteMessages;
       deleted = await fnthinkDelete(_selected.toList());
     } else {
       deleted = await GetIt.instance<NotificationService>().deleteRecords(
@@ -587,16 +586,14 @@ class _HistoryPageState extends State<HistoryPage> {
     if (_isFnthinkTab) {
       // 幻念发件：不能直接"重发"，需要打开发送页让用户确认目标
       // 这里我们提供一个简单的提示，说明幻念发件的重发方式
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.batchPushNothingToResend)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.batchPushNothingToResend)));
       return;
     }
 
     if (widget.onPushNow == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.batchPushUnsupported)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.batchPushUnsupported)));
       return;
     }
 
@@ -646,9 +643,8 @@ class _HistoryPageState extends State<HistoryPage> {
       _selectMode = false;
       _selected.clear();
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.batchPushDone(submitted))),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.batchPushDone(submitted))));
   }
 
   @override
@@ -1957,13 +1953,10 @@ class _HistoryPageState extends State<HistoryPage> {
         isSent ? kFnthinkDirectionOut : kFnthinkDirectionIn,
       );
       final suffix = isSent ? 'fnthink_sent' : 'fnthink_inbox';
-      final result = await AppChannels.notification.invokeMethod(
-        'saveFile',
-        {
-          'fileName': '${suffix}_${DateTime.now().millisecondsSinceEpoch}.json',
-          'content': json,
-        },
-      );
+      final result = await AppChannels.notification.invokeMethod('saveFile', {
+        'fileName': '${suffix}_${DateTime.now().millisecondsSinceEpoch}.json',
+        'content': json,
+      });
       if (!mounted) return;
       final message = result is Map
           ? (result['message']?.toString() ?? l10n.exportDone)
@@ -3255,9 +3248,7 @@ class _HistoryPageState extends State<HistoryPage> {
       onTap: _selectMode
           ? () => _toggleSelectRecord(record.id)
           : () => _showRecordDetail(record),
-      onLongPress: !_selectMode
-          ? () => _enterSelectMode(record.id)
-          : null,
+      onLongPress: !_selectMode ? () => _enterSelectMode(record.id) : null,
       lines: [
         _buildDeliveryTallyLine(record, rows, l10n),
         // 每一条转发行都有这一枚（T133 片9 走 (b)）：口径由文案说清楚，判据住在作者那一处，

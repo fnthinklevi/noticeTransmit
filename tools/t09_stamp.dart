@@ -1,4 +1,5 @@
 #!/usr/bin/env dart
+
 /// roadmap T09「真发一次」盖章工具（主机侧）。
 ///
 /// 为什么要有它：那一列的证据只能由人眼给（守卫要 date/build/note，且盖章总数是显式
@@ -69,8 +70,7 @@ Future<void> main(List<String> args) async {
 }
 
 void _usage() {
-  stdout.write(
-    '''
+  stdout.write('''
 T09「真发一次」盖章工具
 
   list                       看现在哪些类型盖了章、哪些还欠着
@@ -87,8 +87,7 @@ T09「真发一次」盖章工具
 典型一轮：
   dart tools/t09_stamp.dart send --types=dingtalk,email
   dart tools/t09_stamp.dart confirm
-''',
-  );
+''');
 }
 
 void _list(Options opt) {
@@ -108,7 +107,9 @@ void _list(Options opt) {
       verified.add('${r['type']}(${send['date']}/build ${send['build']})');
     }
   }
-  stdout.writeln('矩阵共 ${rows.length} 类；已盖章 ${verified.length} 类，ratchet=$ratchet');
+  stdout.writeln(
+    '矩阵共 ${rows.length} 类；已盖章 ${verified.length} 类，ratchet=$ratchet',
+  );
   for (final v in verified) {
     stdout.writeln('  ✅ $v');
   }
@@ -120,9 +121,7 @@ void _list(Options opt) {
     stdout.writeln('  ⚠ 未盖章：${missing.join('、')}');
   }
   if (verified.length != ratchet) {
-    stdout.writeln(
-      '  ❌ 盖章数与 verifiedRatchet 不一致 ⇒ 守卫现在就是红的，先改回同一个数',
-    );
+    stdout.writeln('  ❌ 盖章数与 verifiedRatchet 不一致 ⇒ 守卫现在就是红的，先改回同一个数');
     exitCode = 1;
   }
 }
@@ -181,34 +180,31 @@ Future<void> _send(Options opt) async {
   stdout.writeln('设备：$serial（每次 adb 调用都带 -s，绝不落到别的设备）');
   int? killed;
   if (bootedHere && !opt.keepEmulator) {
-    killed = 0;  // 结束时关掉，别让 AVD 挂着（同 release_emulator.sh 的 trap 口径）
+    killed = 0; // 结束时关掉，别让 AVD 挂着（同 release_emulator.sh 的 trap 口径）
   }
   try {
     final defines = <String>['T09_TYPES=${opt.types ?? ''}'];
     stdout.writeln('开始逐类真发（这一步会真的把消息发出去）…');
-    final run = wrap(
-      flutter,
-      <String>[
-        'test',
-        'integration_test/t09_stamp_test.dart',
-        '-d',
-        serial,
-        for (final d in defines) '--dart-define=$d',
-      ],
-    );
+    final run = wrap(flutter, <String>[
+      'test',
+      'integration_test/t09_stamp_test.dart',
+      '-d',
+      serial,
+      for (final d in defines) '--dart-define=$d',
+    ]);
     final r = Process.runSync(run.$1, run.$2);
     final out = '${r.stdout}\n${r.stderr}';
     final manifest = _parseManifest(out);
     if (manifest == null) {
-      stderr.writeln(
-        '没在输出里找到 T09-MANIFEST（退出码 ${r.exitCode}）。原始输出尾部：\n',
-      );
+      stderr.writeln('没在输出里找到 T09-MANIFEST（退出码 ${r.exitCode}）。原始输出尾部：\n');
       stderr.writeln(_tail(out, 40));
       exitCode = 1;
       return;
     }
     final file = File(opt.manifest)..createSync(recursive: true);
-    file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(manifest));
+    file.writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert(manifest),
+    );
     stdout.writeln('清单已写入 ${file.path}');
     _printChecklist(manifest);
     stdout.writeln('\n下一步：dart tools/t09_stamp.dart confirm');
@@ -267,7 +263,9 @@ void _manual(Options opt) {
       .where((e) => e.isNotEmpty)
       .toList();
   if (types.isEmpty) {
-    stderr.writeln('manual 需要 --types=<逗号分隔的类型>（先看 dart tools/t09_stamp.dart list）');
+    stderr.writeln(
+      'manual 需要 --types=<逗号分隔的类型>（先看 dart tools/t09_stamp.dart list）',
+    );
     exitCode = 1;
     return;
   }
@@ -276,14 +274,9 @@ void _manual(Options opt) {
     '人工盖章：本轮没有任何自动记录，build 记为 **$build**。'
     '${opt.build == null ? '（build 取自 pubspec.yaml —— 不是你手点的那个包就用 --build= 指定）' : ''}\n',
   );
-  _collectAndWrite(
-    opt,
-    [
-      for (final t in types)
-        {'type': t, 'target': '（人工填写）', 'success': true},
-    ],
-    build: build,
-  );
+  _collectAndWrite(opt, [
+    for (final t in types) {'type': t, 'target': '（人工填写）', 'success': true},
+  ], build: build);
 }
 
 /// 两条路共用同一个提问 + 写入咽喉：只有答 y 的行会变成章。
@@ -358,9 +351,13 @@ void _collectAndWrite(
 
   stdout.writeln('\n已写入矩阵：$written 类已盖章（verifiedRatchet 同步为 $written）。');
   stdout.writeln('记得跑一遍守卫确认没写坏：');
-  stdout.writeln('  flutter test test/architecture/channel_evidence_matrix_test.dart');
+  stdout.writeln(
+    '  flutter test test/architecture/channel_evidence_matrix_test.dart',
+  );
   stdout.writeln('并给 base.md 补一句（谁在哪个构建上验了哪一类）：');
-  final list = stamps.map((s) => '${s.type}（build ${s.build}，${s.date}）').join('、');
+  final list = stamps
+      .map((s) => '${s.type}（build ${s.build}，${s.date}）')
+      .join('、');
   stdout.writeln('  『T09 真发一次盖章：$list，由维护者实发后在收件端确认。』');
 }
 
@@ -368,8 +365,10 @@ void _collectAndWrite(
 String _buildFromPubspec() {
   final f = File('pubspec.yaml');
   if (!f.existsSync()) return '?';
-  final m = RegExp(r'^version:\s*\S*\+(\d+)', multiLine: true)
-      .firstMatch(f.readAsStringSync());
+  final m = RegExp(
+    r'^version:\s*\S*\+(\d+)',
+    multiLine: true,
+  ).firstMatch(f.readAsStringSync());
   return m?.group(1) ?? '?';
 }
 
@@ -383,7 +382,8 @@ String? applyStamp(String source, Stamp stamp) {
     '("type":\\s*"${RegExp.escape(stamp.type)}"[\\s\\S]*?"realSend":\\s*)\\{[^}]*\\}',
   );
   // group(1) 已经把 `"realSend": ` 这个键名连同冒号一起捕获了，这里只补**值**。
-  final stamped = '{ '
+  final stamped =
+      '{ '
       '"state": "verified", '
       '"date": ${jsonEncode(stamp.date)}, '
       '"build": ${jsonEncode(stamp.build)}, '
@@ -394,9 +394,8 @@ String? applyStamp(String source, Stamp stamp) {
 }
 
 /// 当前已盖章的行数（守卫拿它与 verifiedRatchet 比对，两者必须同一次写进去）。
-int countVerified(String source) => RegExp(
-  '"state":\\s*"verified"',
-).allMatches(source).length;
+int countVerified(String source) =>
+    RegExp('"state":\\s*"verified"').allMatches(source).length;
 
 String setRatchet(String source, int value) {
   final re = RegExp('"verifiedRatchet":\\s*\\d+');
@@ -452,33 +451,29 @@ Future<String?> _bootEmulator(String adb, Options opt) async {
     return null;
   }
   stdout.writeln('启动模拟器 $avd（由本工具起的，跑完默认由本工具关掉），等待开机…');
-  final proc = await Process.start(
-    exe,
-    <String>[
-      '-avd',
-      avd,
-      '-no-audio',
-      '-no-boot-anim',
-      '-gpu',
-      opt.gpu ?? 'swiftshader_indirect',
-    ],
-    mode: ProcessStartMode.detached,
-  );
+  final proc = await Process.start(exe, <String>[
+    '-avd',
+    avd,
+    '-no-audio',
+    '-no-boot-anim',
+    '-gpu',
+    opt.gpu ?? 'swiftshader_indirect',
+  ], mode: ProcessStartMode.detached);
   stdout.writeln('  pid ${proc.pid}');
   final deadline = DateTime.now().add(const Duration(seconds: 240));
   while (DateTime.now().isBefore(deadline)) {
     final r = Process.runSync(adb, <String>['devices']);
     final serial = (const LineSplitter().convert('${r.stdout}'))
         .map((l) => l.trim().split(RegExp(r'\s+')).first)
-        .firstWhere(
-          (s) => s.startsWith('emulator-'),
-          orElse: () => '',
-        );
+        .firstWhere((s) => s.startsWith('emulator-'), orElse: () => '');
     if (serial.isNotEmpty) {
-      final booted = Process.runSync(
-        adb,
-        <String>['-s', serial, 'shell', 'getprop', 'sys.boot_completed'],
-      );
+      final booted = Process.runSync(adb, <String>[
+        '-s',
+        serial,
+        'shell',
+        'getprop',
+        'sys.boot_completed',
+      ]);
       if ('${booted.stdout}'.trim() == '1') return serial;
     }
     sleep(const Duration(seconds: 5));
@@ -500,7 +495,10 @@ Future<String?> _bootEmulator(String adb, Options opt) async {
 /// adb / flutter 的路径解析：命令行给的优先，其次 PATH。
 String? _tool(String? explicit, String name) {
   if (explicit != null && explicit.isNotEmpty) return explicit;
-  final which = Process.runSync('bash', <String>['-lc', 'command -v $name || true']);
+  final which = Process.runSync('bash', <String>[
+    '-lc',
+    'command -v $name || true',
+  ]);
   final path = '${which.stdout}'.trim();
   return path.isEmpty ? null : path;
 }

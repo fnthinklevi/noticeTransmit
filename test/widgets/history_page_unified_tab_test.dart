@@ -171,14 +171,18 @@ void main() {
       inboxRow('m_in_3', title: '机箱温度 45度'),
     ];
     sentTable = [
-      inboxRow('m_out_1',
-          direction: kFnthinkDirectionOut,
-          title: '远程摄像头',
-          body: '拍一张办公室照片'),
-      inboxRow('m_out_2',
-          direction: kFnthinkDirectionOut,
-          title: '关机指令',
-          body: '下班后自动关机'),
+      inboxRow(
+        'm_out_1',
+        direction: kFnthinkDirectionOut,
+        title: '远程摄像头',
+        body: '拍一张办公室照片',
+      ),
+      inboxRow(
+        'm_out_2',
+        direction: kFnthinkDirectionOut,
+        title: '关机指令',
+        body: '下班后自动关机',
+      ),
     ];
     forwardedTable = [
       forwardedRow('f1', title: '微信消息', content: '张三：在吗'),
@@ -200,14 +204,12 @@ void main() {
       await tester.enterText(field.first, '温度');
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
-      debugPrint('AFTER enterText: CPU=${find.text('CPU 使用率').evaluate().length}');
+      debugPrint(
+        'AFTER enterText: CPU=${find.text('CPU 使用率').evaluate().length}',
+      );
 
       expect(find.text('机箱温度 50度'), findsOneWidget);
-      expect(
-        find.text('CPU 使用率'),
-        findsNothing,
-        reason: '不含「温度」的那条应该被过滤掉',
-      );
+      expect(find.text('CPU 使用率'), findsNothing, reason: '不含「温度」的那条应该被过滤掉');
       expect(find.text('机箱温度 45度'), findsOneWidget);
     });
 
@@ -233,15 +235,10 @@ void main() {
       await pump(tester, initialDirection: 'received');
       await enterSearch(tester, '完全不会匹配的词xyz');
 
-      expect(
-        find.text(l10n(tester).noMatchRecords),
-        findsOneWidget,
-      );
+      expect(find.text(l10n(tester).noMatchRecords), findsOneWidget);
     });
 
-    testWidgets('正文也能搜到：搜「拍一张」能命中那条（虽然标题不含）', (
-      tester,
-    ) async {
+    testWidgets('正文也能搜到：搜「拍一张」能命中那条（虽然标题不含）', (tester) async {
       inboxTable = [
         inboxRow('m_body', title: '通知', body: '拍一张办公室照片'),
         inboxRow('m_title', title: '别的', body: '无关正文'),
@@ -284,9 +281,7 @@ void main() {
   // ────────────── 统一选择模式 ──────────────
 
   group('统一选择模式：长按进入', () {
-    testWidgets('幻念发件档长按某条 ⇒ 进入选择模式（之前发件档根本不可选）', (
-      tester,
-    ) async {
+    testWidgets('幻念发件档长按某条 ⇒ 进入选择模式（之前发件档根本不可选）', (tester) async {
       await pump(tester, initialDirection: 'sent');
 
       await tester.longPress(
@@ -313,10 +308,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.text(l10n(tester).batchSelectedCount(1)),
-        findsOneWidget,
-      );
+      expect(find.text(l10n(tester).batchSelectedCount(1)), findsOneWidget);
       // 收件档有标已读 + 删除
       expect(find.text(l10n(tester).inboxMarkReadAction), findsOneWidget);
       expect(find.text(l10n(tester).clearRecords), findsOneWidget);
@@ -334,10 +326,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.select_all));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text(l10n(tester).batchSelectedCount(3)),
-        findsOneWidget,
-      );
+      expect(find.text(l10n(tester).batchSelectedCount(3)), findsOneWidget);
     });
 
     testWidgets('发件档反选 ⇒ 勾上刚才没选的那条', (tester) async {
@@ -351,19 +340,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // 现在应该只勾中 m_out_2（反选了原来的 m_out_1）
-      expect(
-        find.text(l10n(tester).batchSelectedCount(1)),
-        findsOneWidget,
-      );
+      expect(find.text(l10n(tester).batchSelectedCount(1)), findsOneWidget);
     });
   });
 
   // ────────────── 批量删除（幻念收件档） ──────────────
 
   group('批量删除（幻念收件档）', () {
-    testWidgets('长按勾选 → 底部删除 → 确认 → 那条消失 + 写口收到 ids', (
-      tester,
-    ) async {
+    testWidgets('长按勾选 → 底部删除 → 确认 → 那条消失 + 写口收到 ids', (tester) async {
       await pump(tester, initialDirection: 'received');
 
       await tester.longPress(
@@ -397,25 +381,17 @@ void main() {
         find.byKey(const ValueKey('fnthink-inbox-row-m_in_1')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('fnthink-inbox-row-m_in_2')),
-      );
+      await tester.tap(find.byKey(const ValueKey('fnthink-inbox-row-m_in_2')));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text(l10n(tester).batchSelectedCount(2)),
-        findsOneWidget,
-      );
+      expect(find.text(l10n(tester).batchSelectedCount(2)), findsOneWidget);
 
       await tester.tap(find.text(l10n(tester).clearRecords));
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n(tester).confirm));
       await tester.pumpAndSettle();
 
-      expect(
-        deletedInboxIds..sort(),
-        equals(['m_in_1', 'm_in_2']..sort()),
-      );
+      expect(deletedInboxIds..sort(), equals(['m_in_1', 'm_in_2']..sort()));
 
       // 两条消失，第三条还在
       expect(
@@ -483,20 +459,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // 应该只选了搜索结果里的 2 条（不是全部 3 条）
-      expect(
-        find.text(l10n(tester).batchSelectedCount(2)),
-        findsOneWidget,
-      );
+      expect(find.text(l10n(tester).batchSelectedCount(2)), findsOneWidget);
 
       await tester.tap(find.text(l10n(tester).clearRecords));
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n(tester).confirm));
       await tester.pumpAndSettle();
 
-      expect(
-        deletedInboxIds..sort(),
-        equals(['m_in_1', 'm_in_3']..sort()),
-      );
+      expect(deletedInboxIds..sort(), equals(['m_in_1', 'm_in_3']..sort()));
 
       // 搜索词还保留着，所以 CPU 那条虽然还在 inbox 里但被过滤了
       // 清掉搜索再看
@@ -529,10 +499,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 退出后 AppBar 标题不再显示「已选 N」
-      expect(
-        find.text(l10n(tester).batchSelectedCount(1)),
-        findsNothing,
-      );
+      expect(find.text(l10n(tester).batchSelectedCount(1)), findsNothing);
       // 选择模式底部栏应该消失
       expect(find.text(l10n(tester).clearRecords), findsNothing);
     });
@@ -549,10 +516,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text(l10n(tester).batchSelectedCount(1)),
-        findsNothing,
-      );
+      expect(find.text(l10n(tester).batchSelectedCount(1)), findsNothing);
     });
   });
 }

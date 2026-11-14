@@ -52,9 +52,7 @@ void main() {
   }
 
   Future<int> rowCount(Database db) async {
-    final rows = await db.rawQuery(
-      'SELECT COUNT(*) AS c FROM notifications',
-    );
+    final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM notifications');
     return (rows.single['c'] as num).toInt();
   }
 
@@ -135,17 +133,14 @@ void main() {
       await insertNotif(db, 'kill_2');
       expect(await rowCount(db), 4);
 
-      final deleted = await helper.deleteNotificationsMany(['kill_1', 'kill_2']);
+      final deleted = await helper.deleteNotificationsMany([
+        'kill_1',
+        'kill_2',
+      ]);
       expect(deleted, 2);
 
-      final remaining = await db.query(
-        'notifications',
-        orderBy: 'id ASC',
-      );
-      expect(
-        remaining.map((r) => r['id'] as String),
-        ['keep_1', 'keep_2'],
-      );
+      final remaining = await db.query('notifications', orderBy: 'id ASC');
+      expect(remaining.map((r) => r['id'] as String), ['keep_1', 'keep_2']);
     });
   });
 
