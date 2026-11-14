@@ -2433,7 +2433,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final command = outgoing ? null : RemoteCommandEnvelope.decode(m.body);
     final record = command == null ? null : _commandRecords[m.messageId];
     // T208：选项态现在所有幻念档都支持（收件、发件）
-    final selectable = true;
+    const selectable = true;
     final tile = HistoryRowTile(
       keyNamespace: 'fnthink-inbox',
       identity: m.messageId,
