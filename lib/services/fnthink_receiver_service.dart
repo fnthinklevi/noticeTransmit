@@ -758,6 +758,16 @@ class FnthinkReceiverService {
         reason: 'input:${e.message}',
         signedWhileUncalibrated: !kernel.calibrated,
       );
+    } catch (e) {
+      // P0：网络层冒泡（SocketException / TimeoutException / ClientException / HttpException …）
+      // 一律收编进 transportError，不许再往页面层冒 —— 锁屏恢复后第一发网络还没通就 crash
+      // 是这条链路曾经出过的最严重事故。
+      debugPrint('[fnthink] sendNotice 传输层异常: ${e.runtimeType}: $e');
+      return FnthinkSendResult(
+        status: FnthinkSendStatus.transportError,
+        reason: 'transport:${e.runtimeType}',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
     }
   }
 

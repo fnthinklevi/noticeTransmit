@@ -1702,7 +1702,7 @@ class FnthinkReceiveCoordinator {
       );
     }
     final service = _serviceFactory(resolved.spec!);
-    final FnthinkSendResult result;
+    FnthinkSendResult result;
     final watch = Stopwatch()..start();
     try {
       result = await service.sendNotice(
@@ -1710,6 +1710,14 @@ class FnthinkReceiveCoordinator {
         title: title,
         text: text,
         appName: appName,
+      );
+    } catch (e) {
+      // P0 兜底：service.dispose 要在 finally 里，但如果 service 构造本身也可能抛（虽然
+      // buildFnthinkReceiveService 今天不会），这一层必须也收 —— 否则还是会炸到页面。
+      debugPrint('[fnthink] coordinator.sendNotice 未预期异常: ${e.runtimeType}: $e');
+      result = FnthinkSendResult(
+        status: FnthinkSendStatus.transportError,
+        reason: 'coordinator-guard:${e.runtimeType}',
       );
     } finally {
       service.dispose();
