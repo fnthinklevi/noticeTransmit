@@ -280,7 +280,7 @@ internal object ChannelRegistry {
             // 端点 202 + {"ok":true,...}；反代错误页可能是非 JSON ⇒ 与 GENERIC 同一条宽容规则
             requiresJsonContract = false,
             // T227 只做识别与发送形状：端点只接受固定 JSON，模板/格式/自定义头都不适用
-            //（RAW_BODY 与 CUSTOM_HEADERS 都只许通用 webhook）。
+            // （RAW_BODY 与 CUSTOM_HEADERS 都只许通用 webhook）。
             transport = ChannelTransport(
                 templateSupport = TemplateSupport.DISABLED,
             ),
@@ -653,7 +653,7 @@ internal object ChannelRegistry {
                     code == 99991663 || code == 99991664 ||
                         // T250：自建应用 im/v1/messages 的官方频率限制码（create 文档 230020）——
                         // 应用通道复用本管线按 host 回退到本判定。11232 归企微自定义机器人
-                        //（errcode），不在这里认。
+                        // （errcode），不在这里认。
                         code == 230020 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
                         "限流 code=$code: $msg", true
