@@ -1703,6 +1703,7 @@ class FnthinkReceiveCoordinator {
     }
     final service = _serviceFactory(resolved.spec!);
     FnthinkSendResult result;
+    int retryUsed = 0;
     final watch = Stopwatch()..start();
     try {
       result = await service.sendNotice(
@@ -1722,6 +1723,35 @@ class FnthinkReceiveCoordinator {
     } finally {
       service.dispose();
     }
+
+    // P1：网络可恢复失败（transportError / serverRejected）自动重试一次 ——
+    // 锁屏恢复后第一发最容易踩 Wi-Fi 还没连好、DNS 刚醒来的时机，500ms 延迟正好等它。
+    // 只重试一次：再失败就原样交给页面，不要把用户从"发送失败"拖进一个 3 秒才能停的漩涡。
+    // 为什么 retryUsed 单独记：rejected / transportError 之外的失败（preconditionFailed /
+    // badInput / credentialCorrupted…）重试没有意义 —— 那是配置/签名问题，第二次结果一样。
+    if (_isRetryableSendFailure(result.status)) {
+      retryUsed = 1;
+      debugPrint('[fnthink] sendNotice 第 1 次失败(${result.status.name})，500ms 后自动重试');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      final retryService = _serviceFactory(resolved.spec!);
+      try {
+        result = await retryService.sendNotice(
+          peer: peer,
+          title: title,
+          text: text,
+          appName: appName,
+        );
+      } catch (e) {
+        debugPrint('[fnthink] coordinator.sendNotice 重试未预期异常: ${e.runtimeType}: $e');
+        result = FnthinkSendResult(
+          status: FnthinkSendStatus.transportError,
+          reason: 'coordinator-retry-guard:${e.runtimeType}',
+        );
+      } finally {
+        retryService.dispose();
+      }
+    }
+
     watch.stop();
     await _recordSentOut(
       contract: resolved.spec!.contract,
@@ -1735,6 +1765,7 @@ class FnthinkReceiveCoordinator {
       spec: resolved.spec!,
       result: result,
       latencyMs: watch.elapsedMilliseconds,
+      retryCount: retryUsed,
     );
     // T194：发送受理之后踢一脚「发件回执看守」。它只在短窗口里合并成一次、且本机确实
     // 还有在等的发件时才发 `/receipts` —— 发送端锁屏 / 接收关着时，这是唯一会把
@@ -1744,6 +1775,12 @@ class FnthinkReceiveCoordinator {
     }
     return result;
   }
+
+  /// P1：哪些失败值得自动重试。只有传输层失败（网络抖动 / Wi-Fi 刚醒来 / DNS 还没好）
+  /// 可能在 500ms 后自愈；其余（签名被拒 / 能力不够 / 时钟不准 / 限流…）都是服务端
+  /// 明确的拒绝，重试第二次结果完全一样 —— 不要浪费用户时间。
+  bool _isRetryableSendFailure(FnthinkSendStatus status) =>
+      status == FnthinkSendStatus.transportError;
 
   /// 只取回执（T194）：即便接收开关关着、收货循环没跑，也把「我发出去那条到了没有」
   /// 取回来，落进与收货循环**同一处**（[applyFnthinkReceipts]）。
@@ -1791,6 +1828,7 @@ class FnthinkReceiveCoordinator {
     required FnthinkLoopSpec spec,
     required FnthinkSendResult result,
     required int latencyMs,
+    int retryCount = 0,
   }) async {
     final hook = recordHealth;
     if (hook == null) return;
@@ -1801,6 +1839,10 @@ class FnthinkReceiveCoordinator {
       reachable: reachable,
       latencyMs: latencyMs,
     );
+    // P1：重试发生时记一条 debug —— 不进 hook typedef（那是跨模块契约，不值得为一枚计数器拆了）。
+    if (retryCount > 0) {
+      debugPrint('[fnthink] sendNotice 重试$retryCount次后 ${result.status.name}，${result.reason}');
+    }
   }
 
   /// 把「我发出去的这一条」落进本机历史。**失败不改发送的结论**（那边已经成功了），
