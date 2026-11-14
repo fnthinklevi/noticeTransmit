@@ -161,7 +161,10 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEYSTORE_FILE: android/app/key.jks
+          # ⚠ 必须用绝对路径！Gradle 的 file() 在 android/app/build.gradle.kts 里
+          # 是相对于 projectDir（即 android/app/）解析的，写相对路径会被拼两次变成
+          # android/app/android/app/key.jks（2026-11-14 Run #18 实测）。
+          KEYSTORE_FILE: ${{ github.workspace }}/android/app/key.jks
 
       - name: Get version
         id: version
