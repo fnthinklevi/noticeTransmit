@@ -144,25 +144,26 @@ def collect_cheap():
 # 套件读数（从既有产物解析；本脚本不启动测试）
 # ---------------------------------------------------------------------------
 def parse_flutter_log(path):
-    """compact 末行的**三种**措辞都要认，且 skipped 计入总数：
-      `+N: All tests passed!`           无 skip 无失败
-      `+N ~S: All other tests passed!`  有 skip（本机实测，见下）
-      `+N -F: Some tests failed.`       有失败
-    ⚠ 上一版只认第 1 与第 3 种 ⇒ 仓库里一旦出现 `skip:` 的用例，末行变成
-    `All other tests passed!`，本函数返回 None，`--dart-log` 那条腿**静默失效**、
-    退回 shell grep 取的 `+N`（不含 ~S）⇒ 读数凭空少掉被 skip 的那几条。
-    2026-10-24 实测：roadmap 形状守卫那 4 条在 CI 上 skip ⇒ CI 取 3413、本机取 3417。
+    """compact 末行的**四种**措辞都要认，且 skipped 计入总数：
+      `+N: All tests passed!`              无 skip 无失败
+      `+N ~S: All other tests passed!`     有 skip
+      `+N -F: Some tests failed.`          有失败
+      `+N ~S -F: Some tests failed.`       有 skip + 有失败（CI 上常见）
+    ⚠ 正则里 `~S` 必须写在 `-F` 前面：compact reporter 同时输出两者时顺序是
+    `~S -F`（skip 在前、fail 在后），反过来写会导致同时有 skip 有 fail 时整体不匹配
+    ⇒ 返回 None ⇒ `--dart-log` 那条腿静默失效（2026-11-14 CI 实测：4 skip + 15 fail
+    ⇒ 整个 Readings drift check 红）。
     返回的是**声明的用例总数** = passed + failed + skipped，与某环境是否 skip 无关。
     """
     text = Path(path).read_text(encoding='utf-8', errors='replace').replace('\r', '\n')
     matches = re.findall(
-        r'\+(\d+)(?:\s+-(\d+))?(?:\s+~(\d+))?: '
+        r'\+(\d+)(?:\s+~(\d+))?(?:\s+-(\d+))?: '
         r'(All tests passed|All other tests passed|Some tests failed)',
         text,
     )
     if not matches:
         return None
-    passed, failed, skipped, _ = matches[-1]
+    passed, skipped, failed, _ = matches[-1]
     return int(passed) + int(failed or 0) + int(skipped or 0)
 
 
