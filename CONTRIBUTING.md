@@ -237,7 +237,7 @@ PR / fork 场景判红、要求本地 `--fix`。不要再手抄数字，也不�
 | Dart 测试行数（test/） | 94310 行 <!--k:dart_loc_test--> |
 | Kotlin 源码行数（android main） | 24416 行 <!--k:kotlin_loc_main--> |
 | Kotlin 测试行数（android test） | 15268 行 <!--k:kotlin_loc_test--> |
-| 应用版本（pubspec） | 1.6.5+165 <!--k:app_version--> |
+| 应用版本（pubspec） | 1.6.6+166 <!--k:app_version--> |
 | 数据库 schema 版本 | 29 v <!--k:db_version--> |
 | Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK 地板（pubspec） | 3.13.0 <!--k:dart_sdk--> |

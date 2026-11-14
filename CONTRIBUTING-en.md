@@ -251,7 +251,7 @@ Do not copy numbers by hand, and do not keep a second readings list anywhere els
 | Dart test lines (test/) | 94310 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 24416 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 15268 <!--k:kotlin_loc_test--> |
-| App version (pubspec) | 1.6.5+165 <!--k:app_version--> |
+| App version (pubspec) | 1.6.6+166 <!--k:app_version--> |
 | Database schema version | 29 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK floor (pubspec) | 3.13.0 <!--k:dart_sdk--> |
