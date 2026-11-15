@@ -1,4 +1,4 @@
-﻿name: Build Release APK
+﻿﻿name: Build Release APK
 
 on:
   push:
@@ -129,11 +129,21 @@ jobs:
       - name: Build all 4 APKs (arm64 / arm32 / x86_64 / all)
         id: build_apks
         run: |
-          # ⚠ 每次构建前停掉 Gradle daemon — daemon 进程不继承新 step 的 env: 环境变量
-          # （KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD），
-          # 复用 daemon 会导致 signingConfig 读到 null，KeytoolException。
+          # ⚠ Gradle daemon 是本步骤反复踩坑的罪魁祸首：
+          #   daemon 进程在 step 9 (Android unit tests) 启动时还没有 KEYSTORE_* 环境变量
+          #   （env: 只在 step 级别生效，不追溯到已启动的 daemon），之后所有 flutter build
+          #   都复用这个 daemon → signingConfig 读到 null → KeytoolException: null
+          #
+          #   三重保险：
+          #   ① gradlew --stop 杀掉所有现存 daemon
+          #   ② GRADLE_OPTS 强制 disable daemon，让本次所有 flutter build 用一次性进程
+          #   ③ 设置 JAVA_TOOL_OPTIONS 确保不会有残留
           cd android && ./gradlew --stop >/dev/null 2>&1 || true
+          rm -rf .gradle/daemon android/.gradle/daemon 2>/dev/null || true
           cd ..
+          export GRADLE_OPTS="-Dorg.gradle.daemon=false"
+          export JAVA_TOOL_OPTIONS="-Dorg.gradle.daemon=false"
+
           VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
           BUILD=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f2)
 
@@ -163,8 +173,10 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           # ⚠ 必须用绝对路径！Gradle 的 file() 在 android/app/build.gradle.kts 里
           # 是相对于 projectDir（即 android/app/）解析的，写相对路径会被拼两次变成
-          # android/app/android/app/key.jks（2026-11-14 Run #18 实测）。
+          # android/app/android/app/key.jks（Run #18 实测）。
           KEYSTORE_FILE: ${{ github.workspace }}/android/app/key.jks
+          GRADLE_OPTS: -Dorg.gradle.daemon=false
+          JAVA_TOOL_OPTIONS: -Dorg.gradle.daemon=false
 
       - name: Get version
         id: version
