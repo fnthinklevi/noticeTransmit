@@ -219,6 +219,28 @@ else
     fail "未找到 python，跳过纯净度验证（base.md 步骤 6.5 须人工执行）"
 fi
 
+# ── 阶段 2.5：从 update.md 自动提取 changelog + changelogEn 写入 version.json ──
+hr; echo "── 阶段 2.5：changelog 自动提取（update.md → version.json）──"
+# 三个问题的根治：
+#   ① 以前手填 version.json 的 changelog — 现在脚本自动从 update.md 对应版本条目提取
+#   ② 弹窗用 version.json / Release 用 extract_release_notes.py — 现在两边同一真源（update.md）
+#   ③ 三份镜像不一致 — 阶段 3 统一回填 src，这里先把 src = version.json 写对
+#
+# 为什么在阶段 3 之前：阶段 3 的回填逻辑是 d['changelog'] = src.get('changelog', '')
+# 它从 version.json（单一真源）读 changelog 再复制到另两份 —— 所以这一份必须先对。
+if [ -f update.md ]; then
+    "$PY" tools/extract_changelog.py --version "$VER" --build "$BUILD" --write server/data/version.json
+    RC=$?
+    if [ $RC -eq 0 ]; then ok "changelog/changelogEn 自动提取（update.md v$VER+$BUILD → version.json）"
+    elif [ $RC -eq 1 ]; then fail "update.md 里没找到 v$VER+$BUILD 条目（先补 update.md 再来）"
+    elif [ $RC -eq 2 ]; then fail "update.md v$VER+$BUILD 条目格式不对（缺 --- 分隔符或缺中文/英文加粗标题行）"
+    elif [ $RC -eq 3 ]; then fail "写 version.json 失败"
+    else fail "extract_changelog.py 未知退出码 $RC"
+    fi
+else
+    fail "update.md 不存在 —— 无法提取 changelog"
+fi
+
 # ── 阶段 3：fileSize 回填 version.json + 下载链接 + 归档同步（步骤 7/9/10/10.1）──
 hr; echo "── 阶段 3：version.json 回填 + 归档同步 ──"
 # T170：两站按 UPDATE_REGION 各读 version.cn.json / version.global.json。
