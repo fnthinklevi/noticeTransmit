@@ -1,5 +1,5 @@
 name: Deploy to GitHub Pages
-
+##author: fnthinklevi
 # 将官网和版本配置发布到 GitHub Pages（静态站：官网首页 + /api/version.json）。
 # ⚠ 这条通道服务的是**官网**，不是 App：App 只请求 Node 的 /api/version/check，
 #   不读这里的静态文件（原先"失败后回退 /api/version.json"那条已在提交 cbec666 删除 ——

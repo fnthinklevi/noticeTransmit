@@ -1,5 +1,5 @@
 # T183 片2 · Docker 防回潮闸门（2026-10-24）
-#
+###author: fnthinklevi
 # 只在 server/** 变化时构建一次镜像，跑两条断言：
 #   ① 纯净度：镜像内不得出现 .env / data/ / test/ / tools/ / babel.config.js
 #     —— 防有人把 Dockerfile 改回 COPY . .（base.md §14.4 的原始事故面）；

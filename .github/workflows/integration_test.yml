@@ -1,5 +1,5 @@
 ﻿# 集成测试（每周自动 + 可手动；模拟器按分钟计费）：
-#
+###author: fnthinklevi
 # 拆成两个 job 的理由（㊼）：
 #   原来一个 job 里顺序跑 smoke → walkthrough → connectedAndroidTest，共用一个 45 分钟预算。
 #   后果是「慢的那个把预算吃掉，快的那个还没跑到就没结论」，而且红的时候只能去翻日志。
