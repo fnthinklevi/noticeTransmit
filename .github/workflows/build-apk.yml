@@ -165,9 +165,9 @@ jobs:
             echo "✅ built notice_${tag}_${VERSION}+${BUILD}.apk"
           }
 
-          build_arch android-arm64  arm64
-          build_arch android-arm32  arm32
-          build_arch android-x86_64 x86_64
+          build_arch android-arm64 arm64
+          build_arch android-arm   arm32
+          build_arch android-x64   x86_64
 
           # 融合包（all ABIs）：不传 --target-platform 即默认全架构
           flutter build apk --release || exit 1
