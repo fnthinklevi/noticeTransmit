@@ -536,6 +536,111 @@ class DatabaseHelper
     } catch (_) {}
   }
 
+  // ── T184 片2：每表 builder 收敛唯一入口 ────────────────────────────────
+  // 老表（非 fnthink 那几张）原本在 _onCreate 和 _onUpgrade 里各写一份 CREATE TABLE，
+  // schema 演进时经常漏改一处造成漂移。每张表一个独立 builder 函数，两处都调同一枚。
+  // builder 里一律 `CREATE TABLE IF NOT EXISTS`（_onUpgrade 幂等要求）。
+
+  Future<void> _createPendingNotificationsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pending_notifications (
+        id TEXT PRIMARY KEY,
+        notification_data TEXT NOT NULL,
+        webhook_url TEXT NOT NULL,
+        retry_count INTEGER DEFAULT 0,
+        last_retry_time INTEGER DEFAULT 0,
+        added_time INTEGER NOT NULL,
+        status_code INTEGER,
+        error_message TEXT
+      )
+    ''');
+  }
+
+  Future<void> _createEmailChannelsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS email_channels (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        smtp_host TEXT NOT NULL,
+        smtp_port INTEGER NOT NULL DEFAULT 465,
+        username TEXT NOT NULL,
+        password TEXT NOT NULL DEFAULT '',
+        from_email TEXT NOT NULL,
+        to_email TEXT NOT NULL,
+        use_ssl INTEGER NOT NULL DEFAULT 1,
+        role TEXT NOT NULL DEFAULT 'primary',
+        subject_template TEXT,
+        body_template TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createWebhookChannelsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS webhook_channels (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        channel_type TEXT NOT NULL DEFAULT 'generic',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        secret TEXT,
+        message_format TEXT NOT NULL DEFAULT 'default',
+        http_method TEXT NOT NULL DEFAULT 'POST',
+        headers TEXT,
+        role TEXT NOT NULL DEFAULT 'primary',
+        message_template TEXT,
+        extra_config TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createWebhookDeliveryLogTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS webhook_delivery_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        channel_url TEXT NOT NULL,
+        notification_id TEXT,
+        tag TEXT,
+        status TEXT NOT NULL,
+        http_code INTEGER,
+        message TEXT,
+        retryable INTEGER NOT NULL DEFAULT 0,
+        timestamp INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_delivery_log_timestamp
+      ON webhook_delivery_log(timestamp)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_delivery_log_status
+      ON webhook_delivery_log(status)
+    ''');
+  }
+
+  Future<void> _createAppChannelsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_channels (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT '',
+        app_type TEXT NOT NULL,
+        base_url TEXT NOT NULL DEFAULT '',
+        secret TEXT,
+        config TEXT,
+        message_format TEXT NOT NULL DEFAULT 'default',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        role TEXT NOT NULL DEFAULT 'primary',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE notifications (
@@ -577,96 +682,16 @@ class DatabaseHelper
       CREATE INDEX idx_notifications_package ON notifications(package_name)
     ''');
 
-    await db.execute('''
-      CREATE TABLE pending_notifications (
-        id TEXT PRIMARY KEY,
-        notification_data TEXT NOT NULL,
-        webhook_url TEXT NOT NULL,
-        retry_count INTEGER DEFAULT 0,
-        last_retry_time INTEGER DEFAULT 0,
-        added_time INTEGER NOT NULL,
-        status_code INTEGER,
-        error_message TEXT
-      )
-    ''');
+    await _createPendingNotificationsTable(db);
 
-    await db.execute('''
-      CREATE TABLE email_channels (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        smtp_host TEXT NOT NULL,
-        smtp_port INTEGER NOT NULL DEFAULT 465,
-        username TEXT NOT NULL,
-        password TEXT NOT NULL DEFAULT '',
-        from_email TEXT NOT NULL,
-        to_email TEXT NOT NULL,
-        use_ssl INTEGER NOT NULL DEFAULT 1,
-        role TEXT NOT NULL DEFAULT 'primary',
-        subject_template TEXT,
-        body_template TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
+    await _createEmailChannelsTable(db);
 
-    await db.execute('''
-      CREATE TABLE webhook_channels (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        url TEXT NOT NULL,
-        channel_type TEXT NOT NULL DEFAULT 'generic',
-        enabled INTEGER NOT NULL DEFAULT 1,
-        secret TEXT,
-        message_format TEXT NOT NULL DEFAULT 'default',
-        -- T188 片1：通用 webhook 的请求方法档位（平台通道不读它，能不能改由描述符决定）
-        http_method TEXT NOT NULL DEFAULT 'POST',
-        -- T188 片1 第②刀：用户自定义请求头（JSON 对象；白名单裁决在原生 HttpHeaders）
-        headers TEXT,
-        role TEXT NOT NULL DEFAULT 'primary',
-        message_template TEXT,
-        extra_config TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
+    await _createWebhookChannelsTable(db);
 
     // v5: Webhook 送达日志表（用于送达校验失败/成功记录归档）
-    await db.execute('''
-      CREATE TABLE webhook_delivery_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        channel_url TEXT NOT NULL,
-        notification_id TEXT,
-        tag TEXT,
-        status TEXT NOT NULL,
-        http_code INTEGER,
-        message TEXT,
-        retryable INTEGER NOT NULL DEFAULT 0,
-        timestamp INTEGER NOT NULL
-      )
-    ''');
-    await db.execute('''
-      CREATE INDEX idx_delivery_log_timestamp ON webhook_delivery_log(timestamp)
-    ''');
-    await db.execute('''
-      CREATE INDEX idx_delivery_log_status ON webhook_delivery_log(status)
-    ''');
+    await _createWebhookDeliveryLogTable(db);
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS app_channels (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL DEFAULT '',
-        app_type TEXT NOT NULL,
-        base_url TEXT NOT NULL DEFAULT '',
-        secret TEXT,
-        config TEXT,
-        role TEXT NOT NULL DEFAULT 'primary',
-        message_format TEXT NOT NULL DEFAULT 'default',
-        enabled INTEGER NOT NULL DEFAULT 1,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
+    await _createAppChannelsTable(db);
 
     await _createEngineRules(db);
     await _createFnthinkInbox(db);
@@ -913,82 +938,18 @@ class DatabaseHelper
       await _onCreate(db, 1);
     }
     if (oldVersion < 2) {
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS pending_notifications (
-          id TEXT PRIMARY KEY,
-          notification_data TEXT NOT NULL,
-          webhook_url TEXT NOT NULL,
-          retry_count INTEGER DEFAULT 0,
-          last_retry_time INTEGER DEFAULT 0,
-          added_time INTEGER NOT NULL,
-          status_code INTEGER,
-          error_message TEXT
-        )
-      ''');
+      await _createPendingNotificationsTable(db);
     }
     if (oldVersion < 3) {
       await _addColumnIfMissing(db, 'notifications', 'sub_text', 'TEXT');
     }
     if (oldVersion < 4) {
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS email_channels (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          enabled INTEGER NOT NULL DEFAULT 1,
-          smtp_host TEXT NOT NULL,
-          smtp_port INTEGER NOT NULL DEFAULT 465,
-          username TEXT NOT NULL,
-          password TEXT NOT NULL DEFAULT '',
-          from_email TEXT NOT NULL,
-          to_email TEXT NOT NULL,
-          use_ssl INTEGER NOT NULL DEFAULT 1,
-          subject_template TEXT,
-          body_template TEXT,
-          role TEXT NOT NULL DEFAULT 'primary',
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      ''');
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS webhook_channels (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          url TEXT NOT NULL,
-          channel_type TEXT NOT NULL DEFAULT 'generic',
-          enabled INTEGER NOT NULL DEFAULT 1,
-          secret TEXT,
-          message_format TEXT NOT NULL DEFAULT 'default',
-          message_template TEXT,
-        extra_config TEXT,
-          role TEXT NOT NULL DEFAULT 'primary',
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      ''');
+      await _createEmailChannelsTable(db);
+      await _createWebhookChannelsTable(db);
     }
     if (oldVersion < 5) {
       // v5: Webhook 送达日志表（用于送达校验失败/成功记录归档）
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS webhook_delivery_log (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          channel_url TEXT NOT NULL,
-          notification_id TEXT,
-          tag TEXT,
-          status TEXT NOT NULL,
-          http_code INTEGER,
-          message TEXT,
-          retryable INTEGER NOT NULL DEFAULT 0,
-          timestamp INTEGER NOT NULL
-        )
-      ''');
-      await db.execute('''
-        CREATE INDEX IF NOT EXISTS idx_delivery_log_timestamp
-        ON webhook_delivery_log(timestamp)
-      ''');
-      await db.execute('''
-        CREATE INDEX IF NOT EXISTS idx_delivery_log_status
-        ON webhook_delivery_log(status)
-      ''');
+      await _createWebhookDeliveryLogTable(db);
     }
     if (oldVersion < 6) {
       // v6: Webhook 推送模板系统
@@ -1028,21 +989,7 @@ class DatabaseHelper
     if (oldVersion < 10) {
       // v10: 自建应用通道独立表（应用通道体系，与 webhook 分离）；
       // 迁移 webhook_channels 中的 wecom_app 行，并在迁移后从 webhook 表清除
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS app_channels (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL DEFAULT '',
-          app_type TEXT NOT NULL,
-          base_url TEXT NOT NULL DEFAULT '',
-          secret TEXT,
-          config TEXT,
-          message_format TEXT NOT NULL DEFAULT 'default',
-          enabled INTEGER NOT NULL DEFAULT 1,
-          role TEXT NOT NULL DEFAULT 'primary',
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      ''');
+      await _createAppChannelsTable(db);
       await db.execute('''
         INSERT INTO app_channels
           (id, name, app_type, base_url, secret, config, message_format, enabled, created_at, updated_at)
