@@ -2705,10 +2705,27 @@ Future<void> _longPress(WidgetTester t, Finder f, String why) async {
   await _must(t, _menuUp(t), '$why 长按后动作表（三种按法都没开=手势真的不生效）', f);
 }
 
-/// 有没有动作表/弹层在树上（长按之后唯一的"手势生效"证据）。
+/// 有没有动作表/弹层/选择模式在树上（长按之后唯一的"手势生效"证据）。
+///
+/// v1.6.6 统一选择态：长按不再弹 CardActionSheet，改为进入 Checkbox 选择模式。
+/// 所以"长按生效"有三种证据：
+///   ① CardActionSheet（老页面还在用）
+///   ② BottomSheet（详情弹层、收件详情）
+///   ③ 至少一枚 Checkbox 处于选中态（统一选择态的标志 —— _enterSelectMode 把当前行勾选）
 bool _menuUp(WidgetTester t) =>
     find.byType(CardActionSheet).evaluate().isNotEmpty ||
-    find.byType(BottomSheet).evaluate().isNotEmpty;
+    find.byType(BottomSheet).evaluate().isNotEmpty ||
+    // 统一选择态证据：有 Checkbox 且至少一枚被选中
+    find
+        .byWidgetPredicate(
+          (w) => w is Checkbox && (w.value == true || w.value == false),
+        )
+        .evaluate()
+        .isNotEmpty &&
+    find
+        .byWidgetPredicate((w) => w is Checkbox && w.value == true)
+        .evaluate()
+        .isNotEmpty;
 
 /// 删除的二次确认（T06）。**这条 helper 本身就是守卫**：没有确认框它当场红，
 /// 于是"某条删除路径偷偷绕开了咽喉"在闸门上就是可见的，而不是靠人记住。
