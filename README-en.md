@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/app_icon.png" width="128" alt="Notice Push Assistant">
+<img src="assets/app_icon.png" width="128" alt="NoticeTransmit">
 
-# Notice Push Assistant
+# NoticeTransmit
 
 **[English](README-en.md) / 中文**
 
@@ -45,7 +45,7 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 
 ## Introduction
 
-Notice Push Assistant is a privacy-first Android notification forwarding and device collaboration tool (Flutter + Kotlin).
+NoticeTransmit is a privacy-first Android notification forwarding and device collaboration tool (Flutter + Kotlin).
 
 **Track 1 — Notification forwarding.** Listen to notification-shade messages and deliver them in real time through 12 Webhook channel types (Generic / WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord), WeCom & Feishu **self-built app channels**, or SMTP mail; the home-screen widget toggles push with one tap. Forwarded content always goes to channels you configured yourself — the developer never handles it.
 
