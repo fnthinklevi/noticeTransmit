@@ -136,6 +136,22 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 activity.requestVivoBackground()
                 result.success(true)
             }
+            // ── T198: 锁屏三项厂商跳转（骨架） ──────────────────────────────
+            "requestXiaomiLockData" -> { activity.requestXiaomiLockData(); result.success(true) }
+            "requestMeizuLockData" -> { activity.requestMeizuLockData(); result.success(true) }
+            "requestHuaweiLockData" -> { activity.requestHuaweiLockData(); result.success(true) }
+            "requestOppoLockData" -> { activity.requestOppoLockData(); result.success(true) }
+            "requestVivoLockData" -> { activity.requestVivoLockData(); result.success(true) }
+            "requestXiaomiSleep" -> { activity.requestXiaomiSleep(); result.success(true) }
+            "requestMeizuSleep" -> { activity.requestMeizuSleep(); result.success(true) }
+            "requestHuaweiSleep" -> { activity.requestHuaweiSleep(); result.success(true) }
+            "requestOppoSleep" -> { activity.requestOppoSleep(); result.success(true) }
+            "requestVivoSleep" -> { activity.requestVivoSleep(); result.success(true) }
+            "requestXiaomiWifiSleep" -> { activity.requestXiaomiWifiSleep(); result.success(true) }
+            "requestMeizuWifiSleep" -> { activity.requestMeizuWifiSleep(); result.success(true) }
+            "requestHuaweiWifiSleep" -> { activity.requestHuaweiWifiSleep(); result.success(true) }
+            "requestOppoWifiSleep" -> { activity.requestOppoWifiSleep(); result.success(true) }
+            "requestVivoWifiSleep" -> { activity.requestVivoWifiSleep(); result.success(true) }
             else -> return false
         }
         return true

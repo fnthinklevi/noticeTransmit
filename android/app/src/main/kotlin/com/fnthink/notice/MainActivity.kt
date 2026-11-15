@@ -1574,6 +1574,32 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    // ── T198: 锁屏三项厂商跳转（骨架） ────────────────────────────────────────
+    //
+    // 三项（锁屏断开数据 / 睡眠模式 / WLAN 锁屏休眠）的 Intent 都是厂商私有，
+    // Android 原生没有公开 Intent 可跳。今天先搭骨架：
+    //   - 下面 15 个 internal 方法全部兜底到 openAppDetailsSettings()
+    //   - 真机逐 ROM 核到具体 Intent 后，照 requestXiaomiAutoStart() 同款 try/catch 链填进去
+    // 每个厂商 × 每项 = 1 个方法：LockData（锁屏断开数据）/ Sleep（睡眠模式）/ WifiSleep（WLAN 锁屏休眠）
+
+    internal fun requestXiaomiLockData() = openAppDetailsSettings()
+    internal fun requestMeizuLockData() = openAppDetailsSettings()
+    internal fun requestHuaweiLockData() = openAppDetailsSettings()
+    internal fun requestOppoLockData() = openAppDetailsSettings()
+    internal fun requestVivoLockData() = openAppDetailsSettings()
+
+    internal fun requestXiaomiSleep() = openAppDetailsSettings()
+    internal fun requestMeizuSleep() = openAppDetailsSettings()
+    internal fun requestHuaweiSleep() = openAppDetailsSettings()
+    internal fun requestOppoSleep() = openAppDetailsSettings()
+    internal fun requestVivoSleep() = openAppDetailsSettings()
+
+    internal fun requestXiaomiWifiSleep() = openAppDetailsSettings()
+    internal fun requestMeizuWifiSleep() = openAppDetailsSettings()
+    internal fun requestHuaweiWifiSleep() = openAppDetailsSettings()
+    internal fun requestOppoWifiSleep() = openAppDetailsSettings()
+    internal fun requestVivoWifiSleep() = openAppDetailsSettings()
+
     internal fun openAppDetailsSettings() {
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)

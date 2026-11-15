@@ -83,3 +83,57 @@ Future<void> fnthinkRequestVendorAutoStart({
   if (jump == null) return;
   await jump(permissions);
 }
+
+// ── T198: 锁屏三项厂商跳转 ────────────────────────────────────────────────────
+//
+// 三项（锁屏断开数据 / 睡眠模式 / WLAN 锁屏休眠）的 Intent 都是厂商私有，
+// Android 原生没有公开 Intent 可跳。所以今天先搭骨架：
+//   - 分流表全接好（每个厂商三个入口，和 fnthinkAutostartJumpFor 同形）
+//   - MainActivity 里三个内部方法先兜底到 openAppDetailsSettings()
+//   - 真机核到具体 Intent 后再填 try/catch 多重 Intent 链
+// stock 和 samsung 今天只有文字引导，不给跳（和 autostart 同口径）。
+
+/// 锁屏断开数据：屏幕关闭时是否断移动数据/WLAN。
+/// 小米 = "锁屏后断开数据"（安全中心 → 电量与性能），OPPO = "锁屏后断网"，
+/// vivo = "锁屏后休眠"，华为 = 省电策略，魅族 = 省电模式。
+Future<void> Function(PermissionService)? fnthinkLockDataJumpFor(
+  FnthinkVendorFamily family,
+) => switch (family) {
+  FnthinkVendorFamily.xiaomi => (p) => p.requestXiaomiLockData(),
+  FnthinkVendorFamily.meizu => (p) => p.requestMeizuLockData(),
+  FnthinkVendorFamily.huawei => (p) => p.requestHuaweiLockData(),
+  FnthinkVendorFamily.oppo => (p) => p.requestOppoLockData(),
+  FnthinkVendorFamily.vivo => (p) => p.requestVivoLockData(),
+  FnthinkVendorFamily.samsung => null,
+  FnthinkVendorFamily.stock => null,
+};
+
+/// 睡眠模式（Doze）：Android 原生 Doze 无公开 Intent，厂商各有自己的省电策略页。
+/// 小米 = "神隐模式"（新系统已并入省电模式），OPPO/vivo/华为 = "省电策略"/"后台冻结"。
+Future<void> Function(PermissionService)? fnthinkSleepJumpFor(
+  FnthinkVendorFamily family,
+) => switch (family) {
+  FnthinkVendorFamily.xiaomi => (p) => p.requestXiaomiSleep(),
+  FnthinkVendorFamily.meizu => (p) => p.requestMeizuSleep(),
+  FnthinkVendorFamily.huawei => (p) => p.requestHuaweiSleep(),
+  FnthinkVendorFamily.oppo => (p) => p.requestOppoSleep(),
+  FnthinkVendorFamily.vivo => (p) => p.requestVivoSleep(),
+  FnthinkVendorFamily.samsung => null,
+  FnthinkVendorFamily.stock => null,
+};
+
+/// WLAN 锁屏休眠：锁屏后 WiFi 保持连接还是断开。
+/// Android 原生 Settings > Network & Internet > WLAN > WLAN preferences > WLAN sleep policy
+/// 有公开 Intent `Settings.ACTION_WIFI_SLEEP_SETTINGS`（API 35 引入），旧版本无。
+/// 厂商 ROM 大多在 WiFi 设置里直接藏这个开关。
+Future<void> Function(PermissionService)? fnthinkWifiSleepJumpFor(
+  FnthinkVendorFamily family,
+) => switch (family) {
+  FnthinkVendorFamily.xiaomi => (p) => p.requestXiaomiWifiSleep(),
+  FnthinkVendorFamily.meizu => (p) => p.requestMeizuWifiSleep(),
+  FnthinkVendorFamily.huawei => (p) => p.requestHuaweiWifiSleep(),
+  FnthinkVendorFamily.oppo => (p) => p.requestOppoWifiSleep(),
+  FnthinkVendorFamily.vivo => (p) => p.requestVivoWifiSleep(),
+  FnthinkVendorFamily.samsung => null,
+  FnthinkVendorFamily.stock => null,
+};

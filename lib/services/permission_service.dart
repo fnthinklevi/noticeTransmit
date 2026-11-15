@@ -174,6 +174,41 @@ class PermissionService {
   Future<void> requestVivoBackground() =>
       _requestPermission('requestVivoBackground');
 
+  // ── T198: 锁屏三项厂商跳转（骨架，真机补 Intent） ─────────────────────────
+
+  Future<void> requestXiaomiLockData() =>
+      _requestPermission('requestXiaomiLockData');
+  Future<void> requestMeizuLockData() =>
+      _requestPermission('requestMeizuLockData');
+  Future<void> requestHuaweiLockData() =>
+      _requestPermission('requestHuaweiLockData');
+  Future<void> requestOppoLockData() =>
+      _requestPermission('requestOppoLockData');
+  Future<void> requestVivoLockData() =>
+      _requestPermission('requestVivoLockData');
+
+  Future<void> requestXiaomiSleep() =>
+      _requestPermission('requestXiaomiSleep');
+  Future<void> requestMeizuSleep() =>
+      _requestPermission('requestMeizuSleep');
+  Future<void> requestHuaweiSleep() =>
+      _requestPermission('requestHuaweiSleep');
+  Future<void> requestOppoSleep() =>
+      _requestPermission('requestOppoSleep');
+  Future<void> requestVivoSleep() =>
+      _requestPermission('requestVivoSleep');
+
+  Future<void> requestXiaomiWifiSleep() =>
+      _requestPermission('requestXiaomiWifiSleep');
+  Future<void> requestMeizuWifiSleep() =>
+      _requestPermission('requestMeizuWifiSleep');
+  Future<void> requestHuaweiWifiSleep() =>
+      _requestPermission('requestHuaweiWifiSleep');
+  Future<void> requestOppoWifiSleep() =>
+      _requestPermission('requestOppoWifiSleep');
+  Future<void> requestVivoWifiSleep() =>
+      _requestPermission('requestVivoWifiSleep');
+
   /// B1 精确闹钟：**只剩系统授权这一枚真值**（T140 走 (c)）。
   ///
   /// 曾经这里有三枚方法：`isExactAlarmEnabled`（读 App 内那枚开关）、`setExactAlarmEnabled`
