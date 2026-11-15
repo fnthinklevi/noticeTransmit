@@ -70,6 +70,9 @@ class _NoopL3 implements FnthinkL3Executor {
 
   @override
   Future<bool> toggle(FnthinkL3Setting setting) async => true;
+
+  @override
+  Future<bool> execute(FnthinkL3Setting setting) async => true;
 }
 
 void main() {

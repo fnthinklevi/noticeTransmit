@@ -50,11 +50,12 @@ class FnthinkL3Setting {
     required this.mode,
     required this.native,
     this.targetValue,
+    this.executeArgs,
   });
 
   final String key;
 
-  /// `grant` 或 `toggle`（取值来自契约 `capabilities.l3.modes`）。
+  /// `grant` / `toggle` / `execute`（取值来自契约 `capabilities.l3.modes`）。
   final String mode;
 
   /// 设备侧那一侧的落点（原生方法名 / 服务层方法名）。**不是**给远端用的 ——
@@ -66,6 +67,9 @@ class FnthinkL3Setting {
 
   bool get isGrant => mode == 'grant';
 
+  /// 执行一个带参数的动作（T189 notification:reply 等）。
+  bool get isExecute => mode == 'execute';
+
   /// **这一次要设成哪一档**（契约 `l3.itemTargetWords` 的 `on` / `off`）。
   ///
   /// ⚠ null = item 里没带目标值 ⇒ 沿用旧语义「读当前再翻」。而**那不可幂等**：
@@ -76,13 +80,15 @@ class FnthinkL3Setting {
   /// 有没有带目标值（带的那一档才谈得上幂等）。
   bool get hasTarget => targetValue != null;
 
+  /// `execute` 形态的参数。其他 mode 下为 null。
+  ///
+  /// T189 `notification:reply` 用 `{'sbnKey': '...', 'text': '...'}`。
+  final Map<String, String>? executeArgs;
+
   @override
-  String toString() =>
-      '$key($mode${targetValue == null
-          ? ''
-          : targetValue!
-          ? '/on'
-          : '/off'})';
+  String toString() => '$key($mode'
+      '${targetValue == null ? '' : targetValue! ? '/on' : '/off'}'
+      '${executeArgs == null ? '' : ' args=${executeArgs!.keys.join(",")}'})';
 
   @override
   bool operator ==(Object other) =>
@@ -90,10 +96,26 @@ class FnthinkL3Setting {
       other.key == key &&
       other.mode == mode &&
       other.native == native &&
-      other.targetValue == targetValue;
+      other.targetValue == targetValue &&
+      _mapEq(other.executeArgs, executeArgs);
 
   @override
-  int get hashCode => Object.hash(key, mode, native, targetValue);
+  int get hashCode => Object.hash(
+        key,
+        mode,
+        native,
+        targetValue,
+        executeArgs == null
+            ? null
+            : Object.hashAllUnordered(executeArgs!.entries),
+      );
+}
+
+bool _mapEq(Map<String, String>? a, Map<String, String>? b) {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (a.length != b.length) return false;
+  return a.entries.every((e) => b[e.key] == e.value);
 }
 
 /// 单一协议契约（T71）。

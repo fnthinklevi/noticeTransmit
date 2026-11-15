@@ -424,6 +424,19 @@ void setupLocator() {
         await getIt<FnthinkSettings>().setReceiveEnabled(enabled);
         return true;
       },
+      // T189 notification:reply —— MethodChannel 到原生 NotificationMonitorService.replyToNotification
+      executeReplyNotification: ({required sbnKey, required text}) async {
+        try {
+          final raw = await AppChannels.notification
+              .invokeMethod<Map<Object?, Object?>>('fnthinkReplyNotification', {
+            'sbnKey': sbnKey,
+            'text': text,
+          });
+          return raw?['ok'] == true;
+        } catch (e) {
+          return false;
+        }
+      },
     ),
   );
   // 执行链（窗口 → 动手 → 两段回执 → 撤销咽喉）。

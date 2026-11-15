@@ -231,6 +231,7 @@ class DeviceL3Executor implements FnthinkL3Executor {
     required this.setListenerEnabled,
     required this.collectInboxEnabled,
     required this.setCollectInboxEnabled,
+    this.executeReplyNotification,
   });
 
   final Future<void> Function() grantNotificationListener;
@@ -252,6 +253,14 @@ class DeviceL3Executor implements FnthinkL3Executor {
   /// 当前「收进幻念推送」开没开 / 把它设成某一档（`collect_inbox`）。
   final Future<bool> Function() collectInboxEnabled;
   final Future<bool> Function(bool enabled) setCollectInboxEnabled;
+
+  /// T189 notification:reply 的执行器。按 sbnKey 找仍驻留的系统通知 → 注入 RemoteInput。
+  ///
+  /// null = 这一台没接（[execute] 默认实现会返回 false）。
+  final Future<bool> Function({
+    required String sbnKey,
+    required String text,
+  })? executeReplyNotification;
 
   @override
   Future<bool> grant(FnthinkL3Setting setting) async {
@@ -312,5 +321,24 @@ class DeviceL3Executor implements FnthinkL3Executor {
     } catch (e) {
       return false;
     }
+  }
+
+  @override
+  Future<bool> execute(FnthinkL3Setting setting) async {
+    final args = setting.executeArgs;
+    final exec = executeReplyNotification;
+    if (setting.key == 'notification:reply' && exec != null && args != null) {
+      final sbnKey = args['sbnKey'];
+      final text = args['text'];
+      if (sbnKey == null || text == null || sbnKey.isEmpty || text.isEmpty) {
+        return false;
+      }
+      try {
+        return await exec(sbnKey: sbnKey, text: text);
+      } catch (e) {
+        return false;
+      }
+    }
+    return false;
   }
 }

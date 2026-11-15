@@ -136,6 +136,12 @@ abstract class FnthinkL3Executor {
 
   /// 翻这台设备自己的一项开关（`toggle`）。已授权才有意义。
   Future<bool> toggle(FnthinkL3Setting setting);
+
+  /// 执行一个带参数的动作（`execute`，T189 notification:reply 等）。
+  ///
+  /// 默认返回 false = "这一台没有这项能力"，避免所有实现类都必须 override。
+  /// 参数从 `setting.executeArgs` 取（`Map<String, String>`）。
+  Future<bool> execute(FnthinkL3Setting setting) async => false;
 }
 
 /// 执行一项 L3 设置的结果。
@@ -154,17 +160,20 @@ class FnthinkL3Result {
 
 /// 把一个已解析的设置项派到执行器上。纯转发，**action → 方法**的映射只有这一处。
 ///
-/// `grant` 与 `toggle` 走的是两个不同的方法 —— 这一层存在的全部理由就是别让它们混成
-/// 一个 `apply(setting)`：混了之后，"这一项能不能被直接改"这件事就没人判了。
+/// `grant` / `toggle` / `execute` 走的是三个不同的方法 —— 这一层存在的全部理由就是
+/// 别让它们混成一个 `apply(setting)`：混了之后，"这一项能不能被直接改 / 能不能无参数执行"
+/// 这件事就没人判了。
 Future<FnthinkL3Result> dispatchL3Setting(
   FnthinkContract contract,
   FnthinkL3Executor executor,
   FnthinkL3Setting setting,
 ) async {
   try {
-    final done = setting.isToggle
-        ? await executor.toggle(setting)
-        : await executor.grant(setting);
+    final done = setting.isExecute
+        ? await executor.execute(setting)
+        : setting.isToggle
+            ? await executor.toggle(setting)
+            : await executor.grant(setting);
     if (done) return const FnthinkL3Result.ok();
     return FnthinkL3Result.failed('not-applied:${setting.key}');
   } catch (e) {

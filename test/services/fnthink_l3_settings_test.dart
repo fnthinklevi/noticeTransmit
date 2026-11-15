@@ -32,6 +32,13 @@ class RecordingExecutor implements FnthinkL3Executor {
     if (throwEverything) throw StateError('bridge down');
     return !failEverything;
   }
+
+  @override
+  Future<bool> execute(FnthinkL3Setting setting) async {
+    calls.add('execute(${setting.key})');
+    if (throwEverything) throw StateError('bridge down');
+    return !failEverything;
+  }
 }
 
 void main() {

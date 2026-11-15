@@ -114,6 +114,9 @@ class _NoopL3 implements FnthinkL3Executor {
 
   @override
   Future<bool> toggle(FnthinkL3Setting setting) async => true;
+
+  @override
+  Future<bool> execute(FnthinkL3Setting setting) async => true;
 }
 
 /// 原生那一格的替身：拿一条少一条；`localInbox` 就是"原生那边攒着的"。

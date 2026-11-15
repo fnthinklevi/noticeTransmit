@@ -75,6 +75,9 @@ class _NoopL3 implements FnthinkL3Executor {
 
   @override
   Future<bool> toggle(FnthinkL3Setting setting) async => true;
+
+  @override
+  Future<bool> execute(FnthinkL3Setting setting) async => true;
 }
 
 /// 原生那一侧的替身：记下"哪几条被用户在通知栏按掉了"。

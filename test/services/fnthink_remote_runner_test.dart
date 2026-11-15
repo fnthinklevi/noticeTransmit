@@ -146,6 +146,7 @@ class _RecordingL3 implements FnthinkL3Executor {
   final List<String> calls = [];
   bool granted = true;
   bool toggled = true;
+  bool executed = true;
 
   @override
   Future<bool> grant(FnthinkL3Setting setting) async {
@@ -157,6 +158,12 @@ class _RecordingL3 implements FnthinkL3Executor {
   Future<bool> toggle(FnthinkL3Setting setting) async {
     calls.add('toggle(${setting.key})');
     return toggled;
+  }
+
+  @override
+  Future<bool> execute(FnthinkL3Setting setting) async {
+    calls.add('execute(${setting.key})');
+    return executed;
   }
 }
 
