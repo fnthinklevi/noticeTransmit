@@ -62,10 +62,13 @@ android {
             val propsKeyPassword = props.getProperty("keyPassword")
 
             // 3) 合并：环境变量优先，其次 key.properties
-            val finalStoreFile = envStoreFile ?: propsStoreFile
-            val finalStorePassword = envStorePassword ?: propsStorePassword
-            val finalKeyAlias = envKeyAlias ?: propsKeyAlias
-            val finalKeyPassword = envKeyPassword ?: propsKeyPassword
+            // ⚠ 空字符串 ≠ null：GitHub Actions secrets 未设置时模板渲染为空字符串 ""
+            //   不是 null，Kotlin 的 ?: 不跳过 ""，导致 if 分支误判为"四个都齐了"。
+            //   这里用 takeIf { it.isNotBlank() } 让空字符串也当作缺失处理。
+            val finalStoreFile = envStoreFile?.takeIf { it.isNotBlank() } ?: propsStoreFile
+            val finalStorePassword = envStorePassword?.takeIf { it.isNotBlank() } ?: propsStorePassword
+            val finalKeyAlias = envKeyAlias?.takeIf { it.isNotBlank() } ?: propsKeyAlias
+            val finalKeyPassword = envKeyPassword?.takeIf { it.isNotBlank() } ?: propsKeyPassword
 
             // 4) 任一缺失都明确失败，绝不回退到源码中写死的密码
             if (finalStoreFile != null && finalStorePassword != null &&
