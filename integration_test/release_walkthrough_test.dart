@@ -669,7 +669,8 @@ void main() {
           findsOneWidget,
           reason: '收件行没有未读点 ⇒ 后面「标已读」就没有可验的东西',
         );
-        await tester.longPress(inRow);
+        await _longPress(tester, inRow, '收件行');
+        // _longPress 内部已确认 _menuUp（Checkbox 选中态）成立再返回，这里再断 AppBar 标题
         await _settle(tester, seconds: 1);
         expect(
           find.textContaining('已选 1 条'),
