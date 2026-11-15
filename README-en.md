@@ -476,8 +476,8 @@ committed back (`--fix`), while PR / fork runs fail the build and ask for a loca
 **CI workflows** (`.github/workflows/`, all on `ubuntu-24.04`):
 
 - **`analyze.yml` (PR gate)** — `flutter analyze --fatal-infos` (verdict = exit code) -> version consistency -> release-gate behavior test -> Dart tests -> shared package tests -> Android JVM tests -> Android lint -> server contract tests -> three-way format check -> coverage artifact
-- **`build-apk.yml` (on `v*` tags or manual)** — pre-flight tests & analyze -> arm64 release build -> ABI purity & version double gate -> GitHub Release
-- **`integration_test.yml` (weekly, Tue 03:00 UTC + manual)** — emulator smoke test + instrumented tests
+- **`build-apk.yml` (on `v*` tags or manual)** — pre-flight analyze -> **4-ABI APK build** (arm64 ≈ 29MB / arm32 ≈ 25MB / x86_64 ≈ 31MB / all ≈ 80MB) -> sign -> ABI purity double gate -> **auto-creates GitHub Release** (bilingual changelog + 4 APK assets)
+- **`integration_test.yml` (post-release mandatory + Tue 03:00 UTC weekly)** — two jobs: ① device-basic (smoke 4 cases hard gate + connectedAndroidTest soft warning); ② walkthrough (release_walkthrough_test.dart **24-step full-feature click gate**, covering history page / three channel families / rules engine / backup round-trip). First fully green on Run #24 after v1.6.6 fix round
 - **`deploy-pages.yml` (on changes to `server/public/**` or `server/data/version.json`, or manual)** — zero-maintenance static version source publishing
 - **Format unification** — `.github/scripts/check_format.sh` is the same script locally and in CI: `dart format` + ktlint 1.8.0 (rules in `.editorconfig`) + prettier 3.9.8 (config in `server/.prettierrc`)
 - **Version consistency gate** — `.github/scripts/check_version_consistency.sh` compares version & build across `pubspec.yaml` / `update_manager.dart` / `MainActivity.kt` / `server/data/version.json`, and additionally validates the sha256 fields of `version.json`, website i18n coverage, README dependency annotations and the zh/en ARB key sets
