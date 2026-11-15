@@ -144,6 +144,14 @@ jobs:
           export GRADLE_OPTS="-Dorg.gradle.daemon=false"
           export JAVA_TOOL_OPTIONS="-Dorg.gradle.daemon=false"
 
+          # 🔍 Debug: 验证 env 是否传到 shell（secrets 会被 GitHub 脱敏为 ***）
+          echo "=== env DEBUG ==="
+          echo "KEYSTORE_FILE=$KEYSTORE_FILE"
+          echo "KEY_ALIAS=$KEY_ALIAS"
+          echo "KEYSTORE_PASSWORD_len=$(echo -n "${KEYSTORE_PASSWORD:-}" | wc -c)"
+          echo "KEY_PASSWORD_len=$(echo -n "${KEY_PASSWORD:-}" | wc -c)"
+          echo "================="
+
           VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
           BUILD=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f2)
 
