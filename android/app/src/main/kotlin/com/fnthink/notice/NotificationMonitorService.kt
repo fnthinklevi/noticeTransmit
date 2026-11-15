@@ -62,6 +62,12 @@ class NotificationMonitorService : NotificationListenerService() {
     companion object {
         private const val TAG = "NotificationMonitorService"
 
+        // 服务实例引用（供 MethodChannel Handler 等跨组件调用 replyToNotification）。
+        // @Volatile：服务在主进程（MainActivity）与独立进程（WorkManager）都可能存在实例，
+        // Handler 只认主进程这枚。onDestroy 清空，空时 Handler 回 "服务未运行"。
+        @Volatile
+        internal var instance: NotificationMonitorService? = null
+
         // 常驻通知 id。`internal` 是给 MainActivity.stopNotificationListener 的兜底撤除用：
         // 服务被 ROM 回收时那一发 ACTION 没人收，只剩界面侧还能把残留的通知撤掉。
         internal const val FOREGROUND_ID = 1001
@@ -134,6 +140,7 @@ class NotificationMonitorService : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         Log.i(TAG, "Service created")
         FnthinkDiag.markServiceStarted(this)
 
@@ -794,6 +801,7 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        instance = null
         super.onDestroy()
         // T185 第三步：被系统收走时也补一条自愈链（用户关掉监听时不排 —— 见上）。
         if (monitoringEnabled) scheduleSelfRestart()

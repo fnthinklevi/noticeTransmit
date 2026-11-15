@@ -4,6 +4,7 @@ import com.fnthink.notice.FnthinkRemoteExecDisplay
 import com.fnthink.notice.I18n
 import com.fnthink.notice.LocalRemoteCommandInbox
 import com.fnthink.notice.MainActivity
+import com.fnthink.notice.NotificationMonitorService
 import com.fnthink.notice.RemoteExecutionCancelStore
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -82,6 +83,33 @@ internal class RemoteExecChannelHandler(activity: MainActivity) : ChannelHandler
                         mapOf("body" to it.body, "package" to it.pkg)
                     },
                 )
+            }
+
+            // T189 片1：RemoteInput 通知回复。幻念 L3 指令 notification:reply 的 MethodChannel 入口。
+            "fnthinkReplyNotification" -> {
+                val sbnKey = call.argument<String>("sbnKey").orEmpty()
+                val text = call.argument<String>("text").orEmpty()
+                if (sbnKey.isEmpty() || text.isEmpty()) {
+                    result.success(
+                        mapOf(
+                            "ok" to false,
+                            "reason" to "bad_input",
+                            "message" to "sbnKey and text are both required",
+                        ),
+                    )
+                    return true
+                }
+                val svc = NotificationMonitorService.instance
+                if (svc == null) {
+                    result.success(
+                        mapOf(
+                            "ok" to false,
+                            "reason" to "service_not_running",
+                        ),
+                    )
+                    return true
+                }
+                result.success(svc.replyToNotification(sbnKey, text).toMap())
             }
 
             else -> return false
