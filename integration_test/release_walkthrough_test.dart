@@ -678,9 +678,9 @@ void main() {
           reason: '长按没有进入选项态（顶栏那句"已选 N 条"没出现）',
         );
         expect(
-          find.byKey(const ValueKey('history-inbox-mark-read')),
+          find.byKey(const ValueKey('history-batch-mark-read')),
           findsOneWidget,
-          reason: '选项态顶栏缺「确认已读」',
+          reason: '选项态底部批量栏缺「确认已读」（收件档专属）',
         );
         // 取消：不写库，回到普通列表
         await _tap(tester, find.byTooltip('取消'), '选项态→取消');
