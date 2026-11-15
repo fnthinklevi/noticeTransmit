@@ -2195,6 +2195,46 @@ class NotificationMonitorService : NotificationListenerService() {
         Log.d(TAG, "replyToNotification: none of ${actions.size} actions have RemoteInput")
         return ReplyResult(ok = false, reason = "no_reply_action", sbnKey = sbnKey)
     }
+
+    /**
+     * T189 sbnKey 传递链：列出当前仍在通知栏驻留且**带 RemoteInput reply action** 的通知。
+     *
+     * 幻念发起端（设备 A）要远程回复接收端（设备 B）的某条通知，A 需要知道 B 上哪些通知可回复
+     * 以及它们的 sbnKey。这条读口就是干这件事——它只读 B 自己的通知栏（不走幻念网络），
+     * 返回 shape：{key, pkg, title, subText?, postTimeMs}[]。
+     *
+     * ⚠ **这条读口要能被 MethodChannel 调到**（见 RemoteExecChannelHandler.fnthinkListReplyableNotifications）。
+     *   调用方是**本机**的 Flutter engine（幻念发起端 UI），不是远程设备——安全边界靠 MethodChannel 已有的进程隔离。
+     */
+    internal fun listReplyableNotifications(): List<Map<String, Any?>> {
+        val active = try {
+            getActiveNotifications()
+        } catch (_: Exception) {
+            Log.w(TAG, "listReplyableNotifications: getActiveNotifications threw")
+            return emptyList()
+        }
+        val out = mutableListOf<Map<String, Any?>>()
+        for (sbn in active) {
+            val notif = sbn.notification
+            val actions = notif.actions ?: continue
+            val hasReply = actions.any { it.remoteInputs?.isNotEmpty() == true }
+            if (!hasReply) continue
+            // 标题：优先 extras[Notification.EXTRA_TITLE]，降级到 extras[Notification.EXTRA_TEXT] 首行
+            val extras = notif.extras
+            val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+                ?: extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.lines()?.firstOrNull()
+                ?: "(无标题)"
+            val sub = extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+            out += mapOf(
+                "key" to sbn.key,
+                "pkg" to sbn.packageName,
+                "title" to title,
+                "subText" to sub,
+                "postTimeMs" to sbn.postTime,
+            )
+        }
+        return out
+    }
 }
 
 // ── T189 片1 结果类型 ────────────────────────────────────────────────────────

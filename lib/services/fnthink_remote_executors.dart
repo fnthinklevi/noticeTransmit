@@ -232,6 +232,7 @@ class DeviceL3Executor implements FnthinkL3Executor {
     required this.collectInboxEnabled,
     required this.setCollectInboxEnabled,
     this.executeReplyNotification,
+    this.listReplyableNotifications,
   });
 
   final Future<void> Function() grantNotificationListener;
@@ -255,12 +256,16 @@ class DeviceL3Executor implements FnthinkL3Executor {
   final Future<bool> Function(bool enabled) setCollectInboxEnabled;
 
   /// T189 notification:reply 的执行器。按 sbnKey 找仍驻留的系统通知 → 注入 RemoteInput。
-  ///
   /// null = 这一台没接（[execute] 默认实现会返回 false）。
   final Future<bool> Function({
     required String sbnKey,
     required String text,
   })? executeReplyNotification;
+
+  /// T189 sbnKey 传递链：列出本机当前带 RemoteInput reply action 的通知。
+  /// 返回值是一条轻量记录（sbnKey + 标题 + 包名），供 UI 选一条塞进下一次指令的 argument。
+  /// null 表示原生没接这条读口（极少见）。
+  final Future<List<ReplyableNotificationInfo>> Function()? listReplyableNotifications;
 
   @override
   Future<bool> grant(FnthinkL3Setting setting) async {
@@ -340,5 +345,35 @@ class DeviceL3Executor implements FnthinkL3Executor {
       }
     }
     return false;
+  }
+}
+
+// ── T189 sbnKey 传递链：Dart 侧模型 ────────────────────────────────────────
+
+/// 一条「带 RemoteInput reply action」的系统通知的轻量记录。
+///
+/// 原生 `NotificationMonitorService.listReplyableNotifications()` 返回形状
+/// （key/pkg/title/subText/postTimeMs），Dart 侧解成这枚模型。
+/// 核心字段只有 [sbnKey] —— 它是 Android StatusBarNotification.key，
+/// 系统级唯一标识（格式 = pkg:id），用来给 `notification:reply` 指令定位目标。
+class ReplyableNotificationInfo {
+  const ReplyableNotificationInfo({
+    required this.sbnKey,
+    required this.packageName,
+    required this.title,
+    this.subText,
+    required this.postTimeMs,
+  });
+
+  final String sbnKey;
+  final String packageName;
+  final String title;
+  final String? subText;
+  final int postTimeMs;
+
+  /// 从服务到现在的秒数（负数 = 时钟漂移，兜底 0）
+  int ageSeconds({required int nowMs}) {
+    final age = (nowMs - postTimeMs) ~/ 1000;
+    return age < 0 ? 0 : age;
   }
 }

@@ -437,6 +437,36 @@ void setupLocator() {
           return false;
         }
       },
+      // T189 sbnKey 传递链 —— 列出本机当前带 RemoteInput reply action 的通知。
+      // 接收端 UI 拿到后，把其中某条的 sbnKey 放进下一次 notification:reply 指令的 argument。
+      listReplyableNotifications: () async {
+        try {
+          final raw = await AppChannels.notification
+              .invokeMethod<Map<Object?, Object?>>('fnthinkListReplyableNotifications');
+          if (raw?['ok'] != true) return <ReplyableNotificationInfo>[];
+          final list = raw?['notifications'];
+          if (list is! List) return <ReplyableNotificationInfo>[];
+          return list
+              .whereType<Map>()
+              .map((e) {
+                try {
+                  return ReplyableNotificationInfo(
+                    sbnKey: e['key'] as String? ?? '',
+                    packageName: e['pkg'] as String? ?? '',
+                    title: e['title'] as String? ?? '',
+                    subText: e['subText'] as String?,
+                    postTimeMs: (e['postTimeMs'] as num?)?.toInt() ?? 0,
+                  );
+                } catch (_) {
+                  return null;
+                }
+              })
+              .whereType<ReplyableNotificationInfo>()
+              .toList();
+        } catch (e) {
+          return <ReplyableNotificationInfo>[];
+        }
+      },
     ),
   );
   // 执行链（窗口 → 动手 → 两段回执 → 撤销咽喉）。

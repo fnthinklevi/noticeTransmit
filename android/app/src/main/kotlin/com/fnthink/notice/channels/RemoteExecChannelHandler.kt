@@ -112,6 +112,26 @@ internal class RemoteExecChannelHandler(activity: MainActivity) : ChannelHandler
                 result.success(svc.replyToNotification(sbnKey, text).toMap())
             }
 
+            // T189 sbnKey 传递链：列出本机当前带 RemoteInput 的通知。
+            // 调用方（幻念接收端的 Flutter engine）拿到后可以把其中某条的 sbnKey 作为 argument
+            // 填进下一次 notification:reply 指令里——这样发起端（远端）就能指定回复哪条。
+            "fnthinkListReplyableNotifications" -> {
+                val svc = NotificationMonitorService.instance
+                if (svc == null) {
+                    result.success(mapOf(
+                        "ok" to false,
+                        "reason" to "service_not_running",
+                        "notifications" to emptyList<Any>(),
+                    ))
+                    return true
+                }
+                val list = svc.listReplyableNotifications()
+                result.success(mapOf(
+                    "ok" to true,
+                    "notifications" to list,
+                ))
+            }
+
             else -> return false
         }
         return true
