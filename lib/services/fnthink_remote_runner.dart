@@ -437,6 +437,8 @@ class RemoteCommandRunner extends ChangeNotifier {
           //   （契约 `l3.confirmForm = cancelableDelay`：内核仍是"每次确认"，
           //   形式从"点一下"变成"没去取消"）。判定层不判它，因为它那时还没有窗口。
           confirmedThisTime: true,
+          // T189 execute 形态的参数从 argument 字段取。grant/toggle 忽略它（null 即可）。
+          argument: record.argument.isEmpty ? null : record.argument,
         );
         if (parsed is FnthinkL3Rejected) {
           return (ok: false, reason: parsed.reason, outcome: '');

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fnthink_push/fnthink_push.dart';
 
 /// L3 系统设置的**设备侧映射**（T51）。
@@ -73,6 +75,10 @@ FnthinkL3Parse parseL3Item(
   FnthinkContract contract,
   String? item, {
   bool confirmedThisTime = false,
+  /// T189 execute 形态的参数 —— 远端指令里的 argument 字段。
+  /// 必须是 JSON 对象字符串，解析后的值必须是 `Map<String, String>`。
+  /// grant/toggle 形态忽略此参数。
+  String? argument,
 }) {
   if (item == null || item.isEmpty) {
     return const FnthinkL3Rejected('missing-item');
@@ -104,14 +110,36 @@ FnthinkL3Parse parseL3Item(
   if (base == null) {
     return FnthinkL3Rejected('unknown-setting:$key');
   }
-  final setting = target == null
-      ? base
-      : FnthinkL3Setting(
-          key: base.key,
-          mode: base.mode,
-          native: base.native,
-          targetValue: target,
-        );
+
+  // T189 execute 形态：从 argument 里解析 JSON 参数。
+  // - grant/toggle 形态：忽略 argument，按旧语义
+  // - execute 形态：argument 必须是 `{"key": "value", ...}` JSON 对象
+  Map<String, String>? executeArgs;
+  if (base.isExecute) {
+    if (argument == null || argument.isEmpty) {
+      return FnthinkL3Rejected('missing-argument:$key');
+    }
+    try {
+      final decoded = jsonDecode(argument);
+      if (decoded is! Map<String, dynamic>) {
+        return FnthinkL3Rejected('bad-argument-format:$key');
+      }
+      executeArgs = {
+        for (final e in decoded.entries)
+          if (e.value is String) e.key: e.value as String,
+      };
+    } on FormatException {
+      return FnthinkL3Rejected('bad-argument-json:$key');
+    }
+  }
+
+  final setting = FnthinkL3Setting(
+    key: base.key,
+    mode: base.mode,
+    native: base.native,
+    targetValue: target,
+    executeArgs: executeArgs,
+  );
   // 每一项都要本地确认，且**没有免确认这条路**（契约 allowSkipConfirm: false）。
   if (contract.boolOf(const ['capabilities', 'l3', 'confirmEveryTime']) ==
           true &&

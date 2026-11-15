@@ -63,11 +63,12 @@ void main() {
       }
     });
 
-    test('两种形态都有实例（今天只有这两种，没有第三种）', () {
-      expect(contract.l3SettingModes, ['grant', 'toggle']);
+    test('三种形态都有实例（grant/toggle/execute — T189 加了 execute）', () {
+      expect(contract.l3SettingModes, ['grant', 'toggle', 'execute']);
       final settings = contract.l3Settings.values;
       expect(settings.where((s) => s.isGrant), isNotEmpty);
       expect(settings.where((s) => s.isToggle), isNotEmpty);
+      expect(settings.where((s) => s.isExecute), isNotEmpty);
     });
 
     test('先有授权才谈得上翻的那两项，都是 toggle', () {
