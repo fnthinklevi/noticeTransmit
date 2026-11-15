@@ -148,10 +148,12 @@ android {
         // 按 Flutter --target-platform 动态设置 ABI 过滤
         // 单架构包必须纯净，只含一种 .so，不得混入其他架构的第三方库！
         // 检测优先级：环境变量 > Flutter Gradle 属性 > 多架构回退
+        // ⚠ Flutter 3.47 传的是 -Ptarget-platform=android-arm64（带横线！），
+        //   不是 flutter.targetPlatform 也不是 FLUTTER_TARGET_PLATFORM。
         ndk {
             abiFilters.clear()
             val envTarget = System.getenv("FLUTTER_TARGET_PLATFORM")
-            val flutterTarget = project.findProperty("flutter.targetPlatform") as? String
+            val flutterTarget = project.findProperty("target-platform") as? String
             val targetPlatform = envTarget ?: flutterTarget ?: ""
             when {
                 targetPlatform.contains("arm64") && !targetPlatform.contains(",") -> {
