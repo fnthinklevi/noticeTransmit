@@ -313,29 +313,43 @@ class IosDialogActions {
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text(title),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(message),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(message),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: CupertinoDialogAction(
+                    onPressed: () => Navigator.pop(ctx),
+                    textStyle: appDialogCancelStyle(ctx),
+                    child: Text(cancelText),
+                  ),
+                ),
+                // ⚠ 中间那一档是**默认行为（没动作）**，不是破坏性一鞘
+                //   （覆盖才是破坏性那一鞘）。
+                Expanded(
+                  child: CupertinoDialogAction(
+                    onPressed: () => Navigator.pop(ctx, ConflictChoice.fillGaps),
+                    child: Text(fillGapsText),
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoDialogAction(
+                    isDestructiveAction: true,
+                    onPressed: () => Navigator.pop(ctx, ConflictChoice.overwrite),
+                    child: Text(overwriteText),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(ctx),
-            textStyle: appDialogCancelStyle(ctx),
-            child: Text(cancelText),
-          ),
-          // ⚠ 中间那一档是**默认行为（没动作）**，不是破坏性一鞘：
-          // 覆盖才是破坏性那一鞘（覆掉已有配置）。
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(ctx, ConflictChoice.fillGaps),
-            child: Text(fillGapsText),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(ctx, ConflictChoice.overwrite),
-            child: Text(overwriteText),
-          ),
-        ],
       ),
     );
     return picked;
@@ -368,6 +382,8 @@ class IosDialogActions {
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (ctx) => CupertinoAlertDialog(
+        // ⚠ 三个按钮不走 actions —— iOS 语义 3 枚及以上自动竖排。
+        //   手动塞进 content 末尾横排一个 Row，紧凑得多。
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -381,23 +397,32 @@ class IosDialogActions {
               ),
             ),
             if (body != null) ...[const SizedBox(height: 12), body],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: CupertinoDialogAction(
+                    onPressed: () => Navigator.pop(ctx, UpdateChoice.ignore),
+                    child: Text(ignoreText),
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoDialogAction(
+                    onPressed: () => Navigator.pop(ctx, UpdateChoice.later),
+                    child: Text(laterText),
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoDialogAction(
+                    isDefaultAction: true,
+                    onPressed: () => Navigator.pop(ctx, UpdateChoice.update),
+                    child: Text(updateText),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(ctx, UpdateChoice.ignore),
-            child: Text(ignoreText),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(ctx, UpdateChoice.later),
-            child: Text(laterText),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(ctx, UpdateChoice.update),
-            child: Text(updateText),
-          ),
-        ],
       ),
     );
   }
