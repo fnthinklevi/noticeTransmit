@@ -22,7 +22,9 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.Bundle
 import android.os.SystemClock
+import android.app.RemoteInput
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -2114,6 +2116,104 @@ class NotificationMonitorService : NotificationListenerService() {
             Log.e(TAG, "邮件分发异常: ${e.message}", e)
         }
     }
+
+    // ── T189 片1：RemoteInput 通知回复（幻念 L3 指令 notification:reply 的执行侧） ──
+
+    /**
+     * 对仍驻留在通知栏的一条系统通知注入 RemoteInput 回复。
+     *
+     * @param sbnKey Android StatusBarNotification.key（= pkg:id，系统级唯一标识）
+     * @param text   要注入的回复文本
+     * @return 执行结果 —— ok / no_active_notification / no_reply_action / send_failed
+     */
+    internal fun replyToNotification(sbnKey: String, text: String): ReplyResult {
+        val active = try {
+            getActiveNotifications()
+        } catch (_: Exception) {
+            Log.w(TAG, "replyToNotification: getActiveNotifications threw")
+            null
+        }
+        if (active.isNullOrEmpty()) {
+            Log.d(TAG, "replyToNotification: active notifications list empty")
+            return ReplyResult(ok = false, reason = "no_active_notification", sbnKey = sbnKey)
+        }
+
+        val target = active.firstOrNull { it.key == sbnKey }
+        if (target == null) {
+            Log.d(TAG, "replyToNotification: key '$sbnKey' not in active list (${active.size} total)")
+            return ReplyResult(ok = false, reason = "no_active_notification", sbnKey = sbnKey)
+        }
+
+        val notif = target.notification
+        val actions = notif.actions
+        if (actions == null || actions.isEmpty()) {
+            Log.d(TAG, "replyToNotification: target has no actions")
+            return ReplyResult(ok = false, reason = "no_reply_action", sbnKey = sbnKey)
+        }
+
+        // 遍历 actions，找带 RemoteInput 的那一枚
+        for (action in actions) {
+            val remoteInputs = action.remoteInputs
+            if (remoteInputs == null || remoteInputs.isEmpty()) continue
+
+            val remoteInput = remoteInputs[0]
+            Log.d(TAG, "replyToNotification: injecting RemoteInput '${remoteInput.resultKey}' on action")
+
+            val intent = Intent()
+            val extras = Bundle().apply {
+                putCharSequence(remoteInput.resultKey, text)
+            }
+            RemoteInput.addResultsToIntent(arrayOf(remoteInput), intent, extras)
+
+            return try {
+                action.actionIntent.send(
+                    this,
+                    PendingIntent.FLAG_UPDATE_CURRENT,
+                    intent,
+                )
+                Log.d(TAG, "replyToNotification: PendingIntent sent OK")
+                ReplyResult(ok = true, reason = "ok")
+            } catch (e: Exception) {
+                Log.e(TAG, "replyToNotification: PendingIntent.send failed", e)
+                ReplyResult(
+                    ok = false,
+                    reason = "send_failed",
+                    sbnKey = sbnKey,
+                    message = e.message,
+                )
+            }
+        }
+
+        Log.d(TAG, "replyToNotification: none of ${actions.size} actions have RemoteInput")
+        return ReplyResult(ok = false, reason = "no_reply_action", sbnKey = sbnKey)
+    }
+}
+
+// ── T189 片1 结果类型 ────────────────────────────────────────────────────────
+
+/**
+ * notification:reply 执行结果。
+ *
+ * ok=true → 注入成功（PendingIntent 正常发送），不代表目标 App 一定回了消息——
+ *   那是"目标 App 是否决定处理 RemoteInput"的事，不是我们的职责。
+ * ok=false + reason 分档：
+ *   no_active_notification  — sbnKey 不存在于当前 active 列表
+ *   no_reply_action         — 这条通知没 RemoteInput（微信/短信大多有，广告通知没有）
+ *   send_failed             — PendingIntent.send() 抛了异常
+ */
+internal data class ReplyResult(
+    val ok: Boolean,
+    val reason: String,
+    val sbnKey: String? = null,
+    val message: String? = null,
+) {
+    /** 给 MethodChannel / 日志用的 Map 表示。 */
+    fun toMap(): Map<String, Any?> = mapOf(
+        "ok" to ok,
+        "reason" to reason,
+        "sbnKey" to sbnKey,
+        "message" to message,
+    ).filterValues { it != null }
 }
 
 data class NotificationInfo(
