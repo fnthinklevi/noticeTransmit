@@ -98,7 +98,7 @@ for vf in "${VERSION_FILES[@]}"; do
         if ! "$PY" - "$vf" <<'EOF'
 import json, re, sys
 path = sys.argv[1]
-data = json.load(open(path, encoding='utf-8'))
+data = json.load(open(path, encoding='utf-8-sig'))
 sha = data.get('sha256')
 if not isinstance(sha, dict):
     print(f"❌ {path} 缺少 sha256 字段（N3 传输层校验）")
@@ -171,8 +171,8 @@ fi
 if [ -n "$PY" ] && [ -f lib/l10n/arb/app_zh.arb ]; then
     if ! "$PY" - <<'EOF'
 import json, sys
-zh = {k for k in json.load(open('lib/l10n/arb/app_zh.arb', encoding='utf-8')) if not k.startswith('@')}
-en = {k for k in json.load(open('lib/l10n/arb/app_en.arb', encoding='utf-8')) if not k.startswith('@')}
+zh = {k for k in json.load(open('lib/l10n/arb/app_zh.arb', encoding='utf-8-sig')) if not k.startswith('@')}
+en = {k for k in json.load(open('lib/l10n/arb/app_en.arb', encoding='utf-8-sig')) if not k.startswith('@')}
 only_zh, only_en = sorted(zh - en), sorted(en - zh)
 if only_zh or only_en:
     print(f"❌ l10n 漏翻：仅 zh 有 {only_zh}；仅 en 有 {only_en}")

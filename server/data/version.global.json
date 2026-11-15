@@ -1,28 +1,28 @@
-﻿{
-    "latestVersion":  "1.6.6",
-    "latestBuild":  166,
-    "forceUpdate":  true,
-    "forceUpdateVersion":  "1.5.75",
-    "forceUpdateBuild":  115,
-    "changelog":  "锁屏恢复与发信可靠性修复（1.6.6）\n\n🚪 **锁屏卡死与启动**\n- 修复部分机型锁屏恢复后卡在「加载通知记录」的长时间无界等待：\n  连接隔离（`singleInstance: false`）让各引擎各持一条 SQLite 连接、不再排别人的悬挂事务；\n  锁冲突退化为有界的 `busy_timeout`（客户端报错而非无限等）；计划内关闭引擎连接；\n  启动页逐步有界步骤（单步 30s 超时），卡死时给出「重启应用」出口\n- 路由关掉自动切备后，失败只进重试、绝不碰备用通道（此前偶发切备后又触发主备同时发）\n- 传输层异常统一兜住转 `transportError`，不再冒泡到页面；可恢复失败自动重试一次（500ms 延迟）\n- `runNow` 发送前先 cancel 上一次 debounce Timer，锁屏恢复后避免重复触发\n- 发送失败 `transportError` 弹层加「重试」按钮\n\n📋 **历史页**\n- 历史页三个 Tab 统一选择态，幻念消息支持直接导出",
-    "changelogEn":  "Wake-from-lock \u0026 send reliability (1.6.6)\n\n**Splash-screen hang \u0026 startup**\n- Fixed the long unbounded wait stuck on \"loading notification record\" after waking from lock on some devices:\n  connection isolation (`singleInstance: false`) gives each engine its own SQLite connection instead of queuing behind a hung peer;\n  lock contention becomes a bounded `busy_timeout` (client sees an error instead of waiting forever);\n  engines close their connections cleanly; the splash screen now runs each startup step with a 30 s budget\n  and offers a \"restart app\" exit when one step hangs\n- After the auto-failover toggle was removed, routing no longer touches fallback channels — failed deliveries retry on primary only\n- Transport-layer exceptions are caught and translated to `transportError` instead of bubbling up to the page;\n  recoverable failures get one automatic retry (500 ms delay)\n- `runNow` cancels the previous debounce timer before sending, preventing duplicate sends after waking from lock\n- The `transportError` dialog on failed sends now has a Retry button\n\n**History page**\n- Unified selection mode across all three history tabs; Fnthink messages can be exported directly",
-    "downloads":  {
-                      "all":  "https://cdn2.fnthink.top/app/notice/update/1.6.6/notice_all_1.6.6+166.apk",
-                      "arm32":  "https://cdn2.fnthink.top/app/notice/update/1.6.6/notice_arm32_1.6.6+166.apk",
-                      "arm64":  "https://cdn2.fnthink.top/app/notice/update/1.6.6/notice_arm64_1.6.6+166.apk",
-                      "x86_64":  "https://cdn2.fnthink.top/app/notice/update/1.6.6/notice_x86_1.6.6+166.apk"
-                  },
-    "fileSizes":  {
-                      "all":  83607531,
-                      "arm32":  26563411,
-                      "arm64":  30257901,
-                      "x86_64":  32438378
-                  },
-    "sha256":  {
-                   "all":  "3058bae970a085f3f30dd52a0b12ab867ba96aaede873e995622ef66e7457147",
-                   "arm32":  "21090ca62737b0a36b3a961d6f8cf837bd0d3de831296bb50ec15bdcd9941535",
-                   "arm64":  "972c9371cdc37be64aebb8b134de89e3417358adc07e002dcbf607ecf968fd73",
-                   "x86_64":  "8e2fe7da88e534b1a6e59bdde37cc53650a9026165ba6ea8afe1defc3ccbe3f9"
-               },
-    "minSupportedVersion":  "1.0.0"
+{
+  "latestVersion": "1.6.6",
+  "latestBuild": 166,
+  "forceUpdate": true,
+  "forceUpdateVersion": "1.5.75",
+  "forceUpdateBuild": 115,
+  "changelog": "锁屏恢复与发信可靠性修复（1.6.6）\n\n🚪 **锁屏卡死与启动**\n- 修复部分机型锁屏恢复后卡在「加载通知记录」的长时间无界等待：\n  连接隔离（`singleInstance: false`）让各引擎各持一条 SQLite 连接、不再排别人的悬挂事务；\n  锁冲突退化为有界的 `busy_timeout`（客户端报错而非无限等）；计划内关闭引擎连接；\n  启动页逐步有界步骤（单步 30s 超时），卡死时给出「重启应用」出口\n- 路由关掉自动切备后，失败只进重试、绝不碰备用通道（此前偶发切备后又触发主备同时发）\n- 传输层异常统一兜住转 `transportError`，不再冒泡到页面；可恢复失败自动重试一次（500ms 延迟）\n- `runNow` 发送前先 cancel 上一次 debounce Timer，锁屏恢复后避免重复触发\n- 发送失败 `transportError` 弹层加「重试」按钮\n\n📋 **历史页**\n- 历史页三个 Tab 统一选择态，幻念消息支持直接导出",
+  "changelogEn": "Wake-from-lock & send reliability (1.6.6)\n\n**Splash-screen hang & startup**\n- Fixed the long unbounded wait stuck on \"loading notification record\" after waking from lock on some devices:\n  connection isolation (`singleInstance: false`) gives each engine its own SQLite connection instead of queuing behind a hung peer;\n  lock contention becomes a bounded `busy_timeout` (client sees an error instead of waiting forever);\n  engines close their connections cleanly; the splash screen now runs each startup step with a 30 s budget\n  and offers a \"restart app\" exit when one step hangs\n- After the auto-failover toggle was removed, routing no longer touches fallback channels — failed deliveries retry on primary only\n- Transport-layer exceptions are caught and translated to `transportError` instead of bubbling up to the page;\n  recoverable failures get one automatic retry (500 ms delay)\n- `runNow` cancels the previous debounce timer before sending, preventing duplicate sends after waking from lock\n- The `transportError` dialog on failed sends now has a Retry button\n\n**History page**\n- Unified selection mode across all three history tabs; Fnthink messages can be exported directly",
+  "downloads": {
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.6.6/notice_all_1.6.6+166.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.6.6/notice_arm32_1.6.6+166.apk",
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.6.6/notice_arm64_1.6.6+166.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.6.6/notice_x86_1.6.6+166.apk"
+  },
+  "fileSizes": {
+    "all": 83607531,
+    "arm32": 26563411,
+    "arm64": 30257901,
+    "x86_64": 32438378
+  },
+  "sha256": {
+    "all": "3058bae970a085f3f30dd52a0b12ab867ba96aaede873e995622ef66e7457147",
+    "arm32": "21090ca62737b0a36b3a961d6f8cf837bd0d3de831296bb50ec15bdcd9941535",
+    "arm64": "972c9371cdc37be64aebb8b134de89e3417358adc07e002dcbf607ecf968fd73",
+    "x86_64": "8e2fe7da88e534b1a6e59bdde37cc53650a9026165ba6ea8afe1defc3ccbe3f9"
+  },
+  "minSupportedVersion": "1.0.0"
 }

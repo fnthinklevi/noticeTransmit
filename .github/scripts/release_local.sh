@@ -261,14 +261,14 @@ for apk in sorted(glob.glob(f'build/app/outputs/flutter-apk/v{ver}/*.apk')):
                 for chunk in iter(lambda: f.read(1 << 20), b''):
                     h.update(chunk)
             sha[key] = h.hexdigest()
-src = json.load(open('server/data/version.json', encoding='utf-8'))
+src = json.load(open('server/data/version.json', encoding='utf-8-sig'))
 targets = [
     ('server/data/version.json', 'https://cdn2.fnthink.top'),
     ('server/data/version.global.json', 'https://cdn2.fnthink.top'),
     ('server/data/version.cn.json', 'https://cdn.fnthink.com'),
 ]
 for path, cdn in targets:
-    d = json.load(open(path, encoding='utf-8')) if os.path.exists(path) else dict(src)
+    d = json.load(open(path, encoding='utf-8-sig')) if os.path.exists(path) else dict(src)
     d['latestVersion'], d['latestBuild'] = ver, build
     d['changelog'] = src.get('changelog', '')
     d['changelogEn'] = src.get('changelogEn', '')
@@ -293,7 +293,7 @@ targets = [
     ('server/data/version.cn.json', 'cdn.fnthink.com'),
 ]
 for path, host in targets:
-    d = json.load(open(path, encoding='utf-8'))
+    d = json.load(open(path, encoding='utf-8-sig'))
     assert d['latestVersion'] == ver and d['latestBuild'] == build, f'{path} 版本不对'
     assert len(d.get('sha256', {})) == 4 and len(d.get('fileSizes', {})) == 4, f'{path} 缺 sha/大小'
     assert all(host in u for u in d['downloads'].values()), f'{path} 下载主机不是 {host}'
