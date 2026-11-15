@@ -20,6 +20,7 @@ EXPECT = {
     "arm64": (["arm64-v8a"], "only"),
     "arm32": (["armeabi-v7a"], "only"),
     "x86": (["x86_64"], "only"),
+    "x86_64": (["x86_64"], "only"),
     "all": (["arm64-v8a", "armeabi-v7a", "x86_64"], "atleast"),
 }
 
