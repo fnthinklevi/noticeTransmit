@@ -237,26 +237,7 @@ jobs:
         id: release_notes
         run: |
           VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
-          # 匹配 ### v${VERSION} 开头的版本块，取到下一个 ### 之前（或文件末尾）
-          python3 -c "
-import re, sys
-ver = sys.argv[1]
-with open('update.md', encoding='utf-8') as f:
-    content = f.read()
-# 取英文版部分（最后一个 --- 之后到下一个 --- 或文件末尾）
-# 简单策略：匹配 '### v{ver}' 块内内容到下一个 '### v'
-pattern = rf'### v{re.escape(ver)}[^#]*?(?=\n### v|\Z)'
-m = re.search(pattern, content, re.DOTALL)
-if m:
-    block = m.group(0).strip()
-    # 取 --- 之后的英文部分（如果有）
-    if '\n---\n' in block:
-        block = block.split('\n---\n', 1)[1].strip()
-    print(block)
-else:
-    print(f'Changelog for v{ver} not found in update.md', file=sys.stderr)
-    sys.exit(1)
-" "$VERSION" > release_notes.md
+          python3 tools/extract_release_notes.py "$VERSION" > release_notes.md
           echo "--- Release notes ---"
           cat release_notes.md
           echo "notes_path=release_notes.md" >> $GITHUB_OUTPUT
