@@ -89,7 +89,7 @@ jobs:
             flutter devices
             flutter test integration_test/smoke_test.dart --reporter expanded > test_report/smoke.log 2>&1; echo $? > test_report/smoke_status.txt
             cat test_report/smoke.log
-            (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest) > test_report/connected.log 2>&1; echo $? > test_report/connected_status.txt
+            (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest --stacktrace --info) > test_report/connected.log 2>&1; echo $? > test_report/connected_status.txt
             cat test_report/connected.log
             adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
             adb shell dumpsys activity activities > test_report/activities.txt 2>&1

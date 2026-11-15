@@ -340,27 +340,38 @@ void main() {
         isTrue,
         reason: '导出生成没有真的走 saveFile？（历史 JSON 导出是运维取数唯一出口）',
       );
-      // T05：历史记录卡的长按动作表。本批把它就地写的整份弹层搬进了共用组件，
-      // 所以这里必须真展开一次 —— 只展开再收起，不点「屏蔽」，
-      // 那会改掉后面各节依赖的过滤配置（闸门要可重复）。
+      // v1.6.6 统一选择态：长按不再弹 CardActionSheet，改为进选择模式
+      // （选中当前行 + 每行前出现 Checkbox + 底部出现批量操作栏）
+      // 不测"屏蔽应用"了 —— 统一选择态把低频操作收进了 ⋯ 溢出菜单，
+      // 本 step 的"长按可交互"证据换成：长按 → Checkbox 出现 → 选中态对 → 取消退出
       await _longPress(tester, find.text('闸门通知一'), '历史记录行');
-      // 限定在弹层里 + 精确文本：这一项的**副标题**也含"屏蔽该应用"五个字
-      // （闸门第一轮就是被这条 loose 断言打红的：textContaining 一次数到两个）。
-      final blockAppItem = find.descendant(
-        of: find.byType(CardActionSheet),
-        matching: find.text('屏蔽该应用的通知'),
-      );
+      // ① 选择模式标志：行前出现 Checkbox（_selectMode 触发时每行 tile 外包 Row + Checkbox）
       expect(
-        blockAppItem,
+        find.byType(Checkbox),
+        findsWidgets,
+        reason: '长按没进选择模式（行前 Checkbox 没出现）',
+      );
+      // ② 被长按的那行应该是选中态（Checkbox.value == true）
+      expect(
+        find.byWidgetPredicate((w) => w is Checkbox && w.value == true),
         findsOneWidget,
-        reason: '长按弹层没出来 ⇒ CardActionSheet 在真机手势区上不可用',
+        reason: '长按后当前行应被勾选（Checkbox.value=true 预期一枚）',
       );
-      await tester.tapAt(const Offset(10, 10));
-      await _settle(tester);
+      // ③ 底部批量栏的「取消」按钮存在（FnthinkInlineAction onPressed: _exitSelectMode）
+      // l10n.cancel 在中文环境是"取消"
       expect(
-        find.byType(CardActionSheet),
+        find.text('取消'),
+        findsWidgets,
+        reason: '选择模式底部批量栏没出现（取消按钮不在）',
+      );
+      // ④ 点取消退出选择模式
+      await _tap(tester, find.text('取消').first, '选择模式→取消');
+      await _settle(tester);
+      // ⑤ Checkbox 消失 ⇒ 真的退了
+      expect(
+        find.byType(Checkbox),
         findsNothing,
-        reason: '点遮罩关不掉弹层 ⇒ 用户被卡在动作表里',
+        reason: '退出选择模式后 Checkbox 还在',
       );
       await _backToHome(tester);
     });
@@ -2672,15 +2683,24 @@ Future<void> _longPress(WidgetTester t, Finder f, String why) async {
   }
   // 再采一问：整页都不动，还是只有这一行不动？FAB 在右下角，若它能开详情页，
   // 说明问题只在行所在的那块区域（有东西盖着 / 手势被行内某个控件吃掉）。
-  await t.tap(find.byType(FloatingActionButton));
-  await _settle(t, seconds: 2);
-  debugPrint(
-    'GATE-DIAG(FAB 能否点开 $why) '
-    'detail=${find.byType(WebhookSettingsPage).evaluate().isNotEmpty}',
-  );
-  if (find.byType(WebhookSettingsPage).evaluate().isNotEmpty) {
-    _nav(t).pop();
+  // ⚠ HistoryPage 等页面没有 FAB，必须先判断存在再 tap —— tap 不存在的控件会抛 FinderException
+  //   被 _step catch 后变 GATE-STEP-FAIL，把真正的根因（长按没弹层）盖住。
+  final fabFinder = find.byType(FloatingActionButton);
+  if (fabFinder.evaluate().isNotEmpty) {
+    await t.tap(fabFinder);
     await _settle(t, seconds: 2);
+    debugPrint(
+      'GATE-DIAG(FAB 能否点开 $why) '
+      'detail=${find.byType(WebhookSettingsPage).evaluate().isNotEmpty}',
+    );
+    if (find.byType(WebhookSettingsPage).evaluate().isNotEmpty) {
+      _nav(t).pop();
+      await _settle(t, seconds: 2);
+    }
+  } else {
+    debugPrint(
+      'GATE-DIAG(FAB 不存在 $why) 跳过 FAB 诊断（当前页无 FloatingActionButton）',
+    );
   }
   await _must(t, _menuUp(t), '$why 长按后动作表（三种按法都没开=手势真的不生效）', f);
 }
