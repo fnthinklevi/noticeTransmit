@@ -3659,7 +3659,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkConsentRevokeMsg =>
-      'After revoking, these stop working on this device: anything that goes through the server (the receive loop stops on its next round), remote control, creating/rotating/revoking ingress endpoints, starting and approving pairings, creating/enabling a Fnthink channel and \"send one\", and the test that carries a body. Nothing is deleted - the peer list, endpoints, channel configs, message history and pairing records all stay. Turning them back on needs a fresh consent tap (the full text stays readable first).';
+      'After revoking, the following stop working immediately: server-relayed messaging (the next poll cycle of the receive loop will stop), remote control, endpoint create/update/delete, pair initiation and approval, fnthink channel create/enable/send, and text-bearing tests. Non-intrusive probes are unaffected (they only read capability levels, never trigger delivery). Pair lists, endpoints, channel configs, message history and pair records will not be deleted. Re-enabling requires going through the consent flow again';
 
   @override
   String get fnthinkConsentRevokeDone =>
@@ -3671,7 +3671,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkConsentGateMsg(Object action) {
-    return '\"$action\" needs the \"content relayed through the server\" consent first: everything in this family lives on that relay server (send/receive, storing and revoking ingress endpoints, pairing relationships, channel sends), and using it requires agreeing. The explanation and the consent button are on the \"Fnthink Push → Receive\" page (the full text is readable before you agree). Once you have agreed, come back here and tap this step again.';
+    return '\"$action\" requires the \"content relayed through the server\" consent first: fnthink messaging, endpoint management, pairing and channel delivery all route through the relay server. Please review and consent on the \"Fnthink → Receive Push\" page first (full text available before consent). Return here and tap again to continue';
   }
 
   @override
@@ -4509,7 +4509,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairPeerTransportError =>
-      'No reply from the server: this attempt may never have arrived, or it arrived and the answer was lost. Check the pending list on that device before resending — one code is good for one pairing';
+      'No server response within the expected window. This request may not have arrived, or its reply may have been lost in transit. Please check the peer\'s pending confirmation list before retrying; each pairing token is single-use';
 
   @override
   String get fnthinkPairPeerUnsigned =>
@@ -4602,7 +4602,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkSendReplayed =>
-      'Hit the de-duplication window: wait a moment, don\'t tap twice';
+      'Hit the de-duplication window: please wait a moment before sending to avoid duplicate dispatch';
 
   @override
   String get fnthinkSendNeedsCalibration =>
@@ -4727,7 +4727,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkEndpointPostWhy =>
-      'The token goes into the request header, not the URL, so it never lands in the reverse proxy\'s access log — this one you can copy whole.';
+      'The token is placed in the request header, not the URL, so it will not appear in reverse-proxy access logs. You can copy the full request example as-is';
 
   @override
   String get fnthinkEndpointGetWarning =>
@@ -4742,7 +4742,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkEndpointFieldAlias(String title, String body) {
-    return 'Field names differ per platform; the first non-empty one wins. Title: $title. Body: $body. No other field changes delivery — a payload carrying type/level/item is still accepted as a plain notification (this key can only send notifications; asking for an action or a setting is rejected outright). A request cannot pick the delivery target — this endpoint only delivers to this device.';
+    return 'Field names differ across platforms; the first non-empty value wins. Title candidates: $title. Body candidates: $body. Extra fields such as type／level／item are ignored; all payloads are treated as regular notifications (this token only posts notifications; requests carrying action／setting will be rejected). The delivery target cannot be specified in the request — it always targets this device only';
   }
 
   @override
@@ -5587,7 +5587,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkReadWhyBody =>
-      'Two gates must both open: (1) the switch on this page — the device owner\'s consent, off by default, closable anytime with immediate effect; (2) the system runtime permission — requested the first time you turn a switch on, changeable later in system settings. Only paired devices, over the remote-command surface, can read anything; what comes back is an ordinary message (with receipts, landing in the inbox) — not read access to the device.';
+      'Two switches must both be on: (1) the toggle on this page — the device owner\'s explicit decision, off by default, changeable anytime, takes effect immediately when turned off; (2) Android runtime permission — requested on first use, changeable anytime in system settings. Only paired devices initiating reads through the remote command surface are affected; the read content is returned as a regular message (with receipt, delivered to inbox), not as arbitrary device access';
 
   @override
   String get fnthinkReadCallsTitle => 'Call log';
@@ -6189,7 +6189,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkRemoteNeedsReceive =>
-      'Turn on Receive first - this page assumes this device is willing to receive';
+      'Please enable Receive first: the features on this page require the device to have fnthink receive enabled';
 
   @override
   String get fnthinkRemoteNeedsConsent =>

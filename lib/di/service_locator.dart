@@ -429,9 +429,9 @@ void setupLocator() {
         try {
           final raw = await AppChannels.notification
               .invokeMethod<Map<Object?, Object?>>('fnthinkReplyNotification', {
-            'sbnKey': sbnKey,
-            'text': text,
-          });
+                'sbnKey': sbnKey,
+                'text': text,
+              });
           return raw?['ok'] == true;
         } catch (e) {
           return false;
@@ -442,7 +442,9 @@ void setupLocator() {
       listReplyableNotifications: () async {
         try {
           final raw = await AppChannels.notification
-              .invokeMethod<Map<Object?, Object?>>('fnthinkListReplyableNotifications');
+              .invokeMethod<Map<Object?, Object?>>(
+                'fnthinkListReplyableNotifications',
+              );
           if (raw?['ok'] != true) return <ReplyableNotificationInfo>[];
           final list = raw?['notifications'];
           if (list is! List) return <ReplyableNotificationInfo>[];

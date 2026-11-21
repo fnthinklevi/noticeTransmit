@@ -75,6 +75,7 @@ FnthinkL3Parse parseL3Item(
   FnthinkContract contract,
   String? item, {
   bool confirmedThisTime = false,
+
   /// T189 execute 形态的参数 —— 远端指令里的 argument 字段。
   /// 必须是 JSON 对象字符串，解析后的值必须是 `Map<String, String>`。
   /// grant/toggle 形态忽略此参数。
@@ -200,8 +201,8 @@ Future<FnthinkL3Result> dispatchL3Setting(
     final done = setting.isExecute
         ? await executor.execute(setting)
         : setting.isToggle
-            ? await executor.toggle(setting)
-            : await executor.grant(setting);
+        ? await executor.toggle(setting)
+        : await executor.grant(setting);
     if (done) return const FnthinkL3Result.ok();
     return FnthinkL3Result.failed('not-applied:${setting.key}');
   } catch (e) {

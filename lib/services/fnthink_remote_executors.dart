@@ -257,15 +257,14 @@ class DeviceL3Executor implements FnthinkL3Executor {
 
   /// T189 notification:reply 的执行器。按 sbnKey 找仍驻留的系统通知 → 注入 RemoteInput。
   /// null = 这一台没接（[execute] 默认实现会返回 false）。
-  final Future<bool> Function({
-    required String sbnKey,
-    required String text,
-  })? executeReplyNotification;
+  final Future<bool> Function({required String sbnKey, required String text})?
+  executeReplyNotification;
 
   /// T189 sbnKey 传递链：列出本机当前带 RemoteInput reply action 的通知。
   /// 返回值是一条轻量记录（sbnKey + 标题 + 包名），供 UI 选一条塞进下一次指令的 argument。
   /// null 表示原生没接这条读口（极少见）。
-  final Future<List<ReplyableNotificationInfo>> Function()? listReplyableNotifications;
+  final Future<List<ReplyableNotificationInfo>> Function()?
+  listReplyableNotifications;
 
   @override
   Future<bool> grant(FnthinkL3Setting setting) async {

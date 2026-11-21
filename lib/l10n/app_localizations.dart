@@ -6472,7 +6472,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkConsentRevokeMsg.
   ///
   /// In zh, this message translates to:
-  /// **'撤销后这台立刻不再可用：经服务器的收发（收货循环下一轮就停）、远程控制、接入端点的建/换/撤、发起与批准配对、幻念通道的创建/启用与「发一条」、以及那发会带正文的测试；非浸入探针不受影响（它一个字段都不读、一条都不投）。不会删除任何东西 —— 配对名单、接入端点、幻念通道配置、收发历史与配对记录都留着。要恢复需再点一次同意（同意前仍可读全文）。'**
+  /// **'撤销后，以下功能立即停止：经服务器的收发（收货循环下一轮起中断）、远程控制、接入端点的增/改/删、发起与批准配对、幻念通道的创建/启用与发送、以及携带正文的测试。非浸入探针不受影响（仅读取能力级，不触发实际投递）。配对名单、接入端点、幻念通道配置、收发历史与配对记录不会删除。恢复需重新完成同意流程'**
   String get fnthinkConsentRevokeMsg;
 
   /// No description provided for @fnthinkConsentRevokeDone.
@@ -6490,7 +6490,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkConsentGateMsg.
   ///
   /// In zh, this message translates to:
-  /// **'「{action}」要先过「内容经服务器中转」这道同意：这一族功能的东西都放在那台中转机上（收发、接入端点的存与撤、配对关系、通道发送），要它经手就得先同意。说明与同意都在「幻念推送 → 接收推送」那一页里（同意之前可以读到全文）。同意之后回到这里，再点一次这一步就行。'**
+  /// **'「{action}」需先通过「内容经服务器中转」这一授权：幻念的收发、接入端点管理、配对关系与通道发送均经中转服务器处理，使用前请先同意。授权入口位于「幻念推送 → 接收推送」页（授权前可阅读完整说明）。授权后返回此处，再次点击即可继续'**
   String fnthinkConsentGateMsg(Object action);
 
   /// No description provided for @fnthinkConsentGateGo.
@@ -7833,7 +7833,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairPeerTransportError.
   ///
   /// In zh, this message translates to:
-  /// **'没等到服务器的回话：这一发可能没送到，也可能送到了而回信半路丢了。先看那台的待确认列表，别急着重发 —— 一枚口令只配用上一次'**
+  /// **'服务端未在预期窗口内响应。本条指令可能未送达或响应在回途中丢失。请先核对对端的待确认列表后再重试，单枚配对口令仅一次有效'**
   String get fnthinkPairPeerTransportError;
 
   /// No description provided for @fnthinkPairPeerUnsigned.
@@ -7977,7 +7977,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendReplayed.
   ///
   /// In zh, this message translates to:
-  /// **'撞上了去重窗口：等一会儿再发，别连点'**
+  /// **'命中去重窗口：请等待片刻后再发送，避免重复触发'**
   String get fnthinkSendReplayed;
 
   /// No description provided for @fnthinkSendNeedsCalibration.
@@ -8157,7 +8157,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointPostWhy.
   ///
   /// In zh, this message translates to:
-  /// **'口令只进请求头，不进网址，因此不会落到反代的访问日志里 —— 这一条可以整行复制。'**
+  /// **'令牌置于请求头而非 URL，不会出现在反代访问日志中。可直接复制完整请求示例'**
   String get fnthinkEndpointPostWhy;
 
   /// No description provided for @fnthinkEndpointGetWarning.
@@ -8181,7 +8181,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointFieldAlias.
   ///
   /// In zh, this message translates to:
-  /// **'字段名各家平台不一样，取第一个非空：标题依次看 {title}；正文依次看 {body}。其余字段不影响投递 —— 带着 type／level／item 也照收，一律按普通通知处理（这一把口令只能发通知；写着 action／setting 那种要设备做动作的，会被明确拒掉）。投递目标不能由请求指定 —— 这一把只投这台设备。'**
+  /// **'不同平台的字段名存在差异，取第一个非空值：标题依次尝试 {title}；正文依次尝试 {body}。携带 type／level／item 等字段不影响投递，一律按普通通知处理（令牌仅限投递通知，携带 action／setting 的动作请求将被明确拒绝）。投递目标不可由请求指定 —— 仅限本机接收'**
   String fnthinkEndpointFieldAlias(String title, String body);
 
   /// No description provided for @fnthinkEndpointCopyId.
@@ -9512,7 +9512,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkReadWhyBody.
   ///
   /// In zh, this message translates to:
-  /// **'两道闸都要过：① 这一页的开关 —— 本机持有者的表态，默认关、随时可关、关掉立即生效；② 系统的运行时权限 —— 第一次打开时申请，之后可在系统设置里改。只有已配对的设备、走远程指令那条面，才谈得上读；读到的内容只当一条普通消息回传（有回执、进收件箱），不是把设备的读取权交出去。'**
+  /// **'需同时启用两道开关：① 本页开关 —— 本机持有者的显式决定，默认关闭、可随时变更，关闭后立即生效；② Android 运行时权限 —— 首次使用时申请，可在系统设置中随时修改。只有已配对设备、通过远程指令面发起的读取才会生效；读取内容以普通消息形式回传（带回执、入收件箱），并非授予设备对本机的任意读取权'**
   String get fnthinkReadWhyBody;
 
   /// No description provided for @fnthinkReadCallsTitle.
@@ -10448,7 +10448,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkRemoteNeedsReceive.
   ///
   /// In zh, this message translates to:
-  /// **'先开「接收」—— 这一页的前提是这台愿意收别人的东西'**
+  /// **'请先启用接收：此页功能依赖本机开启幻念接收权限'**
   String get fnthinkRemoteNeedsReceive;
 
   /// No description provided for @fnthinkRemoteNeedsConsent.

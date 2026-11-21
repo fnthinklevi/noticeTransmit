@@ -335,14 +335,16 @@ class IosDialogActions {
                 //   （覆盖才是破坏性那一鞘）。
                 Expanded(
                   child: CupertinoDialogAction(
-                    onPressed: () => Navigator.pop(ctx, ConflictChoice.fillGaps),
+                    onPressed: () =>
+                        Navigator.pop(ctx, ConflictChoice.fillGaps),
                     child: Text(fillGapsText),
                   ),
                 ),
                 Expanded(
                   child: CupertinoDialogAction(
                     isDestructiveAction: true,
-                    onPressed: () => Navigator.pop(ctx, ConflictChoice.overwrite),
+                    onPressed: () =>
+                        Navigator.pop(ctx, ConflictChoice.overwrite),
                     child: Text(overwriteText),
                   ),
                 ),

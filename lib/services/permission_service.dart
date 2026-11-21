@@ -187,16 +187,11 @@ class PermissionService {
   Future<void> requestVivoLockData() =>
       _requestPermission('requestVivoLockData');
 
-  Future<void> requestXiaomiSleep() =>
-      _requestPermission('requestXiaomiSleep');
-  Future<void> requestMeizuSleep() =>
-      _requestPermission('requestMeizuSleep');
-  Future<void> requestHuaweiSleep() =>
-      _requestPermission('requestHuaweiSleep');
-  Future<void> requestOppoSleep() =>
-      _requestPermission('requestOppoSleep');
-  Future<void> requestVivoSleep() =>
-      _requestPermission('requestVivoSleep');
+  Future<void> requestXiaomiSleep() => _requestPermission('requestXiaomiSleep');
+  Future<void> requestMeizuSleep() => _requestPermission('requestMeizuSleep');
+  Future<void> requestHuaweiSleep() => _requestPermission('requestHuaweiSleep');
+  Future<void> requestOppoSleep() => _requestPermission('requestOppoSleep');
+  Future<void> requestVivoSleep() => _requestPermission('requestVivoSleep');
 
   Future<void> requestXiaomiWifiSleep() =>
       _requestPermission('requestXiaomiWifiSleep');
