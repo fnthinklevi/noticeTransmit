@@ -422,6 +422,8 @@ void setupLocator() {
       collectInboxEnabled: () async => getIt<FnthinkSettings>().receiveEnabled,
       setCollectInboxEnabled: (enabled) async {
         await getIt<FnthinkSettings>().setReceiveEnabled(enabled);
+        // 与页面开关同一条口径：收件与通知监听共用前台服务，改完要让原生重算前台身份。
+        await getIt<FnthinkPresenceScheduler>().refreshForeground();
         return true;
       },
       // T189 notification:reply —— MethodChannel 到原生 NotificationMonitorService.replyToNotification

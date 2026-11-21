@@ -91,8 +91,8 @@ class ForegroundNotificationContractTest {
             block.contains("notificationManager.cancel(FOREGROUND_ID)"),
         )
         assertTrue(
-            "refreshForegroundVisibility 应按 monitoringEnabled 决定显隐",
-            block.contains("monitoringEnabled"),
+            "refreshForegroundVisibility 应按 foregroundWanted 决定显隐（监听或收件任一开着）",
+            block.contains("foregroundWanted()"),
         )
     }
 
@@ -119,13 +119,71 @@ class ForegroundNotificationContractTest {
             "private fun updateForegroundNotification()",
         )
         assertTrue(
-            "updateForegroundNotification 缺少 monitoringEnabled 守卫 —— 停止监听后，" +
+            "updateForegroundNotification 缺少 foregroundWanted 守卫 —— 两个功能都关着后，" +
                 "在途推送/延时聚合会把「正在监听通知」重新贴回状态栏",
-            block.contains("!monitoringEnabled"),
+            block.contains("!foregroundWanted()"),
         )
         assertTrue(
             "停着时应走 stopForegroundCompat（撤掉通知），不是 notify",
             block.contains("stopForegroundCompat()"),
+        )
+    }
+
+    @Test
+    fun `前台身份由监听或幻念收件任一开关决定（共用同一条通知）`() {
+        val block = extractFunction(serviceSource, "private fun foregroundWanted()")
+        assertTrue(
+            "foregroundWanted 必须同时读 monitoringEnabled 与幻念收件开关 —— " +
+                "只开收件的那台设备也要有前台身份，否则会被 ROM 按 UID 冻结",
+            block.contains("monitoringEnabled") &&
+                block.contains("fnthinkReceiveEnabled()"),
+        )
+        val receiveBlock = extractFunction(serviceSource, "private fun fnthinkReceiveEnabled()")
+        assertTrue(
+            "收件开关必须读 Dart 落盘的那一份（FnthinkPresenceAlarm.receiveEnabled）",
+            receiveBlock.contains("FnthinkPresenceAlarm(this).receiveEnabled()"),
+        )
+        assertTrue(
+            "refreshForegroundFromPrefs / ensureForegroundForReceive 是 Dart 开关翻完后的对账入口",
+            serviceSource.contains("internal fun refreshForegroundFromPrefs()") &&
+                serviceSource.contains("internal fun ensureForegroundForReceive(context: Context)"),
+        )
+    }
+
+    @Test
+    fun `只开幻念收件时通知不给推送按钮、也不贴监听断开警告`() {
+        val block = extractFunction(serviceSource, "private fun buildForegroundNotification()")
+        assertTrue(
+            "监听断开警告必须挂在 monitoringEnabled 下 —— 只开收件时那条警告不成立",
+            block.contains("monitoringEnabled && !listenerConnected"),
+        )
+        assertTrue(
+            "只开收件时应使用 serviceFnthinkReceiving 文案",
+            block.contains("I18n.serviceFnthinkReceiving()"),
+        )
+        assertTrue(
+            "两个都开时文案应说清两件事都在跑",
+            block.contains("serviceListeningWithFnthink") &&
+                block.contains("servicePushPausedWithFnthink"),
+        )
+        assertTrue(
+            "推送启停按钮只在监听开着时才给（只开收件时按了不生效）",
+            block.contains("if (monitoringEnabled) {"),
+        )
+    }
+
+    @Test
+    fun `收件态的前台通知文案中英齐备`() {
+        for (text in listOf("幻念收件运行中", "Fnthink inbox receiving")) {
+            assertTrue("I18n 缺少收件态文案：$text", i18nSource.contains(text))
+        }
+        assertTrue(
+            "两种功能并存时的文案应包含收件态（中文）",
+            i18nSource.contains("幻念收件运行中 · 当日已推送"),
+        )
+        assertTrue(
+            "两种功能并存时的文案应包含收件态（英文）",
+            i18nSource.contains("Fnthink inbox receiving · "),
         )
     }
 

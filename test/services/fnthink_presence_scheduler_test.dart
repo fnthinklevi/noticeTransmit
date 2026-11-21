@@ -427,4 +427,35 @@ void main() {
       expect(scheduledSeconds(), contract.pollIntervalRange.max);
     });
   });
+
+  group('前台身份对账（收件与通知监听共用同一条常驻通知）', () {
+    test('refreshForeground ⇒ 调原生 refreshFnthinkForeground', () async {
+      mockAppChannel(reply: true);
+      final scheduler = FnthinkPresenceScheduler(
+        contracts: loaderFrom(realContractText),
+      );
+
+      await scheduler.refreshForeground();
+
+      expect(
+        calls.where((c) => c.method == 'refreshFnthinkForeground'),
+        hasLength(1),
+        reason: '收件开关翻完不叫这一发 ⇒ 只开收件的设备没有前台身份，会被 ROM 冻结',
+      );
+    });
+
+    test('原生那一发抛了 ⇒ 不把异常交给调用方（开关那一发不受影响）', () async {
+      stubNativeChannels(
+        onCall: (call) async {
+          calls.add(call);
+          throw PlatformException(code: 'boom');
+        },
+      );
+      final scheduler = FnthinkPresenceScheduler(
+        contracts: loaderFrom(realContractText),
+      );
+
+      await expectLater(scheduler.refreshForeground(), completes);
+    });
+  });
 }

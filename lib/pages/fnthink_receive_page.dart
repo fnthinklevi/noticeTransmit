@@ -560,6 +560,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
     // T197 片2：总开关也是锁屏持锁的判据之一；屏幕可能一直灭着，
     // 不主动对账就要等下一次 5 分钟续期才放/收锁。
     await _deps.presence.refreshScreenLock();
+    // 收件与通知监听共用同一条常驻通知：开关一翻就让原生重算前台身份
+    // （关掉且监听也关着时才撤；开着但没有前台身份会被 ROM 冻结）。
+    await _deps.presence.refreshForeground();
     if (value) {
       final result = await _coordinator.startIfEnabled();
       if (!mounted) return;

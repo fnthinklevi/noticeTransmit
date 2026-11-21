@@ -92,14 +92,14 @@ void main() {
       );
     });
 
-    test('栏里那两句与桌面上那句，三个读数全走同一个口子', () {
+    test('栏里的四态与桌面上那句，读数全走同一个口子', () {
       final native = kotlinAll();
-      // 三处 = 常驻通知的两态（监听中／已暂停，同一句话的两种时态）+ 桌面小部件那句。
-      // 长出第四处 ⇒ 又有一个显示面在别处取数；少一处 ⇒ 有一个显示面没人作了。
+      // 两处 = 常驻通知（监听中／已暂停／两者并存／只收件，四种文案共用一次读取）+
+      // 桌面小部件那句。长出第三处 ⇒ 又有一个显示面在别处取数。
       expect(
         'DailyPushCounter.todayCount('.allMatches(native).length,
-        3,
-        reason: '三个读数（栏里两态 + 小部件）必须都读这一个作者',
+        2,
+        reason: '栏里四态共用一次读取，加上小部件，只该有两处',
       );
       expect(
         read('android/app/src/main/kotlin/com/fnthink/notice/I18n.kt')

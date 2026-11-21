@@ -137,9 +137,12 @@ class DailyPushCounterTest {
         )
         val body = methodBody(service, "private fun buildForegroundNotification()")
         assertTrue(
-            "栏里那两句（监听中／已暂停）的计数不再来自同一个作者 ⇒ 又会分叉",
-            body.contains("I18n.serviceListening(DailyPushCounter.todayCount(this))") &&
-                body.contains("I18n.servicePushPaused(DailyPushCounter.todayCount(this))"),
+            "栏里的计数应只有一个读取点（`val count`），四种状态都传同一份 ⇒ 两处各读一次会分叉",
+            body.contains("DailyPushCounter.todayCount(this)") &&
+                body.contains("I18n.serviceListening(count)") &&
+                body.contains("I18n.servicePushPaused(count)") &&
+                body.contains("I18n.serviceListeningWithFnthink(count)") &&
+                body.contains("I18n.servicePushPausedWithFnthink(count)"),
         )
         assertTrue(
             "小部件那句「当日已推送」读的不是同一个作者",

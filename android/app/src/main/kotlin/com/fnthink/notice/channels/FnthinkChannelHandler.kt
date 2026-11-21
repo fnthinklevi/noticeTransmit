@@ -19,6 +19,7 @@ import com.fnthink.notice.FnthinkPresenceAlarm
 import com.fnthink.notice.FnthinkPresenceWorker
 import com.fnthink.notice.FnthinkScreenLock
 import com.fnthink.notice.LocationFix
+import com.fnthink.notice.NotificationMonitorService
 import com.fnthink.notice.SmsSearch
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -216,6 +217,18 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             // 这一支只做「按此刻的屏幕与 prefs 重新对账」，不持有第二份判据。
             "refreshFnthinkScreenLock" -> {
                 FnthinkScreenLock.refresh(context)
+                result.success(true)
+            }
+            // 幻念收件与通知监听共用同一颗前台服务（见 NotificationMonitorService.foregroundWanted）：
+            // 开关一翻就立刻重算前台身份。不主动叫的话，只开收件的设备要等下一次 onCreate
+            // 才有前台身份，那段时间会被 ROM 的 UID 冻结（SSE 门铃读不到）。
+            // 开的那一下顺带把服务拉起；关的那一下只让已有实例重算（监听也关着就撤通知）。
+            "refreshFnthinkForeground" -> {
+                if (FnthinkPresenceAlarm(context).receiveEnabled()) {
+                    NotificationMonitorService.ensureForegroundForReceive(context)
+                } else {
+                    NotificationMonitorService.refreshForegroundFromPrefs()
+                }
                 result.success(true)
             }
             // T181 B：常驻前台服务里的高频轮询档。Dart 侧每轮都会续一次，

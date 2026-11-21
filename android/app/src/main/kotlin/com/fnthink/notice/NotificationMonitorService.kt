@@ -68,11 +68,49 @@ class NotificationMonitorService : NotificationListenerService() {
         @Volatile
         internal var instance: NotificationMonitorService? = null
 
+        /**
+         * Dart 改完幻念收件开关后叫一次：重读两个开关并重算前台身份。
+         *
+         * 服务没起来时由调用方先拉起（见 [ensureForegroundForReceive]）—— 这一层只处理已有实例。
+         */
+        internal fun refreshForegroundFromPrefs() {
+            instance?.apply {
+                monitoringEnabled = readMonitoringEnabled()
+                refreshForegroundVisibility()
+            }
+        }
+
+        /**
+         * 收件开关打开时确保服务活着并拿到前台身份。
+         *
+         * 为什么这条路上要拉起服务：只开幻念收件、从没开过通知监听的那台设备，服务可能还没被
+         * 任何人启动过；没有前台身份就会被 ROM（实测 MIUI Greeze）冻结，SSE 读不到门铃。
+         * 调用点在用户翻开关的页面（进程在前台），所以这里可以合法地 startForegroundService。
+         */
+        internal fun ensureForegroundForReceive(context: Context) {
+            if (instance != null) {
+                refreshForegroundFromPrefs()
+                return
+            }
+            try {
+                val intent = Intent(context, NotificationMonitorService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start foreground service for fnthink receive", e)
+            }
+        }
+
         // 常驻通知 id。`internal` 是给 MainActivity.stopNotificationListener 的兜底撤除用：
         // 服务被 ROM 回收时那一发 ACTION 没人收，只剩界面侧还能把残留的通知撤掉。
         internal const val FOREGROUND_ID = 1001
         private const val CHANNEL_ID = "notification_monitor_channel"
-        private const val CHANNEL_NAME = "通知监听"
+        // 渠道名不再只叫"通知监听"：这条常驻通知现在同时服务通知监听与幻念收件
+        // （任一开着就显示），名字必须对两件事都成立。
+        private const val CHANNEL_NAME = "后台服务"
         const val ACTION_UPDATE_CONFIG = "com.fnthink.notice.UPDATE_CONFIG"
         const val ACTION_SET_MONITORING = "com.fnthink.notice.SET_MONITORING"
         const val EXTRA_MONITORING_ENABLED = "monitoring_enabled"
@@ -231,14 +269,23 @@ class NotificationMonitorService : NotificationListenerService() {
     //  - App 首次冷启动前 `fnthink_service_handle` 还不存在；
     //  - 用户可能中途才开启幻念通道（配置读的是当下值）；
     //  - 引擎僵尸由 `FnthinkServiceEngine` 自己按 alive 超时重建，这里只负责叫它。
+    // 同一轮顺手对账幻念收件开关：它与通知监听共用同一条常驻通知（见 [foregroundWanted]）。
     private fun startFnthinkServiceEngineLoop() {
         serviceScope.launch {
+            var lastReceive: Boolean? = null
             while (isActive) {
                 try {
+                    val receive =
+                        FnthinkPresenceAlarm(this@NotificationMonitorService).receiveEnabled()
                     val wanted =
-                        configManager.getFnthinkChannelConfigs().isNotEmpty() ||
-                            FnthinkPresenceAlarm(this@NotificationMonitorService).receiveEnabled()
+                        configManager.getFnthinkChannelConfigs().isNotEmpty() || receive
                     FnthinkServiceEngine.ensure(applicationContext, wanted)
+                    // 备份恢复等路径会直接改 prefs、不经过 MethodChannel；这里只按变化对账，
+                    // 让前台身份跟上（首次不动：onCreate 已按当前值算过一次）。
+                    if (lastReceive != null && lastReceive != receive) {
+                        refreshForegroundVisibility()
+                    }
+                    lastReceive = receive
                 } catch (e: Exception) {
                     Log.w(TAG, "fnthink-service-engine ensure failed", e)
                 }
@@ -1136,6 +1183,24 @@ class NotificationMonitorService : NotificationListenerService() {
         }
     }
 
+    /** Dart 写的那份幻念收件总开关（`flutter.fnthink.receive_enabled`）。读不到按关。 */
+    private fun fnthinkReceiveEnabled(): Boolean = try {
+        FnthinkPresenceAlarm(this).receiveEnabled()
+    } catch (_: Exception) {
+        false
+    }
+
+    /**
+     * 前台身份的需求：通知监听**或**幻念收件任一开着。
+     *
+     * 两个功能共用这一颗服务与同一条常驻通知，不各自再起一条。收件也要前台身份，是因为
+     * ROM（实测 MIUI Greeze，日志 `reason: UidFrozen`）会冻结后台 UID：冻结期间 SSE 字节
+     * 读不到、门铃不响，只剩 300s 兜底闹钟 ⇒ 最长 5 分钟延迟。前台服务是系统不冻结的那一档。
+     */
+    private fun foregroundWanted(): Boolean {
+        return monitoringEnabled || fnthinkReceiveEnabled()
+    }
+
     private fun applyMonitoringState() {
         if (monitoringEnabled) {
             startForegroundService()
@@ -1155,7 +1220,9 @@ class NotificationMonitorService : NotificationListenerService() {
                 } catch (_: Exception) {}
             }
             batteryChangedReceiver = null
-            stopForegroundCompat()
+            // 监听停了，但前台身份还要看幻念收件：两者共用同一条通知。走统一显隐入口，
+            // 文案会从"正在监听…"换成"幻念收件运行中"；两个都关才撤通知。
+            refreshForegroundVisibility()
             refreshWidgetsQuietly()
             Log.i(TAG, "Monitoring disabled")
         }
@@ -1167,9 +1234,8 @@ class NotificationMonitorService : NotificationListenerService() {
      * 1. 通知权限（POST_NOTIFICATIONS）未授予 → 直接隐藏（cancel，含清理权限被撤
      *    前显示过的残留；此后 startForeground 仍会调用以满足 5s 约束，但系统不会
      *    展示任何通知，且此处会继续 cancel 防残留）。
-     * 2. 已授予 → 按 monitoringEnabled 显示或隐藏；内容文案由
-     *    buildForegroundNotification 依 listenerConnected / pushActive 决定
-     *    （使用权断开时显示「未授予通知读取权限，通知监听已暂停」）。
+     * 2. 已授予 → 按 [foregroundWanted]（监听或幻念收件任一开着）显示或隐藏；
+     *    内容文案由 buildForegroundNotification 依监听状态 / pushActive / 收件开关决定。
      *
      * 所有显隐变化（开始/停止/使用权断开重连/初始化）都经此入口，保证各场景
      * 的显示与消失及时准确。
@@ -1182,11 +1248,11 @@ class NotificationMonitorService : NotificationListenerService() {
             Log.i(TAG, "Foreground notification hidden: POST_NOTIFICATIONS not granted")
             return
         }
-        if (monitoringEnabled) {
-            // 场景 1 / 4 / 5a：显示（内容随 listenerConnected / pushActive 变化）
+        if (foregroundWanted()) {
+            // 场景 1 / 4 / 5a：显示（内容随 listenerConnected / pushActive / 收件开关变化）
             startForegroundService()
         } else {
-            // 场景 2：停止监听 → 立即消失
+            // 场景 2：监听与收件都关着 → 立即消失
             stopForegroundCompat()
         }
     }
@@ -1524,8 +1590,9 @@ class NotificationMonitorService : NotificationListenerService() {
         // 旧写法只判通知权限，于是这几条路都会把「正在监听通知」重新贴回状态栏：
         // 停止那一刻还在途的 dispatchToChannels 回调、已排期的延时/聚合推送、
         // 以及按钮触发的 refresh。用户已经点了停止，界面却说在监听 —— 这正是真机
-        // 现象。这里统一按总开关收口：关着就只做"撤掉"，绝不 notify。
-        if (!monitoringEnabled) {
+        // 现象。这里统一按 [foregroundWanted] 收口：两个功能都关着才撤，否则 notify
+        // 会按当前状态重建文案（只开收件时不会再把"正在监听"贴回去）。
+        if (!foregroundWanted()) {
             stopForegroundCompat()
             return
         }
@@ -1554,13 +1621,21 @@ class NotificationMonitorService : NotificationListenerService() {
 
         val pushActive = PushToggleManager.isPushActive()
         val title = I18n.serviceTitle()
-        // 监听断开优先显示警告（此时既收不到通知也不推送），避免用户误以为服务正常
-        val contentText = if (!listenerConnected) {
-            I18n.serviceListenerDisconnected()
-        } else if (pushActive) {
-            I18n.serviceListening(DailyPushCounter.todayCount(this))
-        } else {
-            I18n.servicePushPaused(DailyPushCounter.todayCount(this))
+        val receiveActive = fnthinkReceiveEnabled()
+        val count = DailyPushCounter.todayCount(this)
+        // 文案四态：监听断开（只在监听开着时才算警告）/ 监听+收件 / 只监听 / 只收件。
+        // 监听关着而收件开着时，"断开/暂停"这些句子都不成立。
+        val contentText = when {
+            monitoringEnabled && !listenerConnected ->
+                // 监听断开优先显示警告（此时既收不到通知也不推送），避免用户误以为服务正常
+                I18n.serviceListenerDisconnected()
+            monitoringEnabled && receiveActive ->
+                if (pushActive) I18n.serviceListeningWithFnthink(count)
+                else I18n.servicePushPausedWithFnthink(count)
+            monitoringEnabled ->
+                if (pushActive) I18n.serviceListening(count)
+                else I18n.servicePushPaused(count)
+            else -> I18n.serviceFnthinkReceiving()
         }
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -1602,20 +1677,23 @@ class NotificationMonitorService : NotificationListenerService() {
             }
         }
 
-        // 推送启停 Action 按钮（点击触发 PushToggleActionReceiver）
-        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        if (pushActive) {
-            val pauseIntent = Intent(this, PushToggleActionReceiver::class.java).apply {
-                action = PushToggleActionReceiver.ACTION_PAUSE_PUSH
+        // 推送启停 Action 按钮（点击触发 PushToggleActionReceiver）。
+        // 只在监听功能开着时给：只开幻念收件时，这枚按钮按下去不影响任何东西。
+        if (monitoringEnabled) {
+            val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            if (pushActive) {
+                val pauseIntent = Intent(this, PushToggleActionReceiver::class.java).apply {
+                    action = PushToggleActionReceiver.ACTION_PAUSE_PUSH
+                }
+                val pausePi = PendingIntent.getBroadcast(this, 1, pauseIntent, piFlags)
+                builder.addAction(0, I18n.actionPausePush(), pausePi)
+            } else {
+                val resumeIntent = Intent(this, PushToggleActionReceiver::class.java).apply {
+                    action = PushToggleActionReceiver.ACTION_RESUME_PUSH
+                }
+                val resumePi = PendingIntent.getBroadcast(this, 2, resumeIntent, piFlags)
+                builder.addAction(0, I18n.actionResumePush(), resumePi)
             }
-            val pausePi = PendingIntent.getBroadcast(this, 1, pauseIntent, piFlags)
-            builder.addAction(0, I18n.actionPausePush(), pausePi)
-        } else {
-            val resumeIntent = Intent(this, PushToggleActionReceiver::class.java).apply {
-                action = PushToggleActionReceiver.ACTION_RESUME_PUSH
-            }
-            val resumePi = PendingIntent.getBroadcast(this, 2, resumeIntent, piFlags)
-            builder.addAction(0, I18n.actionResumePush(), resumePi)
         }
 
         return builder.build()

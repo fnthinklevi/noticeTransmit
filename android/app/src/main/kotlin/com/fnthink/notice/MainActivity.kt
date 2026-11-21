@@ -1736,9 +1736,14 @@ class MainActivity : FlutterActivity() {
         // ② 停止那一刻还有在途推送（见 NotificationMonitorService.updateForegroundNotification 的守卫）。
         // 这里按同一个 id 直接撤一次 —— 服务还活着时 applyMonitoringState(false) 本来也会撤，
         // 这只是一枚双保险，不改变「监听组件保持启用」的语义。
+        // ⚠ 幻念收件还开着时这条通知归它用（两个功能共用同一条常驻通知）——
+        //   此时撤掉会在前台服务还活着的情况下抹掉它的通知，所以只让服务自己按
+        //   foregroundWanted 重算（上面那一发 ACTION 会做）。
         try {
-            (getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)
-                ?.cancel(NotificationMonitorService.FOREGROUND_ID)
+            if (!FnthinkPresenceAlarm(this).receiveEnabled()) {
+                (getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)
+                    ?.cancel(NotificationMonitorService.FOREGROUND_ID)
+            }
         } catch (e: Exception) {
             Log.w("MainActivity", "cancel foreground notification failed", e)
         }

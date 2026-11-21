@@ -268,6 +268,17 @@ object I18n {
         if (isEn) "Push paused · $count pushed today"
         else "推送已暂停 · 当日已推送 $count 条"
 
+    // 幻念收件与通知监听共用同一条常驻通知（见 NotificationMonitorService.foregroundWanted）：
+    // 只开收件时监听那几句都不成立，得有自己的文案；两个都开时说清两件事都在跑。
+    fun serviceFnthinkReceiving(): String =
+        if (isEn) "Fnthink inbox receiving" else "幻念收件运行中"
+    fun serviceListeningWithFnthink(count: Int): String =
+        if (isEn) "Listening · Fnthink inbox receiving · $count pushed today"
+        else "正在监听通知 · 幻念收件运行中 · 当日已推送 $count 条"
+    fun servicePushPausedWithFnthink(count: Int): String =
+        if (isEn) "Push paused · Fnthink inbox receiving · $count pushed today"
+        else "推送已暂停 · 幻念收件运行中 · 当日已推送 $count 条"
+
     // ========== 幻念推送 · 收件通知渠道（T48 前置）==========
     // 渠道名要能一眼看出"这是别人推给我的消息"，与前台服务那条常驻通知（"通知推送助手"）分开：
     // 用户在系统设置里是按渠道关通知的，名字混了就关错那一个。

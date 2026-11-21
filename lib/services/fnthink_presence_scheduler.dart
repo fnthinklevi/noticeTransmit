@@ -194,6 +194,19 @@ class FnthinkPresenceScheduler {
     }
   }
 
+  /// 幻念收件开关翻完之后，让原生重算前台身份。
+  ///
+  /// 收件与通知监听**共用同一颗前台服务与同一条常驻通知**：只开收件的那台设备也要有
+  /// 前台身份，否则 ROM 会按 UID 冻结进程（冻结期间 SSE 字节读不到，只剩 300s 兜底闹钟）。
+  /// 原生自己读 prefs，这里不传状态；失败只留日志，不能让开关那一发报错。
+  Future<void> refreshForeground() async {
+    try {
+      await _channel.invokeMethod<void>('refreshFnthinkForeground');
+    } catch (e) {
+      debugPrint('[fnthink] 前台身份刷新失败：$e');
+    }
+  }
+
   /// 读回原生那份状态（"到底还有没有人醒"）。界面上那一行与排查用的日志都从这里取。
   Future<FnthinkPresenceStatus> status() async {
     final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>(
