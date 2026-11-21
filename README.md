@@ -16,7 +16,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.7/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.8/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — 软件介绍、客户端下载与后台管理入口
@@ -87,7 +87,7 @@
 - 🧠 **规则约束** —— 可视化配置条件组合（IF）与动作（THEN），条件支持应用 / 关键词 / 通知优先级 / 时段等；动作原生真实执行：静默忽略 / 仅记录 / 延迟推送 / 立即推送
 - 🧪 **规则测试器** —— 输入模拟通知，实时展示「过滤 → 规则匹配 → 最终动作」完整命中链路
 - 📚 **规则模板库** —— 内置 5 套预设（验证码优先推送 / 营销广告拦截 / 夜间免打扰 / 社交消息聚合 / 白名单关键词直通）一键导入；自定义规则可存为模板；模板可导出 `.json` 分享，导出时可设口令加密（PBKDF2 210k + AES-256-GCM）
-- 📦 **应用通知聚合** —— 同一应用的通知在窗口期内（默认 60 秒，最小 5 秒）合并为一条；支持「满 N 条提前推送」与「按会话分组」；模板支持 `%count%`/`%titles%` 变量；聚合期间前台实时展示待合并列表；无论成败成员内容都先完整入历史并逐条标注真实送达状态
+- 📦 **应用通知聚合** —— 同一应用的通知在窗口期内（默认 5 秒，最小 5 秒）合并为一条；支持「满 N 条提前推送」与「按会话分组」；模板支持 `%count%`/`%titles%` 变量；聚合期间前台实时展示待合并列表；无论成败成员内容都先完整入历史并逐条标注真实送达状态
 - 🏷️ **通知优先级分级** —— 原生链路提取系统通知优先级（高/中/低），可作为规则匹配条件
 - ⏰ **定时 / 延迟推送** —— 延迟秒数或定时时间 HH:mm，到点自动补推 webhook 与邮件；进程被杀或重启后任务自动恢复
 - 📝 **推送模板引擎** —— 自定义消息格式（text/markdown/json/xml），变量占位符（`%appName%`/`%title%`/`%content%`/`%battery%`/`%network%`），按平台自动包裹 payload 与转义，每条通道独立配置
@@ -461,7 +461,7 @@ push 到仓库本体时漂移由 CI 自动校平并回写（`--fix`），PR / fo
 | Dart 测试行数（test/） | 94784 行 <!--k:dart_loc_test--> |
 | Kotlin 源码行数（android main） | 24819 行 <!--k:kotlin_loc_main--> |
 | Kotlin 测试行数（android test） | 15268 行 <!--k:kotlin_loc_test--> |
-| 应用版本（pubspec） | 1.6.7+167 <!--k:app_version--> |
+| 应用版本（pubspec） | 1.6.8+168 <!--k:app_version--> |
 | 数据库 schema 版本 | 29 v <!--k:db_version--> |
 | Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK 地板（pubspec） | 3.13.0 <!--k:dart_sdk--> |

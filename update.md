@@ -2,6 +2,43 @@
 
 > 每个版本条目均为中英双版：先完整中文版，分隔线后为逐条对应的英文翻译。
 
+### v1.6.8+168 - 2026-11-21
+
+**幻念收件应用名与连发延迟修复（1.6.8）**
+
+📥 幻念收件
+- 修复通过幻念 webhook／端点收到的消息不显示来源应用名：poll 投影补上 `appName`，
+  历史行、详情与通知栏都能看到（此前只剩标题与正文）
+- 签名面与端点面共用同一份显示口径；不带应用名的消息仍不画空标签
+
+⚡ 收货即时性
+- 修复连发两条消息时第二条最长要等 5 分钟：门铃叫醒的那一轮现在会接管轮询定时器，
+  丢一次唤醒也最多 20 秒补取（实测第二条曾晚 6 分 37 秒）
+
+🎛 默认规则
+- 夜间免打扰默认关闭（22:00–07:00 静默改为用户主动开启）
+- 通知聚合默认窗口改为 5 秒（同应用通知 5 秒内合并为一条）
+
+---
+
+**Fnthink inbox app name & rapid-message delay fixes (1.6.8)**
+
+📥 Fnthink inbox
+- Fixed the source app name missing on messages received through the Fnthink webhook/endpoint:
+  the poll projection now carries `appName`, so history rows, details and the notification title show it
+  (previously only title and body)
+- Signed and endpoint messages share the same display rule; messages without an app name still show no empty label
+
+⚡ Receive timeliness
+- Fixed the second of two rapid messages waiting up to 5 minutes: the stream-wake round now takes over
+  the poll timer, so a missed wake is recovered within 20 seconds (a measured second message was once 6m37s late)
+
+🎛 Default rules
+- Night quiet hours are now off by default (22:00–07:00 silence is opt-in)
+- The default notification aggregation window is now 5 seconds (same-app notifications merge within 5s)
+
+---
+
 ### v1.6.7+167 - 2026-11-21
 
 **长后台启动与历史丢失修复（1.6.7）**

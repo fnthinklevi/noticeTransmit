@@ -16,7 +16,7 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 [![AGP](https://badgen.net/badge/AGP/9.4.1/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.8.2/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.6.7/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.6.8/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
 
 🌐 **Official site**: [notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — introduction, client download and admin console
@@ -84,11 +84,11 @@ Fully bilingual (zh / en ARB; key count in the readings table under "Quality & C
 
 ### Rules & Automation
 
-- 🧠 **Rule Constraints** — visual configuration of notification rules, condition combination (IF) and action configuration (THEN), a feature guide on first entry, built-in default rules including verification-code priority push, marketing ad blocking, night do-not-disturb and app notification aggregation (ready out of the box; missing rules are filled in automatically on upgrade); rule priority supports quick presets and custom values (0-500), and each rule can exclude specific apps (a "Quick Select" area auto-detects mainstream messaging / email apps installed on the device, with system SMS & phone components merged into single rows offering three-state group toggles, pinned on top)
+- 🧠 **Rule Constraints** — visual configuration of notification rules, condition combination (IF) and action configuration (THEN), a feature guide on first entry, built-in default rules including verification-code priority push, marketing ad blocking, night do-not-disturb (off by default) and app notification aggregation (ready out of the box; missing rules are filled in automatically on upgrade); rule priority supports quick presets and custom values (0-500), and each rule can exclude specific apps (a "Quick Select" area auto-detects mainstream messaging / email apps installed on the device, with system SMS & phone components merged into single rows offering three-state group toggles, pinned on top)
 - 🧪 **Rule Tester** — enter a simulated notification and see the full trace in real time: filter → rule matching → final action, so rule issues are obvious at a glance
 - 📚 **Rule Template Library** — five built-in presets (verification-code priority / marketing ad blocking / night do-not-disturb / social message aggregation / whitelist keyword express) importable in one tap; custom rules can be saved as templates for reuse (same name overwrites); templates export as a `.json` file, optionally password-protected with the same PBKDF2 210k + AES-256-GCM scheme as config backup, and import auto-detects plain / encrypted format
 - 📤 **Batch re-push for failed records** — filter failed records in push history and re-push them in one tap; failed pushes are auto-retried (on network recovery / service restart)
-- 📦 **App Notification Aggregation** — notifications from the same app are merged into a single push within a window (60 s by default, configurable, 5 s minimum), greatly reducing message floods; supports "flush early at N items" (no need to wait for the window) and "group by conversation" (same app, different contacts aggregate separately); custom templates support `%count%` / `%titles%` variables and rule conditions support the `*` wildcard to match any app; a single message during the window is sent as a normal push; while merging, the foreground notification shows the pending list with a countdown; whether aggregation succeeds or fails, member content is always saved to push history first, and each member record is labeled with its real delivery status
+- 📦 **App Notification Aggregation** — notifications from the same app are merged into a single push within a window (5 s by default, configurable, 5 s minimum), greatly reducing message floods; supports "flush early at N items" (no need to wait for the window) and "group by conversation" (same app, different contacts aggregate separately); custom templates support `%count%` / `%titles%` variables and rule conditions support the `*` wildcard to match any app; a single message during the window is sent as a normal push; while merging, the foreground notification shows the pending list with a countdown; whether aggregation succeeds or fails, member content is always saved to push history first, and each member record is labeled with its real delivery status
 - 🏷️ **Notification Priority Levels** — system notification priority (high / medium / low) extracted natively, matchable via the "notification priority" condition; rule actions truly executed natively — silent ignore / record only / delayed push / push now
 - ⏰ **Scheduled / Delayed Push** — "delayed push" action configurable (delay seconds / schedule HH:mm), auto re-push webhook & mail when due (may be delayed by minutes in deep Doze), tasks auto-recover after process kill or reboot
 - 📝 **Push Template Engine** — custom message format (text / markdown / json / xml), variable placeholders (`%appName%` / `%title%` / `%content%` / `%battery%` / `%network%`), auto-wrapped and escaped per platform, configured independently per channel
@@ -464,7 +464,7 @@ committed back (`--fix`), while PR / fork runs fail the build and ask for a loca
 | Dart test lines (test/) | 94784 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 24819 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 15268 <!--k:kotlin_loc_test--> |
-| App version (pubspec) | 1.6.7+167 <!--k:app_version--> |
+| App version (pubspec) | 1.6.8+168 <!--k:app_version--> |
 | Database schema version | 29 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK floor (pubspec) | 3.13.0 <!--k:dart_sdk--> |
