@@ -173,6 +173,25 @@ class ForegroundNotificationContractTest {
     }
 
     @Test
+    fun `常驻通知被用户划掉后由 ensure 环补回（最多 30 秒）`() {
+        val block = extractFunction(serviceSource, "private fun startFnthinkServiceEngineLoop()")
+        assertTrue(
+            "ensure 环缺少补回判断 —— 用户划掉前台通知后不会再回来",
+            block.contains("hasForegroundNotification()") &&
+                block.contains("startForegroundService()"),
+        )
+        assertTrue(
+            "补回前必须看通知权限（撤了补也不会显示，只是每半分钟白做一次）",
+            block.contains("areNotificationsEnabled()"),
+        )
+        val helper = extractFunction(serviceSource, "private fun hasForegroundNotification()")
+        assertTrue(
+            "补回判据必须读 activeNotifications（划掉后那条会从列表里消失）",
+            helper.contains("activeNotifications") && helper.contains("FOREGROUND_ID"),
+        )
+    }
+
+    @Test
     fun `收件态的前台通知文案中英齐备`() {
         for (text in listOf("幻念收件运行中", "Fnthink inbox receiving")) {
             assertTrue("I18n 缺少收件态文案：$text", i18nSource.contains(text))

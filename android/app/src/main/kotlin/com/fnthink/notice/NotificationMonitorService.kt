@@ -286,6 +286,15 @@ class NotificationMonitorService : NotificationListenerService() {
                         refreshForegroundVisibility()
                     }
                     lastReceive = receive
+                    // 用户可以把前台服务通知划掉（Android 13+ 允许），服务本身仍在前台。
+                    // 每 30 秒对一次账：该有通知却不在时补回去（被划掉后最多 30 秒回来）。
+                    // 通知权限被撤时不补（补了也不会显示，只是每半分钟白做一次）。
+                    if (foregroundWanted() &&
+                        notificationManager.areNotificationsEnabled() &&
+                        !hasForegroundNotification()
+                    ) {
+                        startForegroundService()
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "fnthink-service-engine ensure failed", e)
                 }
@@ -1226,6 +1235,19 @@ class NotificationMonitorService : NotificationListenerService() {
             refreshWidgetsQuietly()
             Log.i(TAG, "Monitoring disabled")
         }
+    }
+
+    /**
+     * 自己那条常驻通知还在不在（用户划掉、系统清理都会让它不在）。
+     *
+     * Android 13+ 允许用户划掉前台服务通知，而服务仍留在前台 —— 补回机制靠这一枚判断。
+     * 读不到 `activeNotifications`（个别 ROM 会抛）时按"在"处理：宁可漏补一次，
+     * 不要每 30 秒把通知重新贴一遍。
+     */
+    private fun hasForegroundNotification(): Boolean = try {
+        notificationManager.activeNotifications.any { it.id == FOREGROUND_ID }
+    } catch (_: Exception) {
+        true
     }
 
     /**
