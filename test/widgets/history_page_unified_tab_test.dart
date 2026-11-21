@@ -519,4 +519,60 @@ void main() {
       expect(find.text(l10n(tester).batchSelectedCount(1)), findsNothing);
     });
   });
+
+  // ────────────── 内容区左右滑切档 ──────────────
+
+  group('内容区左右滑切换顶部三档', () {
+    testWidgets('轻扫向左 ⇒ 转发 → 收件 → 发出', (tester) async {
+      await pump(tester);
+      expect(find.text('微信消息'), findsOneWidget);
+
+      await tester.fling(find.text('微信消息'), const Offset(-400, 0), 1200);
+      await tester.pumpAndSettle();
+      expect(find.text('机箱温度 50度'), findsOneWidget, reason: '左滑应切到右边的收件档');
+      expect(find.text('微信消息'), findsNothing);
+
+      await tester.fling(find.text('机箱温度 50度'), const Offset(-400, 0), 1200);
+      await tester.pumpAndSettle();
+      expect(find.text('远程摄像头'), findsOneWidget, reason: '再左滑应切到发出档');
+    });
+
+    testWidgets('轻扫向右 ⇒ 发出 → 收件 → 转发', (tester) async {
+      await pump(tester, initialDirection: 'sent');
+      expect(find.text('远程摄像头'), findsOneWidget);
+
+      await tester.fling(find.text('远程摄像头'), const Offset(400, 0), 1200);
+      await tester.pumpAndSettle();
+      expect(find.text('机箱温度 50度'), findsOneWidget, reason: '右滑应切回左边的收件档');
+
+      await tester.fling(find.text('机箱温度 50度'), const Offset(400, 0), 1200);
+      await tester.pumpAndSettle();
+      expect(find.text('微信消息'), findsOneWidget, reason: '再右滑应切回转发档');
+    });
+
+    testWidgets('慢慢拖动也切档（不依赖甩动速度）', (tester) async {
+      await pump(tester);
+      await tester.timedDrag(
+        find.text('微信消息'),
+        const Offset(-120, 0),
+        const Duration(milliseconds: 800),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('机箱温度 50度'), findsOneWidget, reason: '速度不够时按累计位移判方向');
+    });
+
+    testWidgets('到头继续滑 ⇒ 不循环、页面不崩', (tester) async {
+      await pump(tester);
+      await tester.fling(find.text('微信消息'), const Offset(400, 0), 1200);
+      await tester.pumpAndSettle();
+      expect(find.text('微信消息'), findsOneWidget, reason: '转发档已是最左，右滑应原地不动');
+    });
+
+    testWidgets('竖向拖动不算切档（列表滚动仍归列表）', (tester) async {
+      await pump(tester);
+      await tester.drag(find.text('微信消息'), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(find.text('微信消息'), findsOneWidget, reason: '竖滑不许被横向识别器吃掉');
+    });
+  });
 }

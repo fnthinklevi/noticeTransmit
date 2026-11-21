@@ -2348,6 +2348,27 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  /// 三档的固定顺序：左右滑按它切换，到头即止（不循环）。
+  static const List<String> _directionOrder = ['forwarded', 'received', 'sent'];
+
+  /// 本次横滑累计位移（右正左负）。只用于「慢拖」：
+  /// 轻扫有速度看速度，慢慢拖到半屏也有位移可看 —— 只认速度会让慢拖失灵。
+  double _swipeDx = 0;
+
+  /// 内容区左右滑切档。走的是与点顶部芯片**同一条** `_setDirection`：
+  /// 换账本、退出选项态、补读数据都由那一处负责，这里不另写一份切档逻辑。
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    final v = details.primaryVelocity ?? 0;
+    // 轻扫（≥200 px/s）以速度方向为准；慢拖（速度不够）以累计位移为准。
+    final dx = v.abs() >= 200 ? v : _swipeDx;
+    if (dx.abs() < 60) return;
+    final at = _directionOrder.indexOf(_direction);
+    if (at < 0) return;
+    final next = dx < 0 ? at + 1 : at - 1;
+    if (next < 0 || next >= _directionOrder.length) return;
+    _setDirection(_directionOrder[next]);
+  }
+
   void _setDirection(String value) {
     if (_direction == value) return;
     final nextIsFnthink = value == 'received' || value == 'sent';
@@ -3562,85 +3583,98 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           _directionBar(l10n),
           Expanded(
-            child: _direction == 'received' || _direction == 'sent'
-                ? _buildInboxView(l10n)
-                : _searchResults == null
-                ? // 头一页还没回来（T133 量级①：无筛选也要当场拉第一页）。
-                  // 不给"空列表"闪一下：那一闪读起来就是"历史被清了"。
-                  const Center(child: CircularProgressIndicator())
-                : rows.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.inbox_outlined,
-                          size: 56,
-                          color: AppColors.tertiaryLabel(context),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          // 挂着筛选筛出 0 条 = "没匹配上"；没筛选而空 = "从来没有"。
-                          // （分页取数循环保证取尽之前不会以空页收场 —— 停在这里的空
-                          //   一定是粗筛取尽后的空。）
-                          searchMode ? l10n.noMatchRecords : l10n.noRecords,
-                          style: TextStyle(
-                            color: AppColors.secondaryLabel(context),
-                            fontSize: 15,
+            child: GestureDetector(
+              // 内容区左右滑切三档（T84 那排芯片的滑动手势版）。竖滑不抢：
+              // 这里的识别器只认横向，列表的纵向滚动照旧归 ListView。
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragStart: (_) => _swipeDx = 0,
+              onHorizontalDragUpdate: (d) => _swipeDx += d.delta.dx,
+              onHorizontalDragEnd: _onHorizontalDragEnd,
+              child: _direction == 'received' || _direction == 'sent'
+                  ? _buildInboxView(l10n)
+                  : _searchResults == null
+                  ? // 头一页还没回来（T133 量级①：无筛选也要当场拉第一页）。
+                    // 不给"空列表"闪一下：那一闪读起来就是"历史被清了"。
+                    const Center(child: CircularProgressIndicator())
+                  : rows.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 56,
+                            color: AppColors.tertiaryLabel(context),
                           ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: rows.length + (_hasMore ? 1 : 0),
-                    separatorBuilder: (_, _) => Padding(
-                      padding: const EdgeInsets.only(left: 56),
-                      child: Divider(
-                        height: 0.5,
-                        thickness: 0.5,
-                        color: AppColors.separator(context),
+                          const SizedBox(height: 12),
+                          Text(
+                            // 挂着筛选筛出 0 条 = "没匹配上"；没筛选而空 = "从来没有"。
+                            // （分页取数循环保证取尽之前不会以空页收场 —— 停在这里的空
+                            //   一定是粗筛取尽后的空。）
+                            searchMode ? l10n.noMatchRecords : l10n.noRecords,
+                            style: TextStyle(
+                              color: AppColors.secondaryLabel(context),
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    itemBuilder: (context, index) {
-                      // 末尾加载指示：粗筛还没取尽（T133 量级① 两条读路都有下一页）
-                      if (index >= rows.length) {
-                        return Padding(
-                          key: const ValueKey('history-load-more'),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: _loadingMore
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                    )
+                  : ListView.separated(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: rows.length + (_hasMore ? 1 : 0),
+                      separatorBuilder: (_, _) => Padding(
+                        padding: const EdgeInsets.only(left: 56),
+                        child: Divider(
+                          height: 0.5,
+                          thickness: 0.5,
+                          color: AppColors.separator(context),
+                        ),
+                      ),
+                      itemBuilder: (context, index) {
+                        // 末尾加载指示：粗筛还没取尽（T133 量级① 两条读路都有下一页）
+                        if (index >= rows.length) {
+                          return Padding(
+                            key: const ValueKey('history-load-more'),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Center(
+                              child: _loadingMore
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      l10n.loadMoreHint,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.tertiaryLabel(context),
+                                      ),
                                     ),
-                                  )
-                                : Text(
-                                    l10n.loadMoreHint,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.tertiaryLabel(context),
-                                    ),
-                                  ),
-                          ),
+                            ),
+                          );
+                        }
+                        final row = rows[index];
+                        if (row is _HistoryGroupView) {
+                          return _buildGroupRow(
+                            context,
+                            row,
+                            index,
+                            rows.length,
+                          );
+                        }
+                        return _buildRecordItem(
+                          context,
+                          row as NotificationRecord,
+                          index,
+                          rows.length,
                         );
-                      }
-                      final row = rows[index];
-                      if (row is _HistoryGroupView) {
-                        return _buildGroupRow(context, row, index, rows.length);
-                      }
-                      return _buildRecordItem(
-                        context,
-                        row as NotificationRecord,
-                        index,
-                        rows.length,
-                      );
-                    },
-                  ),
+                      },
+                    ),
+            ),
           ),
           // F2：批量模式底部操作栏
           if (_selectMode) _buildBatchBar(context, l10n),
