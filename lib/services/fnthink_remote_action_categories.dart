@@ -28,6 +28,8 @@ final Map<String, String> kFnthinkRemoteActionCategories = {
   'channel:toggle': 'channels',
   'device_state:push': 'channels',
   'notifications:report': 'channels',
+  // T189：回复一条系统通知 —— 与「回传通知原文」同属"往哪儿发、发什么回去"那一组。
+  'notification:reply': 'channels',
   // 查找内容：三枚都要读本机数据，是这一页里隐私最重的一组。
   'sms:search': 'search',
   'calls:search': 'search',

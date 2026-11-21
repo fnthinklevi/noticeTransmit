@@ -2929,47 +2929,11 @@ abstract class AppLocalizations {
   /// **'请输入 5-86400 的整数（最小 5 秒）'**
   String get ruleMergeWindowInvalid;
 
-  /// No description provided for @historyActionBlockApp.
-  ///
-  /// In zh, this message translates to:
-  /// **'屏蔽该应用的通知'**
-  String get historyActionBlockApp;
-
   /// No description provided for @historyActionBlockAppShort.
   ///
   /// In zh, this message translates to:
   /// **'屏蔽该应用'**
   String get historyActionBlockAppShort;
-
-  /// No description provided for @historyActionBlockAppDescAllow.
-  ///
-  /// In zh, this message translates to:
-  /// **'白名单模式：将该应用移出推送白名单'**
-  String get historyActionBlockAppDescAllow;
-
-  /// No description provided for @historyActionBlockAppDescBlock.
-  ///
-  /// In zh, this message translates to:
-  /// **'黑名单模式：将该应用加入屏蔽名单'**
-  String get historyActionBlockAppDescBlock;
-
-  /// No description provided for @historyActionBlockAppDescAlreadyExcluded.
-  ///
-  /// In zh, this message translates to:
-  /// **'该应用当前已不在推送范围'**
-  String get historyActionBlockAppDescAlreadyExcluded;
-
-  /// No description provided for @historyActionBlockAppDescAlreadyBlocked.
-  ///
-  /// In zh, this message translates to:
-  /// **'该应用已在屏蔽名单中'**
-  String get historyActionBlockAppDescAlreadyBlocked;
-
-  /// No description provided for @historyActionBlockContent.
-  ///
-  /// In zh, this message translates to:
-  /// **'屏蔽含本通知内容的通知'**
-  String get historyActionBlockContent;
 
   /// No description provided for @historyActionBlockContentShort.
   ///
@@ -5155,12 +5119,6 @@ abstract class AppLocalizations {
   /// **'按会话分组'**
   String get ruleMergeGroupByTitleSummary;
 
-  /// No description provided for @historyActionBlockAppDescSelf.
-  ///
-  /// In zh, this message translates to:
-  /// **'本应用自身的通知（电量提醒等）由电量规则控制，不适用应用屏蔽'**
-  String get historyActionBlockAppDescSelf;
-
   /// No description provided for @historyBlockAppSelfToast.
   ///
   /// In zh, this message translates to:
@@ -5448,12 +5406,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'Discord 使用 Webhook URL 鉴权，无需签名密钥'**
   String get signingHintDiscord;
-
-  /// No description provided for @historyActionBlockAppDescAllowAll.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前为全部推送模式；点击后切换为黑名单模式并屏蔽该应用，其余应用不受影响'**
-  String get historyActionBlockAppDescAllowAll;
 
   /// No description provided for @historyBlockAppSwitchedToBlock.
   ///
@@ -8741,6 +8693,12 @@ abstract class AppLocalizations {
   /// **'幻念收件开关'**
   String get l3ItemCollectInbox;
 
+  /// No description provided for @l3ItemNotificationReply.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复通知'**
+  String get l3ItemNotificationReply;
+
   /// No description provided for @l3NoteAutostart.
   ///
   /// In zh, this message translates to:
@@ -9352,6 +9310,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'让对面回传最近的通知原文'**
   String get remoteActionNotificationsReport;
+
+  /// No description provided for @remoteActionNotificationReply.
+  ///
+  /// In zh, this message translates to:
+  /// **'让对面回复一条通知'**
+  String get remoteActionNotificationReply;
 
   /// No description provided for @remoteActionAlertRing.
   ///
@@ -10252,6 +10216,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'这个动作不接受这一类参数：{x}'**
   String remoteReasonBadArgumentKind(String x);
+
+  /// No description provided for @remoteReasonBadArgumentFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'参数不是 JSON 对象（{x}）'**
+  String remoteReasonBadArgumentFormat(String x);
+
+  /// No description provided for @remoteReasonBadArgumentJson.
+  ///
+  /// In zh, this message translates to:
+  /// **'参数 JSON 解析失败（{x}）'**
+  String remoteReasonBadArgumentJson(String x);
 
   /// No description provided for @remoteReasonBadChannelArgument.
   ///

@@ -138,6 +138,9 @@ Map<String, bool?> l3ReadersFrom({
   bool? autostart,
   bool? monitoring,
   bool? collectInbox,
+  // T189 execute 型项：没有系统授权可读 —— 本机版本支持这条能力即 true
+  // （false 会把它算进「等用户去开」，而这一项没有任何系统页可跳）。
+  bool? notificationReply = true,
 }) => <String, bool?>{
   'notification': notification,
   'exact_alarm': exactAlarm,
@@ -145,6 +148,7 @@ Map<String, bool?> l3ReadersFrom({
   'autostart': autostart,
   'monitoring': monitoring,
   'collect_inbox': collectInbox,
+  'notification:reply': notificationReply,
 };
 
 /// 各处读法收成一处：**按契约词表的次序**产出 [FnthinkL3GrantRow]。

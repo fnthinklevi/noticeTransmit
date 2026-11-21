@@ -792,13 +792,7 @@
   },
   "ruleMergeWindowPresets": "Presets (tap to fill):",
   "ruleMergeWindowInvalid": "Enter an integer between 5 and 86400 (minimum 5s)",
-  "historyActionBlockApp": "Block notifications from this app",
   "historyActionBlockAppShort": "Block app",
-  "historyActionBlockAppDescAllow": "Allow mode: remove this app from the push allowlist",
-  "historyActionBlockAppDescBlock": "Block mode: add this app to the blocked list",
-  "historyActionBlockAppDescAlreadyExcluded": "This app is currently not in the push scope",
-  "historyActionBlockAppDescAlreadyBlocked": "This app is already in the blocked list",
-  "historyActionBlockContent": "Block notifications containing this text",
   "historyActionBlockContentShort": "Block text",
   "historyBlockContentDialogTitle": "Add blacklist keyword",
   "historyBlockContentEditHint": "Editable; notifications containing this text will be blocked",
@@ -1533,7 +1527,6 @@
       }
     }
   },
-  "historyActionBlockAppDescSelf": "This app's own notifications (battery alerts) are governed by battery rules — app blocking does not apply",
   "historyBlockAppSelfToast": "This app's own notifications are governed by battery rules — adjust them in battery settings",
   "exportConfirmDesc": "Records will be exported as a JSON file containing notification content and device info. Choose a save location and keep the file safe or delete it promptly.",
   "fnthinkExportInboxDesc": "Fnthink inbox messages ({count}) will be exported as a JSON file with message content and device info.",
@@ -1596,7 +1589,6 @@
   "signingHintGotify": "Required: Gotify application token (client tokens cannot push)",
   "signingHintSlack": "Slack authenticates via the Incoming Webhook URL; no signing key needed",
   "signingHintDiscord": "Discord authenticates via the Webhook URL; no signing key needed",
-  "historyActionBlockAppDescAllowAll": "All apps are currently pushed. Tapping switches to blocklist mode and blocks this app; other apps are unaffected",
   "historyBlockAppSwitchedToBlock": "Blocked \"{app}\"; filter mode switched to blocklist (other apps unaffected)",
   "@historyBlockAppSwitchedToBlock": {
     "placeholders": {
@@ -2846,6 +2838,7 @@
   "l3ItemAutostart": "Auto-start (per vendor)",
   "l3ItemMonitoring": "Notification forwarding listener",
   "l3ItemCollectInbox": "Fnthink inbox switch",
+  "l3ItemNotificationReply": "Reply to notification",
   "l3NoteAutostart": "Android exposes per-vendor entry points only - there is no unified reading",
   "l3NoteLivesInFnthinkPage": "This switch lives on the Fnthink Push page",
   "updateBlockIntegrityFailed": "Update package verification failed. Installation blocked.",
@@ -3082,6 +3075,7 @@
   "remoteActionChannelToggle": "Enable or disable one push channel over there",
   "remoteActionDeviceStatePush": "Have the other device report its device state now",
   "remoteActionNotificationsReport": "Have the other device send back its recent notifications",
+  "remoteActionNotificationReply": "Have the other device reply to a notification",
   "remoteActionAlertRing": "Make the other device ring and vibrate",
   "remoteActionSmsSearch": "Search the other device’s SMS by keyword",
   "remoteActionAppLaunch": "Have the other device open a registered entry",
@@ -3422,6 +3416,22 @@
     }
   },
   "remoteReasonBadArgumentKind": "This action takes no argument of that kind: {x}",
+  "remoteReasonBadArgumentFormat": "Arguments are not a JSON object ({x})",
+  "@remoteReasonBadArgumentFormat": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
+  "remoteReasonBadArgumentJson": "Arguments JSON could not be parsed ({x})",
+  "@remoteReasonBadArgumentJson": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "@remoteReasonBadArgumentKind": {
     "placeholders": {
       "x": {

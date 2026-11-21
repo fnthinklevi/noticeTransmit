@@ -523,6 +523,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     'autostart' => l10n.l3ItemAutostart,
     'monitoring' => l10n.l3ItemMonitoring,
     'collect_inbox' => l10n.l3ItemCollectInbox,
+    'notification:reply' => l10n.l3ItemNotificationReply,
     _ => key,
   };
 
@@ -542,6 +543,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     'autostart' => Icons.rocket_launch,
     'monitoring' => Icons.radar,
     'collect_inbox' => Icons.inbox,
+    'notification:reply' => Icons.reply,
     _ => Icons.settings,
   };
 

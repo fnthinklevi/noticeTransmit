@@ -1606,30 +1606,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter an integer between 5 and 86400 (minimum 5s)';
 
   @override
-  String get historyActionBlockApp => 'Block notifications from this app';
-
-  @override
   String get historyActionBlockAppShort => 'Block app';
-
-  @override
-  String get historyActionBlockAppDescAllow =>
-      'Allow mode: remove this app from the push allowlist';
-
-  @override
-  String get historyActionBlockAppDescBlock =>
-      'Block mode: add this app to the blocked list';
-
-  @override
-  String get historyActionBlockAppDescAlreadyExcluded =>
-      'This app is currently not in the push scope';
-
-  @override
-  String get historyActionBlockAppDescAlreadyBlocked =>
-      'This app is already in the blocked list';
-
-  @override
-  String get historyActionBlockContent =>
-      'Block notifications containing this text';
 
   @override
   String get historyActionBlockContentShort => 'Block text';
@@ -2890,10 +2867,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ruleMergeGroupByTitleSummary => 'by conversation';
 
   @override
-  String get historyActionBlockAppDescSelf =>
-      'This app\'s own notifications (battery alerts) are governed by battery rules — app blocking does not apply';
-
-  @override
   String get historyBlockAppSelfToast =>
       'This app\'s own notifications are governed by battery rules — adjust them in battery settings';
 
@@ -3063,10 +3036,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get signingHintDiscord =>
       'Discord authenticates via the Webhook URL; no signing key needed';
-
-  @override
-  String get historyActionBlockAppDescAllowAll =>
-      'All apps are currently pushed. Tapping switches to blocklist mode and blocks this app; other apps are unaffected';
 
   @override
   String historyBlockAppSwitchedToBlock(String app) {
@@ -5110,6 +5079,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get l3ItemCollectInbox => 'Fnthink inbox switch';
 
   @override
+  String get l3ItemNotificationReply => 'Reply to notification';
+
+  @override
   String get l3NoteAutostart =>
       'Android exposes per-vendor entry points only - there is no unified reading';
 
@@ -5490,6 +5462,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get remoteActionNotificationsReport =>
       'Have the other device send back its recent notifications';
+
+  @override
+  String get remoteActionNotificationReply =>
+      'Have the other device reply to a notification';
 
   @override
   String get remoteActionAlertRing => 'Make the other device ring and vibrate';
@@ -6053,6 +6029,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String remoteReasonBadArgumentKind(String x) {
     return 'This action takes no argument of that kind: $x';
+  }
+
+  @override
+  String remoteReasonBadArgumentFormat(String x) {
+    return 'Arguments are not a JSON object ($x)';
+  }
+
+  @override
+  String remoteReasonBadArgumentJson(String x) {
+    return 'Arguments JSON could not be parsed ($x)';
   }
 
   @override

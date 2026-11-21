@@ -792,13 +792,7 @@
   },
   "ruleMergeWindowPresets": "常用时长（点击填入）：",
   "ruleMergeWindowInvalid": "请输入 5-86400 的整数（最小 5 秒）",
-  "historyActionBlockApp": "屏蔽该应用的通知",
   "historyActionBlockAppShort": "屏蔽该应用",
-  "historyActionBlockAppDescAllow": "白名单模式：将该应用移出推送白名单",
-  "historyActionBlockAppDescBlock": "黑名单模式：将该应用加入屏蔽名单",
-  "historyActionBlockAppDescAlreadyExcluded": "该应用当前已不在推送范围",
-  "historyActionBlockAppDescAlreadyBlocked": "该应用已在屏蔽名单中",
-  "historyActionBlockContent": "屏蔽含本通知内容的通知",
   "historyActionBlockContentShort": "屏蔽内容",
   "historyBlockContentDialogTitle": "新增黑名单关键词",
   "historyBlockContentEditHint": "可编辑后保存，含此文本的通知将被屏蔽",
@@ -1533,7 +1527,6 @@
       }
     }
   },
-  "historyActionBlockAppDescSelf": "本应用自身的通知（电量提醒等）由电量规则控制，不适用应用屏蔽",
   "historyBlockAppSelfToast": "本应用自身的通知由电量规则控制，请在电量设置中调整",
   "exportConfirmDesc": "通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。",
   "fnthinkExportInboxDesc": "幻念收件记录（{count} 条）将导出为 JSON 文件，包含消息内容与设备信息。",
@@ -1596,7 +1589,6 @@
   "signingHintGotify": "必填：Gotify 应用 Token（客户端 Token 无法推送）",
   "signingHintSlack": "Slack 使用 Incoming Webhook URL 鉴权，无需签名密钥",
   "signingHintDiscord": "Discord 使用 Webhook URL 鉴权，无需签名密钥",
-  "historyActionBlockAppDescAllowAll": "当前为全部推送模式；点击后切换为黑名单模式并屏蔽该应用，其余应用不受影响",
   "historyBlockAppSwitchedToBlock": "已屏蔽「{app}」，过滤模式已切换为黑名单（其余应用推送不受影响）",
   "@historyBlockAppSwitchedToBlock": {
     "placeholders": {
@@ -2867,6 +2859,7 @@
   "l3ItemAutostart": "自启动（按厂商）",
   "l3ItemMonitoring": "通知转发监听",
   "l3ItemCollectInbox": "幻念收件开关",
+  "l3ItemNotificationReply": "回复通知",
   "l3NoteAutostart": "系统只有各厂商的入口，不提供统一读数",
   "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页",
   "updateBlockIntegrityFailed": "更新包校验未通过，已阻止安装",
@@ -3088,6 +3081,7 @@
   "remoteActionChannelToggle": "启停对面某一条推送通道",
   "remoteActionDeviceStatePush": "让对面立刻回一份设备状态",
   "remoteActionNotificationsReport": "让对面回传最近的通知原文",
+  "remoteActionNotificationReply": "让对面回复一条通知",
   "remoteActionAlertRing": "让对面响铃＋震动提醒",
   "remoteActionSmsSearch": "让对面按关键词搜短信",
   "remoteActionAppLaunch": "让对面打开一个已登记的入口",
@@ -3428,6 +3422,22 @@
     }
   },
   "remoteReasonBadArgumentKind": "这个动作不接受这一类参数：{x}",
+  "remoteReasonBadArgumentFormat": "参数不是 JSON 对象（{x}）",
+  "@remoteReasonBadArgumentFormat": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
+  "remoteReasonBadArgumentJson": "参数 JSON 解析失败（{x}）",
+  "@remoteReasonBadArgumentJson": {
+    "placeholders": {
+      "x": {
+        "type": "String"
+      }
+    }
+  },
   "@remoteReasonBadArgumentKind": {
     "placeholders": {
       "x": {

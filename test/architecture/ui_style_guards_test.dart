@@ -310,7 +310,8 @@ void main() {
         // T148 片15（2026-10-14）：「现在推送」归 `FnthinkFilledAction` ⇒ 1 → **0**，那一列摘掉。
         //   剩这一列是 AppBar／搜索后缀／离线横幅那 7 枚 `IconButton(`：那是图标按钮族，
         //   与"行内那枚实心小钮"不同一层（尺寸、命中区、禁用态都不一样），别顺手一起搬。
-        'IconButton(': 7,
+        // T208 统一选择模式顶栏 +1（`historyMoreActions` 之外的「更多」入口/选择态关闭），7 → 8。
+        'IconButton(': 8,
       },
       'lib/pages/remote_history_page.dart': <String, int>{},
     };
@@ -742,10 +743,10 @@ class FnthinkStatusMark extends StatelessWidget {
       );
       expect(
         RegExp(r'FnthinkFilledAction\(').allMatches(src).length,
-        2,
+        4,
         reason:
-            '这一页今天恰好两处调用点（行内 + 底栏）。第三处出现时要么改这条并写明它为什么同档，'
-            '要么用现成的另一件 —— 与上面那两条枚数判据同一条纪律：账与代码一致',
+            '这一页今天四处调用点：行内「现在推送」+ 批量底栏三枚（标已读／删除／重发）。'
+            '新增一处要写明它为什么同档，或改用现成的另一件 —— 与上面那两条枚数判据同一条纪律。',
       );
     });
 
@@ -1987,7 +1988,8 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/pages/email_settings_page.dart': 2,
   'lib/pages/fnthink_channel_list_page.dart': 1,
   // T208：+2（批量标已读的两条结论：多选确认 / 一键已读）。
-  'lib/pages/history_page.dart': 13,
+  // T148/T189 多选与历史行动作再 +3（批量删除、屏蔽应用、屏蔽内容）⇒ 13 → 16。
+  'lib/pages/history_page.dart': 16,
   'lib/pages/main_page.dart': 1,
   'lib/pages/main_page_update.dart': 2,
   'lib/pages/more_page.dart': 2,

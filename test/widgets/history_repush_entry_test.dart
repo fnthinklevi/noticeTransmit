@@ -261,7 +261,7 @@ void main() {
     }
   });
 
-  testWidgets('批量模式默认只选中可再发的那几条，其余勾选框是死的', (tester) async {
+  testWidgets('批量模式默认只选中可再发的那几条，其余仍可勾选（T208 统一选择）', (tester) async {
     await pumpHistory(tester, [
       row('n-failed', '取件码', {
         'chan:email': {'status': 'failed', 'message': '超时'},
@@ -274,11 +274,15 @@ void main() {
 
     final boxes = tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
     expect(boxes, hasLength(2));
-    // 顺序即列表顺序：第一条可再发、第二条不可
+    // 顺序即列表顺序：第一条可再发、第二条不在重推池
     expect(boxes[0].onChanged, isNotNull, reason: '失败的那条必须可勾选（判据与池子同一个作者）');
-    expect(boxes[0].value, isTrue, reason: '进入批量时默认选中的正是可再发的那些');
-    expect(boxes[1].onChanged, isNull, reason: '只有拦截通道的那条不该被选进重推池');
-    expect(boxes[1].value, isFalse);
+    expect(boxes[0].value, isTrue, reason: '进入批量重推时默认选中的正是可再发的那些');
+    expect(
+      boxes[1].onChanged,
+      isNotNull,
+      reason: 'T208 起所有行都可勾选（批量删除等），"不在重推池"只由默认选中表达',
+    );
+    expect(boxes[1].value, isFalse, reason: '只有拦截通道的那条不该被默认选进重推池');
   });
 
   testWidgets('批量底栏「取消」走行内动作件、语义色取中性（T148 片8）', (tester) async {
@@ -388,7 +392,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text(l10n.historyActionBlockApp),
+      find.text(l10n.historyActionBlockAppShort),
       findsNothing,
       reason: '留着长按菜单就是一边勾选一边弹屏蔽项：屏蔽掉的应用与选中的那几条对不上号',
     );

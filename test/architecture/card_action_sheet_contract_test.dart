@@ -21,7 +21,8 @@ void main() {
       'lib/pages/email_settings_page.dart': '邮件通道卡',
       'lib/pages/battery_page.dart': '电量规则卡',
       'lib/pages/temperature_page.dart': '温度规则卡',
-      'lib/pages/history_page.dart': '历史记录卡',
+      // T148/T189 起历史页的长按不再走共用弹层：转发档进多选（点行=勾选、长按=菜单），
+      // 幻念两档走行内动作。那一族的接入面由 history_row_affordance_ledger_test 守。
       // T152 片B（维护者 2026-10-15 方案 阶段3）：名单行里那三枚文字按钮收成"一行＋⋯"，
       // 撤销与改名进的就是这一枚共用弹层。⚠ 这一处是**点行尾那枚「⋯」**开的，不是长按 ——
       // 那一行今天没有详情页、也没有可长按的卡片壳，所以下面那条 `onLongPress` 断言不含它。

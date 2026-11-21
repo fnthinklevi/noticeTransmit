@@ -22,6 +22,13 @@ void main() {
   /// 页面 → **会改状态的那几条路径的执行处**。一页多条是正常的（推送页既要换地址码、
   /// 也要答复配对请求），所以这里登记的是清单而不是"每页恰好一个"：
   /// 新增一条路径必须在这里登记，否则第二条的计数断言就会红。
+  /// 这些确认框**不改本机状态**，所以不进 `chokes`，但计数断言必须认得它们
+  /// （否则「askConfirm 数 == 登记数」会把一次合法导出判成漏登记的改动路径）。
+  /// 导出只写一份文件，历史一行不动；它仍要走统一确认框（T06 的样式契约）。
+  const nonMutatingConfirmations = {
+    'lib/pages/history_page.dart': ['Future<void> _handleExportFnthink('],
+  };
+
   const chokes = {
     'lib/pages/webhook_channel_list_page.dart': [
       'Future<void> _confirmDeleteChannel(',
@@ -44,7 +51,9 @@ void main() {
     // 其余三档（今天 / 最近 10 / 最近 50）不在此列 —— 那一发选档本身就是确认，
     // 唯独「全部」没有回滚可言，所以只有它多问一次。
     'lib/pages/history_page.dart': [
-      'Future<void> _runBatchPush(',
+      // T148/T189 多选：批量删除是**一次删掉选中的那批**，与批量重推同级不可撤销。
+      'Future<void> _runBatchDelete(',
+      'Future<void> _runBatchResend(',
       'Future<void> _showClearOptions(',
       // T208：「一键已读」是**一次改掉整档的读状态**（收件那本账全标已读），
       // 而且它没有逐条撤销的口子 ⇒ 与「清空全部」同一条理由：多点一下比点错好。
@@ -141,11 +150,14 @@ void main() {
       for (final entry in chokes.entries) {
         final rel = entry.key;
         final src = read(rel);
+        final expected =
+            entry.value.length + (nonMutatingConfirmations[rel]?.length ?? 0);
         expect(
           'askConfirm('.allMatches(src).length,
-          entry.value.length,
+          expected,
           reason:
-              '$rel 的 askConfirm 数量与登记的路径数（${entry.value.length}）不符 ⇒ '
+              '$rel 的 askConfirm 数量与登记的路径数（$expected，'
+              '含 ${nonMutatingConfirmations[rel]?.length ?? 0} 条不改状态的确认）不符 ⇒ '
               '要么漏了一条路径，要么又开了一份抄本',
         );
         expect(

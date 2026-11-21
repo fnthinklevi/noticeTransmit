@@ -20,6 +20,7 @@ kFnthinkRemoteActionLabels = {
   'channel:toggle': (l) => l.remoteActionChannelToggle,
   'device_state:push': (l) => l.remoteActionDeviceStatePush,
   'notifications:report': (l) => l.remoteActionNotificationsReport,
+  'notification:reply': (l) => l.remoteActionNotificationReply,
   'alert:ring': (l) => l.remoteActionAlertRing,
   'sms:search': (l) => l.remoteActionSmsSearch,
   'app:launch': (l) => l.remoteActionAppLaunch,

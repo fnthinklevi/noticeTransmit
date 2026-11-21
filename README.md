@@ -474,7 +474,7 @@ push 到仓库本体时漂移由 CI 自动校平并回写（`--fix`），PR / fo
 
 - **`analyze.yml`（PR 门禁）** —— `flutter analyze --fatal-infos`（按退出码判红）→ 版本一致性 → 发版闸门行为测试 → Dart 单测 → 嵌套包单测 → Android JVM 单测 → Android lint → 服务端契约测试 → 三路格式校验 → 覆盖率产物
 - **`build-apk.yml`（`v*` tag 或手动触发）** —— 前置 analyze → **4 架构 APK 构建**（arm64 ≈ 29MB / arm32 ≈ 25MB / x86_64 ≈ 31MB / all ≈ 80MB）→ 签名 → ABI 纯净度双闸 → **自动创建 GitHub Release**（中英双语 changelog + 4 个 APK assets）
-- **`integration_test.yml`（发版后必跑 + 每周二 03:00 UTC）** —— 双 job：① device-basic（smoke 4 例硬闸门 + connectedAndroidTest 软警告）；② walkthrough（release_walkthrough_test.dart **24 步全功能点击闸门**，覆盖历史页/三族通道 CRUD/规则引擎/备份往返）。v1.6.6 起首次全绿（Run #24）
+- **`integration_test.yml`（发版后必跑 + 每周二 03:00 UTC）** —— 双 job：① device-basic（smoke 4 例硬闸门 + connectedAndroidTest 软警告）；② walkthrough（release_walkthrough_test.dart **24 步全功能点击闸门**，覆盖历史页/三族通道 CRUD/规则约束/备份往返）。v1.6.6 起首次全绿（Run #24）
 - **`deploy-pages.yml`（`server/public/**` 或 `server/data/version.json` 变更 / 手动触发）** —— 零运维静态版本源发布
 - **格式统一** —— `.github/scripts/check_format.sh` 本地与 CI 跑同一支：`dart format` + ktlint 1.8.0 + prettier 3.9.8
 - **版本一致性闸门** —— `.github/scripts/check_version_consistency.sh` 比对 `pubspec.yaml` / `update_manager.dart` / `MainActivity.kt` / `server/data/version.json` 四处版本与 build 号，并校验 `version.json` 的 sha256 字段完备性、官网 i18n 覆盖、README 依赖标注与 zh/en ARB 键集合一致

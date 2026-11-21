@@ -32,14 +32,17 @@ void main() {
   Set<String> caseKeys(String signature) {
     final block = blockAfter(page, signature);
     return {
-      for (final m in RegExp(r"'([a-z][a-z0-9_]+)'\s*=>").allMatches(block))
+      // T189 起 L3 键里出现了带冒号的 `notification:reply`（execute 形态）；
+      // 判据必须认得这种键形状，否则三处 switch 会被读成"少了一项"。
+      for (final m in RegExp(r"'([a-z][a-z0-9_:]+)'\s*=>").allMatches(block))
         m.group(1)!,
     };
   }
 
   /// 落点那一处**允许少**：那两项的开关住在「幻念推送」页，给跳转反而制造"点了没反应"。
   /// 但"少哪几项"必须逐条在册 —— 新加一项却掉进 `_ => null` 时，这一条必须红。
-  const kNoJumpItems = {'monitoring', 'collect_inbox'};
+  // T189：`notification:reply` 是"对面发一条执行指令"的能力，没有本机系统页可跳。
+  const kNoJumpItems = {'monitoring', 'collect_inbox', 'notification:reply'};
 
   /// 对面视角那张表的读者（幻念那几页）—— 串台判据扫的就是这几份。
   const remotePages = [

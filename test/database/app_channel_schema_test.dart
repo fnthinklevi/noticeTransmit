@@ -62,18 +62,23 @@ void main() {
   final createBlocks = _createTableBlocks(dbSource);
 
   group('app_channels – 建表 SQL', () {
-    test('建表出现两处（_onCreate + 迁移路径）', () {
+    // T184 片2 起 DDL 收口到 `_createAppChannelsTable` 唯一 builder：
+    // 一份 CREATE TABLE，两处调用（_onCreate + oldVersion < 10 迁移）。
+    // 旧守卫数的是两段 DDL（收口前确实是两份），收口后必须改数**调用点**，
+    // 否则升级路径被删掉也不会红。
+    test('建表 SQL 只有 builder 一处，且 onCreate / v10 迁移都调用它', () {
       expect(
         createBlocks.length,
+        1,
+        reason: 'DDL 应只住在 _createAppChannelsTable 这一处（T184 片2）',
+      );
+      expect(
+        RegExp(r'_createAppChannelsTable\(db\)').allMatches(dbSource).length,
         2,
         reason:
-            'app_channels 建表应同时存在于初始化与迁移路径；'
+            'app_channels 建表应同时被初始化与 oldVersion < 10 迁移调用；'
             '若升级路径被移除，老库升级后将缺表导致通道配置静默丢失',
       );
-    });
-
-    test('两处建表列集合完全一致（防升级漂移）', () {
-      expect(createBlocks.first, equals(createBlocks.last));
     });
 
     test('列集合与契约一致（11 列）', () {

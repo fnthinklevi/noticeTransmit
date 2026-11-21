@@ -135,18 +135,23 @@ void main() {
     expect(find.text('09-25 10:40:00'), findsOneWidget);
   });
 
-  testWidgets('长按那一行还是出菜单（换壳不许把差异⑤换没了）', (tester) async {
+  testWidgets('长按那一行进入选择态（T208 起就地动作移到详情弹层）', (tester) async {
     await pumpHistory(tester, oneRecord());
 
     await tester.longPress(find.byKey(const ValueKey('history-row-n-adopt')));
     await tester.pumpAndSettle();
 
     expect(
-      find.text('屏蔽该应用的通知'),
+      find.textContaining('已选'),
       findsOneWidget,
       reason:
-          '长按菜单是这一行唯一的"就地处置"入口；行壳交给通用件时漏传 onLongPress，'
+          '长按是进入选择态的唯一入口；行壳交给通用件时漏传 onLongPress，'
           '这一格就在页面上静默消失（本仓"装配点漏传不报编译错"那一族的第三次形状）',
+    );
+    expect(
+      find.text('屏蔽该应用'),
+      findsNothing,
+      reason: '长按不再弹旧的屏蔽菜单：那两枚动作已收进详情弹层（T208 统一形状）',
     );
   });
 
@@ -314,10 +319,10 @@ void main() {
     expect(find.text(l10n.detailInfo), findsOneWidget);
     expect(find.text(l10n.deliveryLogTitle), findsOneWidget);
     expect(
-      find.text(l10n.historyActionBlockApp),
+      find.textContaining('已选'),
       findsNothing,
       reason:
-          '点行若接成了长按那一层，用户点开一条记录看到的是两枚屏蔽项 —— '
+          '点行若接成长按那一格（进入选择态），用户点开一条记录看到的是勾选而不是详情 —— '
           '而"这条到底发到了哪、为什么没到"读不到',
     );
   });

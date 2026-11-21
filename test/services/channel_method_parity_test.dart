@@ -138,10 +138,13 @@ void main() {
     // `com.fnthink.notice/service` 上，由 `FnthinkServiceEngine` 自己注册 handler。
     // 130 → 131（T253）：`restartApp` —— 启动页卡死（库被后台残留连接占住）的一键重启，
     // 挂在 DeviceChannelHandler 上；杀进程是唯一能清掉进程内残留连接的动作。
-    test('原生方法总数 == 131（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 148（防止分支被静默删除/新增未登记）', () {
+      // 131 → 148（2026-11-21）：T198 锁屏三项厂商跳转骨架在 Permission 域 +15；
+      // T189 回复通知在 RemoteExec 域 +2（listReplyableNotifications / fnthinkReplyNotification）。
+      // 两批都是**有意**改动，不是分支被删。
       expect(
         native.length,
-        131,
+        148,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -159,7 +162,8 @@ void main() {
         // T137 验收③：收件渠道的系统设置跳转那一发。30 → 31。
         // 31 → 29（T140 走 (c)）：**删掉**精确闹钟那枚 App 内开关的两发（读/写），
         // 这一域只剩 `canScheduleExactAlarms`（读授权）与 `requestExactAlarmPermission`（跳系统页）。
-        'PermissionChannelHandler': 29,
+        // 29 → 44（T198）：锁屏三项厂商跳转骨架的 15 个空实现，先登记进方法表。
+        'PermissionChannelHandler': 44,
         // 首页第三态那两发挂在这一域（读推送开关 + 恢复推送）。15 → 17。
         // T253 起 18：`restartApp`（启动页卡死时的一键重启，杀进程清残留连接）。
         'DeviceChannelHandler': 18,
@@ -180,7 +184,9 @@ void main() {
         // 白名单通知触发那一路（片3c-6）加 `takeLocalCommand`：**冷启动只能拉**
         // （原生推的讯号比 Dart 装 handler 更早，推出去会静默丢），与上面
         // `takeFnthinkOpenTarget` / `takeFnthinkPairLink` 同一个形状。106 → 107。
-        'RemoteExecChannelHandler': 5,
+        // T189 回复通知：`listReplyableNotifications`（读可回复的 SBN）与
+        // `fnthinkReplyNotification`（原生化 RemoteInput 注入）。5 → 7。
+        'RemoteExecChannelHandler': 7,
         // 不走 ChannelDispatcher 的那一类：worker 自己注册一条通道，
         // Dart 那一轮的成与败都只交这一发。它必须**被扫到**才谈得上被守住（见上面的登记）。
         'FnthinkPresenceWorker': 1,

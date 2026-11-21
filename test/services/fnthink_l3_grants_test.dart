@@ -230,6 +230,8 @@ void main() {
         'autostart',
         'monitoring',
         'collect_inbox',
+        // T189：契约新增的 execute 型项；本用例把所有项都设成 false，故它也落在 missing。
+        'notification:reply',
       ]);
     });
 

@@ -144,6 +144,9 @@ final Map<String, String Function(AppLocalizations, String)> _families = {
   // 尾巴是**动作名或那一段参数** ⇒ 原样带出，别在这一格再翻一次动作名（那是第二个作者）。
   // 这一族是守卫 ①（双向差集）量出来的，不是手抄的：少了任何一枚，那一格就落成机器词。
   'bad-argument-kind': (l, t) => l.remoteReasonBadArgumentKind(t),
+  // T189 execute 形态：argument 不是 JSON 对象 / JSON 解析失败（尾巴是那枚键名）。
+  'bad-argument-format': (l, t) => l.remoteReasonBadArgumentFormat(t),
+  'bad-argument-json': (l, t) => l.remoteReasonBadArgumentJson(t),
   'bad-channel-argument': (l, t) => l.remoteReasonBadChannelArgument(t),
   'bad-keyword': (l, t) => l.remoteReasonBadKeyword(t),
   'bad-report-count': (l, t) => l.remoteReasonBadReportCount(t),

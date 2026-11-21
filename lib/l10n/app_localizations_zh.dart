@@ -1539,25 +1539,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleMergeWindowInvalid => '请输入 5-86400 的整数（最小 5 秒）';
 
   @override
-  String get historyActionBlockApp => '屏蔽该应用的通知';
-
-  @override
   String get historyActionBlockAppShort => '屏蔽该应用';
-
-  @override
-  String get historyActionBlockAppDescAllow => '白名单模式：将该应用移出推送白名单';
-
-  @override
-  String get historyActionBlockAppDescBlock => '黑名单模式：将该应用加入屏蔽名单';
-
-  @override
-  String get historyActionBlockAppDescAlreadyExcluded => '该应用当前已不在推送范围';
-
-  @override
-  String get historyActionBlockAppDescAlreadyBlocked => '该应用已在屏蔽名单中';
-
-  @override
-  String get historyActionBlockContent => '屏蔽含本通知内容的通知';
 
   @override
   String get historyActionBlockContentShort => '屏蔽内容';
@@ -2771,9 +2753,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleMergeGroupByTitleSummary => '按会话分组';
 
   @override
-  String get historyActionBlockAppDescSelf => '本应用自身的通知（电量提醒等）由电量规则控制，不适用应用屏蔽';
-
-  @override
   String get historyBlockAppSelfToast => '本应用自身的通知由电量规则控制，请在电量设置中调整';
 
   @override
@@ -2930,10 +2909,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get signingHintDiscord => 'Discord 使用 Webhook URL 鉴权，无需签名密钥';
-
-  @override
-  String get historyActionBlockAppDescAllowAll =>
-      '当前为全部推送模式；点击后切换为黑名单模式并屏蔽该应用，其余应用不受影响';
 
   @override
   String historyBlockAppSwitchedToBlock(String app) {
@@ -4850,6 +4825,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get l3ItemCollectInbox => '幻念收件开关';
 
   @override
+  String get l3ItemNotificationReply => '回复通知';
+
+  @override
   String get l3NoteAutostart => '系统只有各厂商的入口，不提供统一读数';
 
   @override
@@ -5199,6 +5177,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get remoteActionNotificationsReport => '让对面回传最近的通知原文';
+
+  @override
+  String get remoteActionNotificationReply => '让对面回复一条通知';
 
   @override
   String get remoteActionAlertRing => '让对面响铃＋震动提醒';
@@ -5716,6 +5697,16 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String remoteReasonBadArgumentKind(String x) {
     return '这个动作不接受这一类参数：$x';
+  }
+
+  @override
+  String remoteReasonBadArgumentFormat(String x) {
+    return '参数不是 JSON 对象（$x）';
+  }
+
+  @override
+  String remoteReasonBadArgumentJson(String x) {
+    return '参数 JSON 解析失败（$x）';
   }
 
   @override

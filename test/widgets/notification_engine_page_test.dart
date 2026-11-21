@@ -235,7 +235,7 @@ void main() {
       final row = find.byKey(const ValueKey('engine-fnthink-remote'));
       expect(row, findsOneWidget);
       expect(
-        find.text('先开「接收」—— 这一页的前提是这台愿意收别人的东西'),
+        find.textContaining('请先启用接收'),
         findsOneWidget,
         reason: '可点了不代表不用解释：这一行进去之后要做的事，得有话在前头说清',
       );

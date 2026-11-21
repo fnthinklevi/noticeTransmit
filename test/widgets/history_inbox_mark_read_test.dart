@@ -110,9 +110,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('已选 1 条'), findsOneWidget, reason: '长按没有进入选择态');
     expect(
-      find.byKey(const ValueKey('history-inbox-mark-read')),
+      find.byKey(const ValueKey('history-batch-mark-read')),
       findsOneWidget,
-      reason: '顶栏缺「确认已读」那一枚',
+      reason: '批量底栏缺「确认已读」那一枚（T208 统一下沉到底栏）',
     );
 
     // 点第二行：只切勾选，不开详情（详情页会有 'fnthink-inbox-reply' 那一族动作）
@@ -125,7 +125,7 @@ void main() {
       reason: '选择态下点行把详情打开了 ⇒ 用户勾第二条时"选择态看不见了"',
     );
 
-    await tester.tap(find.byKey(const ValueKey('history-inbox-mark-read')));
+    await tester.tap(find.byKey(const ValueKey('history-batch-mark-read')));
     await tester.pumpAndSettle();
 
     expect(markManyCalls.length, 1, reason: '「确认已读」没有调用批量写口');

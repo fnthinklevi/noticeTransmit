@@ -358,6 +358,8 @@ extension _MainPageActions on _MainPageState {
         // 通道出来，上面那一次 loadServiceState 就是刷新它。
         monitoring: _notificationService.serviceRunning,
         collectInbox: await settings.receiveEnabled,
+        // T189：execute 型能力，没有系统授权读数；本版本支持即 true。
+        notificationReply: true,
       ),
       notes: {
         'autostart': l10n.l3NoteAutostart,

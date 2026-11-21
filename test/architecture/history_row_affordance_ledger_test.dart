@@ -135,23 +135,24 @@ void main() {
     }
   });
 
-  testWidgets('⑦ 转发行那两格随界面状态变语义（批量档点行=选中、长按禁用）', (tester) async {
+  testWidgets('⑦ 转发行那两格随界面状态变语义（选择模式点行=选中、长按禁用）', (tester) async {
     final forwarded = kRowAffordanceLedger.firstWhere(
       (e) => e.kind.startsWith('转发行'),
     );
     final body = forwarded.body(strippedLines(forwarded.file));
     expect(
       body,
-      contains('onTap: _batchMode'),
-      reason: '批量档点行必须换成"切换选中"：留着打开详情，用户勾选时点开的是另一层',
+      contains('onTap: _selectMode'),
+      reason: '选择模式点行必须换成"切换选中"：留着打开详情，用户勾选时点开的是另一层',
     );
-    expect(body, contains('_toggleBatchSelect(record)'));
+    expect(body, contains('_toggleSelectRecord(record.id)'));
     expect(body, contains('_showRecordDetail(record)'));
     expect(
       body,
-      contains('onLongPress: _batchMode ? null'),
-      reason: '批量档长按要禁用：留着就是一边勾选一边弹屏蔽菜单，两件事在同一行上抢',
+      contains('onLongPress: !_selectMode ?'),
+      reason: '选择模式里长按要禁用：留着就是一边勾选一边再进一次选择模式，两件事在同一行上抢',
     );
+    expect(body, contains('_enterSelectMode(record.id) : null'));
   });
 
   testWidgets('⑧ 收件行的动作住在详情弹层里，不在行上', (tester) async {
@@ -231,11 +232,11 @@ const List<RowAffordance> kRowAffordanceLedger = [
     kind: '转发行（推送历史的本地转发记录）',
     file: 'pages/history_page.dart',
     start: '    final item = HistoryRowTile(',
-    end: '    if (!_batchMode) return item;',
+    end: '    if (!_selectMode) return item;',
     tapRow: true,
-    tapWhat: '非批量档打开该条详情（详细信息＋送达记录在同一层）；批量档点行=切换选中',
+    tapWhat: '非选择模式打开该条详情（详细信息＋送达记录在同一层）；选择模式点行=切换选中',
     longPressRow: true,
-    longPressWhat: '出就地动作菜单（屏蔽该应用／屏蔽该内容）；批量档禁用',
+    longPressWhat: '进入选择模式（T208 三档统一）；选择模式内禁用',
     inlineProbe: '_buildPushNowButton(record, l10n)',
     inlineWhat:
         '行内出口每行都给（T133 片9 走 (b)）；说的话按 `repushIntentOf` 分两种 —— '
