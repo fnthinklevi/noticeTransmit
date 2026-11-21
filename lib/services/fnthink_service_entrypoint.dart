@@ -62,6 +62,12 @@ Future<void> fnthinkServiceEntrypoint() async {
       getIt<FnthinkReceiveCoordinator>().stopLoopOnly();
       return true;
     }
+    if (call.method == 'closeDb') {
+      // 原生在销毁这颗引擎之前先叫这一发：计划内关闭把连接从插件的进程静态表里
+      // 摘掉，避免"引擎死了、连接还攥着事务"成为整个库的残留锁。
+      await DatabaseHelper().close();
+      return true;
+    }
     return null;
   });
 

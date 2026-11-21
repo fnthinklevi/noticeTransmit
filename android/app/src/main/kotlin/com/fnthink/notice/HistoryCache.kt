@@ -211,7 +211,7 @@ object HistoryCache {
     }
 
     /**
-     * 重解一遍队列并按资源预算挤位，然后落盘。返回本次丢掉的条数。
+     * 重解一遍队列并按资源预算挤位，然后落盘。返回(留下的记录, 本次丢掉的条数)。
      *
      * 压实与挤位是同一次写盘：分开写就会出现"墓碑清了、字节还在超"或反之的那种半状态。
      *
@@ -220,7 +220,10 @@ object HistoryCache {
      * 丢的是"有 N 条没交接出去"这件事本身 —— 那正是 #94-A 那条横幅存在的全部理由。
      * （残余窗口：文件已换、计数未落 —— 那条最坏结果是少报一次，不是静默多丢。）
      */
-    private fun compactAndEvict(context: Context, prefs: SharedPreferences): Int {
+    private fun compactAndEvict(
+        context: Context,
+        prefs: SharedPreferences,
+    ): Pair<List<JSONObject>, Int> {
         val records = resolve(readLines(context))
         val (kept, dropped) = evictToBudget(records, MAX_QUEUE_BYTES)
         writeLines(context, kept.map { recordLine(it) })
@@ -232,7 +235,7 @@ object HistoryCache {
         if (dropped > 0) {
             Log.w(TAG, "离线队列超过 ${MAX_QUEUE_BYTES / 1024 / 1024}MB，丢弃最旧 $dropped 条（未送达 Flutter）")
         }
-        return dropped
+        return kept to dropped
     }
 
     /**
@@ -297,11 +300,18 @@ object HistoryCache {
     }
 
     /**
-     * 按批拉走已交接的记录：取最旧的 [limit] 条，**剩下的留在队里**（下次再拉）。
+     * 按批**看一眼**已交接的记录：取最旧的 [limit] 条交给 Flutter，**一条都不删**。
      *
-     * ⚠ 这里改的不只是批大小。旧写法一次拉完并清空 ⇒ 一次交付的载荷大小、以及"清空之后、入库
-     * 之前进程被杀"的丢失面都随队列长度线性增长。现在拉走的只是一批，未交付的那部分根本不会被
-     * 清掉，所以队列不设条数上限也不会有一次交付打满内存。
+     * ⚠ 交接必须是「Dart 落库成功 → 回传 [ackIds] → 这里才删」。旧写法在交付前就把这一批
+     * 从队里抹掉，于是"取走之后、入库之前"这段路上一失败（库被锁、进程被杀）那批记录
+     * 两边都没有了 —— 用户看到的就是"关闭软件再进，少了一部分转发历史"。
+     *
+     * [ackIds] 是 Flutter 已确认落库（或库里本来就有）的记录 id：先追加墓碑，再由
+     * [compactAndEvict] 一次压实落盘。未确认的记录原样留在文件里，下次启动再交一遍；
+     * 那一边按 id 查库去重，重复交付不会覆盖已有序的送达状态。
+     *
+     * [limit] <= 0 表示"只确认、不取货"：用于一批处理完（或中途失败）后把已落库的 ack
+     * 冲掉，不额外带一轮载荷。
      *
      * 溢出计数与第一批**一起交付**（分开读会漏计）；两个键必须一起清：记录清了而计数没清，
      * 下次启动就会把同一批"丢了 N 条"再报一遍。
@@ -309,23 +319,41 @@ object HistoryCache {
     fun drainAll(
         context: Context,
         limit: Int = DEFAULT_DRAIN_LIMIT,
+        ackIds: Collection<String> = emptyList(),
     ): OfflineDrain {
         lock.lock()
         try {
             val prefs = prefs(context)
             importLegacyArrayIfNeeded(context, prefs)
-            val records = resolve(readLines(context))
-            val take = if (limit <= 0) records else records.take(limit)
-            val truncated = take.size < records.size
+
+            val acked = ackIds.filter { it.isNotEmpty() }.toSet()
+            if (acked.isNotEmpty()) {
+                queueFile(context).appendText(
+                    acked.joinToString(separator = "\n", postfix = "\n") {
+                        tombstoneLine(it)
+                    },
+                )
+                // 同步落计数：紧接着的 compactAndEvict 会把墓碑清成 0，
+                // 异步 apply 会让两笔写谁先落盘变得不可预测。
+                prefs.edit()
+                    .putInt(KEY_TOMBSTONES, prefs.getInt(KEY_TOMBSTONES, 0) + acked.size)
+                    .commit()
+            }
+
+            val (records, _) = compactAndEvict(context, prefs)
             val dropped = prefs.getInt(KEY_DROPPED, 0)
-            val remaining = records.subList(take.size, records.size).map { recordLine(it) }
-            writeLines(context, remaining)
-            prefs.edit()
-                .putInt(KEY_LIVE, remaining.size)
-                .putInt(KEY_TOMBSTONES, 0)
-                .remove(KEY_DROPPED)
-                .commit()
-            Log.i(TAG, "Drained ${take.size} cached records, remaining=${remaining.size}, dropped=$dropped")
+            if (ackIds.isNotEmpty() || dropped > 0) {
+                prefs.edit().remove(KEY_DROPPED).commit()
+            }
+
+            if (limit <= 0) {
+                Log.i(TAG, "Acked ${acked.size} cached records（只确认，不取货）, dropped=$dropped")
+                return OfflineDrain(emptyList(), dropped, false)
+            }
+
+            val take = records.take(limit)
+            val truncated = take.size < records.size
+            Log.i(TAG, "Peeked ${take.size} cached records, remaining=${records.size - take.size}, acked=${acked.size}, dropped=$dropped")
             return OfflineDrain(take.map { it.toMap() }, dropped, truncated)
         } catch (e: Exception) {
             Log.e(TAG, "drainAll failed", e)

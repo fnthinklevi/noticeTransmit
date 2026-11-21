@@ -99,9 +99,14 @@ class DatabaseRecovery {
   }
 
   /// 只认 `_backupDatabaseFile` 产出的两种文件名。
-  static bool isBackupFileName(String name) =>
-      name.startsWith('$encryptedDbName$backupSuffix') ||
-      name.startsWith('$oldDbName$backupSuffix');
+  ///
+  /// WAL 旁车（`-wal`/`-shm`）与主文件同名前缀，必须显式排除 —— 否则
+  /// [latestBackup] 会把一份旁车当成"最新备份"，恢复时拿它覆盖主库。
+  static bool isBackupFileName(String name) {
+    if (name.endsWith('-wal') || name.endsWith('-shm')) return false;
+    return name.startsWith('$encryptedDbName$backupSuffix') ||
+        name.startsWith('$oldDbName$backupSuffix');
+  }
 
   /// 备份时间用本机时区；页面只需要「哪一天那一份」，不做跨时区换算。
   static String formatMoment(DateTime time) {

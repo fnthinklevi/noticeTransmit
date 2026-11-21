@@ -64,17 +64,26 @@ void main() {
     );
   });
 
-  test('交付时把没交走的那批写回队列，并连同溢出计数一起清', () {
+  test('交付是确认制：取走的记录不删，只按 ack 删已落库的那些，并清溢出计数', () {
     final src = stripComments(read(cache));
     final drain = src.substring(src.indexOf('fun drainAll('));
     final body = drain.substring(0, drain.indexOf('\n    }'));
     expect(
-      body.contains('writeLines(context, remaining)') &&
-          body.contains('.remove(KEY_DROPPED)'),
+      body.contains('ackIds'),
       isTrue,
+      reason: 'Dart 落库成功之前不能从队列删记录 —— 那是"关闭再进丢一部分历史"的根',
+    );
+    expect(
+      body.contains('writeLines(context, remaining)'),
+      isFalse,
       reason:
-          '分批之后"清干净"是两件事：余下的必须写回队列文件，计数必须一起清。'
-          '只做一个 ⇒ 要么下次冷启动同一批"丢了 N 条"再报一遍，要么没交付的那批凭空蒸发',
+          '旧形状（先把这一批从队列里删掉再交给 Dart）必须消失：'
+          '取走之后、入库之前进程被杀，这批记录两边都没有了',
+    );
+    expect(
+      body.contains('.remove(KEY_DROPPED)'),
+      isTrue,
+      reason: '溢出计数必须和记录一起清；不清 ⇒ 下次冷启动同一批"丢了 N 条"再报一遍',
     );
     expect(
       body.contains('.delete()'),

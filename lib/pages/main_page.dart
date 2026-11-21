@@ -337,9 +337,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         unawaited(_offerDatabaseRecovery());
       }
 
-      // T194：冷启动也要先取回执再清扫。清扫已从 `NotificationService.loadRecords` 挪到这里
-      // （Splash 那一刻契约与同意门都还没到，做不了「先同步」这一步）。
-      unawaited(_syncReceiptsThenSweep());
+      // 离线补库（长后台后可能几千条）与送达补偿都放到首帧之后：放在启动页会超过 T253 的
+      // 8 秒步，真机表现就是卡在「加载通知记录」。补库是确认制，写失败/中途退出都不会丢。
+      // T194 的回执同步排在补库之后（同一批库操作不抢写锁）。
+      unawaited(_hydrateOfflineThenSync());
 
       if (!_notificationService.serviceManuallyStopped) {
         Future.delayed(const Duration(milliseconds: 1000), () {
@@ -540,8 +541,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           if (mounted) setState(() {});
         }),
       );
-      // 回到前台时补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
-      unawaited(_notificationService.drainPendingDeliveries());
+      // 回到前台时再补一次离线队列与送达结果：Activity 被收走期间，原生那边可能又攒了
+      // 一批没交接的记录。交接是确认制，重复跑只是按 id 去重，不会重复入库。
+      unawaited(_hydrateOfflineOnResume());
       // T176 ④ + T194：回前台补一轮收货，并且**先等发件回执看守取回回执、再清扫**
       // （顺序是判据：清扫读的是「还在路上」那一格，先扫会把刚取到回执的那条标成 no-receipt）。
       unawaited(_syncReceiptsThenSweep());
@@ -601,9 +603,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         final Map<String, dynamic> record = Map<String, dynamic>.from(
           call.arguments,
         );
-        _notificationService.addRecord(record);
+        // 返回值 = 落库成功没有。原生据此决定是否把这条从离线队列里删掉：
+        // 写失败（库被锁/异常）时返回 false，记录留在原生队列下次再交，而不是两边都没有。
+        final persisted = await _notificationService.addRecord(record);
+        if (!mounted) return persisted;
         _refreshTotalCount();
         setState(() {});
+        return persisted;
       } else if (call.method == 'onDeliveryResult') {
         // webhook 送达结果回传：更新对应记录的状态
         final Map<String, dynamic> data = Map<String, dynamic>.from(
@@ -661,6 +667,29 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Future<void> _drainLocalRemoteCommands() async {
     if (getIt<FnthinkContractLoader>().cached == null) return;
     await getIt<RemoteCommandWiring>().drainLocalCommands();
+  }
+
+  /// 冷启动首帧后：先把原生离线队列/送达结果补进来，再做 T194 那条回执顺序。
+  ///
+  /// 补库是确认制的（落库成功才 ack），所以这里慢一点不会丢数据；把两者串起来是为了
+  /// 同一时刻只有一条重活链在读/写库，不和启动页抢锁。
+  Future<void> _hydrateOfflineThenSync() async {
+    await _notificationService.hydrateOfflineData();
+    await _syncReceiptsThenSweep();
+    if (!mounted) return;
+    await _refreshTotalCount();
+    await _refreshFnthinkInboxUnread();
+    if (mounted) setState(() {});
+  }
+
+  /// 回前台补库后刷新首页两张计数卡：后台收走 Activity 期间原生攒下的那批已经入库了，
+  /// 但首页读数还是离开前那一份。回执同步在 `didChangeAppLifecycleState` 里另有独立一发。
+  Future<void> _hydrateOfflineOnResume() async {
+    await _notificationService.hydrateOfflineData();
+    if (!mounted) return;
+    await _refreshTotalCount();
+    await _refreshFnthinkInboxUnread();
+    if (mounted) setState(() {});
   }
 
   /// T194：回前台 / 冷启动共用的那条顺序。

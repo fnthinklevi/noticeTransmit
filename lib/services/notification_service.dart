@@ -51,7 +51,14 @@ class NotificationService {
     pendingOfflineDrops = 0;
   }
 
-  /// 启动装载（T133 量级① 重排）。
+  /// 启动页那一步只做**轻量、有界**的装载。
+  ///
+  /// T133 量级①：内存列表不再是 DB 的全量镜像，历史页走分页读口；
+  /// 这里只剩一次旧的 prefs→DB 迁移（键不存在时直接返回）。
+  ///
+  /// ⚠ 离线补库与送达补偿**不在这里**：长后台后原生队列可能有成千上万条，
+  /// 逐条查库+写库放在启动页的 8 秒步里必然超时（真机表现为卡在「加载通知记录」）。
+  /// 它们由首页首帧后的 [hydrateOfflineData] 分片补，失败留在原生队列下次再来。
   Future<void> loadRecords() async {
     try {
       await DatabaseHelper().migrateFromSharedPreferences();
@@ -59,27 +66,31 @@ class NotificationService {
       debugPrint('数据库迁移失败: $e');
     }
 
-    // T133 量级①：内存列表不再是 DB 的全量镜像。历史页的两条读路（无筛选/有筛选）
-    // 都走 [searchRecords] 的 LIMIT/OFFSET 分页，"启动全量装载"那个旧决定就此退役 ——
-    // 它当初的理由（"配合全量搜索/按时间筛选"）已随分页读口落地而消失。
-    // [_records] 从此只是**本会话工作副本**：新落库的记录、被 [updateDelivery]/
-    // [pushRecordNow] 命中过的记录。不在此列的记录照样有路可走 —— 送达回传与补推
-    // 都有按 id 读 DB 的兜底（N9 / F2 两处，先于本片就位）。
-    //
-    // 迁移是存量修复，失败**不许**挡住后面的离线交接（那是丢数据的一侧），
-    // 所以它自己兜自己的异常；这里 await 只为保持启动次序可读。
-    await migrateInterceptedRecords();
-
-    // 拉取原生端离线缓存（软件被杀期间的通知），通过 id 去重后合并入库
-    await _drainOfflineCache();
-
-    // 补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
-    await drainPendingDeliveries();
-
     // T175 ②的超时清扫**不在这里**：它必须排在「发件回执看守取回回执」之后，
     // 否则会把一条其实已送达、只是还没人取回执的记录标成 no-receipt。
     // 观察点已挪到 `main_page` 的 `_syncReceiptsThenSweep`（冷启动与回前台共用那一条链）。
   }
+
+  /// 首帧之后才做的"离线补库 + 送达补偿"（可重入保护：冷启动与回前台会各来一次）。
+  ///
+  /// 顺序是判据：
+  /// 1. [migrateInterceptedRecords] 是存量修复（flag 记过就返回），但它是全表扫描，
+  ///    不能放在启动页；
+  /// 2. [_drainOfflineCache] 把原生离线队列**确认落库后**才 ack（见该方法）；
+  /// 3. [drainPendingDeliveries] 补偿 Activity 销毁期间的送达结果。
+  Future<void> hydrateOfflineData() async {
+    if (_hydrating) return;
+    _hydrating = true;
+    try {
+      await migrateInterceptedRecords();
+      await _drainOfflineCache();
+      await drainPendingDeliveries();
+    } finally {
+      _hydrating = false;
+    }
+  }
+
+  bool _hydrating = false;
 
   /// T175 ②：把超过 [olderThan] 仍是 `pending`/`queued` 的送达格改成
   /// `failed(no-receipt)`。返回改动了几条记录。
@@ -238,23 +249,30 @@ class NotificationService {
     }
   }
 
-  /// 拉取原生 HistoryCache 缓存的离线通知，按 id 去重后入库。
-  /// 修复"软件关闭重开后推送历史记录消失"问题。
+  /// 拉取原生 HistoryCache 缓存的离线通知，**确认落库后才 ack**。
   ///
   /// #94-A：原生回的是 `{records: [...], dropped: N, truncated: bool}` 而不是裸数组 —— 记录与
-  /// "因资源预算而丢弃最旧"的条数必须**一次交付**（分两次读之间原生可能又丢了新的，计数就漏了）。
+  /// "因资源预算而丢弃最旧"的条数必须**一次交付**（分开读之间原生可能又丢了新的，计数就漏了）。
   ///
   /// T133 量级②：原生那道「500 条」的存储闸拆了之后，交接改成分批 —— `truncated` 为真就是
   /// "原生手里还有"，必须继续拉，否则一次启动只入库一批、余下的要等下次打开（那是新的静默丢失）。
   /// [_maxDrainRounds] 只是防"原生一直报 truncated"的兜底：**它不丢记录**，没拉走的仍躺在原生
   /// 队列文件里，下次启动接着排。
+  ///
+  /// ⚠ 交接协议是**确认制**（`ack` 参数）：本次取走的这批在 Dart 落库成功（或库里本来就有）
+  /// 之前不会从原生队列删除。中途写库失败就停手，已落库的照常 ack、失败的那条留在原生，
+  /// 下次启动再交 —— 旧写法"先删再交"正是"关闭软件再进丢一部分转发历史"的来源。
   Future<void> _drainOfflineCache() async {
+    var pendingAck = <String>[];
     try {
       var rounds = 0;
       var totalMerged = 0;
       while (rounds < _maxDrainRounds) {
         rounds++;
-        final raw = await _channel.invokeMethod<Object?>('drainOfflineCache');
+        final raw = await _channel.invokeMethod<Object?>('drainOfflineCache', {
+          'ack': pendingAck,
+        });
+        pendingAck = const [];
         if (raw != null && raw is! Map) {
           // 不静默跳过：原生侧改了形状而这里没跟上时，"离线通知再也不进来"是最难查的症状
           debugPrint(
@@ -268,43 +286,84 @@ class NotificationService {
           pendingOfflineDrops = dropped;
           debugPrint('[HistoryCache] 离线队列撑到资源预算（$dropped 条最旧记录被丢弃）');
         }
-        totalMerged += await _mergeOfflineBatch(
+        final batch = await _mergeOfflineBatch(
           payload['records'] as List<dynamic>?,
         );
+        totalMerged += batch.merged;
+        pendingAck = batch.ackable;
+        if (batch.failed) {
+          debugPrint('[HistoryCache] 本批有记录未落库，停手；余下的仍留在原生队列');
+          break;
+        }
         if (payload['truncated'] != true) {
           if (totalMerged > 0) {
             debugPrint('[HistoryCache] 合并 $totalMerged 条离线通知（$rounds 批）');
           }
-          return;
+          break;
         }
       }
-      debugPrint('[HistoryCache] 交接到达 $_maxDrainRounds 批上限，余下的仍留在原生队列');
+      if (rounds >= _maxDrainRounds) {
+        debugPrint('[HistoryCache] 交接到达 $_maxDrainRounds 批上限，余下的仍留在原生队列');
+      }
     } catch (e) {
       debugPrint('拉取离线缓存失败: $e');
+    } finally {
+      // 最后一批（或中途失败前已落库的那部分）也要确认掉；`limit: 0` = 只确认、不取货。
+      if (pendingAck.isNotEmpty) {
+        try {
+          await _channel.invokeMethod<Object?>('drainOfflineCache', {
+            'ack': pendingAck,
+            'limit': 0,
+          });
+        } catch (e) {
+          // 确认失败不影响数据：这些记录还会在下次交付时按 id 查库去重。
+          debugPrint('[HistoryCache] 确认已落库记录失败（下次会去重）: $e');
+        }
+      }
     }
   }
 
-  /// 一批交接记录入库：按 id 去重（**查 DB**，不再查内存 —— T133 量级① 之后内存
-  /// 只是会话工作副本，老记录不在里面；命中即跳过，绝不能用一份新的 pending 快照
-  /// 把已有序的送达状态 REPLACE 掉），逐条 insert。
-  /// 返回真正入库的条数 —— 调用处按它决定"还要不要再拉"之外的日志，`truncated` 才是续拉的依据。
-  Future<int> _mergeOfflineBatch(List<dynamic>? cached) async {
-    if (cached == null || cached.isEmpty) return 0;
+  /// 一批交接记录入库，并回"哪些 id 可以 ack"。
+  ///
+  /// 去重必须**查 DB**（T133 量级① 之后内存只是会话工作副本，老记录不在里面）；
+  /// 命中即跳过，绝不能用一份新的 pending 快照把已有序的送达状态 REPLACE 掉。
+  /// 一条写失败就停：继续把后面的也写一遍只会多等几个锁超时，
+  /// 而失败那条和它后面的都必须留在原生队列里。
+  Future<({int merged, List<String> ackable, bool failed})> _mergeOfflineBatch(
+    List<dynamic>? cached,
+  ) async {
+    if (cached == null || cached.isEmpty) {
+      return (merged: 0, ackable: const <String>[], failed: false);
+    }
     // 本轮内自去重（同一批里同 id 出现两次只入库一次）+ DB 已有即跳过。
     final seenThisRun = <String>{};
+    final ackable = <String>[];
 
     var merged = 0;
     for (final item in cached) {
       if (item is! Map) continue;
       final map = Map<String, dynamic>.from(item);
       final id = map['id']?.toString() ?? '';
-      if (id.isEmpty || !seenThisRun.add(id)) continue;
-      try {
-        if (await DatabaseHelper().getNotificationById(id) != null) continue;
-      } catch (e) {
-        // 查不成就当"库里没有"照插：原生交付后这条记录在本机只剩这一份，
-        // 静默跳过就是丢记录；插错的代价（覆盖一份送达状态）比整条丢失轻。
-        debugPrint('离线缓存去重查 DB 失败，按新记录照插: $e');
+      if (id.isEmpty) {
+        // 无 id 的记录无法按 id 确认：照旧入库，但会一直留在原生队列（正常链路不会出现）。
+        debugPrint('[HistoryCache] 离线记录缺 id，无法确认交接');
+      } else if (!seenThisRun.add(id)) {
+        continue;
+      }
+      if (id.isNotEmpty) {
+        bool existed;
+        try {
+          existed = await DatabaseHelper().getNotificationById(id) != null;
+        } catch (e) {
+          // 查不成就当"库里没有"照插：原生交付后这条记录在本机只剩这一份，
+          // 静默跳过就是丢记录；插错的代价（覆盖一份送达状态）比整条丢失轻。
+          debugPrint('离线缓存去重查 DB 失败，按新记录照插: $e');
+          existed = false;
+        }
+        if (existed) {
+          ackable.add(id);
+          continue;
+        }
       }
 
       final channels = _broadcastRoutedChannels(map) ?? _getActiveChannels();
@@ -312,10 +371,16 @@ class NotificationService {
       map['deliveryStatus'] = _buildInitialDeliveries(channels);
       final record = NotificationRecord.fromMap(map);
       _records.insert(0, record);
-      await DatabaseHelper().insertNotification(record.toMap());
+      try {
+        await DatabaseHelper().insertNotification(record.toMap());
+      } catch (e) {
+        debugPrint('离线缓存入库失败（留在原生队列，下次再交）: $e');
+        return (merged: merged, ackable: ackable, failed: true);
+      }
+      if (id.isNotEmpty) ackable.add(id);
       merged++;
     }
-    return merged;
+    return (merged: merged, ackable: ackable, failed: false);
   }
 
   /// 全量历史搜索（P1；T133 量级① 起也是历史页**唯一**读路；T133 走 (c) 起是**一层**筛）：
@@ -379,7 +444,12 @@ class NotificationService {
     }
   }
 
-  void addRecord(Map<String, dynamic> record) {
+  /// 新到一条通知：先进会话副本，再把**落库结果**交回调用方。
+  ///
+  /// 返回值是原生能否把这条从离线队列里删掉的判据：`false` = 库没写成（被锁/异常），
+  /// 原生必须把它留在 HistoryCache 里，下次启动再交一遍 —— 这样"关闭软件再进丢一部分
+  /// 转发历史"就不会再发生。旧写法是 fire-and-forget，写没写成原生永远不知道。
+  Future<bool> addRecord(Map<String, dynamic> record) async {
     // T147②：原生随广播带来的组 id（只有 delay/merge 两条路有）。这里只记映射，
     // 不往 notifications 表加列 —— 历史页把成员行折叠成一条组行。
     final groupId = '${record['historyGroupId'] ?? ''}'.trim();
@@ -396,9 +466,35 @@ class NotificationService {
     record['channels'] = channels;
     record['deliveryStatus'] = _buildInitialDeliveries(channels);
     final notificationRecord = NotificationRecord.fromMap(record);
+    // 同一会话里重复投递（广播 + 补库重交）只留一条：内存去重不挡落库，
+    // 库里的去重由 [_saveRecordIfNew] 的查库完成。
+    if (notificationRecord.id.isNotEmpty &&
+        _records.any((r) => r.id == notificationRecord.id)) {
+      return _saveRecordIfNew(notificationRecord.toMap());
+    }
     // 取消保存上限（P1）：新记录全量保留，不再截断内存列表
     _records.insert(0, notificationRecord);
-    _saveRecords(notificationRecord.toMap());
+    return _saveRecordIfNew(notificationRecord.toMap());
+  }
+
+  /// 落库前先查一次：同 id 已经存在 ⇒ 视为成功（可以 ack），且**不覆盖**已有的送达状态。
+  ///
+  /// 交接改成确认制之后，一条记录可能在"库已写入、ack 还没回到原生"的窗口里再交一次；
+  /// 此时 `insertNotification` 的 REPLACE 会把 success 洗回 pending —— 那是用一份新快照
+  /// 抹掉真实结果。查一次库比事后修状态便宜。
+  Future<bool> _saveRecordIfNew(Map<String, dynamic> record) async {
+    final id = record['id']?.toString() ?? '';
+    try {
+      if (id.isNotEmpty &&
+          await DatabaseHelper().getNotificationById(id) != null) {
+        return true;
+      }
+      await DatabaseHelper().insertNotification(record);
+      return true;
+    } catch (e) {
+      debugPrint('保存通知记录到 DB 失败: $e');
+      return false;
+    }
   }
 
   /// 入库瞬间的通道快照：返回**送达键**（`chan:<slug>`），与 [applyDelivery]
@@ -690,7 +786,7 @@ class NotificationService {
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
       deviceName: deviceName,
     );
-    addRecord(record.toMap());
+    await addRecord(record.toMap());
     // addRecord 会在插入时补上 channels / deliveryStatus 两份快照，取列表里那条推出去的
     // 才是与历史页同一条（自己新造的那份这两项还是空的）。
     final stored = _records.first;
@@ -886,15 +982,6 @@ class NotificationService {
       'records': records,
     };
     return const JsonEncoder.withIndent('  ').convert(data);
-  }
-
-  Future<void> _saveRecords(Map<String, dynamic> record) async {
-    try {
-      await DatabaseHelper().insertNotification(record);
-    } catch (e) {
-      // DB 持久化失败不阻塞内存记录显示（避免未处理异步异常）
-      debugPrint('保存通知记录到 DB 失败: $e');
-    }
   }
 
   Future<List<Map<String, dynamic>>> getStats() async {

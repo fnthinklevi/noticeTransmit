@@ -20,6 +20,15 @@ void main() {
         isFalse,
       );
       expect(DatabaseRecovery.isBackupFileName('random.db'), isFalse);
+      // WAL 旁车与主文件同前缀：当成"备份"会拿一份 -wal 去覆盖主库。
+      expect(
+        DatabaseRecovery.isBackupFileName('$encrypted.corrupt-123-wal'),
+        isFalse,
+      );
+      expect(
+        DatabaseRecovery.isBackupFileName('$encrypted.corrupt-123-shm'),
+        isFalse,
+      );
     });
 
     test('大小与时间只说人话', () {
@@ -80,6 +89,26 @@ void main() {
       final latest = await DatabaseRecovery(databasesPath: () async => dir.path)
           .latestBackup();
       expect(latest, isNull);
+    });
+
+    test('WAL 旁车不算备份，哪怕它比主备份更新', () async {
+      await write(
+        'notice_transmit_encrypted.db.corrupt-1000',
+        DateTime(2026, 1, 1),
+      );
+      await write(
+        'notice_transmit_encrypted.db.corrupt-1000-wal',
+        DateTime(2026, 1, 5),
+      );
+      await write(
+        'notice_transmit_encrypted.db.corrupt-1000-shm',
+        DateTime(2026, 1, 6),
+      );
+
+      final latest = await DatabaseRecovery(databasesPath: () async => dir.path)
+          .latestBackup();
+
+      expect(latest?.fileName, 'notice_transmit_encrypted.db.corrupt-1000');
     });
   });
 }

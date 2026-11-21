@@ -60,6 +60,10 @@ object FnthinkServiceEngine {
     @Volatile
     private var fanoutAgain = false
 
+    /** 正在等 Dart 关库再销毁；这期间不允许第二发 destroy 把新引擎一起带走。 */
+    @Volatile
+    private var destroying = false
+
     @Volatile
     private var appContext: Context? = null
 
@@ -214,12 +218,50 @@ object FnthinkServiceEngine {
     }
 
     private fun destroyOnMain() {
+        if (destroying) return
         val current = engine
         engine = null
         starting = false
         fanoutBusy = false
         fanoutAgain = false
-        if (current != null) runCatching { current.destroy() }
+        if (current == null) return
+
+        // 先让 Dart 把数据库连接还回去，再拆引擎：插件的 `onDetachedFromEngine` 只清
+        // channel、**不关库**，而这条连接是进程静态表里的一份独占连接。引擎在
+        // `BEGIN EXCLUSIVE` 事务中途被拆掉时，那份事务没人 COMMIT/ROLLBACK，会一直攥着
+        // 库的写锁（真机上表现为别的引擎每次写库先等满 busy_timeout）。
+        // Dart 那边卡住（isolate 被冻结/事务里）时不能无限等：1.2 秒后照旧拆引擎。
+        destroying = true
+        var destroyed = false
+        fun finish() {
+            if (destroyed) return
+            destroyed = true
+            destroying = false
+            runCatching { current.destroy() }
+        }
+        try {
+            MethodChannel(
+                current.dartExecutor.binaryMessenger,
+                SERVICE_CHANNEL,
+            ).invokeMethod(
+                "closeDb",
+                null,
+                object : MethodChannel.Result {
+                    override fun success(result: Any?) = finish()
+
+                    override fun error(
+                        code: String,
+                        message: String?,
+                        details: Any?,
+                    ) = finish()
+
+                    override fun notImplemented() = finish()
+                },
+            )
+        } catch (_: Exception) {
+            finish()
+        }
+        mainHandler.postDelayed({ finish() }, 1200L)
     }
 
     private class DispatcherChannel(private val context: Context) : MethodChannel.MethodCallHandler {

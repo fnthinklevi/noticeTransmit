@@ -41,12 +41,14 @@ import com.tencent.bugly.crashreport.CrashReport
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -89,6 +91,10 @@ class MainActivity : FlutterActivity() {
 
     private val channel = "com.fnthink.notice/notification"
     private var methodChannel: MethodChannel? = null
+
+    /** 离线待发队列的 flush 只允许一发在跑（onResume 可能连续触发）。 */
+    @Volatile
+    private var flushRunning = false
     private val activityJob = SupervisorJob()
     private val activityScope = CoroutineScope(activityJob + Dispatchers.Main)
 
@@ -134,13 +140,36 @@ class MainActivity : FlutterActivity() {
                     try {
                         val json = JSONObject(data)
                         val map = json.toMap()
-                        if (methodChannel != null) {
-                            methodChannel?.invokeMethod("onNotificationReceived", map)
-                            // Flutter 已接收，从离线缓存移除（避免 Flutter 重启后重复入库）
-                            val id = json.optString("id", "")
-                            if (id.isNotEmpty()) {
-                                HistoryCache.remove(applicationContext, id)
-                            }
+                        val channel = methodChannel
+                        if (channel != null) {
+                            // ⚠ 确认制：Dart 回 true（已落库）才从离线队列删。旧写法在
+                            // `invokeMethod` 一发出去就 remove —— 落库失败/进程被杀时，
+                            // 这条通知两边都没有了（"关闭软件再进少一部分历史"的来源）。
+                            channel.invokeMethod(
+                                "onNotificationReceived",
+                                map,
+                                object : MethodChannel.Result {
+                                    override fun success(result: Any?) {
+                                        if (result != true) return
+                                        val id = json.optString("id", "")
+                                        if (id.isNotEmpty()) {
+                                            HistoryCache.remove(applicationContext, id)
+                                        }
+                                    }
+
+                                    override fun error(
+                                        errorCode: String,
+                                        errorMessage: String?,
+                                        errorDetails: Any?,
+                                    ) {
+                                        // Dart 落库失败 ⇒ 留在队列，下次启动再交
+                                    }
+
+                                    override fun notImplemented() {
+                                        // 同上：没有确认就不删
+                                    }
+                                },
+                            )
                         } else {
                             // Flutter 引擎未就绪 → 缓存到 SP 待批量导入
                             cacheNotificationRecord(data)
@@ -199,12 +228,19 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * org.json 对象 → MethodChannel 可编码的纯 Kotlin 结构。
+     *
+     * ⚠ 嵌套的 `JSONObject`/`JSONArray` 必须递归转成 Map/List：直接塞进
+     * `StandardMessageCodec.writeValue` 会抛"Unsupported value"，而这条链上的
+     * 记录（`routedChannels` 之类）就带嵌套数组 —— 失败一次这条记录会被一直留在队列里。
+     */
     internal fun JSONObject.toMap(): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
         val keys = keys()
         while (keys.hasNext()) {
             val key = keys.next()
-            map[key] = get(key)
+            map[key] = jsonToPlain(get(key))
         }
         return map
     }
@@ -2589,38 +2625,79 @@ class MainActivity : FlutterActivity() {
     /**
      * 批量导入缓存的未送达通知记录。
      *
-     * 逐条投递给 Flutter；失败（引擎分离 / methodChannel 为 null / 抛异常）的记录
-     * 必须留在队列里。此前无论成败都在循环后无条件 remove("pending_records")，
-     * 于是一次 UI 未就绪的启动就会把整批离线缓存抹掉——通知内容彻底消失且无痕迹。
-     * （那一课已由"只写回没交付的那部分"接管：交付成功的从文件里消失，失败的原样留下。）
+     * ⚠ 确认制：**Dart 回 true（已落库）才算交付**。`invokeMethod` 一发出去就当成功
+     * （旧写法）有两个丢失面：Dart 侧写库失败、以及"引擎回包之前进程被杀"——
+     * 两种情况下记录都已从队列删掉，而库里没有，通知内容就永久消失。
+     *
+     * 逐条投递，第一条失败就停手：库被锁时后面每条都要等满 busy_timeout，
+     * 继续跑只会把 onResume 拖长；没交付的原样留在队列里，下次 resume 再交。
      */
     internal fun flushCachedNotificationRecords() {
-        try {
-            val records = PendingRecordCache.readAll(applicationContext)
-            val deliveredIds = mutableListOf<String>()
-            for (json in records) {
-                val delivered = try {
-                    val channel = methodChannel ?: throw IllegalStateException("methodChannel 未就绪")
-                    val map = mutableMapOf<String, Any?>()
-                    val keys = json.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        map[key] = json.get(key)
-                    }
-                    channel.invokeMethod("onNotificationReceived", map)
-                    true
-                } catch (e: Exception) {
-                    Log.w("MainActivity", "离线缓存记录投递失败，保留待下次", e)
-                    false
+        if (flushRunning) return
+        flushRunning = true
+        requestScope.launch {
+            try {
+                // 读队列文件是 IO；invokeMethod 必须在主线程（requestScope 就是 Main）。
+                val records = withContext(Dispatchers.IO) {
+                    PendingRecordCache.readAll(applicationContext)
                 }
-                if (delivered) deliveredIds.add(json.optString("id"))
+                val deliveredIds = mutableListOf<String>()
+                for (json in records) {
+                    val channel = methodChannel ?: break
+                    if (!invokeDartAndAwait(channel, json.toMap())) break
+                    deliveredIds.add(json.optString("id"))
+                }
+                // 只把**已确认落库**的那些从队里排除：交付期间新 append 进来的记录不能被顺手抹掉
+                withContext(Dispatchers.IO) {
+                    PendingRecordCache.writeBack(applicationContext, deliveredIds)
+                }
+            } catch (e: Exception) {
+                // 整体失败时不动文件：留待人工排查，避免静默丢数据
+                Log.w("MainActivity", "flushCachedNotificationRecords 异常", e)
+            } finally {
+                flushRunning = false
             }
-            // 只把**已交付**的那些从队里排除：交付期间新 append 进来的记录不能被顺手抹掉
-            PendingRecordCache.writeBack(applicationContext, deliveredIds)
-        } catch (e: Exception) {
-            // 整体失败时不动文件：留待人工排查，避免静默丢数据
-            Log.w("MainActivity", "flushCachedNotificationRecords 异常", e)
         }
+    }
+
+    /**
+     * 把一条待发记录交给 Dart，并等它回"落库成功没有"。
+     *
+     * 5 秒上界：Dart 侧写库的 busy_timeout 是 1 秒；一个永远等不到的
+     * `Result`（引擎已 detach / isolate 被冻结）不能把整条 flush 挂死。
+     */
+    private suspend fun invokeDartAndAwait(
+        channel: MethodChannel,
+        map: Map<String, Any?>,
+    ): Boolean {
+        val answer = CompletableDeferred<Boolean>()
+        try {
+            channel.invokeMethod(
+                "onNotificationReceived",
+                map,
+                object : MethodChannel.Result {
+                    override fun success(result: Any?) {
+                        answer.complete(result == true)
+                    }
+
+                    override fun error(
+                        errorCode: String,
+                        errorMessage: String?,
+                        errorDetails: Any?,
+                    ) {
+                        answer.complete(false)
+                    }
+
+                    override fun notImplemented() {
+                        answer.complete(false)
+                    }
+                },
+            )
+        } catch (e: Exception) {
+            Log.w("MainActivity", "离线缓存记录投递失败，保留待下次", e)
+            return false
+        }
+        return withTimeoutOrNull(5_000) { answer.await() } ?: false
     }
 }
 

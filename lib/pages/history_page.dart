@@ -655,7 +655,7 @@ class _HistoryPageState extends State<HistoryPage> {
     // 它是一次**待兑现的意图**，兑现过就要能清空，而 widget 的字段是不变的。
     _pendingFocusMessageId = widget.focusMessageId;
     _scrollController.addListener(_onScroll);
-    // 取一次溢出计数：loadRecords() 在 app 启动时已经跑过 drainOfflineCache
+    // 取一次溢出计数：首页首帧后的 hydrateOfflineData() 已经跑过 drainOfflineCache
     _offlineDrops = GetIt.instance<NotificationService>().pendingOfflineDrops;
     // 一进来就停在幻念那一族 ⇒ 那一档的数据得当场取。平时它是"切过去才读"的，
     // 而首页那张未读卡进来时并没有一次"切"可以等。**两档都要认**（收件 / 发出）：

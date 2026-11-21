@@ -50,6 +50,14 @@ void main() {
         isTrue,
         reason: '没有这条 PRAGMA ⇒ 锁冲突退回框架默认（可能无限等），界面就没有可报的错',
       );
+      // ⚠ 必须 rawQuery：`PRAGMA busy_timeout = N` 会返回一行，走 execute/execSQL
+      // 时插件抛"Queries can be performed using ... rawQuery methods only" ——
+      // T253 的 busy_timeout 因此在真机上**从未生效**（2026-11-21 实测）。
+      expect(
+        tune.contains('rawQuery('),
+        isTrue,
+        reason: 'busy_timeout 走 execute ⇒ 这条 PRAGMA 恒失败，有界锁等待是假的',
+      );
       final init = blockAfter(src, 'Future<Database> _initDatabase() async');
       expect(
         RegExp(r'_tuneOpen\(').allMatches(init).length,
@@ -90,6 +98,78 @@ void main() {
       final close = blockAfter(src, 'Future<void> close() async');
       expect(close.contains('_database = null'), isTrue);
       expect(close.contains('old.close()'), isTrue);
+    });
+  });
+
+  group('⑤ 交接确认制 + WAL + 引擎销毁前关库', () {
+    test('两条开库路径都接了 _configureConnection，且它真的启用了 WAL', () {
+      final src = read('lib/database/database_helper.dart');
+      final init = blockAfter(src, 'Future<Database> _initDatabase() async');
+      final opens = RegExp(r'openDatabase\(').allMatches(init).length;
+      expect(
+        RegExp(r'onConfigure: _configureConnection').allMatches(init).length,
+        opens,
+        reason: '有开库点没设 busy_timeout/WAL ⇒ 那条连接仍可能无限等锁',
+      );
+      final configure = blockAfter(
+        src,
+        'Future<void> _configureConnection(Database db) async',
+      );
+      expect(configure, contains('PRAGMA journal_mode=WAL'));
+      expect(configure, contains('PRAGMA busy_timeout = \$busyTimeoutMs'));
+      expect(
+        configure.contains('rawQuery('),
+        isTrue,
+        reason: 'busy_timeout/WAL 这两条 PRAGMA 都返回行；execute 会把它们判成非法 SQL',
+      );
+    });
+
+    test('原生只在 Dart 回 true（已落库）后才删离线记录', () {
+      final src = read(
+        'android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt',
+      );
+      final receiver = blockAfter(
+        src,
+        'private val notificationReceiver = object : BroadcastReceiver()',
+      );
+      expect(
+        receiver.contains('result != true') &&
+            receiver.contains('HistoryCache.remove'),
+        isTrue,
+        reason:
+            'invokeMethod 一发出去就 remove = 落库失败/进程被杀时记录两边都没有'
+            '（关闭软件再进少一部分历史的根）',
+      );
+      final flush = blockAfter(
+        src,
+        'internal fun flushCachedNotificationRecords()',
+      );
+      expect(
+        flush.contains('invokeDartAndAwait'),
+        isTrue,
+        reason: '待发队列也必须等 Dart 回"落库成功"才算交付',
+      );
+    });
+
+    test('服务引擎销毁前先让 Dart 关闭数据库连接', () {
+      final src = read(
+        'android/app/src/main/kotlin/com/fnthink/notice/FnthinkServiceEngine.kt',
+      );
+      final destroy = blockAfter(src, 'private fun destroyOnMain()');
+      expect(
+        destroy.contains('"closeDb"'),
+        isTrue,
+        reason:
+            '插件 detach 不关库：引擎在事务中途被拆掉会留下攥着写锁的残留连接，'
+            '必须让 Dart 先 close 再 destroy',
+      );
+      final entry = read('lib/services/fnthink_service_entrypoint.dart');
+      expect(
+        entry.contains("call.method == 'closeDb'") &&
+            entry.contains('DatabaseHelper().close()'),
+        isTrue,
+        reason: '原生叫了 closeDb 而 Dart 没接 ⇒ 这条自愈链是空转的',
+      );
     });
   });
 

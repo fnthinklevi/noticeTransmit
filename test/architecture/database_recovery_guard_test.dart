@@ -20,7 +20,10 @@ void main() {
     final restore = blockAfter(src, 'Future<void> restoreFromBackup(');
     expect(restore, contains('DatabaseRecovery.verifyReadable'));
     expect(restore, contains('.before-restore-'));
-    expect(restore, contains('rename(dbPath)'));
+    // WAL 之后主库与 -wal/-shm 必须整份搬运：只挪主文件会把最近提交留在旧 WAL 里。
+    expect(restore, contains('_moveBundle(dbPath, rollbackPath)'));
+    expect(restore, contains('_copyBundle(backupPath, dbPath)'));
+    expect(restore, contains('_moveBundle(rollbackPath, dbPath)'));
 
     final verify = blockAfter(
       read('lib/database/database_recovery.dart'),

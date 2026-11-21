@@ -108,7 +108,11 @@ class DatabaseHelper
   static const int dbVersion = 29;
 
   /// 开库后给每条连接的锁等待上界（毫秒）。机制说明见 [_tuneOpen]。
-  static const int busyTimeoutMs = 5000;
+  ///
+  /// 1 秒而不是 5 秒：残留连接持锁时，启动链上任何一次写都不该把「等锁」累加到超过
+  /// 启动页的 8 秒步（每步两次写库就是 10 秒）。锁冲突要**尽快变成可捕获的错误**，
+  /// 由调用方决定是停手（留在原生队列下次再交）还是跳过。
+  static const int busyTimeoutMs = 1000;
 
   /// T199 ③（第一刀）：这一颗 isolate 允不允许做**破坏性**的开库动作。
   ///
@@ -237,6 +241,7 @@ class DatabaseHelper
           encryptedPath,
           password: password,
           version: dbVersion,
+          onConfigure: _configureConnection,
           onCreate: _onCreate,
           onUpgrade: _onUpgrade,
           // T253：不复用别的 isolate 留下的连接（病根与两条约束见 [_tuneOpen]）。
@@ -266,6 +271,7 @@ class DatabaseHelper
             encryptedPath,
             password: password,
             version: dbVersion,
+            onConfigure: _configureConnection,
             onCreate: _onCreate,
             onUpgrade: _onUpgrade,
             singleInstance: false,
@@ -279,8 +285,41 @@ class DatabaseHelper
     }
   }
 
-  /// T253：开库之后的两条连接级约束（2026-11-14 真机：长锁屏后 splash 永远停在
-  /// 「加载通知记录」，force-stop 才恢复）。
+  /// 连接级配置：**在版本检查/迁移之前**执行（`onConfigure` 的语义）。
+  ///
+  /// 两件事都必须抢在迁移前面：
+  ///  - `busy_timeout`：迁移本身是一次写事务，被残留连接占住时同样要有上界；
+  ///  - `journal_mode=WAL`：本项目的库此前从未启用 WAL（插件里的
+  ///    `enableWriteAheadLogging()` 没有任何调用点）。rollback journal 下
+  ///    `db.transaction()` 发出的 `BEGIN EXCLUSIVE` 连读都会挡住，任何一个引擎
+  ///    死在事务中途留下的连接都会让整个库不可用。WAL 让读不再被写事务挡住，
+  ///    也把 UI 与常驻服务引擎之间的日常写冲突降下来。
+  ///
+  /// WAL 设置失败不改变开库结论（可能正被残留连接占着）：这一次按原 journal 模式跑，
+  /// 下次启动再试。备份/恢复链路会同时搬运 `-wal`/`-shm` 旁车文件（见 `_moveBundle`）。
+  Future<void> _configureConnection(Database db) async {
+    // ⚠ 必须走 rawQuery：`PRAGMA busy_timeout = N` 会返回一行（新的超时值），
+    // 插件把它交给 `execSQL` 时会抛 "Queries can be performed using SQLiteDatabase
+    // query or rawQuery methods only" —— 那正是 T253 的 busy_timeout 在真机上
+    // **从未生效**的原因（2026-11-21 覆盖安装后的日志实测）。
+    try {
+      await db.rawQuery('PRAGMA busy_timeout = $busyTimeoutMs');
+    } catch (e) {
+      debugPrint('设置 busy_timeout 失败（不影响开库）: $e');
+    }
+    try {
+      final rows = await db.rawQuery('PRAGMA journal_mode=WAL');
+      final mode = rows.isEmpty ? null : rows.first.values.first;
+      if ('$mode'.toLowerCase() != 'wal') {
+        debugPrint('启用 WAL 未生效（当前 journal_mode=$mode）');
+      }
+    } catch (e) {
+      debugPrint('启用 WAL 失败（本次按原 journal 模式运行）: $e');
+    }
+  }
+
+  /// T253：开库之后的连接级兜底（`onConfigure` 已设过一遍；这里是老调用点与
+  /// 直接 `openDatabase` 的路径的同一道保险）。
   ///
   /// 病根在插件的连接复用：`singleInstance` 缺省 true ⇒ 跨 isolate 复用**同一个**
   /// Database 对象；后台引擎死在事务中途时，那条连接与它持有的事务不会被 detach 关掉，
@@ -289,10 +328,11 @@ class DatabaseHelper
   ///    SQLite 层的 BUSY，不再有"排在别人的悬挂事务后面"这条无界等待；
   ///  - `busy_timeout` 让 BUSY 在 [busyTimeoutMs] 内变成可捕获的错误 ⇒
   ///    界面能显式报错并给出恢复入口（启动页那一步见 `runBoundedStartupStep`）。
-  /// 读路径（WAL）不受影响。
+  ///  - WAL（见 [_configureConnection]）让残留的**读**事务不再挡写。
   Future<Database> _tuneOpen(Database db) async {
     try {
-      await db.execute('PRAGMA busy_timeout = $busyTimeoutMs');
+      // 同 `_configureConnection`：这条 PRAGMA 返回一行，必须 rawQuery。
+      await db.rawQuery('PRAGMA busy_timeout = $busyTimeoutMs');
     } catch (e) {
       // 设不上不改变开库结论：连接已经是本 isolate 独占的，最坏是锁冲突回到框架默认档。
       debugPrint('设置 busy_timeout 失败（不影响开库）: $e');
@@ -390,21 +430,18 @@ class DatabaseHelper
         '$dbPath.before-restore-${DateTime.now().millisecondsSinceEpoch}';
     var movedCurrent = false;
     try {
-      final current = File(dbPath);
-      if (await current.exists()) {
-        await current.rename(rollbackPath);
+      // 当前库与它的 WAL 旁车一起挪走：只挪主文件会把旧 WAL 留给刚恢复的库。
+      if (await File(dbPath).exists()) {
+        await _moveBundle(dbPath, rollbackPath);
         movedCurrent = true;
       }
-      await File(backupPath).copy(dbPath);
+      await _copyBundle(backupPath, dbPath);
       _database = await _initDatabase();
     } catch (e) {
-      try {
-        final failed = File(dbPath);
-        if (await failed.exists()) await failed.delete();
-      } catch (_) {}
+      await _deleteBundle(dbPath);
       if (movedCurrent) {
         try {
-          await File(rollbackPath).rename(dbPath);
+          await _moveBundle(rollbackPath, dbPath);
         } catch (_) {}
       }
       try {
@@ -416,18 +453,59 @@ class DatabaseHelper
     }
   }
 
-  /// 把指定数据库文件重命名为带时间戳的备份文件（保留原数据供恢复）。
-  /// 返回备份路径；文件不存在或重命名失败时返回 null。
+  /// 把指定数据库文件（连同 WAL 旁车）重命名为带时间戳的备份文件（保留原数据供恢复）。
+  /// 返回备份路径；主文件不存在或重命名失败时返回 null。
+  ///
+  /// ⚠ WAL 模式下**最近提交的数据可能还在 `-wal` 里**：只搬主文件等于把最近那段历史
+  /// 留在原地（新库一建，旧 WAL 会被当成新库的旁车读，最坏是"库坏了"）。
+  /// 三个文件必须一起走、一起回来（见 [_moveBundle] / [_copyBundle]）。
   Future<String?> _backupDatabaseFile(String path) async {
     try {
       final file = File(path);
       if (!await file.exists()) return null;
       final backupPath =
           '$path.corrupt-${DateTime.now().millisecondsSinceEpoch}';
-      await file.rename(backupPath);
+      await _moveBundle(path, backupPath);
       return backupPath;
     } catch (_) {
       return null;
+    }
+  }
+
+  static const _dbSidecars = <String>['-wal', '-shm'];
+
+  /// 移动一整份库（主文件 + 旁车）。主文件不在 ⇒ 什么都不做（旁车没有意义）。
+  Future<void> _moveBundle(String from, String to) async {
+    if (!await File(from).exists()) return;
+    await File(from).rename(to);
+    for (final suffix in _dbSidecars) {
+      final sidecar = File('$from$suffix');
+      if (await sidecar.exists()) {
+        final target = File('$to$suffix');
+        if (await target.exists()) await target.delete();
+        await sidecar.rename('$to$suffix');
+      }
+    }
+  }
+
+  /// 复制一整份库（主文件 + 旁车）。备份/恢复只认这一对动作，避免只搬一半。
+  Future<void> _copyBundle(String from, String to) async {
+    await File(from).copy(to);
+    for (final suffix in _dbSidecars) {
+      final sidecar = File('$from$suffix');
+      if (await sidecar.exists()) {
+        await sidecar.copy('$to$suffix');
+      }
+    }
+  }
+
+  /// 删掉一整份库（主文件 + 旁车）。
+  Future<void> _deleteBundle(String path) async {
+    for (final suffix in const ['', ..._dbSidecars]) {
+      try {
+        final file = File('$path$suffix');
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
     }
   }
 
@@ -484,6 +562,7 @@ class DatabaseHelper
         // 与生产打开路径同版本号：迁移期建的是「当前全量 schema」的库，贴旧号会让
         // 下次启动跑 onUpgrade 并对已存在的列重复 ALTER（曾整库被备份重建）。
         version: dbVersion,
+        onConfigure: _configureConnection,
         onCreate: _onCreate,
       );
 

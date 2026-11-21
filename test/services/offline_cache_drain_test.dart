@@ -30,18 +30,33 @@ void main() {
   /// 分批交付的脚本：非空时**每次** `drainOfflineCache` 调用按顺序给一批，给完退回 [drainPayload]。
   /// （原生换了载体之后一次只交一批，"还剩没有"由载荷里的 `truncated` 说 —— 见 T133 量级②。）
   final List<Object?> drainQueue = <Object?>[];
+  final List<MethodCall> drainCallLog = <MethodCall>[];
   int drainCalls = 0;
 
-  /// 置真后，脚本给完就**一直**回「还有、这批空」——只用来试那枚循环上限，不是原生真会这样。
+  /// 置真后，脚本给完就**一直**回「还有、同一条」——只用来试那枚循环上限，不是原生真会这样。
   bool drainSpinsForever = false;
+
+  Map<String, dynamic> offlineRecord(String id) => <String, dynamic>{
+    'id': id,
+    'title': '离线通知$id',
+    'content': '软件被杀期间到达',
+    'subText': '',
+    'packageName': 'com.example.offline',
+    'appName': '离线应用',
+    'postTime': 1767223200000,
+    'time': '2026-01-01 10:00:00',
+    'type': 'notification',
+    'priority': 1,
+  };
 
   Future<Object?> onChannelCall(MethodCall call) async {
     if (call.method == 'drainOfflineCache') {
       drainCalls++;
+      drainCallLog.add(call);
       if (drainQueue.isNotEmpty) return drainQueue.removeAt(0);
       if (drainSpinsForever) {
         return <String, Object?>{
-          'records': const <Object?>[],
+          'records': [offlineRecord('spin_1')],
           'truncated': true,
         };
       }
@@ -58,6 +73,7 @@ void main() {
     drainSpinsForever = false;
     drainCalls = 0;
     drainQueue.clear();
+    drainCallLog.clear();
     GetIt.instance.reset();
     stubNativeChannels(onCall: onChannelCall);
   });
@@ -69,26 +85,13 @@ void main() {
     await GetIt.instance.reset();
   });
 
-  Map<String, dynamic> offlineRecord(String id) => <String, dynamic>{
-    'id': id,
-    'title': '离线通知$id',
-    'content': '软件被杀期间到达',
-    'subText': '',
-    'packageName': 'com.example.offline',
-    'appName': '离线应用',
-    'postTime': 1767223200000,
-    'time': '2026-01-01 10:00:00',
-    'type': 'notification',
-    'priority': 1,
-  };
-
   test('记录与丢弃条数一起交付：两边都落到该落的地方', () async {
     drainPayload = <String, Object?>{
       'records': [offlineRecord('off_1'), offlineRecord('off_2')],
       'dropped': 3,
     };
     final service = NotificationService();
-    await service.loadRecords();
+    await service.hydrateOfflineData();
 
     expect(
       service.records.map((r) => r.id),
@@ -110,7 +113,7 @@ void main() {
       'dropped': 0,
     };
     final service = NotificationService();
-    await service.loadRecords();
+    await service.hydrateOfflineData();
 
     expect(service.records.map((r) => r.id), contains('off_3'));
     expect(service.pendingOfflineDrops, 0);
@@ -121,7 +124,7 @@ void main() {
     // 猜出来的记录没有 id/通道，会污染统计且再也对不上送达回传。
     drainPayload = [offlineRecord('off_4')];
     final service = NotificationService();
-    await service.loadRecords();
+    await service.hydrateOfflineData();
 
     expect(service.records, isEmpty);
     expect(service.pendingOfflineDrops, 0);
@@ -133,7 +136,7 @@ void main() {
       'dropped': 7,
     };
     final service = NotificationService();
-    await service.loadRecords();
+    await service.hydrateOfflineData();
     expect(service.pendingOfflineDrops, 7);
 
     service.ackOfflineDrops();
@@ -153,7 +156,7 @@ void main() {
       },
     ]);
     final service = NotificationService();
-    await service.loadRecords();
+    await service.hydrateOfflineData();
 
     expect(
       service.records.map((r) => r.id),
@@ -162,7 +165,26 @@ void main() {
           '原生那道 500 条的存储闸拆了之后，一次交付只是其中一批 —— 不续拉就等于'
           '「离线期间的历史只进来头一批，剩下的下次打开再说」，那是新的静默丢失',
     );
-    expect(drainCalls, 2, reason: '第二批才是"排到没了"的那一发');
+    expect(drainCalls, 3, reason: '两批交付 + 最后一发"只确认不取货"的 ack');
+    expect(
+      (drainCallLog.first.arguments as Map)['ack'],
+      isEmpty,
+      reason: '第一发还没有可确认的记录',
+    );
+    expect(
+      (drainCallLog[1].arguments as Map)['ack'],
+      containsAll(<String>['p1_a', 'p1_b']),
+      reason: '第二批必须把第一批已落库的 id 带回去，原生才敢删',
+    );
+    expect(
+      (drainCallLog.last.arguments as Map)['limit'],
+      0,
+      reason: '最后一发是只确认不取货，避免再返回一批',
+    );
+    expect(
+      (drainCallLog.last.arguments as Map)['ack'],
+      containsAll(<String>['p2_a']),
+    );
     expect(await helper.getAllNotifications(), hasLength(3));
   });
 
@@ -178,7 +200,7 @@ void main() {
       },
     ]);
     final service = NotificationService();
-    await service.loadRecords();
+    await service.hydrateOfflineData();
 
     expect(
       service.records.where((r) => r.id == 'dup_1'),
@@ -204,7 +226,7 @@ void main() {
     };
 
     final service = NotificationService();
-    await service.loadRecords();
+    await service.hydrateOfflineData();
 
     expect(
       service.records.where((r) => r.id == 'db_known_1'),
@@ -228,15 +250,39 @@ void main() {
     });
     drainSpinsForever = true;
     final service = NotificationService();
-    await service.loadRecords();
+    await service.hydrateOfflineData();
 
     // 队列脚本给完就退回 null（形状不对 ⇒ 一条都不合并），所以这里到的是**上限**那一支。
-    expect(drainCalls, 200, reason: '没有上限 ⇒ 原生一句 truncated 就能把启动变成死循环');
+    // 200 批 + 最后一发"只确认不取货"。
+    expect(drainCalls, 201, reason: '没有上限 ⇒ 原生一句 truncated 就能把启动变成死循环');
     expect(service.records.map((r) => r.id), contains('spin_1'));
     expect(
       service.pendingOfflineDrops,
       0,
       reason: '到上限只是"这次不排了"，余下的仍躺在原生队列文件里 —— 不丢，也不许报"丢了"',
+    );
+  });
+
+  test('写库失败 ⇒ 停手且不 ack，记录仍留在原生队列（不再"先删后写"）', () async {
+    drainPayload = <String, Object?>{
+      'records': [offlineRecord('fail_1'), offlineRecord('fail_2')],
+      'dropped': 0,
+    };
+    // 关掉库：查重与入库都会失败，模拟"库被残留连接占住"的那一刻。
+    await db.close();
+    final service = NotificationService();
+    await service.hydrateOfflineData();
+
+    expect(drainCalls, 1, reason: '一条写失败就停手：继续拉下一批只会再多等几个锁超时');
+    expect(
+      (drainCallLog.single.arguments as Map)['ack'],
+      isEmpty,
+      reason: '失败的那条不能进 ack —— 进了就等于告诉原生"可以删了"',
+    );
+    expect(
+      service.records.map((r) => r.id),
+      contains('fail_1'),
+      reason: '本次会话仍要在内存里看得见（原生那份没删，下次会再交）',
     );
   });
 }

@@ -27,11 +27,29 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
             //   的**当日已推送**基数（同一天还取 maxOf），是那个数字在暂停态下仍然上涨的
             //   第三个作者。现在「当日已推送」的唯一作者在原生扇出那一次，Flutter 无话可同步。
             "drainOfflineCache" -> {
-                // Flutter 启动时拉取离线期间缓存的通知（避免软件被杀后历史丢失）
-                // drainAll 一次要读整份行文件、解一遍墓碑、再把没拉走的重写回去（T133 量级②之后
-                // 队列不再设条数上限，一次交付只是其中一批）—— 留在平台线程会卡首帧
+                // Flutter 启动 / 回前台时把离线期间缓存的通知拉过去入库（避免软件被杀后历史丢失）。
+                // 交接是**确认制**：`ack` 里的 id 是 Flutter 已确认落库的那一批，只有它们会从
+                // 原生队列里删；本次取走的这批先留在文件里，等下一次调用带着 ack 来才算交接完成。
+                // 这样"取走之后、入库之前"进程被杀或写库失败，记录仍在原生，不会两边都没有。
+                // `limit=0` = 只确认不取货（处理完最后一批 / 中途失败时冲 ack）。
+                // drainAll 要读整份行文件、解墓碑并压实 —— 留在平台线程会卡首帧。
+                val ack = call.argument<List<String>>("ack") ?: emptyList()
+                val limit = call.argument<Int>("limit") ?: HistoryCache.DEFAULT_DRAIN_LIMIT
+                // 同一时刻顺手把「引擎未就绪」那条待发队列也冲一次：它此前只在 onResume
+                // 冲，而冷启动时 onResume 早于 Dart 装好 handler（现在会保留不删，但会拖到
+                // 下一次回前台才出现）。这里已经证明 Dart 侧 handler 在线，正是它的时机。
+                // 确认制：Dart 回 true 才从 PendingRecordCache 里删。
+                // ⚠ 只在**每一轮的第一发**（还没有 ack）触发：库被锁时一次 flush 要等
+                // 满 5 秒，后面的每一批再触发就会把一次补库拖成几十次超时。
+                if (ack.isEmpty() && limit > 0) {
+                    activity.flushCachedNotificationRecords()
+                }
                 ioScope.launch {
-                    val drained = HistoryCache.drainAll(activity.applicationContext)
+                    val drained = HistoryCache.drainAll(
+                        activity.applicationContext,
+                        limit = limit,
+                        ackIds = ack,
+                    )
                     // #94-A：记录与"因资源预算而丢弃的条数"必须一次交付（分开读会漏计），
                     // 所以这里回的是 Map 而不是裸 List。`truncated` 同一条理由搭同一班车：
                     // Flutter 要靠它决定还要不要再拉一批，队列没清空时那批记录一条都还在原生。

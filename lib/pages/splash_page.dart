@@ -69,6 +69,10 @@ class _SplashPageState extends State<SplashPage>
   Timer? _watchdog;
   bool _done = false;
 
+  /// 正在跑的那条装配链。超时只会让界面先报错，**不会**取消它 ——
+  /// 所以「重试」不能再起第二条（否则同一个 isolate 里两份 loadRecords 并发跑）。
+  Future<void>? _inflight;
+
   /// 启动 watchdog 的上界。5 秒是安全存储单次调用的上界；这里给整条装配链留 20 秒。
   static const Duration initDeadline = Duration(seconds: 20);
 
@@ -97,11 +101,38 @@ class _SplashPageState extends State<SplashPage>
       final l10n = AppLocalizations.of(context);
       setState(() => _error = l10n.initTimeout(initDeadline.inSeconds));
     });
-    unawaited(_initServices());
+    final run = _initServices();
+    _inflight = run;
+    unawaited(
+      run.whenComplete(() {
+        if (identical(_inflight, run)) _inflight = null;
+      }),
+    );
   }
 
   /// 重试只重跑装配链：**不重建数据、不动安全存储**（清数据那条路只能由用户自己去系统设置走）。
+  ///
+  /// 若上一轮还活着（超时只是界面先报错，底层 DB 调用可能仍在跑），这里**不再起第二轮** ——
+  /// 同一 isolate 里两份 loadRecords 并发只会互相抢锁、把等待拖得更长。改为把界面切回
+  /// 等待态并重新挂上 watchdog：原链一跑完就会 `onInitCompleted`；跑不完再由 watchdog
+  /// 把「重启应用」那个真出口交回来。
   void _retry() {
+    final inflight = _inflight;
+    if (inflight != null) {
+      setState(() {
+        _error = null;
+        _statusText = null;
+        // 保留 _stalled：这一轮原本就是卡死档时，watchdog 再响要能把「重启应用」交回来。
+        _done = false;
+      });
+      _watchdog?.cancel();
+      _watchdog = Timer(initDeadline, () {
+        if (!mounted || _done) return;
+        final l10n = AppLocalizations.of(context);
+        setState(() => _error = l10n.initTimeout(initDeadline.inSeconds));
+      });
+      return;
+    }
     setState(() {
       _error = null;
       _statusText = null;
@@ -151,9 +182,9 @@ class _SplashPageState extends State<SplashPage>
     // 语言装配必须先于任何显示通道名的步骤（LocaleService 默认 system 模式，
     // init() 过去挂在 MyApp 的 _onServicesInitialized 里 = splash 装配完之后）。
     // 历史上它还**同时决定存储键**（webhook:钉钉 / webhook:DingTalk），于是系统语言
-    // 非中文、应用内选中文的用户会在 loadRecords / drainPendingDeliveries 阶段写出
-    // 中英双键（历史重复徽标 / 旧键永远「发送中」）。DB v11 起存储键改为与语言无关的
-    // chan:<slug>，该缺陷类别从根上消除；此处顺序约束只剩显示层。
+    // 非中文、应用内选中文的用户会在写库阶段写出中英双键（历史重复徽标 / 旧键永远
+    // 「发送中」）。DB v11 起存储键改为与语言无关的 chan:<slug>，该缺陷类别从根上消除；
+    // 此处顺序约束只剩显示层。
     await runBoundedStartupStep('locale', () async {
       await GetIt.instance<LocaleService>().init();
     });
