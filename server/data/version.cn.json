@@ -1,28 +1,28 @@
 {
-  "latestVersion": "1.6.6",
-  "latestBuild": 166,
+  "latestVersion": "1.6.7",
+  "latestBuild": 167,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.75",
   "forceUpdateBuild": 115,
-  "changelog": "锁屏恢复与发信可靠性修复（1.6.6）\n\n🚪 **锁屏卡死与启动**\n- 修复部分机型锁屏恢复后卡在「加载通知记录」的长时间无界等待：\n  连接隔离（`singleInstance: false`）让各引擎各持一条 SQLite 连接、不再排别人的悬挂事务；\n  锁冲突退化为有界的 `busy_timeout`（客户端报错而非无限等）；计划内关闭引擎连接；\n  启动页逐步有界步骤（单步 30s 超时），卡死时给出「重启应用」出口\n- 路由关掉自动切备后，失败只进重试、绝不碰备用通道（此前偶发切备后又触发主备同时发）\n- 传输层异常统一兜住转 `transportError`，不再冒泡到页面；可恢复失败自动重试一次（500ms 延迟）\n- `runNow` 发送前先 cancel 上一次 debounce Timer，锁屏恢复后避免重复触发\n- 发送失败 `transportError` 弹层加「重试」按钮\n\n📋 **历史页**\n- 历史页三个 Tab 统一选择态，幻念消息支持直接导出",
-  "changelogEn": "Wake-from-lock & send reliability (1.6.6)\n\n**Splash-screen hang & startup**\n- Fixed the long unbounded wait stuck on \"loading notification record\" after waking from lock on some devices:\n  connection isolation (`singleInstance: false`) gives each engine its own SQLite connection instead of queuing behind a hung peer;\n  lock contention becomes a bounded `busy_timeout` (client sees an error instead of waiting forever);\n  engines close their connections cleanly; the splash screen now runs each startup step with a 30 s budget\n  and offers a \"restart app\" exit when one step hangs\n- After the auto-failover toggle was removed, routing no longer touches fallback channels — failed deliveries retry on primary only\n- Transport-layer exceptions are caught and translated to `transportError` instead of bubbling up to the page;\n  recoverable failures get one automatic retry (500 ms delay)\n- `runNow` cancels the previous debounce timer before sending, preventing duplicate sends after waking from lock\n- The `transportError` dialog on failed sends now has a Retry button\n\n**History page**\n- Unified selection mode across all three history tabs; Fnthink messages can be exported directly",
+  "changelog": "长后台启动与历史丢失修复（1.6.7）\n\n🚀 启动与锁\n- 修复长时间后台后打开卡在「加载通知记录」：数据库启用 WAL，锁等待改为 1 秒有界（此前 busy_timeout 实际未生效），\n  残留连接不再让整个库无限等\n- 启动页不再在 8 秒步内搬大批离线队列；补库移到首页首帧后/回前台分批执行，长后台后也能先看到界面\n- 服务引擎销毁前先关闭数据库连接；启动页重试不再并发跑第二条初始化链\n\n📦 历史交接\n- 原生离线队列改为「确认后删」：只有 Dart 落库成功才从队列移除；写库失败/进程被杀不再丢一部分转发历史\n- 同一批记录重复交付按 id 查库去重，不覆盖已有送达状态\n- 引擎未就绪时的待发队列同样等落库结果再删；数据库备份/恢复会连同 WAL 旁车一起搬运",
+  "changelogEn": "Background startup & history-loss fixes (1.6.7)\n\n🚀 Startup and locks\n- Fixed the hang on \"loading notification records\" after long background: the database now uses WAL and lock waits\n  are bounded to 1 second (the previous busy_timeout never took effect on device); a lingering connection can no\n  longer block the whole database indefinitely\n- The splash screen no longer imports the whole offline queue inside an 8-second step; import now runs after the\n  first frame / on resume, so the UI appears first even after a long background\n- The background service engine closes its database connection before being destroyed; retrying startup no longer\n  starts a second init chain concurrently\n\n📦 History handoff\n- The native offline queue is now delete-after-ack: a record leaves the queue only after Dart persisted it to the\n  database; write failures or a killed process no longer lose part of the forwarding history\n- Re-delivered records are de-duplicated by id against the database, so existing delivery status is never overwritten\n- The engine-not-ready queue also waits for the persistence result before removal; database backup/restore now moves\n  the WAL sidecar files together with the main file\n\n---",
   "downloads": {
-    "all": "https://cdn.fnthink.com/app/notice/update/1.6.6/notice_all_1.6.6+166.apk",
-    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.6/notice_arm32_1.6.6+166.apk",
-    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.6/notice_arm64_1.6.6+166.apk",
-    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.6/notice_x86_1.6.6+166.apk"
+    "all": "https://cdn.fnthink.com/app/notice/update/1.6.7/notice_all_1.6.7+167.apk",
+    "arm32": "https://cdn.fnthink.com/app/notice/update/1.6.7/notice_arm32_1.6.7+167.apk",
+    "arm64": "https://cdn.fnthink.com/app/notice/update/1.6.7/notice_arm64_1.6.7+167.apk",
+    "x86_64": "https://cdn.fnthink.com/app/notice/update/1.6.7/notice_x86_1.6.7+167.apk"
   },
   "fileSizes": {
-    "all": 83607531,
-    "arm32": 26563411,
-    "arm64": 30257901,
-    "x86_64": 32438378
+    "all": 83689599,
+    "arm32": 26579933,
+    "arm64": 30323579,
+    "x86_64": 32438516
   },
   "sha256": {
-    "all": "3058bae970a085f3f30dd52a0b12ab867ba96aaede873e995622ef66e7457147",
-    "arm32": "21090ca62737b0a36b3a961d6f8cf837bd0d3de831296bb50ec15bdcd9941535",
-    "arm64": "972c9371cdc37be64aebb8b134de89e3417358adc07e002dcbf607ecf968fd73",
-    "x86_64": "8e2fe7da88e534b1a6e59bdde37cc53650a9026165ba6ea8afe1defc3ccbe3f9"
+    "all": "9499a8aec3d1eae5fcdb1d23da653329ab72bb0998642c01f553eece91ba4b0a",
+    "arm32": "9d1c1386ca54b3a28fad3b6c43050387361ecc836d39775c84ab230da49ca019",
+    "arm64": "c594720077c85c9c8904471eda3d1533d17d10162e435e119ac386383877d40f",
+    "x86_64": "55f569ef008934fd94d88255ab3787f10bf661c33685e4208e87d3dfa8eae34d"
   },
   "minSupportedVersion": "1.0.0"
 }

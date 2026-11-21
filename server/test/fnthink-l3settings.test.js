@@ -41,11 +41,14 @@ describe('L3 设置词表（契约是唯一出处，T51）', () => {
     }
   });
 
-  test('两种形态都有实例，且只有这两种', () => {
-    expect(raw.capabilities.l3.modes).toEqual(['grant', 'toggle']);
+  test('三种形态都有实例，且只有这三种', () => {
+    // T189：`notification:reply` 是 execute 形态（没有系统授权可读、直接作为能力执行），
+    // 契约的 modes 由两种扩到三种。这里只守"词表里的 mode 都被契约登记过且都有实例"。
+    expect(raw.capabilities.l3.modes).toEqual(['grant', 'toggle', 'execute']);
     const modes = Object.values(settings).map((s) => s.mode);
     expect(modes).toContain('grant');
     expect(modes).toContain('toggle');
+    expect(modes).toContain('execute');
     expect(l3SettingsKnownToServer(raw)).toBe(true);
   });
 

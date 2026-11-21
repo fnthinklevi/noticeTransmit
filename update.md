@@ -2,6 +2,43 @@
 
 > 每个版本条目均为中英双版：先完整中文版，分隔线后为逐条对应的英文翻译。
 
+### v1.6.7+167 - 2026-11-21
+
+**长后台启动与历史丢失修复（1.6.7）**
+
+🚀 启动与锁
+- 修复长时间后台后打开卡在「加载通知记录」：数据库启用 WAL，锁等待改为 1 秒有界（此前 busy_timeout 实际未生效），
+  残留连接不再让整个库无限等
+- 启动页不再在 8 秒步内搬大批离线队列；补库移到首页首帧后/回前台分批执行，长后台后也能先看到界面
+- 服务引擎销毁前先关闭数据库连接；启动页重试不再并发跑第二条初始化链
+
+📦 历史交接
+- 原生离线队列改为「确认后删」：只有 Dart 落库成功才从队列移除；写库失败/进程被杀不再丢一部分转发历史
+- 同一批记录重复交付按 id 查库去重，不覆盖已有送达状态
+- 引擎未就绪时的待发队列同样等落库结果再删；数据库备份/恢复会连同 WAL 旁车一起搬运
+
+---
+
+**Background startup & history-loss fixes (1.6.7)**
+
+🚀 Startup and locks
+- Fixed the hang on "loading notification records" after long background: the database now uses WAL and lock waits
+  are bounded to 1 second (the previous busy_timeout never took effect on device); a lingering connection can no
+  longer block the whole database indefinitely
+- The splash screen no longer imports the whole offline queue inside an 8-second step; import now runs after the
+  first frame / on resume, so the UI appears first even after a long background
+- The background service engine closes its database connection before being destroyed; retrying startup no longer
+  starts a second init chain concurrently
+
+📦 History handoff
+- The native offline queue is now delete-after-ack: a record leaves the queue only after Dart persisted it to the
+  database; write failures or a killed process no longer lose part of the forwarding history
+- Re-delivered records are de-duplicated by id against the database, so existing delivery status is never overwritten
+- The engine-not-ready queue also waits for the persistence result before removal; database backup/restore now moves
+  the WAL sidecar files together with the main file
+
+---
+
 ### v1.6.6+166 - 2026-11-14
 
 **锁屏恢复与发信可靠性修复（1.6.6）**
