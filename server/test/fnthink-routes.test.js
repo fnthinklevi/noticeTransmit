@@ -257,6 +257,36 @@ describe('POST /api/fnthink/poll', () => {
     expect(mine.sender).toBe(SENDER);
   });
 
+  test('T226：端点形态的来源应用名随 poll 回到设备（此前断在投影这一步）', async () => {
+    // 端点入口把 appName 封进正文信封后，poll 投影若不带这一格，设备侧 `app_name`
+    // 永远是空串 —— 表现是 webhook 收件只显示标题与正文（2026-11-21 实测）。
+    const messages = messagestore.loadMessages();
+    const queued = messagestore.enqueue(
+      contract,
+      messages,
+      {
+        sender: 'endpoint:ep_7',
+        device: TARGET,
+        type: 'notice',
+        item: '',
+        title: '构建完成',
+        body: '3 分 12 秒',
+        appName: 'GitHub Actions',
+      },
+      Date.now(),
+      process.env.ENCRYPTION_KEY,
+    );
+    messagestore.saveMessages(messages);
+
+    const res = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', targetKey, TARGET))
+      .expect(200);
+    const mine = res.body.messages.find((m) => m.messageId === queued.message.messageId);
+    expect(mine).toBeDefined();
+    expect(mine.appName).toBe('GitHub Actions');
+  });
+
   test('poll 别人的队列 ⇒ 拒绝，且响应里没有任何一条别人的消息', async () => {
     const fields = {
       version: '1',

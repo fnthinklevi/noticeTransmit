@@ -304,6 +304,72 @@ void main() {
       expect(h.scheduled, hasLength(1), reason: '停了还排下一轮 = 关不掉的收货');
     });
 
+    test('门铃叫醒接管定时器：健康档 300s 的旧排期换成这一轮的 20s', () async {
+      final h = _Harness();
+      final scheduled = <Duration>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => const FnthinkReceiveOutcome(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 300),
+        ),
+        pollNow: () async => _ok([_msg('m_1')]),
+        ack: h.ack,
+        persist: h.persist,
+        nowMs: () => 1700000000000,
+        schedule: (delay, callback) {
+          scheduled.add(delay);
+          final t = Timer(Duration.zero, () {});
+          _timers.add(t);
+          return t;
+        },
+      );
+      loop.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(scheduled, [const Duration(seconds: 300)]);
+      loop.wakeNow();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.persisted.map((m) => m.messageId), ['m_1']);
+      expect(
+        scheduled.last,
+        const Duration(seconds: 20),
+        reason: '叫醒轮不接管定时器 ⇒ 下一次轮询仍停在 300s；丢一次唤醒就是实测那条「第二条晚 6 分 37 秒」',
+      );
+      loop.stop();
+    });
+
+    test('叫醒轮接管后，被叫停的旧轮不再排第二个定时器', () async {
+      final h = _Harness();
+      final scheduled = <Duration>[];
+      final held = Completer<FnthinkReceiveOutcome>();
+      final loop = FnthinkReceiveLoop(
+        poll: () => held.future,
+        pollNow: () async => _ok(const []),
+        ack: h.ack,
+        persist: h.persist,
+        nowMs: () => 1700000000000,
+        cancelPoll: () async {
+          if (!held.isCompleted) held.complete(_ok(const []));
+        },
+        schedule: (delay, callback) {
+          scheduled.add(delay);
+          final t = Timer(Duration.zero, () {});
+          _timers.add(t);
+          return t;
+        },
+      );
+      loop.start();
+      await Future<void>.delayed(Duration.zero);
+      loop.wakeNow();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        scheduled,
+        hasLength(1),
+        reason: '两个 _tick 同时排期 = 两个循环抢同一队列（重复 ack、未读数上下跳）',
+      );
+      loop.stop();
+    });
+
     test('排下去的那一下真的会再起一轮（回调没接错地方）', () async {
       final h = _Harness();
       final loop = h.loop(

@@ -1954,13 +1954,18 @@ class FnthinkDelivered {
       signedTitle: signedTitle,
       wireBody: wireBody,
     );
+    // T226：端点形态的应用名不走标题信封（服务端回的是明文标题 + 顶层 `appName`）；
+    // 签名面（设备互发）仍在标题信封里。两处都读，先信封后顶层 —— 不拿一个覆盖另一个。
+    final topLevelAppName = raw['appName'] is String
+        ? raw['appName'] as String
+        : '';
     return FnthinkDelivered(
       messageId: id,
       type: type,
       item: raw['item'] is String ? raw['item'] as String : '',
       title: content.title,
       body: content.body,
-      appName: content.appName,
+      appName: content.appName.isNotEmpty ? content.appName : topLevelAppName,
       sender: raw['sender'] is String ? raw['sender'] as String : '',
       // 容错到底：不是整数/缺失都当 0（不知道），不因它丢这一条。
       sentAt: raw['sentAt'] is int ? raw['sentAt'] as int : 0,

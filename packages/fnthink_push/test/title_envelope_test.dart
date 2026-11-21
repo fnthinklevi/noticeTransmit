@@ -130,6 +130,25 @@ void main() {
     expect(delivered.title, '标题');
   });
 
+  test('T226 端点形态：应用名在 poll 顶层（标题已是明文）也要读到', () {
+    // 端点收单由服务端拆开信封，poll 回的是明文标题/正文 + 顶层 appName；
+    // 这里若只读标题信封，应用名会永远是空串 —— webhook 收件就只剩标题与正文。
+    final delivered = FnthinkDelivered.tryFrom(contract, {
+      'messageId': 'm_ep',
+      'type': 'notice',
+      'item': '',
+      'title': '构建完成',
+      'body': '3 分 12 秒',
+      'sender': 'endpoint:ep_7',
+      'appName': 'GitHub Actions',
+      'sentAt': 1780000000000,
+    });
+    expect(delivered, isNotNull);
+    expect(delivered!.appName, 'GitHub Actions');
+    expect(delivered.title, '构建完成');
+    expect(delivered.body, '3 分 12 秒');
+  });
+
   test('收件内核那一刀真的接上了：tryFrom 用的是拆出来的标题与正文，不是服务端那两列', () {
     // 这一条是"编解码对了"与"收件端看得见"之间的那一段：拆开算对了、
     // 而 `FnthinkDelivered` 还按 raw 里那两列原样装，症状就是通知栏与收件详情显示一串带前缀的 JSON。

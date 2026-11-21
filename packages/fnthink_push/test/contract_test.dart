@@ -186,6 +186,8 @@ void main() {
         'sender',
         'sentAt',
         ...c.aliases.keys,
+        // T226：来源应用名也是从同一只密信封里解出来的（`a` 键），可投影。
+        'appName',
       };
       expect(
         projectable.containsAll(c.pollMessageFields),

@@ -139,6 +139,10 @@ class FnthinkReceiveLoop {
   bool _wantRunning = false;
   bool _inRound = false;
 
+  /// 排期代际：每次 `_tick` 递增。旧一轮（尤其被门铃叫停的那一轮）收尾时
+  /// 发现代际已变，就不许再排一个定时器 —— 否则会冒出两个 `_tick` 抢同一个循环。
+  int _tickToken = 0;
+
   /// 在途那一轮什么时候退出来（T185）。手动那一轮用它等被叫停的 hold 收尾。
   Completer<void>? _roundDone;
 
@@ -162,12 +166,27 @@ class FnthinkReceiveLoop {
     onStop?.call();
   }
 
-  void _tick() {
+  /// 门铃叫醒（T185）：取消原定时器，立刻跑一轮**不 hold** 的取货，并按这一轮的结论重排。
+  ///
+  /// ⚠ 必须接管定时器。门铃健康时常态轮询被压到契约的 `stream.safetyPollSeconds`（300s）；
+  ///   旧写法直接 `runOnce(manual: true)`，跑完不碰定时器 ⇒ 下一次轮询仍停在 5 分钟后。
+  ///   于是第二条消息的唤醒只要丢一次（重连窗口、边缘吞事件、多进程部署），它就要等满
+  ///   5 分钟 —— 2026-11-21 实测「相隔 6 秒的两条端点消息，第一条即时、第二条晚了 6 分 37 秒」
+  ///   正是这个形状。叫醒这一轮哪怕只排回常态节奏（20s），也能把丢唤醒的代价从 5 分钟压到 20 秒。
+  void wakeNow() {
     if (!_wantRunning) return;
+    _timer?.cancel();
+    _timer = null;
+    _tick(manual: true);
+  }
+
+  void _tick({bool manual = false}) {
+    if (!_wantRunning) return;
+    final token = ++_tickToken;
     unawaited(
-      runOnce()
+      runOnce(manual: manual)
           .then((report) {
-            if (!_wantRunning) return;
+            if (!_wantRunning || token != _tickToken) return;
             final Duration next;
             if (report.skipped) {
               // 上一轮还在途：不是失败，沿用报告给的保守间隔。
@@ -197,7 +216,7 @@ class FnthinkReceiveLoop {
             // 循环里任何没被分类的异常都不许把链条掐断：断了的表现是"再也不来了"，
             // 而设备侧没有任何地方会显示"收货在三天前就停了"。按一个保守的间隔爬起来。
             debugPrint('[fnthink] 收货循环异常（按下一轮继续）: $e');
-            if (!_wantRunning) return;
+            if (!_wantRunning || token != _tickToken) return;
             _timer = schedule(_fallbackDelay, _tick);
           }),
     );

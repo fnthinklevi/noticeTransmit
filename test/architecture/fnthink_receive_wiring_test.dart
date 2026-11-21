@@ -205,6 +205,26 @@ void main() {
     });
   });
 
+  group('门铃叫醒后的排期（SSE 健康档不许把丢唤醒放大成 5 分钟）', () {
+    test('门铃叫醒走 wakeNow（它接管 safetyPollSeconds 的旧定时器）', () {
+      final coordinator = read('lib/services/fnthink_receive_coordinator.dart');
+      expect(
+        coordinator,
+        contains('onWake: () => loop.wakeNow()'),
+        reason:
+            '直接 `runOnce(manual: true)` 不碰定时器：门铃健康时下一次轮询仍停在 '
+            'safetyPollSeconds（300s），丢一次唤醒就要等满 5 分钟',
+      );
+      expect(
+        coordinator,
+        isNot(contains('onWake: () => loop.runOnce(manual: true)')),
+      );
+      final loop = read('lib/services/fnthink_receive_loop.dart');
+      expect(loop, contains('void wakeNow()'));
+      expect(loop, contains('_tick(manual: true)'));
+    });
+  });
+
   group('spec 的每一格钩子都要传到循环上（装配点那一跳）', () {
     // 2026-10-12 的现场：维护者报「远程指令无响应、接收端把它当普通消息存了、远程历史没有记录」。
     // 量到的断点是 `buildFnthinkReceiveLoop` 把 spec 里的 `onCommand` 整格**没转发** ——
