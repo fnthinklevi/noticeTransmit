@@ -247,11 +247,11 @@ Do not copy numbers by hand, and do not keep a second readings list anywhere els
 | Server contract tests (jest) | 871 <!--k:jest_tests--> |
 | Server test suites | 47 <!--k:jest_suites--> |
 | l10n keys (zh; en locked to same count) | 1765 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 94420 <!--k:dart_loc_lib--> |
-| Dart test lines (test/) | 94784 <!--k:dart_loc_test--> |
+| Dart lines (lib/) | 94421 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 94791 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 24819 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 15268 <!--k:kotlin_loc_test--> |
-| App version (pubspec) | 1.6.7+167 <!--k:app_version--> |
+| App version (pubspec) | 1.6.8+168 <!--k:app_version--> |
 | Database schema version | 29 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |
 | Dart SDK floor (pubspec) | 3.13.0 <!--k:dart_sdk--> |
