@@ -548,10 +548,10 @@ class _RuleEditPageState extends State<RuleEditPage> {
     return null;
   }
 
-  /// 当前聚合等待秒数（未配置时与原生 DEFAULT_MERGE_WINDOW_MS=60 对应）
+  /// 当前聚合等待秒数（未配置时与原生 DEFAULT_MERGE_WINDOW_MS=5 对应）
   int get _mergeWindowSeconds {
     final v = ruleParamInt(_mergeAction?.params['windowSeconds']) ?? 0;
-    return v > 0 ? v : 60;
+    return v > 0 ? v : 5;
   }
 
   /// F3：满 N 条提前触发（0 = 关闭，等窗口到点）

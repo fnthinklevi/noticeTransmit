@@ -313,12 +313,14 @@ void main() {
       final nightRule = rules.firstWhere((r) => r.id == 'night_dnd');
       expect(nightRule.name, '夜间免打扰');
       expect(nightRule.priority, 200);
+      // 夜间静默属于强干预：默认关闭，由用户主动开启。
+      expect(nightRule.enabled, isFalse);
 
       // 预制聚合规则：默认开启，作用域为全部应用（packageName='*'），动作为 merge
       final mergeRule = rules.firstWhere((r) => r.id == 'merge_burst');
       expect(mergeRule.enabled, true);
       expect(mergeRule.actions.first.type, ActionType.merge);
-      expect(mergeRule.actions.first.params['windowSeconds'], 60);
+      expect(mergeRule.actions.first.params['windowSeconds'], 5);
       expect(mergeRule.conditions, hasLength(1));
       expect(mergeRule.conditions.first.type, ConditionType.packageName);
       expect(mergeRule.conditions.first.value, '*');
@@ -389,7 +391,7 @@ void main() {
     // 因此 fromMap→toMap 的往返必须**逐字段无损**。历史缺陷：RuleAction.fromMap
     // 丢弃 params、NotificationRule.fromMap 丢弃 description，后果是用户编辑
     // 任意规则后 merge 的 windowSeconds、delay 的 delaySeconds 被静默清空
-    // （原生退回默认 60s），预制规则的说明文案在 UI 上消失。
+    // （原生退回默认 5s），预制规则的说明文案在 UI 上消失。
     // 这类缺陷不会报错、不会崩溃，只能靠本组用例拦住。
 
     test('落盘保真：description 经 fromMap/toMap 往返不丢失', () {

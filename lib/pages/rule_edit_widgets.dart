@@ -234,10 +234,10 @@ class _ActionItem extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final parts = <String>[];
     final windowSeconds = ruleParamInt(action.params['windowSeconds']);
-    // 未配置窗口时与原生 DEFAULT_MERGE_WINDOW_MS=60s 对应
+    // 未配置窗口时与原生 DEFAULT_MERGE_WINDOW_MS=5s 对应
     parts.add(
       l10n.ruleMergeWindowSummary(
-        (windowSeconds != null && windowSeconds > 0) ? windowSeconds : 60,
+        (windowSeconds != null && windowSeconds > 0) ? windowSeconds : 5,
       ),
     );
     final maxItems = ruleParamInt(action.params['maxItems']);
@@ -855,7 +855,7 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
 }
 
 /// 聚合推送动作的参数输入区（合并窗口秒数），Add/Edit 对话框共用。
-/// 与原生 RuleEngine DEFAULT_MERGE_WINDOW_MS=60 / MIN=5 对应。
+/// 与原生 RuleEngine DEFAULT_MERGE_WINDOW_MS=5 / MIN=5 对应。
 class _MergeParamsFields extends StatelessWidget {
   final TextEditingController windowController;
   // F3 聚合深化

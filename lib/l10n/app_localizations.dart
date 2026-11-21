@@ -3166,7 +3166,7 @@ abstract class AppLocalizations {
   /// No description provided for @mergeWindowHint.
   ///
   /// In zh, this message translates to:
-  /// **'默认 60，同应用通知在此窗口内合并为一条推送'**
+  /// **'默认 5，同应用通知在此窗口内合并为一条推送'**
   String get mergeWindowHint;
 
   /// No description provided for @condTimeRange.

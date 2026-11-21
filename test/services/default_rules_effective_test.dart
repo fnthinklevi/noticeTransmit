@@ -55,9 +55,9 @@ void main() {
         true,
         reason: 'merge_burst 条件为 packageName="*"，必须命中任意应用',
       );
-      // 动作必须是 merge，且窗口参数必须随规则一起带下去（丢了就退回原生默认 60s）
+      // 动作必须是 merge，且窗口参数必须随规则一起带下去（丢了就退回原生默认 5s）
       expect(r.actions.first.type, ActionType.merge);
-      expect(r.actions.first.params['windowSeconds'], 60);
+      expect(r.actions.first.params['windowSeconds'], 5);
     });
 
     test('merge_burst 对空包名也命中（进程重建等边界）', () {
@@ -126,7 +126,7 @@ void main() {
   });
 
   group('默认规则序列化 → 原生 RuleEngine 可解析', () {
-    test('全量默认规则 JSON 中每条都 enabled 且有非空 id/actions', () {
+    test('全量默认规则 JSON 都有非空 id/actions；除夜间免打扰外默认开启', () {
       final json = defaultRulesJson();
       final parsed = jsonDecode(json) as List;
       expect(parsed, hasLength(4));
@@ -134,7 +134,12 @@ void main() {
       for (final raw in parsed) {
         final m = raw as Map<String, dynamic>;
         expect((m['id'] as String).isNotEmpty, true, reason: 'id 不能为空');
-        expect(m['enabled'], true, reason: '${m['id']} 预制规则必须默认开启');
+        expect(m['enabled'], isA<bool>(), reason: '${m['id']} 必须有明确的启停状态');
+        if (m['id'] == 'night_dnd') {
+          expect(m['enabled'], false, reason: '夜间免打扰默认关闭');
+        } else {
+          expect(m['enabled'], true, reason: '${m['id']} 预制规则默认开启');
+        }
         expect(m['priority'], isA<int>(), reason: '${m['id']} 必须有优先级');
         expect((m['actions'] as List), isNotEmpty, reason: '${m['id']} 必须有动作');
         expect(
@@ -156,7 +161,7 @@ void main() {
       expect(action['params'], isNotNull);
       expect(
         (action['params'] as Map)['windowSeconds'],
-        60,
+        5,
         reason: 'windowSeconds 必须原样穿过序列化，否则聚合窗口静默变成默认值',
       );
     });

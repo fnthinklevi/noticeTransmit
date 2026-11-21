@@ -22,7 +22,7 @@ import java.util.Calendar
  * 动作语义：
  * - push   → 立即推送（默认）
  * - delay  → 延迟/定时推送（params.delaySeconds 延迟秒数；params.scheduleTime "HH:mm" 定时）
- * - merge  → 聚合推送（params.windowSeconds 聚合窗口秒数，默认 60）：同应用通知在窗口内
+ * - merge  → 聚合推送（params.windowSeconds 聚合窗口秒数，默认 5）：同应用通知在窗口内
  *            先记录历史，窗口结束时合并为一条聚合推送（详见 MergePushManager 的交互风险标注）
  * - record → 仅记录到历史，不推送
  * - silent → 静默忽略（不推送也不记录）
@@ -33,8 +33,8 @@ object RuleEngine {
     /** 延迟动作未配置参数时的兜底延迟（60 秒） */
     const val DEFAULT_DELAY_MS = 60_000L
 
-    /** 聚合窗口未配置/非法时的兜底窗口（60 秒），下限 5 秒 */
-    const val DEFAULT_MERGE_WINDOW_MS = 60_000L
+    /** 聚合窗口未配置/非法时的兜底窗口（5 秒），下限同为 5 秒 */
+    const val DEFAULT_MERGE_WINDOW_MS = 5_000L
     const val MIN_MERGE_WINDOW_MS = 5_000L
 
     sealed class Decision {

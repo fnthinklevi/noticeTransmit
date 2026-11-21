@@ -1738,7 +1738,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mergeWindowHint =>
-      'Default 60. Notifications from the same app within this window are merged into one push';
+      'Default 5. Notifications from the same app within this window are merged into one push';
 
   @override
   String get condTimeRange => 'Time Range';

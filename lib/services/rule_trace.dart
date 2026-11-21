@@ -10,7 +10,7 @@ import 'filter_service.dart';
 /// - 规则阶段 = `RuleEngine.decide`（Kotlin）：按优先级降序、命中第一条即停止、
 ///   跳过禁用规则、跳过「排除应用」命中的规则（`excludedPackages`）、无命中 → 默认推送。
 /// - 动作阶段 = `RuleEngine.decideAction`（Kotlin）：silent(短路) > delay > merge > record > push；
-///   merge 窗口 `windowSeconds` > 0 时 `max(秒×1000, 5000ms)`，未配置 60000ms；
+///   merge 窗口 `windowSeconds` > 0 时 `max(秒×1000, 5000ms)`，未配置 5000ms；
 ///   delay 未配置或已过期 → `now + 60000ms`。
 class RuleTraceStep {
   /// filter / rule / action
@@ -79,7 +79,7 @@ class RuleTraceResult {
 class RuleTracer {
   /// 原生常量对齐（RuleEngine.kt companion）
   static const int defaultDelayMs = 60000;
-  static const int defaultMergeWindowMs = 60000;
+  static const int defaultMergeWindowMs = 5000;
   static const int minMergeWindowMs = 5000;
   static const int maxRegexKeywordLength = 200;
 
@@ -286,7 +286,7 @@ class RuleTracer {
         detail: switch (action) {
           TraceActionKind.silent => 'silent',
           TraceActionKind.delay => 'delay:${delayFireAtMs ?? 0}',
-          TraceActionKind.merge => 'merge:${mergeWindowSeconds ?? 60}',
+          TraceActionKind.merge => 'merge:${mergeWindowSeconds ?? 5}',
           TraceActionKind.record => 'record',
           TraceActionKind.push => 'push',
         },

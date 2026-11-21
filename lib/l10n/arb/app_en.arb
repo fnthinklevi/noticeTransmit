@@ -873,7 +873,7 @@
   "condContentNotContains": "Content Not Contains",
   "condPriority": "Priority",
   "mergeWindowSeconds": "Merge Window (seconds)",
-  "mergeWindowHint": "Default 60. Notifications from the same app within this window are merged into one push",
+  "mergeWindowHint": "Default 5. Notifications from the same app within this window are merged into one push",
   "condTimeRange": "Time Range",
   "condRegex": "Regex",
   "condChargingState": "Charging state",

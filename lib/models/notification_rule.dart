@@ -293,7 +293,7 @@ class RuleAction {
   ///   `type '_Map<dynamic, dynamic>' is not a subtype of type 'Map<String, dynamic>?'`
   /// 而这些字面量来自 `NotificationRule.toMap()` 产生的
   /// `Map<String, Map<dynamic, dynamic>>`（`defaultRules()` 里
-  /// `params: {'windowSeconds': 60}` 的推断类型）——即**代码内构造规则**的路径。
+  /// `params: {'windowSeconds': 5}` 的推断类型）——即**代码内构造规则**的路径。
   /// 用 `is Map` 判断 + `Map<String, dynamic>.from` 拷贝可同时覆盖两种泛型。
   ///
   /// 另注：本方法**不能丢弃 params**——`saveNotificationRules` 用 `toMap()` 落盘，
@@ -417,7 +417,7 @@ class NotificationRule {
     );
   }
 
-  /// 预制规则列表（**默认全部开启**）。
+  /// 预制规则列表（除夜间免打扰外默认开启；夜间免打扰默认关闭）。
   ///
   /// ⚠️ 新增/修改后需注意：默认规则必须真正下发给原生才生效——`FilterService.loadSettings`
   /// 在本地无 `notification_rules` 时会调用 `ensureDefaultRulesPersisted()` 把本列表
@@ -449,7 +449,7 @@ class NotificationRule {
       NotificationRule(
         id: 'merge_burst',
         name: '应用通知聚合',
-        description: '同一应用 60 秒内收到的多条通知合并为一条推送，避免连续打扰',
+        description: '同一应用 5 秒内收到的多条通知合并为一条推送，避免连续打扰',
         enabled: true,
         // 优先级低于夜间免打扰(200)与验证码(100)：聚合是「降噪」而非「优先」，
         // 命中优先级更高的规则时按更高优先级规则处理。
@@ -468,7 +468,7 @@ class NotificationRule {
           RuleAction(
             id: 'a1',
             type: ActionType.merge,
-            params: {'windowSeconds': 60},
+            params: {'windowSeconds': 5},
           ),
         ],
       ),
@@ -504,7 +504,8 @@ class NotificationRule {
         id: 'night_dnd',
         name: '夜间免打扰',
         description: '22:00-07:00 之间的通知静默处理',
-        enabled: true,
+        // 默认关闭：夜间静默属于强干预，交给用户主动开启。
+        enabled: false,
         priority: 200,
         conditions: [
           Condition(

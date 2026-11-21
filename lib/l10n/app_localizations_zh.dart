@@ -1668,7 +1668,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mergeWindowSeconds => '合并窗口（秒）';
 
   @override
-  String get mergeWindowHint => '默认 60，同应用通知在此窗口内合并为一条推送';
+  String get mergeWindowHint => '默认 5，同应用通知在此窗口内合并为一条推送';
 
   @override
   String get condTimeRange => '时间范围';

@@ -366,7 +366,7 @@ void main() {
       expect(r.delayFireAtMs, isNotNull);
     });
 
-    test('merge 默认窗口 60 秒；windowSeconds=3 被钳制到 5 秒', () async {
+    test('merge 默认窗口 5 秒；windowSeconds=3 被钳制到 5 秒', () async {
       final def = await buildFilter(
         rules: [
           rule(
@@ -376,7 +376,7 @@ void main() {
           ),
         ],
       );
-      expect(run(def).mergeWindowSeconds, 60);
+      expect(run(def).mergeWindowSeconds, 5);
 
       final clamped = await buildFilter(
         rules: [
@@ -396,7 +396,7 @@ void main() {
     test('文件值形状（Double / 数字串 / "true"）与 int/bool 读出同一个结论', () async {
       // 备份或别的工具导出的规则里，params 常常是 `30.0`、`"30"`、`"true"`。
       // 设备侧 optInt/optBoolean 认这些形状，影子链路若不认就会给出与真机不同的追踪结论
-      // （旧写法 `is int` 正是如此：窗口退回默认 60、分组退回 false）。
+      // （旧写法 `is int` 正是如此：窗口退回默认 5、分组退回 false）。
       Future<(int, int, bool)> traceOf(Map<String, dynamic> params) async {
         final filter = await buildFilter(
           rules: [
@@ -441,7 +441,7 @@ void main() {
       );
       // 垃圾值仍然按"没配"处理（不许顺手当真）。
       expect(await traceOf({'windowSeconds': 'abc', 'groupByTitle': 1}), (
-        60,
+        5,
         0,
         false,
       ));
@@ -487,7 +487,7 @@ void main() {
       final r = run(filter);
       expect(r.mergeMaxItems, 0);
       expect(r.mergeGroupByTitle, isFalse);
-      expect(r.mergeWindowSeconds, 60); // 未配置窗口 → 默认 60 秒
+      expect(r.mergeWindowSeconds, 5); // 未配置窗口 → 默认 5 秒
     });
 
     test('record → 仅记录；push → 直推', () async {

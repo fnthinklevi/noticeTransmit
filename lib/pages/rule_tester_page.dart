@@ -422,7 +422,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
       ),
       TraceActionKind.merge => (
         [
-          l10n.testerActionMerge(r.mergeWindowSeconds ?? 60),
+          l10n.testerActionMerge(r.mergeWindowSeconds ?? 5),
           if (r.mergeMaxItems > 0)
             l10n.ruleMergeMaxItemsSummary(r.mergeMaxItems),
           if (r.mergeGroupByTitle) l10n.ruleMergeGroupByTitleSummary,
