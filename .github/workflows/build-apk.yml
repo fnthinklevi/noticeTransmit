@@ -225,6 +225,22 @@ jobs:
           echo "$all_badging" | grep -q "versionName='$VERSION'" || { echo "❌ all 包 versionName 不符"; exit 1; }
           echo "✅ 纯净度与版本号双闸通过（4 个 APK）"
 
+      # 兜底源（GitHub Release）的包由 CI 构建，与本地发版脚本构建的那一份
+      # 不是逐字节相同 ⇒ version.json 的 sha256 不能用来判它们。
+      # 这里按本次真实产物生成清单，客户端走兜底时读它。
+      - name: Generate SHA-256 manifest
+        run: |
+          cd build/app/outputs/flutter-apk
+          V="${{ steps.version.outputs.version }}"
+          B="${{ steps.version.outputs.build }}"
+          sha256sum \
+            "notice_arm64_${V}+${B}.apk" \
+            "notice_arm32_${V}+${B}.apk" \
+            "notice_x86_64_${V}+${B}.apk" \
+            "notice_all_${V}+${B}.apk" > sha256sums.txt
+          echo "--- sha256sums.txt ---"
+          cat sha256sums.txt
+
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -234,6 +250,7 @@ jobs:
             build/app/outputs/flutter-apk/notice_arm32_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
             build/app/outputs/flutter-apk/notice_x86_64_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
             build/app/outputs/flutter-apk/notice_all_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
+            build/app/outputs/flutter-apk/sha256sums.txt
 
       # 从 update.md 提取当前版本的 changelog 传给 Release body
       - name: Extract release notes from update.md
@@ -257,5 +274,6 @@ jobs:
             build/app/outputs/flutter-apk/notice_arm32_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
             build/app/outputs/flutter-apk/notice_x86_64_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
             build/app/outputs/flutter-apk/notice_all_${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk
+            build/app/outputs/flutter-apk/sha256sums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

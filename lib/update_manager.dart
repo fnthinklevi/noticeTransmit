@@ -13,6 +13,7 @@ import 'package:open_filex/open_filex.dart';
 
 import 'services/pinned_http_client.dart';
 import 'services/platform_channel.dart';
+import 'services/update_checksums.dart';
 import 'services/update_download_urls.dart';
 import 'services/update_server_regions.dart';
 
@@ -90,6 +91,13 @@ class AppUpdateManager {
 
   /// 最近一次系统下载器（DownloadManager）任务的 downloadId，安装回退时使用
   String? _lastDownloadId;
+
+  /// 最近一次成功下载用的地址，以及它是否来自 GitHub 兜底源。
+  ///
+  /// 安装时的 sha256 判据要跟着**来源**走：CDN 那份按 `version.json` 判，
+  /// GitHub 兜底那份按同一 Release 的 `sha256sums.txt` 判（两者不是同一个文件）。
+  String? _lastDownloadUrl;
+  bool _lastDownloadUsedGithubFallback = false;
 
   /// 本次会话正在用的那一档（页面展示、下载补全都以它为准）。
   ///
@@ -469,6 +477,8 @@ class AppUpdateManager {
     String? version,
     String? notificationTitle,
   }) async {
+    _lastDownloadUrl = null;
+    _lastDownloadUsedGithubFallback = false;
     if (Platform.isAndroid) {
       // Android：调用系统下载器（DownloadManager），无需存储权限，
       // 后台下载不中断，通知栏自动显示进度（各品牌系统下载器接管）。
@@ -536,6 +546,8 @@ class AppUpdateManager {
           onProgress: onProgress,
           notificationTitle: notificationTitle,
         );
+        _lastDownloadUrl = url;
+        _lastDownloadUsedGithubFallback = i > 0;
         return path;
       } catch (e) {
         errors.add('$url → $e');
@@ -874,6 +886,8 @@ class AppUpdateManager {
         }
 
         debugPrint('下载APK：成功，路径 $savePath');
+        _lastDownloadUrl = downloadUrl;
+        _lastDownloadUsedGithubFallback = false;
         await _recordPendingApk(savePath, version);
         return savePath;
       } catch (e) {
@@ -961,6 +975,38 @@ class AppUpdateManager {
     } catch (_) {}
   }
 
+  /// 从 GitHub 兜底源同一目录读 `sha256sums.txt`，取本次下载那一份的期望值。
+  ///
+  /// 不能沿用 `version.json` 的 sha256：那一份是按**发版脚本本地构建**回填的，
+  /// 而 Release 上的包由 CI 构建（2026-11-21 实测 v1.6.7 arm64 差 97 字节）；
+  /// 两个文件不同源，sha 必然对不上，N3 会把正常兜底误判成"损坏"。
+  /// 清单读不到 ⇒ 回 null（调用方跳过 sha，签名校验仍 fail-closed）。
+  Future<String?> _fallbackExpectedSha256(String abi) async {
+    final apkUrl = _lastDownloadUrl;
+    if (apkUrl == null || apkUrl.isEmpty) return null;
+    final manifestUrl = checksumManifestUrlFor(apkUrl);
+    if (manifestUrl == null) return null;
+    try {
+      final response = await _updateHttpClient
+          .get(Uri.parse(manifestUrl))
+          .timeout(const Duration(seconds: 6));
+      if (response.statusCode != 200) {
+        debugPrint('兜底源校验清单不可用（HTTP ${response.statusCode}），跳过 sha256');
+        return null;
+      }
+      // 清单是纯 ASCII 文本：坏字节按异常处理（catch 里跳过 sha），
+      // 不用 allowMalformed 把错误静默替换掉（T85a 守卫）。
+      return pickSha256ForAsset(
+        utf8.decode(response.bodyBytes),
+        assetName: apkAssetNameOf(apkUrl) ?? '',
+        abi: abi,
+      );
+    } catch (e) {
+      debugPrint('兜底源校验清单读取失败（跳过 sha256，签名兜底）: $e');
+      return null;
+    }
+  }
+
   /// 安装前传输层完整性校验（N3）：安装包 sha256 必须与 version.json 下发的
   /// 期望值一致（按设备 ABI 取对应字段）。
   ///
@@ -1026,9 +1072,14 @@ class AppUpdateManager {
           return false;
         }
         // N3 传输层校验：本地路径可算时先比对 sha256（签名校验前执行）
-        if (filePath.isNotEmpty && sha256ByAbi.isNotEmpty) {
+        if (filePath.isNotEmpty) {
           final abi = await _getRealAbi();
-          final expected = sha256ByAbi[abi] ?? sha256ByAbi['all'] ?? '';
+          // 兜底源是 CI 构建的另一个文件，与 version.json 那一份不是逐字节相同
+          // ⇒ 拿 CDN 的 sha 判它必然误拦；改读同一 Release 的 sha256sums.txt。
+          // 清单缺席/读不到则跳过 sha（签名校验仍是 fail-closed 的可信根）。
+          final expected = _lastDownloadUsedGithubFallback
+              ? await _fallbackExpectedSha256(abi) ?? ''
+              : (sha256ByAbi[abi] ?? sha256ByAbi['all'] ?? '');
           if (expected.isNotEmpty) {
             final blockReason = await _verifyFileSha256(filePath, expected);
             if (blockReason != null) {
