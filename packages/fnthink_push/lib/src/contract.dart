@@ -86,8 +86,13 @@ class FnthinkL3Setting {
   final Map<String, String>? executeArgs;
 
   @override
-  String toString() => '$key($mode'
-      '${targetValue == null ? '' : targetValue! ? '/on' : '/off'}'
+  String toString() =>
+      '$key($mode'
+      '${targetValue == null
+          ? ''
+          : targetValue!
+          ? '/on'
+          : '/off'}'
       '${executeArgs == null ? '' : ' args=${executeArgs!.keys.join(",")}'})';
 
   @override
@@ -101,14 +106,12 @@ class FnthinkL3Setting {
 
   @override
   int get hashCode => Object.hash(
-        key,
-        mode,
-        native,
-        targetValue,
-        executeArgs == null
-            ? null
-            : Object.hashAllUnordered(executeArgs!.entries),
-      );
+    key,
+    mode,
+    native,
+    targetValue,
+    executeArgs == null ? null : Object.hashAllUnordered(executeArgs!.entries),
+  );
 }
 
 bool _mapEq(Map<String, String>? a, Map<String, String>? b) {
