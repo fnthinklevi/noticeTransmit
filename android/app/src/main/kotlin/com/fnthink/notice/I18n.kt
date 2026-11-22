@@ -57,6 +57,17 @@ object I18n {
         if (appName.isNotEmpty()) bracket(appName)
         else bracket(if (isEn) "Notification" else "通知提醒")
 
+    /**
+     * 锁屏脱敏正文的替换提示（面向用户的文案，唯一作者）。
+     *
+     * 锁屏时系统把验证码等正文显示成 `******`，原样转发没有价值；这里换成一句
+     * "解锁后查看"。英文用户也必须看到英文 —— 这条曾经是 NotificationProcessor 里的
+     * 硬编码中文。
+     */
+    fun notificationContentMasked(masked: String): String =
+        if (isEn) "Verification code hidden on lock screen (shown as $masked). Unlock to view"
+        else "验证码内容被锁屏隐藏（显示为 $masked），请解锁后查看"
+
     // ========== 字段标签 ==========
     fun titleLabel(): String = if (isEn) "Title" else "标题"
     fun contentLabel(): String = if (isEn) "Content" else "内容"

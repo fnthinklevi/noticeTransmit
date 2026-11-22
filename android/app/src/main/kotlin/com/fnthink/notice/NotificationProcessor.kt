@@ -101,7 +101,8 @@ class NotificationProcessor(private val context: Context) {
         // B3 星号兜底：锁屏脱敏时正文显示为 ******，直接转发无价值，
         // 改为发送提示（验证码等敏感内容需解锁后查看）
         if (isMaskedContent(content)) {
-            content = "验证码内容被锁屏隐藏（显示为 ${content.trim()}），请解锁后查看"
+            // 文案唯一作者在 I18n：英文系统下不能弹出一句中文（P0：原生国际化缺口）。
+            content = I18n.notificationContentMasked(content.trim())
             Log.d(TAG, "Notification content masked, replaced with hint: $packageName")
         }
         if (title.isEmpty() && content.isEmpty()) return null
