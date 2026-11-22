@@ -357,6 +357,20 @@ else
     fail "模拟器全功能闸门失败 —— 按 base.md §10.2，任何一步失败都不允许发布"
 fi
 
+# ── 阶段 6.5：四类稳定性场景回归（P1-1，硬闸门）─────────────────────────
+hr; echo "── 阶段 6.5：四类稳定性场景回归 ──"
+# 长锁屏 / 弱网 / 低内存 / 进程被杀：1.6.3～1.6.7 那一族回归只在特定设备状态下出现。
+# 自动化部分跑模拟器；过夜锁屏、真实弱网、厂商杀后台等人工项见
+# docs/release_regression_matrix.md（脚本末尾会把它们重打一遍）。
+# 传本版通用包：矩阵验的是**要发出去的那个包**，不是另一份 debug 构建。
+if bash .github/scripts/release_matrix.sh "$APKDIR/v$VER/notice_all_$VER_FULL.apk"; then
+    ok "稳定性回归矩阵（自动化部分）通过"
+elif [ "${MATRIX_ALLOW_FAIL:-0}" = "1" ]; then
+    warn "稳定性矩阵失败，但 MATRIX_ALLOW_FAIL=1 ⇒ 本项被显式放行（**这不是发布许可**）"
+else
+    fail "稳定性矩阵失败 —— 任何一类场景红都不允许发布（文档：docs/release_regression_matrix.md）"
+fi
+
 # ── 汇总 ──────────────────────────────────────────────────────────────────
 hr
 if [ $FAIL -eq 0 ]; then

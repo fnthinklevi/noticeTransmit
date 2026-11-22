@@ -108,9 +108,10 @@ _java_check.txt
 docs/roadmap.md
 .flutter_tool_state
 
-# docs/ 里两份运维手册随仓库公开（README 与 CONTRIBUTING 都引用它们）；
+# docs/ 里三份运维/发版手册随仓库公开（README、CONTRIBUTING 与发版脚本都引用它们）；
 # 其余（路线图、归档、维护者侧笔记）仍不入库，backpack/ 是它们的同盘副本 —— 也不入库
 docs/*
 !docs/server_deploy_and_update_guide.md
 !docs/cert_rotation_runbook.md
+!docs/release_regression_matrix.md
 backpack/
