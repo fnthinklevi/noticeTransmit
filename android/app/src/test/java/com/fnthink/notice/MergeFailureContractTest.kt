@@ -32,7 +32,9 @@ class MergeFailureContractTest {
     private fun src(rel: String): String = File("$root/$rel").readText()
 
     private val mergeManager = src("android/app/src/main/kotlin/com/fnthink/notice/MergePushManager.kt")
-    private val service = src("android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt")
+    private val service = serviceFanoutSource(
+        File("$root/android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt"),
+    )
     private val network = src("android/app/src/main/kotlin/com/fnthink/notice/NetworkClient.kt")
     private val webhook = src("android/app/src/main/kotlin/com/fnthink/notice/WebhookSender.kt")
     private val notifService = src("lib/services/notification_service.dart")

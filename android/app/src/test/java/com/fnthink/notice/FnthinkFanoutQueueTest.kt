@@ -31,9 +31,14 @@ class FnthinkFanoutQueueTest {
     private fun <T> assertEquals(expected: T, actual: T, message: String) =
         org.junit.Assert.assertEquals(message, expected, actual)
 
-    private fun native(rel: String) = stripComments(
-        repoFile("app/src/main/kotlin/com/fnthink/notice/$rel").readText(Charsets.UTF_8)
-    )
+    private fun native(rel: String): String {
+        val file = repoFile("app/src/main/kotlin/com/fnthink/notice/$rel")
+        return if (rel == "NotificationMonitorService.kt") {
+            serviceFanoutSource(file)
+        } else {
+            stripComments(file.readText(Charsets.UTF_8))
+        }
+    }
 
     private fun repoFile(rel: String): File {
         var dir: File? = File("").absoluteFile

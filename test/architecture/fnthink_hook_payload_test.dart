@@ -19,7 +19,7 @@ void main() {
       stripComments(File('$root/$rel').readAsStringSync());
 
   final svc = read(
-    'android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt',
+    'android/app/src/main/kotlin/com/fnthink/notice/ChannelFanout.kt',
   );
   final block = blockAfter(svc, 'private fun dispatchFnthinkHook(');
 

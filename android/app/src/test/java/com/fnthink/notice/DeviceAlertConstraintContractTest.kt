@@ -32,8 +32,14 @@ class DeviceAlertConstraintContractTest {
         } ?: error("无法定位仓库根目录（cwd=${File(".").absolutePath}）")
     }
 
-    private fun source(rel: String): String =
-        File(repoRoot, rel).readText()
+    private fun source(rel: String): String {
+        val file = File(repoRoot, rel)
+        return if (rel.endsWith("NotificationMonitorService.kt")) {
+            serviceFanoutSource(file)
+        } else {
+            file.readText()
+        }
+    }
 
     private val servicePath =
         "android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt"

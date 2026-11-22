@@ -37,8 +37,9 @@ class RepushScopeTest {
     private fun src(rel: String): String =
         stripComments(File("$root/$rel").readText())
 
-    private val service =
-        src("android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt")
+    private val service = serviceFanoutSource(
+        File("$root/android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt"),
+    )
     private val mainActivity =
         src("android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt")
 
@@ -135,7 +136,7 @@ class RepushScopeTest {
         // 这两族各只有一种 slug，而且是**字面量**。它们必须与"送达结果回传给 Dart 的那个串"同源，
         // 否则 Dart 按 `chan:email` 算出范围、原生按另一个串过滤 ⇒ 一格都对不上。
         val routeBody = methodBody(service, "private fun routeChannels(")
-        val reportPattern = Regex("""DeliveryNotifier\.notify\(this, info\.id, "([^"]+)"""")
+        val reportPattern = Regex("""DeliveryNotifier\.notify\((?:this|context), info\.id, "([^"]+)"""")
 
         val email = reportPattern.find(methodBody(service, "private fun dispatchEmail("))
         assertTrue("没从 dispatchEmail 里现取到回传类型串（写法变了，本用例要跟着改）", email != null)

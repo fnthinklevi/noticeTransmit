@@ -41,7 +41,9 @@ class QueueNoSilentDropContractTest {
 
     private val delayed = src("android/app/src/main/kotlin/com/fnthink/notice/DelayedPushManager.kt")
     private val merge = src("android/app/src/main/kotlin/com/fnthink/notice/MergePushManager.kt")
-    private val service = src("android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt")
+    private val service = serviceFanoutSource(
+        File("$root/android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt"),
+    )
     private val fanout = src("android/app/src/main/kotlin/com/fnthink/notice/FnthinkFanoutQueue.kt")
 
     /** 取函数体（大括号字符配平，不识别字符串里的大括号 —— 与同类守卫同样局限）。 */

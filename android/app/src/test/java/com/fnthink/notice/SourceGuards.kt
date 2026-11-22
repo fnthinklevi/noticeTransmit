@@ -1,5 +1,7 @@
 package com.fnthink.notice
 
+import java.io.File
+
 // 静态源码守卫的共用工具（与 test/support/source_guards.dart 同规则）。
 //
 // 本项目大量 Kotlin 守卫是「读源文件 + 字符串断言」。这类守卫有两个失效模式：
@@ -38,3 +40,16 @@ internal fun stripComments(source: String): String {
         if (cut >= 0) line.substring(0, cut) else line
     }
 }
+
+/**
+ * Service 与通道扇出的合并源码（P1-2 拆分后供既有守卫使用）。
+ *
+ * 顺序是判据的一部分：`ChannelFanout` 在前。既有守卫大量用
+ * `functionBody(src, "private fun dispatchToChannels(")` 取实现体，而 Service 里现在
+ * 留着一枚同签名的薄壳；实现放前面，取到的才是扇出本体。Service 的调用点、常量与
+ * 生命周期仍在同一份源码里，所以"调用点数量"那类断言不会被拆文件打断。
+ */
+internal fun serviceFanoutSource(serviceFile: File): String =
+    stripComments(File(serviceFile.parentFile, "ChannelFanout.kt").readText()) +
+        "\n" +
+        stripComments(serviceFile.readText())

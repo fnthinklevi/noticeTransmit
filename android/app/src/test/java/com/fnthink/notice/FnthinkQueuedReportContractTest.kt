@@ -24,9 +24,14 @@ class FnthinkQueuedReportContractTest {
         throw IllegalStateException("未找到 $rel（cwd=${File("").absolutePath}）")
     }
 
-    private fun kotlin(rel: String) = stripComments(
-        repoFile("app/src/main/kotlin/com/fnthink/notice/$rel").readText(Charsets.UTF_8),
-    )
+    private fun kotlin(rel: String): String {
+        val file = repoFile("app/src/main/kotlin/com/fnthink/notice/$rel")
+        return if (rel == "NotificationMonitorService.kt") {
+            serviceFanoutSource(file)
+        } else {
+            stripComments(file.readText(Charsets.UTF_8))
+        }
+    }
 
     private fun functionBody(src: String, signature: String): String {
         val start = src.indexOf(signature)

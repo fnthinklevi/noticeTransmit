@@ -39,9 +39,14 @@ class ChannelRoutingContractTest {
         throw IllegalStateException("未找到 $rel（cwd=${File("").absolutePath}）")
     }
 
-    private fun native(rel: String) = stripComments(
-        repoFile("app/src/main/kotlin/com/fnthink/notice/$rel").readText(Charsets.UTF_8)
-    )
+    private fun native(rel: String): String {
+        val file = repoFile("app/src/main/kotlin/com/fnthink/notice/$rel")
+        return if (rel == "NotificationMonitorService.kt") {
+            serviceFanoutSource(file)
+        } else {
+            stripComments(file.readText(Charsets.UTF_8))
+        }
+    }
 
     @Test
     fun `角色解析：backup none unset 是显式例外，其余全是主通道`() {
@@ -260,7 +265,7 @@ class ChannelRoutingContractTest {
         val email = svc.substringAfter("private fun dispatchEmail(")
         assertEquals(
             1,
-            Regex("""notify\(this, info\.id, "EMAIL", \w+, viaBackup = viaBackup\)""").findAll(email).count(),
+            Regex("""notify\((?:this|context), info\.id, "EMAIL", \w+, viaBackup = viaBackup\)""").findAll(email).count(),
             "邮件真实结果没带降级标记（paused 分支应保持不带：那条消息没发出去）"
         )
         assertEquals(
@@ -289,7 +294,7 @@ class ChannelRoutingContractTest {
         // 路由用的是 B 那一份，而两条链路看起来都"正常"。
         val pkgDir = repoFile(
             "app/src/main/kotlin/com/fnthink/notice/ChannelRouting.kt",
-        ).parentFile
+        ).parentFile ?: error("ChannelRouting.kt 没有父目录")
         val ktFiles = pkgDir.walk().filter { it.extension == "kt" }.toList()
         assertTrue(ktFiles.isNotEmpty(), "没从原生源码里取到文件 ⇒ 本条在空转")
         fun textOf(f: java.io.File) = stripComments(f.readText(Charsets.UTF_8))

@@ -109,7 +109,7 @@ class DailyPushCounterTest {
         assertTrue(
             "唯一那处累加点必须住在四族扇出里（`dispatchToChannels`）—— 长在别处就等于" +
                 "又开了一个「这一轮推没推」的作者：$hits",
-            hits.single().startsWith("NotificationMonitorService.kt"),
+            hits.single().startsWith("ChannelFanout.kt"),
         )
     }
 

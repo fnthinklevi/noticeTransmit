@@ -227,7 +227,7 @@ class WebhookRoutingTest {
         // （通知转发、短信、来电、手动切回）。前三个各自写一份 ⇒ "这台切没切"随哪条链先跑而变，
         // 而自动切回更要每个写点各判一次"该不该解除" —— 判六遍就总有漏判的那一遍（T128 数装配点那一课）。
         for (rel in listOf(
-            "src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt",
+            "src/main/kotlin/com/fnthink/notice/ChannelFanout.kt",
             "src/main/kotlin/com/fnthink/notice/WebhookRouting.kt",
         )) {
             val src = source(rel)
@@ -256,7 +256,7 @@ class WebhookRoutingTest {
 
     @Test
     fun `转发链的备用标记取本轮事实，不取锁存位`() {
-        val src = source("src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt")
+        val src = source("src/main/kotlin/com/fnthink/notice/ChannelFanout.kt")
         assertTrue(
             "viaBackup 又指回 engagedBackup ⇒ 兜底那一档重新变成「推了没标」（T132 ③）",
             src.contains("viaBackup = decision.viaBackup,"),

@@ -23,7 +23,11 @@ class PausedRoutingContractTest {
         while (dir != null) {
             val candidate = File(dir, rel)
             if (candidate.exists()) {
-                return stripComments(candidate.readText(Charsets.UTF_8))
+                return if (rel.endsWith("NotificationMonitorService.kt")) {
+                    serviceFanoutSource(candidate)
+                } else {
+                    stripComments(candidate.readText(Charsets.UTF_8))
+                }
             }
             dir = dir.parentFile
         }
@@ -91,7 +95,7 @@ class PausedRoutingContractTest {
         for (rel in listOf(
             "AppChannelSender.kt",
             "WebhookSender.kt",
-            "NotificationMonitorService.kt",
+            "ChannelFanout.kt",
             "PhoneCallReceiver.kt",
             "SmsDispatcher.kt",
         )) {

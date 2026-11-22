@@ -36,10 +36,14 @@ class FnthinkServiceEngineContractTest {
         src.replace(Regex("""/\*[\s\S]*?\*/"""), "")
             .replace(Regex("""//[^\n]*"""), "")
 
-    private fun kt(rel: String) =
-        stripComments(
-            repoFile("app/src/main/kotlin/com/fnthink/notice/$rel").readText(Charsets.UTF_8),
-        )
+    private fun kt(rel: String): String {
+        val file = repoFile("app/src/main/kotlin/com/fnthink/notice/$rel")
+        return if (rel == "NotificationMonitorService.kt") {
+            serviceFanoutSource(file)
+        } else {
+            stripComments(file.readText(Charsets.UTF_8))
+        }
+    }
 
     private fun dart(rel: String) =
         stripComments(repoFile(rel).readText(Charsets.UTF_8))

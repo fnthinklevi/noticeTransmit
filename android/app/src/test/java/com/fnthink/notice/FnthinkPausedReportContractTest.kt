@@ -21,8 +21,8 @@ import java.io.File
 class FnthinkPausedReportContractTest {
 
     private val src: String by lazy {
-        stripComments(
-            File("src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt").readText(),
+        serviceFanoutSource(
+            File("src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt"),
         )
     }
 
@@ -36,7 +36,7 @@ class FnthinkPausedReportContractTest {
         assertTrue(
             "暂停分支必须 DeliveryNotifier.notify(..., \"fnthink\", paused)：" +
                 "静默 return 让那一格永远停在「推送中」（T138 ① 的缺陷本体）",
-            Regex("""DeliveryNotifier\.notify\(this,\s*info\.id,\s*"fnthink",\s*paused\)""")
+            Regex("""DeliveryNotifier\.notify\((?:this|context),\s*info\.id,\s*"fnthink",\s*paused\)""")
                 .containsMatchIn(fn),
         )
     }

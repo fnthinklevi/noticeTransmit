@@ -100,6 +100,9 @@ void main() {
 
     test('范围走到扇出口为止：中途不许有人替它判"要不要全发"', () {
       final service = native('NotificationMonitorService.kt');
+      // P1-2：扇出实现已搬进 ChannelFanout.kt；把两份拼起来读，
+      // 既看得到 Service 里 ACTION → pushRecordNow 那两环，也看得到扇出本体。
+      final chain = '${native('ChannelFanout.kt')}\n$service';
       // ACTION → pushRecordNow → dispatchToChannels → routeChannels 一条链，
       // 每一环都必须把范围带下去（漏一环 = 那一环之后所有人都收到"不限定"）。
       expect(service, contains('getStringArrayListExtra(EXTRA_REPUSH_SLUGS)'));
@@ -109,7 +112,7 @@ void main() {
         reason: '手动补推没把范围递给扇出收口 ⇒ 范围在 intent 之后就断了',
       );
       expect(
-        blockAfter(service, 'private fun dispatchToChannels('),
+        blockAfter(chain, 'private fun dispatchToChannels('),
         contains('routeChannels(onlySlugs)'),
         reason: '收口函数没把范围转给路由 ⇒ 四族照旧全发',
       );
