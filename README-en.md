@@ -436,7 +436,7 @@ Fnthink Push deployment (two regions, where to upload the contract file, reverse
 
 ## Quality & CI
 
-**Test scale** (all executable; every group except the on-device tests is enforced in the PR gate; **1 Linux-only platform-difference file is currently exempt** — `busy_timeout` (passes on Windows, fails on Ubuntu) — until **2026-12-31**; the gate turns red automatically if it is not cleared by then, see `analyze.yml` for the list and expiry):
+**Test scale** (all executable; every group except the on-device tests is **fully enforced in the PR gate, with no exemptions**; any `[E]` or non-zero exit turns the gate red):
 
 - **Dart unit tests** (`test/`): architecture contracts (bootstrap order, launcher manifest contract, channel-method parity across both ends, the Fnthink mirror key-name guard), database schema and migrations, backup / delivery / filter golden cases, page widget tests
 - **Shared protocol package tests** — `packages/fnthink_push`: contract validation and vector assertions, run on both ends

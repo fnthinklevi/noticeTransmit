@@ -112,44 +112,19 @@ jobs:
           EXIT_CODE=$?
           set -e
           cat test_output.log
-          # 预期 FAIL 清单：只登记**当前仍复现**的平台差异，不再登记已修复的 guard。
-          # 不在这份清单里的 [E] 行才是真回归，判红。
-          #
-          # ⚠ **这不是永久豁免**：总到期日由下面的 GUARD_EXEMPT_UNTIL 把着 —— 到期未清零，
-          #   本步骤自己判红，不靠人记得。README 的「质量保障与 CI」如实写明当前豁免数。
-          #   2026-11-22 WSL/Linux 实测：8 个架构 guard 已全部通过（131/132），
-          #   只剩 1 个 Linux 平台特有差异：
-          #     test/database/busy_timeout_mechanism_test.dart
-          #     （Windows 本地 PASS、Ubuntu CI FAIL；根因待查，先登记避免门禁误红）
-          GUARD_EXEMPT_UNTIL="2026-12-31"
-          if [[ "$(date -u +%F)" > "$GUARD_EXEMPT_UNTIL" ]]; then
-            echo "❌ guard 豁免清单已于 $GUARD_EXEMPT_UNTIL 到期：请清零，或重新评审后更新本日期"
+          # 不再有 guard/平台差异豁免清单：2026-11-22 用 Linux Flutter 在 WSL 实跑 9 个
+          # 原豁免文件，8 个架构 guard 全绿；最后一项 busy_timeout 的平台差异经定位是
+          # "Linux 的 libsqlite3 + ffi 在同进程锁冲突时会立即返回 SQLITE_BUSY（12–18ms），
+          # Windows 则等满 300ms"，用例已改为钉"PRAGMA 设上 + 错误可判 + 在持有者放手前回来"，
+          # 不再钉某个平台的等待时长。此后任何 [E] 或非零退出都判红。
+          TOTAL_FAIL=$(grep -cE '\[E\]' test_output.log 2>/dev/null || true)
+          echo "FAIL 统计：总计 $TOTAL_FAIL，flutter test 退出码 $EXIT_CODE"
+          if [ "$EXIT_CODE" -ne 0 ] || [ "$TOTAL_FAIL" -gt 0 ]; then
+            echo "❌ 测试失败（无豁免清单），判定为回归："
+            grep -E '\[E\]' test_output.log || true
             exit 1
           fi
-          EXPECTED_FAIL_PATHS=(
-            'test/database/busy_timeout_mechanism_test.dart'  # 到期：v1.7.0 前修 Linux 差异
-          )
-          # 用 grep -v 把预期 FAIL 行全部排除，剩余的才是真回归
-          ALL_FAIL_LINES=$(grep -E '\[E\]' test_output.log || true)
-          TOTAL_FAIL=$(echo "$ALL_FAIL_LINES" | grep -cE '\[E\]' 2>/dev/null || true)
-          UNEXPECTED_FAIL=$(echo "$ALL_FAIL_LINES" | grep -E '\[E\]' || true)
-          for p in "${EXPECTED_FAIL_PATHS[@]}"; do
-            UNEXPECTED_FAIL=$(echo "$UNEXPECTED_FAIL" | grep -vF "$p" || true)
-          done
-          UNEXPECTED_COUNT=$(echo "$UNEXPECTED_FAIL" | grep -cE '\[E\]' 2>/dev/null || true)
-          EXPECTED_COUNT=$((TOTAL_FAIL - UNEXPECTED_COUNT))
-          echo "FAIL 统计：总计 $TOTAL_FAIL，预期 $EXPECTED_COUNT，意外 $UNEXPECTED_COUNT"
-          echo "ℹ️ guard 豁免：${#EXPECTED_FAIL_PATHS[@]} 个文件，到期日 $GUARD_EXEMPT_UNTIL（到期未清零则本步自动判红）"
-          if [ "$UNEXPECTED_COUNT" -gt 0 ]; then
-            echo "❌ 以下 FAIL 不在预期清单内，判定为真回归："
-            echo "$UNEXPECTED_FAIL"
-            exit 1
-          fi
-          if [ "$TOTAL_FAIL" -eq 0 ]; then
-            echo "✅ 所有测试通过"
-          else
-            echo "✅ 仅预期 guard/平台差异有红（$EXPECTED_COUNT 条），不判门禁"
-          fi
+          echo "✅ 所有测试通过"
           # 计数不在这里做：交给末步把 test_output.log 喂给 gen_readings.py 的
           # parse_flutter_log（唯一作者）。上一版这里另写一份 shell grep，只取 `+N`
           # 不含 `~S`，而工具里 env 优先级最高 ⇒ 一旦有用例被 skip，这份复制品就会

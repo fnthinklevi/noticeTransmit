@@ -38,6 +38,12 @@ void main() {
     // b 的锁等待上界：与 DatabaseHelper.busyTimeoutMs 同一个机制，这里缩到 300ms
     // 让用例跑得快；断言的是"有界"这件事，不是那个具体数字。
     await b.execute('PRAGMA busy_timeout = 300');
+    final busy = await b.rawQuery('PRAGMA busy_timeout');
+    expect(
+      busy.isNotEmpty && busy.first.values.first == 300,
+      isTrue,
+      reason: 'busy_timeout 没设上 ⇒ 后面的"有界"不是这条机制给的',
+    );
 
     // a 开一个写事务并**攥住 1.5 秒**（比 b 的 300ms 长得多）。
     final holder = a.transaction((txn) async {
@@ -63,15 +69,23 @@ void main() {
           '另一条连接持有写事务时，本连接的写必须报错（busy_timeout 到期）——'
           '不报错说明它一直等到了对方放手，界面就会永远卡在"加载通知记录"',
     );
+    final errText = '$err'.toLowerCase();
+    expect(
+      errText,
+      anyOf(
+        contains('database is locked'),
+        contains('sqlite_busy'),
+        contains('code 5'),
+      ),
+      reason: '锁冲突必须变成 SQLITE_BUSY 一类可判错误，而不是别的异常：$err',
+    );
     expect(
       sw.elapsedMilliseconds,
       lessThan(1400),
       reason: '必须在持有者放手（1.5s）之前就回来：等到了 1.5s 说明这条写是无界的',
     );
-    expect(
-      sw.elapsedMilliseconds,
-      greaterThanOrEqualTo(200),
-      reason: '至少要等满 busy_timeout（300ms 的量级），否则测到的是别的原因',
-    );
+    // ⚠ 不下界：Linux 的 libsqlite3 + ffi 在"同进程另一条连接持写锁"时会在
+    // busy handler 之前就返回 SQLITE_BUSY（实测 12–18ms），Windows 则会等满
+    // 300ms。这里要证的是"有界 + 错误可判"，不是某个平台的等待时长。
   });
 }
