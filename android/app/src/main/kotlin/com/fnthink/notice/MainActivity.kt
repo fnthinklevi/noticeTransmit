@@ -243,6 +243,15 @@ class MainActivity : FlutterActivity() {
         switchLocaleAlias()
     }
 
+    override fun onStop() {
+        super.onStop()
+        // 首启从旧 alias 启动时，切换只启用了目标 alias；现在应用已不可见，
+        // 再把其余 alias 收敛掉不会把用户送回桌面（见 applyLauncherAliasSafely）。
+        if (!pendingAliasSweep) return
+        pendingAliasSweep = false
+        appliedLauncherAlias?.let { applyLauncherAlias(it) }
+    }
+
     /**
      * P2：系统语言变化时同步最近任务页应用名与桌面图标别名。
      * 仅当应用处于“跟随系统语言”提示场景时才会真正改变显示，
@@ -1593,6 +1602,51 @@ class MainActivity : FlutterActivity() {
     @Volatile
     private var appliedLauncherAlias: android.content.ComponentName? = null
 
+    /**
+     * 从旧 alias 启动、目标 alias 不同时，不能当场禁用旧的那一枚
+     * （会把承载当前任务的那枚组件干掉，系统把用户送回桌面）。
+     * 这里记一笔，等 onStop（应用已不可见）再做全量收敛。
+     */
+    @Volatile
+    private var pendingAliasSweep = false
+
+    /** 当前任务的启动组件——只有本应用的 activity-alias 才算数。 */
+    private fun launchAliasFlatten(): String? {
+        val component = intent?.component ?: return null
+        return if (getIconAliases().values.any { it == component }) {
+            component.flattenToString()
+        } else {
+            null
+        }
+    }
+
+    /**
+     * 安全切换：从旧 alias 启动的那一程只启用目标，把「禁用其余」延迟到 onStop。
+     * 其余形状（应用内跳转 / 已从目标 alias 启动）仍走原来的全量收敛。
+     */
+    private fun applyLauncherAliasSafely(target: android.content.ComponentName) {
+        if (
+            LauncherAliasPolicy.mustDeferDisable(
+                launchAliasFlatten(),
+                target.flattenToString(),
+            )
+        ) {
+            try {
+                packageManager.setComponentEnabledSetting(
+                    target,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP,
+                )
+                appliedLauncherAlias = target
+                pendingAliasSweep = true
+                return
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        applyLauncherAlias(target)
+    }
+
     /** 切换启动器别名：34 个 activity-alias（17 图标 × 2 语言）逐个改启用态 */
     private fun applyLauncherAlias(target: android.content.ComponentName) {
         val pm = packageManager
@@ -1614,7 +1668,7 @@ class MainActivity : FlutterActivity() {
         try {
             val key = getAliasKey(icon)
             val aliases = getIconAliases()
-            applyLauncherAlias(aliases[key] ?: aliases["default_zh"]!!)
+            applyLauncherAliasSafely(aliases[key] ?: aliases["default_zh"]!!)
             prefs.edit().putString("flutter.selected_icon", icon).apply()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -1630,7 +1684,7 @@ class MainActivity : FlutterActivity() {
             // 别名未变则整段跳过：本方法每次 onResume 都会跑，逐次发 34 个
             // setComponentEnabledSetting binder 调用会明显拖慢回前台
             if (appliedLauncherAlias == target) return
-            applyLauncherAlias(target)
+            applyLauncherAliasSafely(target)
         } catch (e: Exception) {
             e.printStackTrace()
         }

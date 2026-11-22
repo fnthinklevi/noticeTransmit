@@ -222,6 +222,10 @@ fi
 wait_displayed() { # $1=标签 $2=超时秒（可选）
     local label="$1" limit="${2:-$START_TIMEOUT}" i line component
     ashell logcat -c > /dev/null 2>&1 || true
+    # 先回桌面再 force-stop：让上一轮的 onStop 有机会把「首启延迟收敛」的 alias 状态落地；
+    # 直接 force-stop 不会走生命周期，两枚 alias 同时启用时 resolve 会变成 ResolverActivity。
+    ashell input keyevent KEYCODE_HOME > /dev/null 2>&1 || true
+    sleep 1
     ashell am force-stop "$PKG" > /dev/null 2>&1 || true
     wake_screen
     component=$(resolve_launch_component)
@@ -290,14 +294,6 @@ assert_no_crash() { # $1=标签
 hr; echo "── 场景 0/4：基线冷启动 ──"
 if wait_displayed "基线冷启动"; then
     assert_process_alive "基线" || true
-    if ! foreground_ok; then
-        # 首启已知行为：应用按系统语言把 DefaultZh 换成 DefaultEn，旧 alias 被禁用后
-        # 任务会回到桌面（2026-11-22 模拟器实测）。这里按新 alias 再拉起一次 ——
-        # 与用户再点一下桌面图标同形；真机上这一下烦不烦由人工项核。
-        note "基线：首启切换启动别名后任务回到桌面，按新别名再拉起一次"
-        resume_app || true
-        sleep 2
-    fi
     assert_foreground "基线" || true
     assert_no_crash "基线" || true
 fi
