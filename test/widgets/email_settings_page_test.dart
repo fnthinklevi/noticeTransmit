@@ -497,6 +497,61 @@ void main() {
       expect(find.text('值班邮箱'), findsOneWidget);
     });
   });
+
+  // P1-3：加密存储写不进去时，原生已 fail-closed（拒绝明文回退），
+  // 界面必须把"后台拿不到授权码"说出来 —— 否则用户仍以为一切正常。
+  group('原生加密存储不可用（P1-3）', () {
+    const warning = '邮件密码未能写入系统加密存储，后台推送将用不到它；已拒绝明文保存，请稍后重试';
+
+    Future<void> duplicateWithSecureReply(
+      WidgetTester tester,
+      Object? reply,
+    ) async {
+      stubNativeChannels(
+        onCall: (call) async {
+          if (call.method == 'getChannelDescriptors') {
+            return descriptorCallResponse(call);
+          }
+          if (call.method == 'setEmailChannels') return reply;
+          if (call.method == 'verifySmtp') return probeReply;
+          return null;
+        },
+      );
+      store.rows = seedRows();
+      await open(tester);
+      await tester.longPress(find.text('值班邮箱'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CardActionSheet),
+          matching: find.text('复制'),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('回报 secure=false ⇒ 拒绝明文，并把"密码没写进去"说出来', (tester) async {
+      await duplicateWithSecureReply(tester, {'secure': false});
+
+      expect(service.lastNativeSyncSecure, isFalse);
+      expect(
+        find.text(warning),
+        findsOneWidget,
+        reason: '只写日志等于让用户以为授权码已加密保存，而后台发信拿到的是空密码',
+      );
+    });
+
+    testWidgets('旧原生回 null（判断不了）⇒ 不误报', (tester) async {
+      await duplicateWithSecureReply(tester, null);
+
+      expect(service.lastNativeSyncSecure, isTrue);
+      expect(
+        find.text(warning),
+        findsNothing,
+        reason: '拿不到明确信号就吓用户，会把"老原生配新 App"变成一条假告警',
+      );
+    });
+  });
 }
 
 /// 照 `DatabaseHelper.saveEmailChannels` 的键名映射写死的伪存储。

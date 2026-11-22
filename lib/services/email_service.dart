@@ -23,6 +23,14 @@ class EmailService {
 
   List<EmailChannel> cachedChannels = [];
 
+  /// 最近一次同步到原生端时，原生是否把密码写进了**系统加密存储**。
+  ///
+  /// false 只来自原生明确回报的 `secure: false`（`EmailManager` 已 fail-closed：
+  /// 加密存储不可用时拒绝落明文）。此时配置本身已存进本地加密库，但后台邮件推送
+  /// 拿不到新密码 —— 页面必须把这件事说出来，而不是继续显示「已保存」。
+  /// 通道不可用 / 旧版原生回 `null` 时保持 true：判断不了就不误报。
+  bool lastNativeSyncSecure = true;
+
   /// 这一族**该探哪些**（6e：只握手，不真寄信）。凭据不完整的通道**不给探测目标** ——
   /// 握手必然失败，把那记成"不可达"会把"还没填完"糊弄成"配置坏了"（缺失字段有 T04 的标记）。
   ///
@@ -146,14 +154,25 @@ class EmailService {
     return [];
   }
 
-  /// 同步到原生端（含密码），供后台 NotificationMonitorService 分发邮件
+  /// 同步到原生端（含密码），供后台 NotificationMonitorService 分发邮件。
+  ///
+  /// 原生回报 `secure: false` = 密码没能写进系统加密存储（原生 fail-closed，
+  /// 不会退化成明文）⇒ 记到 [lastNativeSyncSecure] 供页面提示。
+  /// 其他形状（null / 旧版原生 / 通道异常）维持 true：只有明确的"拒绝"才报警。
   Future<void> _syncToNative(List<EmailChannel> channels) async {
     try {
-      await AppChannels.notification.invokeMethod('setEmailChannels', {
-        'channels': channels
-            .map((c) => c.toMap(includePassword: true))
-            .toList(),
-      });
+      final reply = await AppChannels.notification.invokeMethod(
+        'setEmailChannels',
+        {
+          'channels': channels
+              .map((c) => c.toMap(includePassword: true))
+              .toList(),
+        },
+      );
+      lastNativeSyncSecure = !(reply is Map && reply['secure'] == false);
+      if (!lastNativeSyncSecure) {
+        debugPrint('EmailService: 原生加密存储不可用，密码未同步（已拒绝明文回退）');
+      }
     } catch (e) {
       debugPrint('EmailService: 同步到原生端失败: $e');
     }

@@ -5299,6 +5299,12 @@ abstract class AppLocalizations {
   /// **'邮件通道配置已保存'**
   String get emailConfigSaved;
 
+  /// No description provided for @emailPasswordSecureUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'邮件密码未能写入系统加密存储，后台推送将用不到它；已拒绝明文保存，请稍后重试'**
+  String get emailPasswordSecureUnavailable;
+
   /// No description provided for @notificationPermOffMsg.
   ///
   /// In zh, this message translates to:

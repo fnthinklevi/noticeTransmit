@@ -13,6 +13,7 @@ import org.json.JSONObject
 // /   2. 非敏感元数据 → SharedPreferences（email_channel_configs）
 // /   3. Flutter 端同步时由 MethodChannel 传入完整配置（含密码），此处持久化。
 // /   4. 旧版本明文密码（email_channel_passwords）在首次写入时清理；读取时作为迁移兜底。
+// /   5. 加密存储不可用时 **fail-closed**：拒绝落明文，并把 secure=false 回报给界面。
 object EmailManager {
 
     private const val TAG = "EmailManager"
@@ -22,8 +23,18 @@ object EmailManager {
     private const val KEY_CHANNELS = "channels"
     private const val KEY_PASSWORDS = "passwords"
 
-    /** 保存邮件通道元数据 + 密码 */
-    fun saveChannels(context: Context, channelsData: List<Map<String, Any?>>) {
+    // 两种不可用（SecurePrefs 已降级 / 加密写入抛异常）共用一句话：
+    // CJK 字面量棘轮只许变薄，新增同一句只写一次。
+    private const val MSG_PLAINTEXT_REFUSED = "加密存储不可用，拒绝回退明文"
+
+    /**
+     * 保存邮件通道元数据 + 密码。
+     *
+     * 返回 **false** = 密码没能写进系统加密存储（已 fail-closed：**绝不退化成明文**）。
+     * 调用方（`setEmailChannels`）必须把这个结果回报给界面 —— 只写日志等于让用户
+     * 以为"授权码已保存"，而实际后台发信拿到的是空密码。
+     */
+    fun saveChannels(context: Context, channelsData: List<Map<String, Any?>>): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val pwdPrefs = context.getSharedPreferences(PREFS_PASSWORDS, Context.MODE_PRIVATE)
 
@@ -55,17 +66,35 @@ object EmailManager {
 
         prefs.edit().putString(KEY_CHANNELS, metaArray.toString()).apply()
 
-        // 密码 → 加密存储；成功后清理旧明文，避免 SMTP 密码以明文 XML 持久化
-        try {
+        // 密码 → 加密存储。**fail-closed**：加密不可用时拒绝写入，并以返回值回报，
+        // 不再把 SMTP 授权码退化成明文 XML（P1-3：那条回退没有任何界面提示，
+        // 用户以为已加密保存，实际磁盘上躺着可读的授权码）。
+        // 旧明文键无论成败都清掉：留着它，读取侧会拿它当"迁移兜底"，
+        // 于是一次失败的保存会静默沿用旧密码，比明说失败更难排查。
+        pwdPrefs.edit().remove(KEY_PASSWORDS).apply()
+        val secure = writeEncryptedPasswords(context, pwdObj)
+        Log.d(TAG, "保存 ${channelsData.size} 个邮件通道配置")
+        return secure
+    }
+
+    /** 密码写加密存储；成功 true。任何一步不可用都只返回 false，**不落明文**。 */
+    private fun writeEncryptedPasswords(context: Context, pwdObj: JSONObject): Boolean {
+        if (pwdObj.length() == 0) return true
+        // SecurePrefs 在 EncryptedSharedPreferences 构造失败时会降级成普通 prefs；
+        // 不先问这一句，putString 会"成功"地写进未加密文件，异常路径根本走不到。
+        if (!SecurePrefs.isEncrypted(context)) {
+            Log.e(TAG, MSG_PLAINTEXT_REFUSED)
+            return false
+        }
+        return try {
             SecurePrefs.get(context).edit()
                 .putString(SECURE_KEY_PASSWORDS, pwdObj.toString())
                 .apply()
-            pwdPrefs.edit().remove(KEY_PASSWORDS).apply()
+            true
         } catch (e: Exception) {
-            Log.e(TAG, "写入加密密码失败，回退明文", e)
-            pwdPrefs.edit().putString(KEY_PASSWORDS, pwdObj.toString()).apply()
+            Log.e(TAG, MSG_PLAINTEXT_REFUSED, e)
+            false
         }
-        Log.d(TAG, "保存 ${channelsData.size} 个邮件通道配置")
     }
 
     /** 返回通道列表（Map 格式，供 Flutter MethodChannel 回传） */

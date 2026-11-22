@@ -2973,6 +2973,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emailConfigSaved => 'Email channel config saved';
 
   @override
+  String get emailPasswordSecureUnavailable =>
+      'The email password could not be written to the system encrypted storage, so background delivery cannot use it. Plaintext storage was refused — please retry later.';
+
+  @override
   String get notificationPermOffMsg =>
       'Notification access is off, so the app cannot read device notifications.\n\nEnable it in \"Permission settings\" first, then start the service.';
 

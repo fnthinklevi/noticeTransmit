@@ -65,8 +65,11 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
             }
             "setEmailChannels" -> {
                 val channels = call.argument<List<Map<String, Any?>>>("channels") ?: emptyList()
-                EmailManager.saveChannels(activity, channels)
-                result.success(true)
+                // 配置（元数据）照常保存；`secure=false` 是**密码那一半**被 fail-closed
+                // 拒绝（加密存储不可用）—— 必须回报，Dart 侧据此在界面上明说，
+                // 不能让用户以为授权码已经进加密存储。
+                val secure = EmailManager.saveChannels(activity, channels)
+                result.success(mapOf("secure" to secure))
             }
             "testEmail" -> {
                 val configMap = configMapOf(call)

@@ -1574,6 +1574,7 @@
   "updateDownloading": "Downloading update",
   "webhookConfigSaved": "Webhook config saved",
   "emailConfigSaved": "Email channel config saved",
+  "emailPasswordSecureUnavailable": "The email password could not be written to the system encrypted storage, so background delivery cannot use it. Plaintext storage was refused — please retry later.",
   "@updateCheckFailedWithError": {
     "placeholders": {
       "error": {

@@ -274,6 +274,11 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     final channels = await _emailService.loadChannels();
     if (!mounted) return;
     setState(() => _channels = channels);
+    // 原生加密存储不可用时（fail-closed，已拒绝明文回退），配置本身已存进本地加密库，
+    // 但后台邮件推送拿不到授权码 —— 不能只写日志让用户以为一切正常（P1-3）。
+    if (!_emailService.lastNativeSyncSecure) {
+      _toast(AppLocalizations.of(context).emailPasswordSecureUnavailable);
+    }
     _probeStaleChannels();
   }
 

@@ -1574,6 +1574,7 @@
   "updateDownloading": "正在下载更新",
   "webhookConfigSaved": "Webhook 配置已保存",
   "emailConfigSaved": "邮件通道配置已保存",
+  "emailPasswordSecureUnavailable": "邮件密码未能写入系统加密存储，后台推送将用不到它；已拒绝明文保存，请稍后重试",
   "@updateCheckFailedWithError": {
     "placeholders": {
       "error": {

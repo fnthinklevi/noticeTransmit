@@ -2857,6 +2857,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emailConfigSaved => '邮件通道配置已保存';
 
   @override
+  String get emailPasswordSecureUnavailable =>
+      '邮件密码未能写入系统加密存储，后台推送将用不到它；已拒绝明文保存，请稍后重试';
+
+  @override
   String get notificationPermOffMsg =>
       '通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。';
 
