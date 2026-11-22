@@ -436,7 +436,7 @@ Fnthink Push deployment (two regions, where to upload the contract file, reverse
 
 ## Quality & CI
 
-**Test scale** (all executable; every group except the on-device tests is enforced in the PR gate):
+**Test scale** (all executable; every group except the on-device tests is enforced in the PR gate; **9 guard/platform-difference files are currently exempt** — 8 architecture guards + 1 Linux-only difference — until **2026-12-31**; the gate turns red automatically if they are not cleared by then, see `analyze.yml` for the list and expiry):
 
 - **Dart unit tests** (`test/`): architecture contracts (bootstrap order, launcher manifest contract, channel-method parity across both ends, the Fnthink mirror key-name guard), database schema and migrations, backup / delivery / filter golden cases, page widget tests
 - **Shared protocol package tests** — `packages/fnthink_push`: contract validation and vector assertions, run on both ends

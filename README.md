@@ -434,7 +434,7 @@ flutter test integration_test/smoke_test.dart
 
 ## 质量保障与 CI
 
-**测试规模**（均为可执行用例；除设备侧测试外，其余全部纳入 CI 门禁强制执行）：
+**测试规模**（均为可执行用例；除设备侧测试外，其余纳入 CI 门禁；当前有 **9 个 guard/平台差异文件在豁免清单**——8 个架构守卫 + 1 个 Linux 平台差异，到期日 **2026-12-31**，到期未清零则 CI 自动判红，清单与到期条件见 `analyze.yml`）：
 
 - **Dart 单元测试**（`test/`）：架构契约（启动顺序、launcher manifest、跨端通道方法齐平、幻念镜像键名守卫）、数据库 schema 与迁移、备份/送达/过滤黄金用例、页面 widget 测试
 - **共享协议包测试** —— `packages/fnthink_push`：契约校验与向量断言，两端各跑一遍

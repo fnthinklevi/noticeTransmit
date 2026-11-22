@@ -114,6 +114,10 @@ jobs:
           cat test_output.log
           # 预期 FAIL 清单：显式列出所有 roadmap 登记的 guard 文件 + Linux 平台已知差异。
           # 不在这份清单里的 [E] 行才是真回归，判红。
+          #
+          # ⚠ **这不是永久豁免**：每一项都有到期条件（下一个 minor v1.7.0 前清零），
+          #   总到期日由下面的 GUARD_EXEMPT_UNTIL 把着 —— 到期未清零，本步骤自己判红，
+          #   不靠人记得。README 的「质量保障与 CI」如实写明当前豁免数。
           #   8 个 guard 文件（本地红、roadmap §E1 登记）：
           #     test/architecture/arb_dead_entries_ratchet_test.dart
           #     test/architecture/card_action_sheet_contract_test.dart
@@ -126,16 +130,21 @@ jobs:
           #   1 个 Linux 平台特有差异：
           #     test/database/busy_timeout_mechanism_test.dart
           #     （Windows 本地 PASS、Ubuntu CI FAIL；根因待查，先登记避免门禁误红）
+          GUARD_EXEMPT_UNTIL="2026-12-31"
+          if [[ "$(date -u +%F)" > "$GUARD_EXEMPT_UNTIL" ]]; then
+            echo "❌ guard 豁免清单已于 $GUARD_EXEMPT_UNTIL 到期：请清零，或重新评审后更新本日期"
+            exit 1
+          fi
           EXPECTED_FAIL_PATHS=(
-            'test/architecture/arb_dead_entries_ratchet_test.dart'
-            'test/architecture/card_action_sheet_contract_test.dart'
-            'test/architecture/delete_confirmation_contract_test.dart'
-            'test/architecture/history_row_affordance_ledger_test.dart'
-            'test/architecture/ui_style_guards_test.dart'
-            'test/widgets/history_inbox_mark_read_test.dart'
-            'test/widgets/history_row_tile_adoption_test.dart'
-            'test/widgets/history_repush_entry_test.dart'
-            'test/database/busy_timeout_mechanism_test.dart'
+            'test/architecture/arb_dead_entries_ratchet_test.dart'  # 到期：v1.7.0 前清零
+            'test/architecture/card_action_sheet_contract_test.dart'  # 到期：v1.7.0 前清零
+            'test/architecture/delete_confirmation_contract_test.dart'  # 到期：v1.7.0 前清零
+            'test/architecture/history_row_affordance_ledger_test.dart'  # 到期：v1.7.0 前清零
+            'test/architecture/ui_style_guards_test.dart'  # 到期：v1.7.0 前清零
+            'test/widgets/history_inbox_mark_read_test.dart'  # 到期：v1.7.0 前清零
+            'test/widgets/history_row_tile_adoption_test.dart'  # 到期：v1.7.0 前清零
+            'test/widgets/history_repush_entry_test.dart'  # 到期：v1.7.0 前清零
+            'test/database/busy_timeout_mechanism_test.dart'  # 到期：v1.7.0 前修 Linux 差异
           )
           # 用 grep -v 把预期 FAIL 行全部排除，剩余的才是真回归
           ALL_FAIL_LINES=$(grep -E '\[E\]' test_output.log || true)
@@ -147,6 +156,7 @@ jobs:
           UNEXPECTED_COUNT=$(echo "$UNEXPECTED_FAIL" | grep -cE '\[E\]' 2>/dev/null || true)
           EXPECTED_COUNT=$((TOTAL_FAIL - UNEXPECTED_COUNT))
           echo "FAIL 统计：总计 $TOTAL_FAIL，预期 $EXPECTED_COUNT，意外 $UNEXPECTED_COUNT"
+          echo "ℹ️ guard 豁免：${#EXPECTED_FAIL_PATHS[@]} 个文件，到期日 $GUARD_EXEMPT_UNTIL（到期未清零则本步自动判红）"
           if [ "$UNEXPECTED_COUNT" -gt 0 ]; then
             echo "❌ 以下 FAIL 不在预期清单内，判定为真回归："
             echo "$UNEXPECTED_FAIL"
