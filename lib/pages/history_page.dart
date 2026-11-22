@@ -233,7 +233,8 @@ class HistoryPage extends StatefulWidget {
   State<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> {
+class _HistoryPageState extends State<HistoryPage>
+    with SingleTickerProviderStateMixin {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -651,6 +652,10 @@ class _HistoryPageState extends State<HistoryPage> {
   void initState() {
     super.initState();
     _direction = widget.initialDirection;
+    _swipeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    )..addListener(_onSwipeTick);
     // 点通知跳进来时带上的那一条（T83）。抄进 State 而不是每次读 widget：
     // 它是一次**待兑现的意图**，兑现过就要能清空，而 widget 的字段是不变的。
     _pendingFocusMessageId = widget.focusMessageId;
@@ -2355,9 +2360,70 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 轻扫有速度看速度，慢慢拖到半屏也有位移可看 —— 只认速度会让慢拖失灵。
   double _swipeDx = 0;
 
+  /// 左右滑切档的过渡动画：旧内容滑出（0→0.5）→ 中点换档 → 新内容滑入（0.5→1）。
+  ///
+  /// 为什么在中点才换：_setDirection 会换数据源并触发异步读表，若一开始就换，
+  /// 滑出的是"新档的加载中"而不是用户眼前那一屏；中点换能让旧档完整滑走。
+  late final AnimationController _swipeController;
+  bool _swipeAnimating = false;
+  bool _swipeSwitched = false;
+  String? _swipeTarget;
+
+  /// 动画方向：true = 左滑切下一档（旧内容向左、新内容从右入），false 反之。
+  bool _swipeForward = true;
+
+  void _onSwipeTick() {
+    if (!_swipeAnimating || _swipeSwitched) return;
+    if (_swipeController.value < 0.5) return;
+    _swipeSwitched = true;
+    final target = _swipeTarget;
+    if (target != null) _setDirection(target);
+  }
+
+  void _animateDirectionSwitch(String target, {required bool forward}) {
+    if (_swipeAnimating) return;
+    _swipeAnimating = true;
+    _swipeSwitched = false;
+    _swipeTarget = target;
+    _swipeForward = forward;
+    _swipeController.forward(from: 0).whenComplete(() {
+      if (!mounted) return;
+      setState(() {
+        _swipeAnimating = false;
+        _swipeSwitched = false;
+        _swipeTarget = null;
+        _swipeController.value = 0;
+      });
+    });
+  }
+
+  /// 点芯片时立刻回到静止态，免得在半路动画里又换一次档（把用户刚点的覆盖掉）。
+  void _cancelSwipeAnimation() {
+    if (!_swipeAnimating) return;
+    _swipeAnimating = false;
+    _swipeSwitched = true;
+    _swipeTarget = null;
+    _swipeController.stop();
+    _swipeController.value = 0;
+  }
+
+  /// 当前动画帧的横向位移（以屏宽为 1）。
+  double _swipeOffsetFraction() {
+    if (!_swipeAnimating) return 0;
+    final t = _swipeController.value;
+    final dir = _swipeForward ? 1.0 : -1.0;
+    if (t <= 0.5) {
+      final p = Curves.easeOutCubic.transform(t / 0.5);
+      return -dir * p;
+    }
+    final p = Curves.easeOutCubic.transform((t - 0.5) / 0.5);
+    return dir * (1 - p);
+  }
+
   /// 内容区左右滑切档。走的是与点顶部芯片**同一条** `_setDirection`：
   /// 换账本、退出选项态、补读数据都由那一处负责，这里不另写一份切档逻辑。
   void _onHorizontalDragEnd(DragEndDetails details) {
+    if (_swipeAnimating) return;
     final v = details.primaryVelocity ?? 0;
     // 轻扫（≥200 px/s）以速度方向为准；慢拖（速度不够）以累计位移为准。
     final dx = v.abs() >= 200 ? v : _swipeDx;
@@ -2366,7 +2432,7 @@ class _HistoryPageState extends State<HistoryPage> {
     if (at < 0) return;
     final next = dx < 0 ? at + 1 : at - 1;
     if (next < 0 || next >= _directionOrder.length) return;
-    _setDirection(_directionOrder[next]);
+    _animateDirectionSwitch(_directionOrder[next], forward: dx < 0);
   }
 
   void _setDirection(String value) {
@@ -2396,6 +2462,12 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  /// 点芯片：先停掉可能在跑的滑动动画，再换档（否则动画中点会覆盖用户刚点的这一下）。
+  void _tapDirection(String value) {
+    _cancelSwipeAnimation();
+    _setDirection(value);
+  }
+
   Widget _directionBar(AppLocalizations l10n) {
     // 三格一排，窄屏仍可能放不下 ⇒ 横着可滚（T84 加档时量出来过：写死 Row 的下一幕
     // 就是 RenderFlex overflow 半条芯片）。T193 撤掉了第四档「全部」。
@@ -2407,21 +2479,21 @@ class _HistoryPageState extends State<HistoryPage> {
           _filterChip(
             l10n.fnthinkDirForwarded,
             _direction == 'forwarded',
-            () => _setDirection('forwarded'),
+            () => _tapDirection('forwarded'),
             keyName: 'direction-chip-forwarded',
           ),
           const SizedBox(width: 8),
           _filterChip(
             l10n.fnthinkDirInbox,
             _direction == 'received',
-            () => _setDirection('received'),
+            () => _tapDirection('received'),
             keyName: 'direction-chip-received',
           ),
           const SizedBox(width: 8),
           _filterChip(
             l10n.fnthinkDirSent,
             _direction == 'sent',
-            () => _setDirection('sent'),
+            () => _tapDirection('sent'),
             keyName: 'direction-chip-sent',
           ),
         ],
@@ -3427,6 +3499,7 @@ class _HistoryPageState extends State<HistoryPage> {
     _debounce?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
+    _swipeController.dispose();
     super.dispose();
   }
 
@@ -3590,90 +3663,109 @@ class _HistoryPageState extends State<HistoryPage> {
               onHorizontalDragStart: (_) => _swipeDx = 0,
               onHorizontalDragUpdate: (d) => _swipeDx += d.delta.dx,
               onHorizontalDragEnd: _onHorizontalDragEnd,
-              child: _direction == 'received' || _direction == 'sent'
-                  ? _buildInboxView(l10n)
-                  : _searchResults == null
-                  ? // 头一页还没回来（T133 量级①：无筛选也要当场拉第一页）。
-                    // 不给"空列表"闪一下：那一闪读起来就是"历史被清了"。
-                    const Center(child: CircularProgressIndicator())
-                  : rows.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.inbox_outlined,
-                            size: 56,
-                            color: AppColors.tertiaryLabel(context),
+              // 切档过渡：只平移内容区，顶部芯片与搜索框不动；ClipRect 防止滑出边界。
+              child: ClipRect(
+                child: AnimatedBuilder(
+                  animation: _swipeController,
+                  builder: (context, child) {
+                    final width = MediaQuery.sizeOf(context).width;
+                    return Transform.translate(
+                      offset: Offset(_swipeOffsetFraction() * width, 0),
+                      child: child,
+                    );
+                  },
+                  child: _direction == 'received' || _direction == 'sent'
+                      ? _buildInboxView(l10n)
+                      : _searchResults == null
+                      ? // 头一页还没回来（T133 量级①：无筛选也要当场拉第一页）。
+                        // 不给"空列表"闪一下：那一闪读起来就是"历史被清了"。
+                        const Center(child: CircularProgressIndicator())
+                      : rows.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.inbox_outlined,
+                                size: 56,
+                                color: AppColors.tertiaryLabel(context),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                // 挂着筛选筛出 0 条 = "没匹配上"；没筛选而空 = "从来没有"。
+                                // （分页取数循环保证取尽之前不会以空页收场 —— 停在这里的空
+                                //   一定是粗筛取尽后的空。）
+                                searchMode
+                                    ? l10n.noMatchRecords
+                                    : l10n.noRecords,
+                                style: TextStyle(
+                                  color: AppColors.secondaryLabel(context),
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            // 挂着筛选筛出 0 条 = "没匹配上"；没筛选而空 = "从来没有"。
-                            // （分页取数循环保证取尽之前不会以空页收场 —— 停在这里的空
-                            //   一定是粗筛取尽后的空。）
-                            searchMode ? l10n.noMatchRecords : l10n.noRecords,
-                            style: TextStyle(
-                              color: AppColors.secondaryLabel(context),
-                              fontSize: 15,
+                        )
+                      : ListView.separated(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: rows.length + (_hasMore ? 1 : 0),
+                          separatorBuilder: (_, _) => Padding(
+                            padding: const EdgeInsets.only(left: 56),
+                            child: Divider(
+                              height: 0.5,
+                              thickness: 0.5,
+                              color: AppColors.separator(context),
                             ),
                           ),
-                        ],
-                      ),
-                    )
-                  : ListView.separated(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: rows.length + (_hasMore ? 1 : 0),
-                      separatorBuilder: (_, _) => Padding(
-                        padding: const EdgeInsets.only(left: 56),
-                        child: Divider(
-                          height: 0.5,
-                          thickness: 0.5,
-                          color: AppColors.separator(context),
+                          itemBuilder: (context, index) {
+                            // 末尾加载指示：粗筛还没取尽（T133 量级① 两条读路都有下一页）
+                            if (index >= rows.length) {
+                              return Padding(
+                                key: const ValueKey('history-load-more'),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Center(
+                                  child: _loadingMore
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          l10n.loadMoreHint,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.tertiaryLabel(
+                                              context,
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                              );
+                            }
+                            final row = rows[index];
+                            if (row is _HistoryGroupView) {
+                              return _buildGroupRow(
+                                context,
+                                row,
+                                index,
+                                rows.length,
+                              );
+                            }
+                            return _buildRecordItem(
+                              context,
+                              row as NotificationRecord,
+                              index,
+                              rows.length,
+                            );
+                          },
                         ),
-                      ),
-                      itemBuilder: (context, index) {
-                        // 末尾加载指示：粗筛还没取尽（T133 量级① 两条读路都有下一页）
-                        if (index >= rows.length) {
-                          return Padding(
-                            key: const ValueKey('history-load-more'),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Center(
-                              child: _loadingMore
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      l10n.loadMoreHint,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.tertiaryLabel(context),
-                                      ),
-                                    ),
-                            ),
-                          );
-                        }
-                        final row = rows[index];
-                        if (row is _HistoryGroupView) {
-                          return _buildGroupRow(
-                            context,
-                            row,
-                            index,
-                            rows.length,
-                          );
-                        }
-                        return _buildRecordItem(
-                          context,
-                          row as NotificationRecord,
-                          index,
-                          rows.length,
-                        );
-                      },
-                    ),
+                ),
+              ),
             ),
           ),
           // F2：批量模式底部操作栏

@@ -561,6 +561,27 @@ void main() {
       expect(find.text('机箱温度 50度'), findsOneWidget, reason: '速度不够时按累计位移判方向');
     });
 
+    testWidgets('切档有过渡动画：旧档先滑出，过半才换内容', (tester) async {
+      await pump(tester);
+      await tester.fling(find.text('微信消息'), const Offset(-400, 0), 1200);
+      await tester.pump();
+      expect(
+        find.text('微信消息'),
+        findsOneWidget,
+        reason: '动画第 0 帧就换了内容 ⇒ 又退化成硬切',
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        find.text('微信消息'),
+        findsOneWidget,
+        reason: '中点（160ms）之前不该换档 —— 旧档要完整滑出去',
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+      expect(find.text('机箱温度 50度'), findsOneWidget);
+      expect(find.text('微信消息'), findsNothing);
+    });
+
     testWidgets('到头继续滑 ⇒ 不循环、页面不崩', (tester) async {
       await pump(tester);
       await tester.fling(find.text('微信消息'), const Offset(400, 0), 1200);
