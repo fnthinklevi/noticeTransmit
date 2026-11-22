@@ -27,6 +27,21 @@ void main() {
     for (final file in _dartFilesIn(root, 'lib'))
       _relative(root, file.path): stripComments(file.readAsStringSync()),
   };
+  // P1-2：history_page 已按域拆成 part。这一本的台账按**入口 library**记账：
+  // part 文件自身从逐文件表里摘掉，入口换成「入口 + 全部 part」的合并源码；
+  // 否则同一枚控件会被数两遍，台账键集会在拆文件当天红（保护变成噪音）。
+  for (final part in const [
+    'lib/pages/history_page_actions.dart',
+    'lib/pages/history_page_filters.dart',
+    'lib/pages/history_page_details.dart',
+    'lib/pages/history_page_rows.dart',
+    'lib/pages/history_page_swipe.dart',
+  ]) {
+    codeByPath.remove(part);
+  }
+  codeByPath['lib/pages/history_page.dart'] = stripComments(
+    librarySource(root, 'lib/pages/history_page.dart'),
+  );
   // `test/` 侧同一套口径。⚠ 排除本文件自己：下面那些 needle 是**故意留在代码里的探针**
   // （`'MaterialApp('` 作为字符串字面量出现），剥注释不会剥掉它们，留着就成自指。
   final harnessByPath = <String, String>{

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/source_guards.dart';
@@ -15,8 +13,7 @@ import '../support/source_guards.dart';
 /// 字面量 = 第二份可以朝同一个方向写错，而那时两侧编译与全部测试仍然绿。
 void main() {
   final root = projectRoot();
-  String read(String rel) =>
-      File('$root/$rel').readAsStringSync().replaceAll('\r\n', '\n');
+  String read(String rel) => librarySource(root, rel).replaceAll('\r\n', '\n');
 
   const activity =
       'android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt';

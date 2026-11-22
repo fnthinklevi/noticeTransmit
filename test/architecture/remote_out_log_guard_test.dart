@@ -28,13 +28,22 @@ void main() {
       ).listSync().whereType<File>()) {
         if (!f.path.endsWith('.dart')) continue;
         final name = f.uri.pathSegments.last;
+        // P1-2：history_page 已按域拆成 part。装配点的**主语仍是那张页**，
+        // 分到 part 里不改变"这张页接没接写口"这件事 ⇒ 归一成一个逻辑页再计数。
+        final logicalName = name.startsWith('history_page_')
+            ? 'history_page.dart'
+            : name;
         // 定义那一处不算装配点：`required this.saveRemoteExecution,` 里根本没有
         // `saveRemoteExecution:` 这种写法，把它一起数会造出一处"没接线"的假红。
         if (name == 'fnthink_send_page.dart') continue;
         final src = read('lib/pages/$name');
         final built = countOf(src, 'FnthinkSendDeps(');
         final wired = countOf(src, 'saveRemoteExecution:');
-        if (built > 0) sites[name] = [built, wired];
+        if (built > 0) {
+          final site = sites.putIfAbsent(logicalName, () => [0, 0]);
+          site[0] += built;
+          site[1] += wired;
+        }
       }
       expect(
         sites.keys.toList()..sort(),

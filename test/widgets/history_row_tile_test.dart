@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -189,8 +187,7 @@ void main() {
 
   group('历史页确实改走了通用件（否则本文件只是自证）', () {
     final root = projectRoot();
-    String read(String rel) =>
-        stripComments(File('$root/$rel').readAsStringSync());
+    String read(String rel) => stripComments(librarySource(root, rel));
 
     test('远程执行历史那一行不再自己拼散文', () {
       final page = read('lib/pages/remote_history_page.dart');

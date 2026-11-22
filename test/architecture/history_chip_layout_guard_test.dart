@@ -12,7 +12,7 @@ import '../support/source_guards.dart';
 ///   新顶上来的是 [tallyDelivery] 的成员判定来源（"这条到底成没成"接替了"露几枚"）。
 void main() {
   final root = projectRoot();
-  final libCode = libCodeByRel(root);
+  final libCode = libEntrySourcesByRel(root);
 
   List<String> filesMentioning(List<String> names) =>
       libCode.entries

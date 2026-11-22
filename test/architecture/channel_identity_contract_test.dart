@@ -432,7 +432,7 @@ void main() {
 
     test('页面不再自己有一张送达状态词表（「发送中」不是兜底读数）', () {
       final page = stripComments(
-        File('$root/lib/pages/history_page.dart').readAsStringSync(),
+        librarySource(root, 'lib/pages/history_page.dart'),
       );
       expect(
         page.contains('l10n.deliveryPending'),

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/source_guards.dart';
@@ -157,7 +155,7 @@ void main() {
 
   testWidgets('⑧ 收件行的动作住在详情弹层里，不在行上', (tester) async {
     final src = stripComments(
-      File('$root/lib/pages/history_page.dart').readAsStringSync(),
+      librarySource(root, 'lib/pages/history_page.dart'),
     );
     final sheet = src.substring(
       src.indexOf('Future<void> _showInboxDetail('),
@@ -311,7 +309,7 @@ const List<RowAffordance> kRowAffordanceLedger = [
 /// （件里那一处是构造函数声明，不是装配点）。
 int realHistoryRowCallSites(String root) {
   var n = 0;
-  for (final entry in libCodeByRel(root).entries) {
+  for (final entry in libEntrySourcesByRel(root).entries) {
     if (entry.key == 'widgets/history_row_tile.dart') {
       // 件本体只许有构造函数那一处；多出来说明件里自己起了行（这本账的主语就变了）。
       expect(

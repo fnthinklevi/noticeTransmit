@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/source_guards.dart' show librarySource, projectRoot;
+
 /// T141① 的守卫：收件历史页把指令原文换成「一条远程指令（状态/原因）」这一刀，
 /// 三条判据各钉一种静默腐烂。锚点判据照本仓规矩：锚点找不到 = 守卫空转，先自红。
 String read(String path) => File(path).readAsStringSync();
@@ -13,7 +15,9 @@ String strip(String code) => code
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  final page = strip(read('lib/pages/history_page.dart'));
+  final page = strip(
+    librarySource(projectRoot(), 'lib/pages/history_page.dart'),
+  );
   final remoteHistory = strip(read('lib/pages/remote_history_page.dart'));
   final words = strip(
     read('lib/services/fnthink_remote_execution_state_words.dart'),

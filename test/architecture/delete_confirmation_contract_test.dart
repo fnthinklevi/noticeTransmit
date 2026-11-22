@@ -16,8 +16,7 @@ import '../support/source_guards.dart';
 void main() {
   final root = projectRoot();
 
-  String read(String rel) =>
-      stripComments(File('$root/$rel').readAsStringSync());
+  String read(String rel) => stripComments(librarySource(root, rel));
 
   /// 页面 → **会改状态的那几条路径的执行处**。一页多条是正常的（推送页既要换地址码、
   /// 也要答复配对请求），所以这里登记的是清单而不是"每页恰好一个"：

@@ -20,8 +20,7 @@ void main() {
   final root = projectRoot();
   final prefix = contract.deviceTitlePrefix;
 
-  String readCode(String rel) =>
-      stripComments(File('$root/$rel').readAsStringSync());
+  String readCode(String rel) => stripComments(librarySource(root, rel));
 
   List<String> dartFiles(String dirRel) {
     // Windows 上 listSync 给的是反斜杠路径：先归一再截，否则"截掉根目录长度"这一刀

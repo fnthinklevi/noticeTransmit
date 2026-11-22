@@ -16,8 +16,10 @@ import '../support/source_guards.dart';
 void main() {
   final root = projectRoot();
 
-  /// lib/ 下全部 Dart 源文件（剥注释后的代码），key 为相对 `lib/` 的路径。
-  final libCode = libCodeByRel(root);
+  /// lib/ 下每个 **library 入口**（入口 + 全部 part，剥注释后的代码），
+  /// key 为相对 `lib/` 的路径。用入口口径而不是逐文件：历史页拆 part 之后，
+  /// 同一段判据若按文件各数一次，"读者只有一处"会变成"读者有两三处"的假红。
+  final libCode = libEntrySourcesByRel(root);
 
   group('「可以再发一次」只有一个作者', () {
     test('旧的三个判据名不许长回来（全 lib/ 扫描）', () {

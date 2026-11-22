@@ -126,6 +126,43 @@ Map<String, String> libCodeByRel(String root) {
   return out;
 }
 
+/// 读 **每个 library 入口** 的合并源码（入口 + 它声明的 part），key 为相对 `lib/` 的正斜杠路径。
+///
+/// 与 [libCodeByRel] 的差别：part 文件自身**不出现在结果里**。全库扫描（"某段代码只有
+/// 一个作者"、"这类装配点只有 N 处"）必须用这一份 —— 否则同一段 part 代码会先在入口的
+/// 合并源码里被数一次、再在 part 文件自己那一项里被数一次，计数类断言直接翻倍。
+Map<String, String> libEntrySourcesByRel(String root) {
+  final libDir = Directory('$root/lib');
+  final prefix = libDir.absolute.path;
+  final files = <String, File>{};
+  for (final f in libDir.listSync(recursive: true).whereType<File>()) {
+    if (!f.path.endsWith('.dart')) continue;
+    final rel = f.absolute.path
+        .substring(prefix.length)
+        .replaceAll('\\', '/')
+        .replaceFirst('/', '');
+    files[rel] = f;
+  }
+  final partPaths = <String>{};
+  for (final entry in files.entries) {
+    final source = entry.value.readAsStringSync();
+    final dir = entry.key.contains('/')
+        ? entry.key.substring(0, entry.key.lastIndexOf('/') + 1)
+        : '';
+    for (final m in RegExp(
+      r"^part\s+'([^']+)'",
+      multiLine: true,
+    ).allMatches(source)) {
+      partPaths.add('$dir${m.group(1)!}');
+    }
+  }
+  return <String, String>{
+    for (final entry in files.entries)
+      if (!partPaths.contains(entry.key))
+        entry.key: stripComments(librarySource(root, 'lib/${entry.key}')),
+  };
+}
+
 /// 从 [source] 中 [signature] 处起，按花括号配对取出整块（含函数体）。
 /// 用于「顺序 / 包含关系」类断言——全文件 indexOf 会命中前面的同名片段。
 String blockAfter(String source, String signature) {

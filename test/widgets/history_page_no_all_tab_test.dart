@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -25,8 +23,7 @@ void main() {
   stubNativeChannels();
 
   final root = projectRoot();
-  String read(String rel) =>
-      File('$root/$rel').readAsStringSync().replaceAll('\r\n', '\n');
+  String read(String rel) => librarySource(root, rel).replaceAll('\r\n', '\n');
 
   setUp(() async {
     await GetIt.instance.reset();
