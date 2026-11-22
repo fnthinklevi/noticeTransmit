@@ -3499,6 +3499,36 @@ abstract class AppLocalizations {
   /// **'旧库备份没有通过完整性校验，未做任何覆盖：{reason}'**
   String databaseRecoveryFailed(String reason);
 
+  /// No description provided for @databaseMigrationBackupTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据库升级未完成'**
+  String get databaseMigrationBackupTitle;
+
+  /// No description provided for @databaseMigrationBackupBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'升级前已自动备份旧库：{time}，{size}。可以恢复这份备份（当前库会先另存一份），或重试本次升级。'**
+  String databaseMigrationBackupBody(String time, String size);
+
+  /// No description provided for @databaseMigrationRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复备份'**
+  String get databaseMigrationRestore;
+
+  /// No description provided for @databaseMigrationRestoreDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已恢复迁移前备份，数据库已重新打开。请重新打开应用以完成页面加载。'**
+  String get databaseMigrationRestoreDone;
+
+  /// No description provided for @databaseMigrationRestoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复迁移前备份失败，当前库未被覆盖：{reason}。迁移前备份仍在原处。'**
+  String databaseMigrationRestoreFailed(String reason);
+
   /// No description provided for @pageInitFailed.
   ///
   /// In zh, this message translates to:

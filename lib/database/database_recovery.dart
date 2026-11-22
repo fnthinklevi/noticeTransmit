@@ -45,11 +45,22 @@ class DatabaseRecovery {
   /// `_backupDatabaseFile` 生成的固定后缀；`.before-restore-*` 是回滚副本，不在此列。
   static const backupSuffix = '.corrupt-';
 
+  /// 迁移前自动快照的固定中缀：`notice_transmit_encrypted.db.pre_v28_<ts>`。
+  ///
+  /// 与 `.corrupt-*` 分成两个判据：前者是「升级前主动留的原件」，后者是「打开失败后
+  /// 改名保下来的原件」。两者的文案与出现时机不同，混成一个判据会让页面在正常升级后
+  /// 也弹「发现损坏备份」。
+  static const migrationSnapshotSuffix = '.pre_v';
+
   static const encryptedDbName = 'notice_transmit_encrypted.db';
   static const oldDbName = 'notice_transmit.db';
 
   /// 最新的一份旧库备份；没有就是 null。
-  Future<DatabaseBackupInfo?> latestBackup() async {
+  Future<DatabaseBackupInfo?> latestBackup() => _latestWhere(isBackupFileName);
+
+  Future<DatabaseBackupInfo?> _latestWhere(
+    bool Function(String fileName) matches,
+  ) async {
     final dir = Directory(await _databasesPath());
     if (!await dir.exists()) return null;
 
@@ -57,7 +68,7 @@ class DatabaseRecovery {
     await for (final entity in dir.list(followLinks: false)) {
       if (entity is! File) continue;
       final name = p.basename(entity.path);
-      if (!isBackupFileName(name)) continue;
+      if (!matches(name)) continue;
       final stat = await entity.stat();
       final info = DatabaseBackupInfo(
         path: entity.path,
@@ -69,6 +80,25 @@ class DatabaseRecovery {
       }
     }
     return latest;
+  }
+
+  /// 只读一份已知路径的文件事实；文件不在就返回 null（不抛）。
+  ///
+  /// 页面拿到的是异常里带的快照路径，而不是重新扫描目录：恢复必须针对**那一次**
+  /// 迁移留下的原件，不能因为旁边多了一份更新的 `.corrupt-*` 就换了目标。
+  static Future<DatabaseBackupInfo?> infoFor(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return null;
+      final stat = await file.stat();
+      return DatabaseBackupInfo(
+        path: path,
+        sizeBytes: stat.size,
+        modifiedAt: stat.modified,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 用只读句柄确认这份备份真的能打开、且 `PRAGMA integrity_check` 回 `ok`。
@@ -106,6 +136,12 @@ class DatabaseRecovery {
     if (name.endsWith('-wal') || name.endsWith('-shm')) return false;
     return name.startsWith('$encryptedDbName$backupSuffix') ||
         name.startsWith('$oldDbName$backupSuffix');
+  }
+
+  /// 只认迁移前主动拍下的快照（`.pre_v<旧版本>_<时间戳>`），旁车不算。
+  static bool isMigrationSnapshotFileName(String name) {
+    if (name.endsWith('-wal') || name.endsWith('-shm')) return false;
+    return name.startsWith('$encryptedDbName$migrationSnapshotSuffix');
   }
 
   /// 备份时间用本机时区；页面只需要「哪一天那一份」，不做跨时区换算。

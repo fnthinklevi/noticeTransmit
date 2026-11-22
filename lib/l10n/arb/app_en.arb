@@ -960,6 +960,28 @@
       }
     }
   },
+  "databaseMigrationBackupTitle": "Database upgrade did not finish",
+  "databaseMigrationBackupBody": "A pre-upgrade copy was saved automatically: {time}, {size}. You can restore it (the current database is saved aside first) or retry the upgrade.",
+  "@databaseMigrationBackupBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "databaseMigrationRestore": "Restore backup",
+  "databaseMigrationRestoreDone": "The pre-upgrade backup was restored and the database reopened. Reopen the app to finish loading.",
+  "databaseMigrationRestoreFailed": "Restoring the pre-upgrade backup failed; the current database was not overwritten: {reason}. The pre-upgrade backup is still in place.",
+  "@databaseMigrationRestoreFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "pageInitFailed": "Page init failed: {e}",
   "@pageInitFailed": {
     "placeholders": {

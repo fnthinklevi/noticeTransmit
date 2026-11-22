@@ -960,6 +960,28 @@
       }
     }
   },
+  "databaseMigrationBackupTitle": "数据库升级未完成",
+  "databaseMigrationBackupBody": "升级前已自动备份旧库：{time}，{size}。可以恢复这份备份（当前库会先另存一份），或重试本次升级。",
+  "@databaseMigrationBackupBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "databaseMigrationRestore": "恢复备份",
+  "databaseMigrationRestoreDone": "已恢复迁移前备份，数据库已重新打开。请重新打开应用以完成页面加载。",
+  "databaseMigrationRestoreFailed": "恢复迁移前备份失败，当前库未被覆盖：{reason}。迁移前备份仍在原处。",
+  "@databaseMigrationRestoreFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "pageInitFailed": "页面初始化失败：{e}",
   "@pageInitFailed": {
     "placeholders": {

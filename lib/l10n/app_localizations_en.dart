@@ -1922,6 +1922,26 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get databaseMigrationBackupTitle => 'Database upgrade did not finish';
+
+  @override
+  String databaseMigrationBackupBody(String time, String size) {
+    return 'A pre-upgrade copy was saved automatically: $time, $size. You can restore it (the current database is saved aside first) or retry the upgrade.';
+  }
+
+  @override
+  String get databaseMigrationRestore => 'Restore backup';
+
+  @override
+  String get databaseMigrationRestoreDone =>
+      'The pre-upgrade backup was restored and the database reopened. Reopen the app to finish loading.';
+
+  @override
+  String databaseMigrationRestoreFailed(String reason) {
+    return 'Restoring the pre-upgrade backup failed; the current database was not overwritten: $reason. The pre-upgrade backup is still in place.';
+  }
+
+  @override
   String pageInitFailed(String e) {
     return 'Page init failed: $e';
   }

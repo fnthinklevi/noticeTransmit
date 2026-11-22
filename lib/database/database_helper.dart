@@ -101,6 +101,12 @@ class DatabaseHelper
   static const _oldDbName = 'notice_transmit.db';
   static const _encryptionKeyStoreKey = 'db_encryption_key';
 
+  /// P1-1：上一次**成功打开**后写入的 schema 版本。
+  ///
+  /// 判据只回答一件事：下次开库前要不要先拍一份「迁移前快照」。标记缺失（存量用户第一次
+  /// 升到带本机制的版本）按「不知道版本」处理 —— 仍拍一份，宁可多复制一次也不裸迁移。
+  static const _lastOpenedVersionKey = 'db_last_opened_version';
+
   /// 当前 schema 版本。**任何** openDatabase 调用（含迁移期新建的加密库）都必须用它，
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
@@ -235,8 +241,15 @@ class DatabaseHelper
     // 从旧明文数据库迁移数据到新加密数据库
     await _migrateOldDatabaseIfNeeded(oldPath, encryptedPath, password);
 
+    // P1-1：真正会跑 onUpgrade 的那次打开之前，先把旧库整份留一份。
+    // 只对「本次调用之前就已存在的加密库」拍快照：首次启动/刚从旧明文库迁建出来的库
+    // 没有更早的历史可回滚，复制它只会多占一份磁盘。
+    final migrationSnapshotPath = encryptedExists
+        ? await _snapshotBeforeMigrationIfNeeded(encryptedPath)
+        : null;
+
     try {
-      return await _tuneOpen(
+      final opened = await _tuneOpen(
         await openDatabase(
           encryptedPath,
           password: password,
@@ -248,17 +261,24 @@ class DatabaseHelper
           singleInstance: false,
         ),
       );
+      return await _recordOpenSuccess(opened, encryptedPath);
     } catch (e) {
       // T199：只有“文件本身坏了”才允许改名重建。旧写法把任何异常（含一次
       // SqfliteSqlCipherOpenDatabaseOptions 类型转换错误）都当成库损坏，
       // 健康库被改成 .corrupt-*、再重建空库，整库历史就此清零。
       DatabaseHealth.recordOpenFailure(e);
       if (!DatabaseOpenTriage.isCorruption(e)) {
-        throw DatabaseUnavailableException(e);
+        throw DatabaseUnavailableException(
+          e,
+          migrationSnapshotPath: migrationSnapshotPath,
+        );
       }
       if (!destructive) {
         // 后台这一轮：只记一次失败就走 —— 改名重建是前台看得到界面的人决定的事。
-        throw DatabaseUnavailableException(e);
+        throw DatabaseUnavailableException(
+          e,
+          migrationSnapshotPath: migrationSnapshotPath,
+        );
       }
       await _invalidateNativeChannels();
       // 打开失败（确认为密钥不符 / 库文件损坏）：先备份原文件再重建，避免数据被静默清空。
@@ -266,7 +286,7 @@ class DatabaseHelper
       await _backupDatabaseFile(encryptedPath);
       await _backupDatabaseFile(oldPath);
       try {
-        return await _tuneOpen(
+        final opened = await _tuneOpen(
           await openDatabase(
             encryptedPath,
             password: password,
@@ -277,10 +297,14 @@ class DatabaseHelper
             singleInstance: false,
           ),
         );
+        return await _recordOpenSuccess(opened, encryptedPath);
       } catch (retryError) {
         // 备份之后仍打不开：原库已保留，不许再改名第二次；交给页面显式报错/重试。
         DatabaseHealth.recordOpenFailure(retryError);
-        throw DatabaseUnavailableException(retryError);
+        throw DatabaseUnavailableException(
+          retryError,
+          migrationSnapshotPath: migrationSnapshotPath,
+        );
       }
     }
   }
@@ -506,6 +530,112 @@ class DatabaseHelper
         final file = File('$path$suffix');
         if (await file.exists()) await file.delete();
       } catch (_) {}
+    }
+  }
+
+  /// P1-1：迁移前自动快照 —— 在**真正会跑 onUpgrade 的那次打开之前**，把旧库整份复制一份。
+  ///
+  /// 为什么不能复用 [_backupDatabaseFile]：那条路径是「打开失败后把库改名成 `.corrupt-*`」，
+  /// 属破坏性动作；而快照必须发生在打开**之前**，且不能动当前库。复制（不是移动）让
+  /// 迁移失败时磁盘上同时留有原库与快照，页面才有东西可恢复。
+  ///
+  /// 只在版本确实要变时拍（标记 == [dbVersion] 直接跳过）。同一版本的重试复用上一份快照，
+  /// 不给每次「重试」都堆一份整库副本。任何异常都不上抛 —— 没有快照最多回到旧行为，
+  /// 挡在这里等于让用户连试都试不了。
+  Future<String?> _snapshotBeforeMigrationIfNeeded(String encryptedPath) async {
+    try {
+      if (!await File(encryptedPath).exists()) return null;
+      final lastOpened = await _readLastOpenedVersion();
+      if (lastOpened == dbVersion) return null;
+      final from = lastOpened?.toString() ?? 'unknown';
+      final prefix =
+          '$encryptedPath${DatabaseRecovery.migrationSnapshotSuffix}${from}_';
+      final existing = await _findSnapshot(prefix);
+      if (existing != null) {
+        debugPrint('[db] 复用迁移前快照：$existing');
+        return existing;
+      }
+      final snapshotPath = '$prefix${DateTime.now().millisecondsSinceEpoch}';
+      await _copyBundle(encryptedPath, snapshotPath);
+      debugPrint('[db] 迁移前快照：$snapshotPath');
+      return snapshotPath;
+    } catch (e) {
+      debugPrint('[db] 迁移前快照失败（不影响开库）：$e');
+      return null;
+    }
+  }
+
+  Future<int?> _readLastOpenedVersion() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(_lastOpenedVersionKey);
+    } catch (e) {
+      // 读不到标记就按「不知道版本」处理 —— 保守地拍一份，而不是跳过迁移备份。
+      debugPrint('[db] 读取上次版本标记失败（按未知版本拍快照）：$e');
+      return null;
+    }
+  }
+
+  Future<String?> _findSnapshot(String prefix) async {
+    final dir = Directory(dirname(prefix));
+    if (!await dir.exists()) return null;
+    String? latest;
+    DateTime? latestAt;
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      if (!entity.path.startsWith(prefix) ||
+          !DatabaseRecovery.isMigrationSnapshotFileName(
+            basename(entity.path),
+          )) {
+        continue;
+      }
+      final stat = await entity.stat();
+      if (latest == null || stat.modified.isAfter(latestAt!)) {
+        latest = entity.path;
+        latestAt = stat.modified;
+      }
+    }
+    return latest;
+  }
+
+  /// 开库成功后写入「上次成功版本」，并把更早的迁移前快照清到只剩最新一份。
+  ///
+  /// 只留一份：快照是升级当口的救生圈，不是无限归档。更早的那份已经被这次成功迁移
+  /// 跨过去，留着只会随版本数线性占盘；而最新的那份仍能覆盖「下一次升级失败」。
+  Future<Database> _recordOpenSuccess(Database db, String encryptedPath) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_lastOpenedVersionKey, dbVersion);
+    } catch (e) {
+      // 标记写不进去只会让下次多拍一份快照，不改变本次打开的结论。
+      debugPrint('[db] 记录版本标记失败（不影响本次打开）：$e');
+    }
+    await _pruneMigrationSnapshots(encryptedPath);
+    return db;
+  }
+
+  Future<void> _pruneMigrationSnapshots(String encryptedPath) async {
+    try {
+      final dir = Directory(dirname(encryptedPath));
+      if (!await dir.exists()) return;
+      final snapshots = <MapEntry<File, DateTime>>[];
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! File) continue;
+        if (!DatabaseRecovery.isMigrationSnapshotFileName(
+          basename(entity.path),
+        )) {
+          continue;
+        }
+        snapshots.add(MapEntry(entity, (await entity.stat()).modified));
+      }
+      if (snapshots.length <= 1) return;
+      snapshots.sort((a, b) => b.value.compareTo(a.value));
+      for (final old in snapshots.skip(1)) {
+        await _deleteBundle(old.key.path);
+        debugPrint('[db] 清理旧的迁移前快照：${old.key.path}');
+      }
+    } catch (e) {
+      debugPrint('[db] 清理迁移前快照失败（不影响开库）：$e');
     }
   }
 
@@ -976,6 +1106,12 @@ class DatabaseHelper
   @visibleForTesting
   Future<void> upgradeSchemaForTest(Database db, int oldV, int newV) =>
       _onUpgrade(db, oldV, newV);
+
+  /// 仅供测试：验证迁移前快照的命名、复用与「版本已是最新则跳过」。
+  /// 版本标记仍走真实的 SharedPreferences（测试用 setMockInitialValues 注入）。
+  @visibleForTesting
+  Future<String?> snapshotBeforeMigrationForTest(String encryptedPath) =>
+      _snapshotBeforeMigrationIfNeeded(encryptedPath);
 
   /// 幂等加列：列已存在时直接跳过。
   ///

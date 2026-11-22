@@ -44,9 +44,15 @@ class DatabaseOpenTriage {
 
 /// 打不开库时抛给页面的显式错误（原库未改名、未清空）。
 class DatabaseUnavailableException implements Exception {
-  DatabaseUnavailableException(this.cause);
+  DatabaseUnavailableException(this.cause, {this.migrationSnapshotPath});
 
   final Object cause;
+
+  /// 本次打开之前自动留下的迁移前快照（没有快照时为 null）。
+  ///
+  /// 页面据此给出「恢复迁移前备份」入口：迁移失败时磁盘上那份旧库是唯一能救回历史的
+  /// 原件，而它不该只出现在日志里。
+  final String? migrationSnapshotPath;
 
   @override
   String toString() => '数据库暂时打不开（原库已保留）：$cause';

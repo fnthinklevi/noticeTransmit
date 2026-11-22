@@ -416,6 +416,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   /// T199 ④：库打不开时的显式出口 —— 原库保留、可重试，不把异常伪装成“页面初始化失败”。
+  ///
+  /// P1-1：若本次打开前自动留了迁移前快照，这里多给一档「恢复迁移前备份」。
+  /// 恢复仍走 [DatabaseHelper.restoreFromBackup] 的「先只读校验、再覆盖、失败回滚」，
+  /// 页面不自己判这份备份能不能读。
   Future<void> _showDatabaseUnavailable(
     DatabaseUnavailableException error,
   ) async {
@@ -423,8 +427,40 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context);
     debugPrint(
       '[db] open failed (original kept, not rebuilt): ${error.cause}; '
+      'snapshot=${error.migrationSnapshotPath ?? "-"}; '
       'diag=${DatabaseHealth.snapshot()}',
     );
+
+    final snapshotPath = error.migrationSnapshotPath;
+    final snapshot = snapshotPath == null
+        ? null
+        : await DatabaseRecovery.infoFor(snapshotPath);
+    if (!mounted) return;
+    if (snapshot != null) {
+      final choice = await IosDialogActions.askDatabaseOpenFailure(
+        context,
+        title: l10n.databaseMigrationBackupTitle,
+        message: l10n.databaseMigrationBackupBody(
+          DatabaseRecovery.formatMoment(snapshot.modifiedAt),
+          DatabaseRecovery.formatBytes(snapshot.sizeBytes),
+        ),
+        retryText: l10n.retry,
+        restoreText: l10n.databaseMigrationRestore,
+        cancelText: l10n.cancel,
+      );
+      if (!mounted ||
+          choice == null ||
+          choice == DatabaseOpenFailureChoice.cancel) {
+        return;
+      }
+      if (choice == DatabaseOpenFailureChoice.restoreSnapshot) {
+        await _restoreMigrationSnapshot(snapshot.path);
+        return;
+      }
+      await _retryDatabaseOpen();
+      return;
+    }
+
     // T222：安全存储不可用时，「重试」救不回来 —— 那句话要写成"去系统设置清数据"
     // 而不是「再打开一次」；两者共用同一个确认框（不新造第二枚弹层）。
     final secureStorage = error.cause is DatabaseSecureStorageException;
@@ -443,6 +479,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       barrierDismissible: false,
     );
     if (!retry || !mounted) return;
+    await _retryDatabaseOpen();
+  }
+
+  /// 重试开库；失败时回到同一个出口（有快照就还是三档选择）。
+  Future<void> _retryDatabaseOpen() async {
     try {
       await DatabaseHelper().retryOpen();
       if (!mounted) return;
@@ -454,6 +495,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       } else {
         _showInfo(AppLocalizations.of(context).pageInitFailed('$e'));
       }
+    }
+  }
+
+  /// 用迁移前快照覆盖当前库并重开。
+  ///
+  /// 成功时只提示「请重新打开应用」：当前页面是在失败路径上停下的，装配链没有跑完，
+  /// 在这里接着跑 `_postInit` 会把刷新定时器启动两遍（部分步骤在失败前已经跑过）。
+  Future<void> _restoreMigrationSnapshot(String snapshotPath) async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      await DatabaseHelper().restoreFromBackup(snapshotPath);
+      if (mounted) _showInfo(l10n.databaseMigrationRestoreDone);
+    } catch (e) {
+      if (mounted) _showInfo(l10n.databaseMigrationRestoreFailed('$e'));
     }
   }
 

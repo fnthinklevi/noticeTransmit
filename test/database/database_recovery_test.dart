@@ -31,6 +31,38 @@ void main() {
       );
     });
 
+    test('迁移前快照只认 .pre_v*，旁车与损坏备份不算', () {
+      const encrypted = 'notice_transmit_encrypted.db';
+      expect(
+        DatabaseRecovery.isMigrationSnapshotFileName(
+          '$encrypted.pre_v28_1700000000000',
+        ),
+        isTrue,
+      );
+      expect(
+        DatabaseRecovery.isMigrationSnapshotFileName(
+          '$encrypted.pre_vunknown_1700000000000',
+        ),
+        isTrue,
+      );
+      expect(
+        DatabaseRecovery.isMigrationSnapshotFileName(
+          '$encrypted.pre_v28_1-wal',
+        ),
+        isFalse,
+      );
+      expect(
+        DatabaseRecovery.isMigrationSnapshotFileName('$encrypted.corrupt-123'),
+        isFalse,
+      );
+      expect(DatabaseRecovery.isMigrationSnapshotFileName(encrypted), isFalse);
+      // 两种判据互不吞并：损坏备份不能混进迁移快照的选择里（否则页面会指错原件）。
+      expect(
+        DatabaseRecovery.isBackupFileName('$encrypted.pre_v28_1'),
+        isFalse,
+      );
+    });
+
     test('大小与时间只说人话', () {
       expect(DatabaseRecovery.formatBytes(512), '512 B');
       expect(DatabaseRecovery.formatBytes(2048), '2.0 KB');
@@ -109,6 +141,25 @@ void main() {
           .latestBackup();
 
       expect(latest?.fileName, 'notice_transmit_encrypted.db.corrupt-1000');
+    });
+
+    test('infoFor 只回答那一份文件的事实；不在就返回 null', () async {
+      await write(
+        'notice_transmit_encrypted.db.pre_v28_2000',
+        DateTime(2026, 1, 2),
+      );
+      final path = p.join(
+        dir.path,
+        'notice_transmit_encrypted.db.pre_v28_2000',
+      );
+      final info = await DatabaseRecovery.infoFor(path);
+      expect(info, isNotNull);
+      expect(info!.sizeBytes, 3);
+
+      expect(
+        await DatabaseRecovery.infoFor(p.join(dir.path, 'nothing.db')),
+        isNull,
+      );
     });
   });
 }

@@ -1845,6 +1845,26 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get databaseMigrationBackupTitle => '数据库升级未完成';
+
+  @override
+  String databaseMigrationBackupBody(String time, String size) {
+    return '升级前已自动备份旧库：$time，$size。可以恢复这份备份（当前库会先另存一份），或重试本次升级。';
+  }
+
+  @override
+  String get databaseMigrationRestore => '恢复备份';
+
+  @override
+  String get databaseMigrationRestoreDone =>
+      '已恢复迁移前备份，数据库已重新打开。请重新打开应用以完成页面加载。';
+
+  @override
+  String databaseMigrationRestoreFailed(String reason) {
+    return '恢复迁移前备份失败，当前库未被覆盖：$reason。迁移前备份仍在原处。';
+  }
+
+  @override
   String pageInitFailed(String e) {
     return '页面初始化失败：$e';
   }

@@ -12,6 +12,9 @@ enum UpdateChoice { ignore, later, update }
 /// 所以它不是 `bool` 能忍的（形状上它们都是「做了事」，意义上它们不同）。
 enum ConflictChoice { fillGaps, overwrite }
 
+/// 数据库打不开、且本次迁移前已自动留了快照时的三档选择（P1-1）。
+enum DatabaseOpenFailureChoice { retry, restoreSnapshot, cancel }
+
 /// 确认弹窗的统一入口 —— 三条路，形状不同但**都只有一个作者**：
 ///
 /// - [askConfirm]：**删除类**一律走它。T06 之后长成 `CupertinoAlertDialog`（base.md §UI 强约束），
@@ -355,6 +358,58 @@ class IosDialogActions {
       ),
     );
     return picked;
+  }
+
+  /// 数据库打不开且有迁移前快照时的三档选择（P1-1）。
+  ///
+  /// 为什么不是 [askConfirm]：那一枚只有「取消 / 确认」两档，而这里「重试打开」与
+  /// 「恢复迁移前备份」都是**真的决策**（前者再试一次迁移，后者用旧库覆盖当前库），
+  /// 把它们压进 confirm/cancel 会让「取消」在同一参数位上既表示「什么都不做」又表示
+  /// 「先不恢复」。三档各身不同，形状与 [askThreeWay] 同类，但结果是另一组语义。
+  ///
+  /// ⚠ 恢复那一档不是删除：`restoreFromBackup` 会先把当前库另存为 `.before-restore-*`，
+  ///   校验通过才覆盖，所以这里不用 `isDestructiveAction` 染色。
+  static Future<DatabaseOpenFailureChoice?> askDatabaseOpenFailure(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required String retryText,
+    required String restoreText,
+    String? cancelText,
+    bool barrierDismissible = false,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    return showCupertinoDialog<DatabaseOpenFailureChoice>(
+      barrierColor: AppColors.dialogBarrier,
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(message),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () =>
+                Navigator.pop(ctx, DatabaseOpenFailureChoice.cancel),
+            textStyle: appDialogCancelStyle(ctx),
+            child: Text(cancelText ?? l10n.cancel),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () =>
+                Navigator.pop(ctx, DatabaseOpenFailureChoice.retry),
+            child: Text(retryText),
+          ),
+          CupertinoDialogAction(
+            onPressed: () =>
+                Navigator.pop(ctx, DatabaseOpenFailureChoice.restoreSnapshot),
+            child: Text(restoreText),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 有更新的那一枚弹层（T90 片21）。返回用户选的那一档（`UpdateChoice`）。
