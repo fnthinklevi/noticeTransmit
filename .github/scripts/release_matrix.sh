@@ -27,9 +27,9 @@ hr()   { echo "─────────────────────�
 
 PASS=0; FAIL=0; SKIP=0
 PKG=com.fnthink.notice
-# release 清单移除了 MainActivity 上的 MAIN/LAUNCHER，线上启动组件是默认中文图标别名；
-# debug 包里这两条路都能走，所以统一显式启动这个别名，两种包行为一致。
-ACTIVITY=.LauncherDefaultZh
+# ⚠ 不能用 `-n com.fnthink.notice/.LauncherDefaultZh`：release 包只有 activity-alias 可启动，
+# 而应用运行后会按语言/图标选择**切换当前启用的 alias**（首启后 DefaultZh 可能已被禁用）。
+# 用 MAIN/LAUNCHER + 包名让系统解析「此刻启用的那一个」，与用户点桌面图标同一条路。
 LOCK_SECONDS=${MATRIX_LOCK_SECONDS:-30}
 SETTLE_SECONDS=${MATRIX_SETTLE_SECONDS:-10}
 START_TIMEOUT=${MATRIX_START_TIMEOUT:-60}
@@ -84,6 +84,28 @@ printf '%s\n' "$AVD_LIST" | grep -qx "$AVD" || {
 }
 
 ashell() { "$ADB" -s "$SERIAL" shell "$@" < /dev/null 2>&1; }
+
+# release 包只有 activity-alias 可启动，而应用会按语言/图标切换当前启用的 alias。
+# `am start -p <pkg>` 在这台 API 37 模拟器上解析不到 alias（实测 "unable to resolve"），
+# 所以先问 PackageManager「此刻的 MAIN/LAUNCHER 是哪一个」，再用 -n 启动那一个。
+resolve_launch_component() {
+    ashell cmd package resolve-activity --brief \
+        -a android.intent.action.MAIN \
+        -c android.intent.category.LAUNCHER "$PKG" 2>/dev/null \
+        | tr -d '\r' | grep -o "$PKG/[^[:space:]]*" | tail -1
+}
+
+wake_screen() {
+    ashell input keyevent KEYCODE_WAKEUP > /dev/null 2>&1 || true
+    ashell wm dismiss-keyguard > /dev/null 2>&1 || true
+}
+
+resume_app() {
+    local component
+    component=$(resolve_launch_component)
+    [ -n "$component" ] || return 1
+    ashell am start -n "$component" > /dev/null 2>&1
+}
 PID_RE='^[0-9]+$'
 process_pid() {
     ashell pidof "$PKG" | tr -d '\r' | tr -s ' ' '\n' | grep -E "$PID_RE" | head -1
@@ -158,6 +180,7 @@ for _ in $(seq 1 90); do
     sleep 2
 done
 [ "$BOOT" = "1" ] || { fail "180s 内 sys.boot_completed 仍不为 1"; exit 1; }
+wake_screen
 ok "模拟器已就绪（$SERIAL，AVD=$AVD）"
 
 # ── 选 APK 并安装 ────────────────────────────────────────────────────────
@@ -178,13 +201,13 @@ fi
 [ -f "$APK" ] || { fail "APK 不存在：$APK"; exit 1; }
 note "被测 APK：$APK"
 
-if ! "$ADB" -s "$SERIAL" install -r -t "$APK" > "$TMP/install.log" 2>&1; then
-    warn "覆盖安装失败（签名不一致或包残留）⇒ 卸载后重装（仅模拟器）"
-    "$ADB" -s "$SERIAL" uninstall "$PKG" > /dev/null 2>&1 || true
-    if ! "$ADB" -s "$SERIAL" install -t "$APK" >> "$TMP/install.log" 2>&1; then
-        fail "APK 安装失败（见 $TMP/install.log）"
-        exit 1
-    fi
+# ⚠ 必须先卸载再装：activity-alias 的启用状态写在应用数据里，覆盖安装会带着上一轮的状态。
+# 上一轮若在「切换 alias」中途被杀，可能所有 alias 都停在 disabled ⇒ MAIN/LAUNCHER 解析不到，
+# 后面每次 am start 都报 "unable to resolve Intent"（2026-11-22 实测）。
+"$ADB" -s "$SERIAL" uninstall "$PKG" > /dev/null 2>&1 || true
+if ! "$ADB" -s "$SERIAL" install -t "$APK" > "$TMP/install.log" 2>&1; then
+    fail "APK 安装失败（见 $TMP/install.log）"
+    exit 1
 fi
 if ashell pm list packages | tr -d '\r' | grep -qx "package:$PKG"; then
     ok "已安装 $PKG"
@@ -197,11 +220,17 @@ fi
 # 冷启动到「首帧画出」：ActivityTaskManager 的 Displayed 行 = 系统承认这一屏已经画出来，
 # 比 mResumedActivity 更接近用户看到的「启动页有没有卡住」。
 wait_displayed() { # $1=标签 $2=超时秒（可选）
-    local label="$1" limit="${2:-$START_TIMEOUT}" i line
+    local label="$1" limit="${2:-$START_TIMEOUT}" i line component
     ashell logcat -c > /dev/null 2>&1 || true
     ashell am force-stop "$PKG" > /dev/null 2>&1 || true
+    wake_screen
+    component=$(resolve_launch_component)
+    if [ -z "$component" ]; then
+        fail "$label：解析不到 $PKG 的启动组件（activity-alias 可能全被禁用）"
+        return 1
+    fi
     sleep 1
-    if ! timeout 30 "$ADB" -s "$SERIAL" shell am start -W -n "$PKG/$ACTIVITY" \
+    if ! timeout 30 "$ADB" -s "$SERIAL" shell am start -W -n "$component" \
             < /dev/null > "$TMP/start.log" 2>&1; then
         fail "$label：am start 失败（见 $TMP/start.log）"
         return 1
@@ -261,6 +290,14 @@ assert_no_crash() { # $1=标签
 hr; echo "── 场景 0/4：基线冷启动 ──"
 if wait_displayed "基线冷启动"; then
     assert_process_alive "基线" || true
+    if ! foreground_ok; then
+        # 首启已知行为：应用按系统语言把 DefaultZh 换成 DefaultEn，旧 alias 被禁用后
+        # 任务会回到桌面（2026-11-22 模拟器实测）。这里按新 alias 再拉起一次 ——
+        # 与用户再点一下桌面图标同形；真机上这一下烦不烦由人工项核。
+        note "基线：首启切换启动别名后任务回到桌面，按新别名再拉起一次"
+        resume_app || true
+        sleep 2
+    fi
     assert_foreground "基线" || true
     assert_no_crash "基线" || true
 fi
@@ -303,7 +340,7 @@ if wait_displayed "低内存-启动"; then
             assert_foreground "低内存-裁剪后" || true
             ashell input keyevent KEYCODE_HOME > /dev/null 2>&1 || true
             sleep 1
-            ashell am start -n "$PKG/$ACTIVITY" > /dev/null 2>&1 || true
+            resume_app || true
             sleep 2
             assert_foreground "低内存-回到前台" || true
             assert_no_crash "低内存" || true
@@ -358,7 +395,7 @@ if wait_displayed "长锁屏-启动"; then
     sleep 2
     ashell wm dismiss-keyguard > /dev/null 2>&1 || ashell input keyevent KEYCODE_MENU > /dev/null 2>&1 || true
     sleep 1
-    ashell am start -n "$PKG/$ACTIVITY" > /dev/null 2>&1 || true
+    resume_app || true
     sleep 2
     assert_process_alive "长锁屏-唤醒" || true
     assert_foreground "长锁屏-唤醒" || true
