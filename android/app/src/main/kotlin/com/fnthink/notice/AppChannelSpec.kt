@@ -115,7 +115,7 @@ object AppChannelRegistry {
         fetchToken = { config, base, client ->
             val corpid = config.config.optString("corpid", "").trim()
             require(corpid.isNotEmpty() && config.secret.isNotEmpty()) {
-                "企业微信自建应用缺少 corpid 或 corpsecret"
+                I18n.msg("err.wecomMissing")
             }
             val url = base.trimEnd('/') + "/cgi-bin/gettoken?corpid=" +
                 AppChannelTokenHelper.urlEncode(corpid) +
@@ -132,7 +132,7 @@ object AppChannelRegistry {
         },
         buildPayload = { config, content, markdown, recordId ->
             val agentid = config.config.optString("agentid", "0").trim().toLongOrNull() ?: 0L
-            require(agentid > 0) { "agentid 无效（须为正整数）" }
+            require(agentid > 0) { I18n.msg("err.agentidInvalid") }
             val touser = config.config.optString("touser", "").ifEmpty { "@all" }
             val json = JSONObject()
             if (markdown) {
@@ -167,7 +167,7 @@ object AppChannelRegistry {
         fetchToken = { config, base, client ->
             val appId = config.config.optString("app_id", "").trim()
             require(appId.isNotEmpty() && config.secret.isNotEmpty()) {
-                "飞书自建应用缺少 app_id 或 app_secret"
+                I18n.msg("err.feishuMissing")
             }
             val url = base.trimEnd('/') + "/open-apis/auth/v3/tenant_access_token/internal"
             val body = JSONObject()
@@ -190,7 +190,7 @@ object AppChannelRegistry {
             // 飞书自建应用 IM 消息：text 原生支持；markdown 需 post/interactive 卡片，
             // 通知转发场景统一降级为 text（换行保留），保证送达
             val receiveId = config.config.optString("receive_id", "").trim()
-            require(receiveId.isNotEmpty()) { "receive_id 不能为空" }
+            require(receiveId.isNotEmpty()) { I18n.msg("err.receiveIdEmpty") }
             val contentJson = JSONObject().put("text", content).toString()
             JSONObject()
                 .put("receive_id", receiveId)
@@ -239,18 +239,18 @@ object AppChannelsTokenParsers {
             JSONObject(body)
         } catch (e: Exception) {
             throw AppChannelTokenManager.TokenFetchException(
-                -1, "gettoken 响应非 JSON（网关/代理错误页？）: ${body.take(120)}"
+                -1, I18n.msgf("err.gettokenNonJson", body.take(120))
             )
         }
         val errcode = json.optInt("errcode", 0)
         if (errcode != 0) {
             throw AppChannelTokenManager.TokenFetchException(
-                errcode, "gettoken 失败 errcode=$errcode: ${json.optString("errmsg")}"
+                errcode, I18n.msgf("err.gettokenFail", errcode, json.optString("errmsg"))
             )
         }
         val token = json.optString("access_token", "")
         if (token.isEmpty()) {
-            throw AppChannelTokenManager.TokenFetchException(-1, "gettoken 响应缺少 access_token")
+            throw AppChannelTokenManager.TokenFetchException(-1, I18n.msg("err.tokenMissing"))
         }
         return token to json.optInt("expires_in", 7200)
     }
@@ -262,18 +262,18 @@ object AppChannelsTokenParsers {
             JSONObject(body)
         } catch (e: Exception) {
             throw AppChannelTokenManager.TokenFetchException(
-                -1, "tenant_access_token 响应非 JSON（网关/代理错误页？）: ${body.take(120)}"
+                -1, I18n.msgf("err.tenantNonJson", body.take(120))
             )
         }
         val code = json.optInt("code", 0)
         if (code != 0) {
             throw AppChannelTokenManager.TokenFetchException(
-                code, "tenant_access_token 获取失败 code=$code: ${json.optString("msg")}"
+                code, I18n.msgf("err.tenantFail", code, json.optString("msg"))
             )
         }
         val token = json.optString("tenant_access_token", "")
         if (token.isEmpty()) {
-            throw AppChannelTokenManager.TokenFetchException(-1, "响应缺少 tenant_access_token")
+            throw AppChannelTokenManager.TokenFetchException(-1, I18n.msg("err.tenantMissing"))
         }
         return token to json.optInt("expire", 7200)
     }

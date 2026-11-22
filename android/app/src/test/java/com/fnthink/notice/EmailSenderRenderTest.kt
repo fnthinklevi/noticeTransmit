@@ -13,7 +13,7 @@ import org.junit.Test
  * 这里钉的三件事各对应一类**改坏了没人报警**的缺陷：
  * 1. 变量名单（原生替换的键与 Dart 名单、界面提示必须同源，见 `template_vars_contract_test`）；
  * 2. `%subTextLine` 的"整行开关"语义（有副标题才留行，没有就连行删掉）；
- * 3. 留空时到底用哪份默认值（`DEFAULT_SUBJECT` / `DEFAULT_BODY_TEMPLATE` 与界面预置档位
+ * 3. 留空时到底用哪份默认值（`DEFAULT_SUBJECT` / `defaultBodyTemplate()` 与界面预置档位
  *    「默认」必须同源，跨语言那条由 Dart 守卫钉）。
  */
 class EmailSenderRenderTest {

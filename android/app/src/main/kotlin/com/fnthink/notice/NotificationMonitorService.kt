@@ -110,7 +110,7 @@ class NotificationMonitorService : NotificationListenerService() {
         private const val CHANNEL_ID = "notification_monitor_channel"
         // 渠道名不再只叫"通知监听"：这条常驻通知现在同时服务通知监听与幻念收件
         // （任一开着就显示），名字必须对两件事都成立。
-        private const val CHANNEL_NAME = "后台服务"
+        // 渠道名/描述是用户可见文案，唯一作者在 I18n（英文系统下不能显示中文）。
         const val ACTION_UPDATE_CONFIG = "com.fnthink.notice.UPDATE_CONFIG"
         const val ACTION_SET_MONITORING = "com.fnthink.notice.SET_MONITORING"
         const val EXTRA_MONITORING_ENABLED = "monitoring_enabled"
@@ -1566,10 +1566,10 @@ class NotificationMonitorService : NotificationListenerService() {
             try {
                 val channel = NotificationChannel(
                     CHANNEL_ID,
-                    CHANNEL_NAME,
+                    I18n.msg("notif.channelName"),
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
-                    description = "后台通知监听前台服务"
+                    description = I18n.msg("notif.channelDesc")
                     setShowBadge(false)
                     enableVibration(false)
                     enableLights(false)
@@ -2209,7 +2209,7 @@ class NotificationMonitorService : NotificationListenerService() {
                         if (enqueued) {
                             WebhookResponseParser.ParseResult(
                                 WebhookResponseParser.DeliveryStatus.QUEUED, 0,
-                                "发送失败已转入自动重试队列，解锁/联网后自动补发 · $msg", false
+                                I18n.msgf("err.queuedRetry", msg), false
                             )
                         } else {
                             WebhookResponseParser.ParseResult(
@@ -2323,7 +2323,7 @@ class NotificationMonitorService : NotificationListenerService() {
             val extras = notif.extras
             val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
                 ?: extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.lines()?.firstOrNull()
-                ?: "(无标题)"
+                ?: I18n.msg("notif.noTitle")
             val sub = extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
             out += mapOf(
                 "key" to sbn.key,

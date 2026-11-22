@@ -253,12 +253,12 @@ internal object ChannelRegistry {
                 if (json.has("code") && code != 0) {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "业务失败 code=$code: $message", false
+                        I18n.msgf("err.bizFailCode", code, message), false
                     )
                 } else if (json.has("errcode") && errcode != 0) {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "业务失败 errcode=$errcode: $message", false
+                        I18n.msgf("err.bizFailErrcode", errcode, message), false
                     )
                 } else {
                     WebhookResponseParser.ParseResult(
@@ -351,12 +351,12 @@ internal object ChannelRegistry {
                 if (json.has("code") && code != 0) {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "业务失败 code=$code: $message", false
+                        I18n.msgf("err.bizFailCode", code, message), false
                     )
                 } else if (json.has("errcode") && errcode != 0) {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "业务失败 errcode=$errcode: $message", false
+                        I18n.msgf("err.bizFailErrcode", errcode, message), false
                     )
                 } else {
                     WebhookResponseParser.ParseResult(
@@ -460,15 +460,15 @@ internal object ChannelRegistry {
                     // 5 次/秒，超限回 11232），与 45009/130101 同一档。
                     errcode == 45009 || errcode == 11232 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 errcode=$errcode: $errmsg", true
+                        I18n.msgf("err.rateLimitErrcode", errcode, errmsg), true
                     )
                     errcode == 130101 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 errcode=$errcode: $errmsg", true
+                        I18n.msgf("err.rateLimitErrcode", errcode, errmsg), true
                     )
                     else -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "业务失败 errcode=$errcode: $errmsg", false
+                        I18n.msgf("err.bizFailErrcode", errcode, errmsg), false
                     )
                 }
             },
@@ -560,15 +560,15 @@ internal object ChannelRegistry {
                     )
                     errcode == 45009 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 errcode=$errcode: $errmsg", true
+                        I18n.msgf("err.rateLimitErrcode", errcode, errmsg), true
                     )
                     errcode == 130101 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 errcode=$errcode: $errmsg", true
+                        I18n.msgf("err.rateLimitErrcode", errcode, errmsg), true
                     )
                     else -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "业务失败 errcode=$errcode: $errmsg", false
+                        I18n.msgf("err.bizFailErrcode", errcode, errmsg), false
                     )
                 }
             },
@@ -656,11 +656,11 @@ internal object ChannelRegistry {
                         // （errcode），不在这里认。
                         code == 230020 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 code=$code: $msg", true
+                        I18n.msgf("err.rateLimitCode", code, msg), true
                     )
                     else -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "业务失败 code=$code StatusCode=$statusCode: $msg", false
+                        I18n.msgf("err.bizFailCodeStatus", code, statusCode, msg), false
                     )
                 }
             },
@@ -671,7 +671,7 @@ internal object ChannelRegistry {
             legacyTokens = listOf("4"),
             transport = ChannelTransport(
                 requiredUrlParam = UrlParam.CHAT_ID,
-                missingParamReason = "Telegram 链接缺少 chat_id 参数",
+                missingParamReason = I18n.msg("err.telegramChatIdMissing"),
                 textLimitChars = ChannelLimits.TELEGRAM_CHARS,
             ),
             notify = { p ->
@@ -741,7 +741,7 @@ internal object ChannelRegistry {
                 } else {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        if (description.isNotEmpty()) description else "失败", false
+                        if (description.isNotEmpty()) description else I18n.msg("err.genericFail"), false
                     )
                 }
             },
@@ -825,11 +825,11 @@ internal object ChannelRegistry {
                     )
                     code == 429 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 code=$code: $message", true
+                        I18n.msgf("err.rateLimitCode", code, message), true
                     )
                     else -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "Bark 业务失败 code=$code: $message", false
+                        I18n.msgf("err.barkBizFail", code, message), false
                     )
                 }
             },
@@ -920,7 +920,7 @@ internal object ChannelRegistry {
                 } else {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "Server酱业务失败 code=$code: $message", false
+                        I18n.msgf("err.serverChanBizFail", code, message), false
                     )
                 }
             },
@@ -933,7 +933,7 @@ internal object ChannelRegistry {
             retryBudget = RetryBudget(inlineRetries = 1, queueReplays = 1),
             transport = ChannelTransport(
                 requiredUrlParam = UrlParam.TOKEN,
-                missingParamReason = "PushPlus 链接缺少 token 参数",
+                missingParamReason = I18n.msg("err.pushplusTokenMissing"),
                 templateSupport = TemplateSupport.DISABLED,
                 bodyOverride = { b ->
                     WebhookPayloadBuilder.buildPushPlusPayload(
@@ -1013,7 +1013,7 @@ internal object ChannelRegistry {
                 } else {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "PushPlus 业务失败 code=$code: $message", false
+                        I18n.msgf("err.pushplusBizFail", code, message), false
                     )
                 }
             },
@@ -1081,7 +1081,7 @@ internal object ChannelRegistry {
                 secretAsQueryToken = true,
                 secretRequired = true,
                 templateSupport = TemplateSupport.DISABLED,
-                missingParamReason = "Gotify 缺少应用 Token（secret 字段）",
+                missingParamReason = I18n.msg("err.gotifySecretMissing"),
             ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName

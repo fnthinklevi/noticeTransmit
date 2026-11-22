@@ -142,7 +142,9 @@ object FnthinkIdentityStore {
 
     private fun nativePrivateKey(): PrivateKey =
         keyStore().getKey(NATIVE_ALIAS, null) as? PrivateKey
-            ?: throw GeneralSecurityException("KeyStore 里没有身份私钥（$NATIVE_ALIAS）")
+            ?: throw GeneralSecurityException(
+                I18n.msgf("identity.noPrivateKey", NATIVE_ALIAS),
+            )
 
     private fun nativePublicKeyBase64(context: Context): String {
         val pubFile = pubFile(context, IdentityKeyPlan.NATIVE)
@@ -150,7 +152,7 @@ object FnthinkIdentityStore {
             if (pubFile.exists()) return pubFile.readText().trim()
             val fromCert = keyStore().getCertificate(NATIVE_ALIAS)?.publicKey?.encoded
                 ?: throw GeneralSecurityException(
-                    "私钥在、公钥缓存丢了且证书读不回来：要用户显式重置身份（T31），不能悄悄换一把",
+                    I18n.msg("identity.publicKeyLost"),
                 )
             return writePub(context, IdentityKeyPlan.NATIVE, fromCert)
         }
@@ -188,7 +190,7 @@ object FnthinkIdentityStore {
         // 自证一次：平台偶尔会返回"形状对但没人认"的字节。让它在这里红，
         // 比让它变成线上第 N 次投递失败之后再回头查便宜得多。
         if (!verify(identity.publicKeyBase64, message, out)) {
-            throw GeneralSecurityException("原生签名未通过独立实现验签：本机 Ed25519 不可信")
+            throw GeneralSecurityException(I18n.msg("identity.signatureUntrusted"))
         }
         return out
     }
@@ -225,7 +227,7 @@ object FnthinkIdentityStore {
             if (pubFile.exists()) {
                 // 有公钥没私钥 = 对端还认这个身份，本机却签不出来。悄悄新建会变成
                 // "两台设备各自以为配对成功"，所以直接失败，让 UI 去问用户。
-                throw GeneralSecurityException("包裹私钥文件缺失而公钥仍在：需要用户显式重置身份（T31）")
+                throw GeneralSecurityException(I18n.msg("identity.wrappedKeyMissing"))
             }
             val seed = ByteArray(Ed25519Encoding.RAW_KEY_BYTES).also { SecureRandom().nextBytes(it) }
             val publicKey = privateKeyOf(seed).getAbyte()

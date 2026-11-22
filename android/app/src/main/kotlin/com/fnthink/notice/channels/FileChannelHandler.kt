@@ -1,6 +1,7 @@
 package com.fnthink.notice.channels
 
 import com.fnthink.notice.FileHasher
+import com.fnthink.notice.I18n
 import com.fnthink.notice.MainActivity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -44,7 +45,7 @@ internal class FileChannelHandler(activity: MainActivity) : ChannelHandler(activ
                 // 使用系统下载器（DownloadManager）下载更新 APK，无需存储权限
                 val url = call.argument<String>("url") ?: ""
                 val fileName = call.argument<String>("fileName") ?: "app_update.apk"
-                val title = call.argument<String>("title") ?: "通知推送助手"
+                val title = call.argument<String>("title") ?: I18n.serviceTitle()
                 result.success(activity.startSystemDownload(url, fileName, title))
             }
             "getSystemDownloadProgress" -> {
@@ -84,7 +85,7 @@ internal class FileChannelHandler(activity: MainActivity) : ChannelHandler(activ
                     try {
                         postSuccess(result, FileHasher.sha256Hex(filePath))
                     } catch (e: Exception) {
-                        postError(result, "sha256_failed", e.message ?: "哈希计算失败")
+                        postError(result, "sha256_failed", e.message ?: I18n.msg("file.err.hash"))
                     }
                 }
             }

@@ -18,6 +18,7 @@ import com.fnthink.notice.FnthinkPairLink
 import com.fnthink.notice.FnthinkPresenceAlarm
 import com.fnthink.notice.FnthinkPresenceWorker
 import com.fnthink.notice.FnthinkScreenLock
+import com.fnthink.notice.I18n
 import com.fnthink.notice.LocationFix
 import com.fnthink.notice.NotificationMonitorService
 import com.fnthink.notice.SmsSearch
@@ -51,14 +52,17 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                             ),
                         )
                     } catch (e: Exception) {
-                        postError(result, "identity_unavailable", e.message ?: "身份密钥不可用")
+                        postError(
+                            result, "identity_unavailable",
+                            e.message ?: I18n.msg("fn.err.identityUnavailable"),
+                        )
                     }
                 }
             }
             "signFnthinkBytes" -> {
                 val canonical = call.argument<String>("canonicalBase64")
                 if (canonical.isNullOrBlank()) {
-                    result.error("bad_argument", "canonicalBase64 不能为空", null)
+                    result.error("bad_argument", I18n.msg("fn.err.canonicalEmpty"), null)
                     return true
                 }
                 ioScope.launch {
@@ -72,7 +76,7 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                             android.util.Base64.encodeToString(signature, android.util.Base64.NO_WRAP),
                         )
                     } catch (e: Exception) {
-                        postError(result, "sign_failed", e.message ?: "签名失败")
+                        postError(result, "sign_failed", e.message ?: I18n.msg("fn.err.signFailed"))
                     }
                 }
             }
@@ -241,7 +245,7 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                     FnthinkLiveMode.setEnabled(context, true, seconds)
                     result.success(true)
                 } else {
-                    result.error("bad_argument", "seconds 必须为正整数", null)
+                    result.error("bad_argument", I18n.msg("fn.err.secondsPositive"), null)
                 }
             }
             "stopFnthinkLive" -> {

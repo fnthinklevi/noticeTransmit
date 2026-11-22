@@ -44,21 +44,22 @@ internal object AppNameResolution {
     /** 已知应用的友好名；入参大小写不敏感，未命中时原样返回入参。 */
     fun friendlyAppName(packageName: String): String {
         val pkg = packageName.lowercase()
+        // 显示名走 I18n（英文模式下不能把「微信」「设置」原样画在历史/通知栏）。
         return when {
-            pkg.startsWith("com.tencent.mm") -> "微信"
-            pkg.startsWith("com.tencent.mobileqq") -> "QQ"
-            pkg.startsWith("com.android.mms") || pkg.startsWith("com.google.android.apps.messaging") || pkg.contains("sms") || pkg.contains(".mms") -> "短信"
-            pkg.startsWith("com.android.dialer") || pkg.startsWith("com.android.incallui") || pkg.startsWith("com.android.phone") || pkg.contains("incallui") || pkg.contains("dialer") -> "电话"
-            pkg.startsWith("com.android.settings") -> "设置"
-            pkg.startsWith("com.android.systemui") -> "系统界面"
-            pkg.startsWith("com.xiaomi.xmsf") -> "小米推送"
-            pkg.startsWith("com.huawei.android.push") -> "华为推送"
-            pkg.startsWith("com.vivo.push") -> "vivo推送"
-            pkg.startsWith("com.meizu.cloud") || pkg.startsWith("com.meizu.push") -> "魅族推送"
-            pkg.startsWith("com.coloros.push") || pkg.startsWith("com.oppo.push") -> "OPPO推送"
-            pkg.startsWith("com.google.android.gms") || pkg.contains("fcm") -> "Google服务"
-            pkg.startsWith("com.eg.android.alipaygphone") -> "支付宝"
-            pkg.startsWith("com.alibaba.android.rimet") -> "钉钉"
+            pkg.startsWith("com.tencent.mm") -> I18n.msg("app.wechat")
+            pkg.startsWith("com.tencent.mobileqq") -> I18n.msg("app.qq")
+            pkg.startsWith("com.android.mms") || pkg.startsWith("com.google.android.apps.messaging") || pkg.contains("sms") || pkg.contains(".mms") -> I18n.msg("app.sms")
+            pkg.startsWith("com.android.dialer") || pkg.startsWith("com.android.incallui") || pkg.startsWith("com.android.phone") || pkg.contains("incallui") || pkg.contains("dialer") -> I18n.msg("app.phone")
+            pkg.startsWith("com.android.settings") -> I18n.msg("app.settings")
+            pkg.startsWith("com.android.systemui") -> I18n.msg("app.systemui")
+            pkg.startsWith("com.xiaomi.xmsf") -> I18n.msg("app.xiaomiPush")
+            pkg.startsWith("com.huawei.android.push") -> I18n.msg("app.huaweiPush")
+            pkg.startsWith("com.vivo.push") -> I18n.msg("app.vivoPush")
+            pkg.startsWith("com.meizu.cloud") || pkg.startsWith("com.meizu.push") -> I18n.msg("app.meizuPush")
+            pkg.startsWith("com.coloros.push") || pkg.startsWith("com.oppo.push") -> I18n.msg("app.oppoPush")
+            pkg.startsWith("com.google.android.gms") || pkg.contains("fcm") -> I18n.msg("app.googleServices")
+            pkg.startsWith("com.eg.android.alipaygphone") -> I18n.msg("app.alipay")
+            pkg.startsWith("com.alibaba.android.rimet") -> I18n.msg("app.dingtalk")
             else -> packageName
         }
     }

@@ -159,8 +159,12 @@ class MergePushManager(private val context: Context) {
                 if (seen.size >= 10) break
             }
             if (seen.isEmpty()) return ""
-            val joined = seen.joinToString("、")
-            return if (items.size > seen.size) "$joined 等" else joined
+            val joined = seen.joinToString(I18n.msg("merge.listSep"))
+            return if (items.size > seen.size) {
+                I18n.msgf("merge.listMore", joined)
+            } else {
+                joined
+            }
         }
 
         /** 合并后的聚合 NotificationInfo：title=摘要、content=逐行明细 */

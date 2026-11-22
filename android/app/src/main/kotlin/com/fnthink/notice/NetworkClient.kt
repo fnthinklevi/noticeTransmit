@@ -277,7 +277,7 @@ class NetworkClient {
                         val terminal = if (enqueued && lastResult != null) {
                             lastResult.copy(
                                 status = WebhookResponseParser.DeliveryStatus.QUEUED,
-                                message = "发送失败已转入自动重试队列，解锁/联网后自动补发 · ${lastResult.message}",
+                                message = I18n.msgf("err.queuedRetry", lastResult.message),
                             )
                         } else {
                             lastResult ?: WebhookResponseParser.ParseResult(

@@ -77,14 +77,14 @@ object WebhookResponseParser {
         if (httpCode in 500..599) {
             return ParseResult(
                 DeliveryStatus.HTTP_FAIL, httpCode,
-                "服务器错误 HTTP $httpCode: ${responseBody.take(200)}", true
+                I18n.msgf("err.httpServer", httpCode, responseBody.take(200)), true
             )
         }
         // HTTP 429 → 限流
         if (httpCode == 429) {
             return ParseResult(
                 DeliveryStatus.RATE_LIMITED, httpCode,
-                "限流 HTTP 429: ${responseBody.take(200)}", true,
+                I18n.msgf("err.httpRate", responseBody.take(200)), true,
                 retryAfterSeconds = retryAfterHeader ?: retryAfterFromBody(responseBody),
             )
         }
@@ -92,7 +92,7 @@ object WebhookResponseParser {
         if (httpCode in 400..499) {
             return ParseResult(
                 DeliveryStatus.HTTP_FAIL, httpCode,
-                "客户端错误 HTTP $httpCode: ${responseBody.take(200)}", false
+                I18n.msgf("err.httpClient", httpCode, responseBody.take(200)), false
             )
         }
 
@@ -123,7 +123,7 @@ object WebhookResponseParser {
                 ParseResult(
                     DeliveryStatus.BIZ_FAIL,
                     httpCode,
-                    "响应非 JSON，无法确认送达：${body.take(120)}",
+                    I18n.msgf("err.nonJson", body.take(120)),
                     false
                 )
             } else {

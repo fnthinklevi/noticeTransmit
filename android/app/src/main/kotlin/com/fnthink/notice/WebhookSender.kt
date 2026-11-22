@@ -148,7 +148,7 @@ class WebhookSender(private val context: Context) {
     private fun noChannelResult() = WebhookResponseParser.ParseResult(
         WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
         0,
-        "未配置 Webhook 通道",
+        I18n.msg("err.noWebhook"),
         false
     )
 

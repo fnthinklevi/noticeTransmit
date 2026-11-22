@@ -265,7 +265,7 @@ object EmailRetryQueue {
                     "EMAIL",
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0,
-                        "自动补发失败：邮件通道已删除或停用", false
+                        I18n.msg("err.emailQueueRemoved"), false
                     ),
                 )
             }
@@ -285,7 +285,7 @@ object EmailRetryQueue {
                         "EMAIL",
                         WebhookResponseParser.ParseResult(
                             WebhookResponseParser.DeliveryStatus.SUCCESS, 0,
-                            "邮件发送成功（自动补发）", false
+                            I18n.msg("err.emailResent"), false
                         ),
                     )
                 }

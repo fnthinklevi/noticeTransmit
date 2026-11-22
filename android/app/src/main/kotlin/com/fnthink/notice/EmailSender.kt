@@ -25,23 +25,11 @@ object EmailSender {
     internal const val DEFAULT_SUBJECT = "🔔 %appName% — %title%"
 
     /**
-     * 用户没填正文模板时的默认正文。`%subTextLine` 是**整行开关**：有副标题时替换成
-     * "副标题：…" 一行，没有时**连行一起删掉**（不是留一个空行，也不是留占位符原文）。
+     * 用户没填正文模板时的默认正文（文案唯一作者在 `I18n`，按当前语言取）。
+     * `%subTextLine` 是**整行开关**：有副标题时替换成一行副标题，没有时**连行一起删掉**
+     * （不是留一个空行，也不是留占位符原文）。
      */
-    internal val DEFAULT_BODY_TEMPLATE: String =
-        """
-        【通知转发】
-
-        应用：%appName%
-        标题：%title%
-        内容：%content%
-        %subTextLine
-        包名：%packageName%
-        时间：%time%
-        设备：%deviceName%
-
-        --- 由 NoticeTransmit 自动发送 ---
-        """.trimIndent()
+    internal fun defaultBodyTemplate(): String = I18n.msg("email.bodyDefault")
 
     data class EmailConfig(
         /** 可用性记账与主备路由的键（与 Dart 侧 `channel_health_email_<id>` 同源） */
@@ -79,7 +67,9 @@ object EmailSender {
                 try {
                     sendEmail(config, subject, body)
                     Log.d(TAG, "邮件发送成功 → ${config.toEmails.joinToString()}")
-                    onResult?.invoke(config, subject, body, true, "邮件发送成功", false)
+                    onResult?.invoke(
+                        config, subject, body, true, I18n.msg("email.sent"), false,
+                    )
                 } catch (e: Exception) {
                     // 网络抖动类失败重试 1 次（指数退避 2s）；配置类失败（认证/地址错误）重试无意义，直接报错
                     val transient = isTransientFailure(e)
@@ -88,7 +78,10 @@ object EmailSender {
                             delay(2000)
                             sendEmail(config, subject, body)
                             Log.d(TAG, "邮件重试成功 → ${config.toEmails.joinToString()}")
-                            onResult?.invoke(config, subject, body, true, "邮件发送成功（重试后）", false)
+                            onResult?.invoke(
+                                config, subject, body, true,
+                                I18n.msg("email.sentRetry"), false,
+                            )
                             return@launch
                         } catch (retry: Exception) {
                             Log.e(TAG, "邮件重试仍失败: ${retry.message}", retry)
@@ -115,17 +108,17 @@ object EmailSender {
     /** 发送测试邮件，返回 Pair(success, message) */
     fun sendTestEmail(config: EmailConfig): Pair<Boolean, String> {
         return try {
-            val subject = "🧪 通知推送助手 — 邮件通道测试"
-            val body = """
-                这是一封测试邮件。
-                发送时间：${Date()}
-                SMTP 服务器：${config.smtpHost}:${config.smtpPort}
-                发件人：${config.fromEmail}
-                收件人：${config.toEmails.joinToString()}
-            """.trimIndent()
+            val subject = I18n.msg("email.testSubject")
+            val body = I18n.msgf(
+                "email.testBody",
+                Date(),
+                "${config.smtpHost}:${config.smtpPort}",
+                config.fromEmail,
+                config.toEmails.joinToString(),
+            )
             sendEmail(config, subject, body)
             Log.d(TAG, "测试邮件发送成功")
-            Pair(true, "测试邮件发送成功")
+            Pair(true, I18n.msg("email.testSent"))
         } catch (e: Exception) {
             val msg = classifyError(e)
             Log.e(TAG, msg, e)
@@ -139,47 +132,42 @@ object EmailSender {
      */
     fun classifyError(e: Exception): String {
         return when (e) {
-            is AuthenticationFailedException ->
-                "认证失败，请检查账号和授权码是否正确"
-            is javax.net.ssl.SSLHandshakeException ->
-                "SSL 连接失败，请检查端口号或关闭 SSL 后重试"
-            is java.net.ConnectException ->
-                "无法连接 SMTP 服务器，请检查地址和端口"
-            is java.net.SocketTimeoutException ->
-                "连接超时，请检查网络或防火墙设置"
-            is java.net.UnknownHostException ->
-                "无法解析 SMTP 服务器地址，请检查域名是否正确"
+            is AuthenticationFailedException -> I18n.msg("email.authFailed")
+            is javax.net.ssl.SSLHandshakeException -> I18n.msg("email.sslFailed")
+            is java.net.ConnectException -> I18n.msg("email.connectFailed")
+            is java.net.SocketTimeoutException -> I18n.msg("email.timeout")
+            is java.net.UnknownHostException -> I18n.msg("email.dnsFailed")
             is javax.mail.SendFailedException ->
-                "邮件发送被拒: ${e.message.orEmpty().take(80)}"
+                I18n.msgf("email.rejected", e.message.orEmpty().take(80))
             is javax.mail.MessagingException -> {
                 val rawMsg = e.message.orEmpty()
                 when {
                     rawMsg.contains("530", ignoreCase = true) ->
-                        "SMTP 认证失败(530)，请检查账号和授权码"
+                        I18n.msg("email.smtp530")
                     rawMsg.contains("534", ignoreCase = true) || rawMsg.contains("535", ignoreCase = true) ->
-                        "SMTP 认证失败，请检查账号和授权码是否正确"
+                        I18n.msg("email.smtp535")
                     rawMsg.contains("550", ignoreCase = true) ->
-                        "收件人地址被拒绝(550)，请检查收件邮箱地址"
+                        I18n.msg("email.smtp550")
                     rawMsg.contains("553", ignoreCase = true) ->
-                        "发件人地址被拒绝(553)，请检查发件邮箱"
+                        I18n.msg("email.smtp553")
                     rawMsg.contains("554", ignoreCase = true) ->
-                        "邮件被服务端拒绝(554)，可能触发反垃圾策略"
+                        I18n.msg("email.smtp554")
                     rawMsg.contains("421", ignoreCase = true) ->
-                        "SMTP 服务暂时不可用(421)，请稍后重试"
+                        I18n.msg("email.smtp421")
                     rawMsg.contains("450", ignoreCase = true) ->
-                        "收件人邮箱不存在或已停用(450)"
+                        I18n.msg("email.smtp450")
                     rawMsg.contains("504", ignoreCase = true) ->
-                        "SMTP 认证方式不支持(504)，请检查 SSL 开关设置"
+                        I18n.msg("email.smtp504")
                     rawMsg.contains("Connection refused", ignoreCase = true) ->
-                        "连接被拒绝，请检查 SMTP 地址和端口"
+                        I18n.msg("email.connRefused")
                     rawMsg.contains("UnknownHost", ignoreCase = true) || rawMsg.contains("Unable to resolve host", ignoreCase = true) ->
-                        "无法解析 SMTP 服务器地址，请检查域名是否正确"
+                        I18n.msg("email.dnsFailed")
                     rawMsg.contains("connect", ignoreCase = true) && rawMsg.contains("timed out", ignoreCase = true) ->
-                        "连接超时，请检查网络或防火墙设置"
-                    else -> "邮件发送失败：${rawMsg.take(80)}"
+                        I18n.msg("email.timeout")
+                    else -> I18n.msgf("email.sendFailed", rawMsg.take(80))
                 }
             }
-            else -> "发送失败: ${e.message.orEmpty().take(80)}"
+            else -> I18n.msgf("email.sendFailedShort", e.message.orEmpty().take(80))
         }
     }
 
@@ -236,7 +224,7 @@ object EmailSender {
             } finally {
                 runCatching { transport.close() }
             }
-            ProbeOutcome(true, "SMTP 握手与认证通过（未发送邮件）", false)
+            ProbeOutcome(true, I18n.msg("email.probeOk"), false)
         } catch (e: Exception) {
             val msg = classifyError(e)
             Log.e(TAG, "SMTP 探测失败: $msg", e)
@@ -299,7 +287,7 @@ object EmailSender {
     fun resend(config: EmailConfig, subject: String, body: String): Pair<Boolean, String> {
         return try {
             sendEmail(config, subject, body)
-            Pair(true, "邮件发送成功")
+            Pair(true, I18n.msg("email.sent"))
         } catch (e: Exception) {
             // message 可能为 null（如 NetworkOnMainThreadException）——带异常类名，
             // 否则历史/日志只剩一句空文案无从排查
@@ -340,10 +328,13 @@ object EmailSender {
     }
 
     internal fun buildEmailBody(config: EmailConfig, info: NotificationInfo): String {
-        val template = config.bodyTemplate?.ifBlank { null } ?: DEFAULT_BODY_TEMPLATE
+        val template = config.bodyTemplate?.ifBlank { null } ?: defaultBodyTemplate()
         val body = applyTemplate(template, info)
         return if (info.subText.isNotEmpty()) {
-            body.replace("%subTextLine", "副标题：${info.subText}\n")
+            body.replace(
+                "%subTextLine",
+                I18n.msgf("email.subTextLine", info.subText) + "\n",
+            )
         } else {
             body.lines().filter { !it.contains("%subTextLine") }.joinToString("\n")
         }

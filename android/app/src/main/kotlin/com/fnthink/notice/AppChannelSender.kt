@@ -106,7 +106,7 @@ class AppChannelSender(private val context: Context) {
         if (spec == null) {
             Log.e(TAG, "Unknown app channel type: ${cfg.type}")
             val fail = WebhookResponseParser.ParseResult(
-                WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, "未知应用通道类型", false
+                WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, I18n.msg("err.unknownAppChannel"), false
             )
             // 与其他失败分支一致：回传终态，避免记录停留在「发送中」且无痕迹
             notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl, viaBackup)
@@ -117,7 +117,7 @@ class AppChannelSender(private val context: Context) {
             AppChannelTokenHelper.normalizeBase(cfg.baseUrl, spec.officialBase)
         } catch (e: IllegalArgumentException) {
             val fail = WebhookResponseParser.ParseResult(
-                WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, e.message ?: "地址无效", false
+                WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, e.message ?: I18n.msg("err.invalidAddress"), false
             )
             notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl, viaBackup)
             onResultDone?.invoke(fail)
@@ -139,7 +139,7 @@ class AppChannelSender(private val context: Context) {
             spec.buildPayload(cfg, content, markdown, info.id)
         } catch (e: IllegalArgumentException) {
             val fail = WebhookResponseParser.ParseResult(
-                WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, e.message ?: "载荷构造失败", false
+                WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, e.message ?: I18n.msg("err.payloadBuild"), false
             )
             notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl, viaBackup)
             onResultDone?.invoke(fail)
@@ -161,7 +161,7 @@ class AppChannelSender(private val context: Context) {
                 // 队列（重放走 replayStored，会重取新 token）；此前任何异常都归业务失败
                 // ⇒ 自建应用通道在长锁屏场景零自动恢复（PRD R5，E3 审计坐实）。
                 if (AppChannelFailurePolicy.isNetworkFailure(e)) {
-                    val rawMsg = e.message ?: "获取 token 失败"
+                    val rawMsg = e.message ?: I18n.msg("err.tokenFetch")
                     val enqueued = RetryQueue.enqueue(
                         url = cfg.baseUrl,
                         payload = payload,
@@ -175,12 +175,12 @@ class AppChannelSender(private val context: Context) {
                     val result = if (enqueued) {
                         WebhookResponseParser.ParseResult(
                             WebhookResponseParser.DeliveryStatus.QUEUED, 0,
-                            "获取 token 失败已转入自动重试队列，解锁/联网后自动补发 · $rawMsg", false
+                            I18n.msgf("err.tokenQueued", rawMsg), false
                         )
                     } else {
                         WebhookResponseParser.ParseResult(
                             WebhookResponseParser.DeliveryStatus.NETWORK_FAIL, 0,
-                            "获取 token 失败（网络原因）：$rawMsg", true
+                            I18n.msgf("err.tokenNetwork", rawMsg), true
                         )
                     }
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.baseUrl, viaBackup)
@@ -190,7 +190,7 @@ class AppChannelSender(private val context: Context) {
                 // 兜底捕获其余异常（TokenFetchException / JSONException / 网络异常等）：
                 // 任一异常都统一回传终态失败，避免冒泡导致进程崩溃或通道静默失效
                 val msg = (e as? AppChannelTokenManager.TokenFetchException)?.message
-                    ?: e.message ?: "获取 token 失败"
+                    ?: e.message ?: I18n.msg("err.tokenFetch")
                 val fail = WebhookResponseParser.ParseResult(
                     WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, msg, false
                 )

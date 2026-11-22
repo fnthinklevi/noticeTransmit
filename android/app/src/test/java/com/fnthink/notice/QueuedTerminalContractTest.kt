@@ -34,7 +34,14 @@ class QueuedTerminalContractTest {
         assertTrue("找不到入队成功的终态分支", at > 0)
         val branch = source.substring(at, at + 800)
         assertTrue("入队成功必须改判 QUEUED", branch.contains("DeliveryStatus.QUEUED"))
-        assertTrue("文案必须说清已转自动重试", branch.contains("已转入自动重试"))
+        // 2026-11-22 起文案收进 I18n 的消息目录：这里断"走的是那条键"，
+        // 具体措辞（已转入自动重试）由 I18n.kt 的 zh 值钉住。
+        assertTrue(
+            "终态文案必须走 I18n 的 err.queuedRetry",
+            branch.contains("I18n.msgf(\"err.queuedRetry\""),
+        )
+        val i18n = File("src/main/kotlin/com/fnthink/notice/I18n.kt").readText()
+        assertTrue("文案必须说清已转自动重试", i18n.contains("已转入自动重试"))
     }
 
     @Test

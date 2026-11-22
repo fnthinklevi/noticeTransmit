@@ -664,14 +664,14 @@ class MainActivity : FlutterActivity() {
             val target = appChannelTarget(configMap)
             // 空串 = 探测通过；非空 = 失败原因（与 verifySmtp 同一口径）
             val reason = if (target == null) {
-                "未知应用通道类型"
+                I18n.msg("err.unknownAppChannel")
             } else {
                 val (spec, cfg) = target
                 try {
                     spec.fetchToken(cfg, cfg.baseUrl, okHttpClient)
                     ""
                 } catch (e: AppChannelTokenManager.TokenFetchException) {
-                    e.message ?: "获取 token 失败"
+                    e.message ?: I18n.msg("err.tokenFetch")
                 } catch (e: Exception) {
                     e.message ?: e.javaClass.simpleName
                 }
@@ -701,12 +701,15 @@ class MainActivity : FlutterActivity() {
             val outcome = try {
                 val target = appChannelTarget(configMap)
                 if (target == null) {
-                    false to "未知应用通道类型"
+                    false to I18n.msg("err.unknownAppChannel")
                 } else {
                     val (spec, cfg) = target
                     val base = cfg.baseUrl
-                    val content = "这是一条测试消息，自建应用通道配置成功！" +
-                        "\n\n设备：${PrefsHelper.deviceName.ifEmpty { android.os.Build.MODEL }}"
+                    val content = I18n.msg("test.appChannelMessage") +
+                        "\n\n" + I18n.msgf(
+                            "test.deviceLine",
+                            PrefsHelper.deviceName.ifEmpty { android.os.Build.MODEL },
+                        )
                     val token = runBlocking {
                         AppChannelTokenManager.getToken(
                             cfg.type,
@@ -734,9 +737,9 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             } catch (e: AppChannelTokenManager.TokenFetchException) {
-                false to (e.message ?: "获取 token 失败")
+                false to (e.message ?: I18n.msg("err.tokenFetch"))
             } catch (e: Exception) {
-                false to "测试异常: ${e.message}"
+                false to I18n.msgf("test.exception", e.message)
             }
             withContext(Dispatchers.Main) {
                 result.success(
@@ -1821,12 +1824,12 @@ class MainActivity : FlutterActivity() {
                         outputStream.write(pendingSaveContent.toByteArray(Charsets.UTF_8))
                         outputStream.flush()
                     }
-                    pendingSaveResult?.success(mapOf("success" to true, "message" to "导出成功"))
+                    pendingSaveResult?.success(mapOf("success" to true, "message" to I18n.msg("export.success")))
                 } catch (e: Exception) {
-                    pendingSaveResult?.success(mapOf("success" to false, "message" to "写入失败: ${e.message}"))
+                    pendingSaveResult?.success(mapOf("success" to false, "message" to I18n.msgf("export.writeFailed", e.message)))
                 }
             } else {
-                pendingSaveResult?.success(mapOf("success" to false, "message" to "已取消"))
+                pendingSaveResult?.success(mapOf("success" to false, "message" to I18n.msg("export.canceled")))
             }
         }
         if (requestCode == PICK_DIR_REQUEST_CODE) {
@@ -1911,7 +1914,7 @@ class MainActivity : FlutterActivity() {
      */
     internal fun writeArchiveFile(fileName: String, content: String): Map<String, Any> {
         val saved = prefs.getString(KEY_ARCHIVE_DIR_URI, null)
-            ?: return mapOf("success" to false, "message" to "未设置自定义归档目录")
+            ?: return mapOf("success" to false, "message" to I18n.msg("export.noArchiveDir"))
         return try {
             val treeUri = Uri.parse(saved)
             val docId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
@@ -1940,15 +1943,15 @@ class MainActivity : FlutterActivity() {
                 contentResolver, dirUri, "application/json", fileName
             )
             if (fileUri == null) {
-                return mapOf("success" to false, "message" to "创建文件失败")
+                return mapOf("success" to false, "message" to I18n.msg("export.createFileFailed"))
             }
             contentResolver.openOutputStream(fileUri, "wt")?.use { os ->
                 os.write(content.toByteArray(Charsets.UTF_8))
                 os.flush()
-            } ?: return mapOf("success" to false, "message" to "无法打开输出流")
+            } ?: return mapOf("success" to false, "message" to I18n.msg("export.openStreamFailed"))
             mapOf("success" to true, "message" to "OK")
         } catch (e: Exception) {
-            mapOf("success" to false, "message" to "写入失败: ${e.message}")
+            mapOf("success" to false, "message" to I18n.msgf("export.writeFailed", e.message))
         }
     }
 
@@ -2186,19 +2189,19 @@ class MainActivity : FlutterActivity() {
 
     /** DownloadManager.COLUMN_REASON 失败码 → 可读文案（用于诊断下载失败原因）。 */
     internal fun downloadErrorReasonText(reason: Int): String = when (reason) {
-        DownloadManager.ERROR_UNKNOWN -> "未知错误"
-        DownloadManager.ERROR_FILE_ERROR -> "文件错误"
-        DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "服务器返回异常状态码（HTTP 错误）"
-        DownloadManager.ERROR_HTTP_DATA_ERROR -> "网络数据错误"
-        DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "重定向过多"
-        DownloadManager.ERROR_INSUFFICIENT_SPACE -> "存储空间不足"
-        DownloadManager.ERROR_DEVICE_NOT_FOUND -> "设备未找到"
-        DownloadManager.ERROR_CANNOT_RESUME -> "无法断点续传"
-        DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "文件已存在"
+        DownloadManager.ERROR_UNKNOWN -> I18n.msg("download.unknown")
+        DownloadManager.ERROR_FILE_ERROR -> I18n.msg("download.fileError")
+        DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> I18n.msg("download.httpStatus")
+        DownloadManager.ERROR_HTTP_DATA_ERROR -> I18n.msg("download.dataError")
+        DownloadManager.ERROR_TOO_MANY_REDIRECTS -> I18n.msg("download.redirects")
+        DownloadManager.ERROR_INSUFFICIENT_SPACE -> I18n.msg("download.space")
+        DownloadManager.ERROR_DEVICE_NOT_FOUND -> I18n.msg("download.deviceNotFound")
+        DownloadManager.ERROR_CANNOT_RESUME -> I18n.msg("download.cannotResume")
+        DownloadManager.ERROR_FILE_ALREADY_EXISTS -> I18n.msg("download.exists")
         // 以下常量在部分 SDK 的 android.jar 中缺失，直接使用官方稳定数值
-        1010 -> "下载被阻止"
-        1011 -> "无法覆盖文件"
-        1012 -> "文件不存在（服务器 404）"
+        1010 -> I18n.msg("download.blocked")
+        1011 -> I18n.msg("download.cannotOverwrite")
+        1012 -> I18n.msg("download.notFound")
         else -> "reason=$reason"
     }
 
@@ -2520,7 +2523,7 @@ class MainActivity : FlutterActivity() {
                         val responseBody = response.body.string()
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
 
-                        val signedLabel = if (!secret.isNullOrEmpty()) " [已签名]" else ""
+                        val signedLabel = if (!secret.isNullOrEmpty()) I18n.msg("test.signedLabel") else ""
                         val detail = "$typeLabel$signedLabel HTTP ${response.code} · ${parseResult.status.name}"
                         val fullMessage = "$detail\n${parseResult.message.take(300)}"
 
@@ -2532,7 +2535,11 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             } catch (e: Exception) {
-                Triple(false, "推送异常: ${e.message ?: e.javaClass.simpleName}", !secret.isNullOrEmpty())
+                Triple(
+                    false,
+                    I18n.msgf("err.pushException", e.message ?: e.javaClass.simpleName),
+                    !secret.isNullOrEmpty(),
+                )
             }
 
             withContext(Dispatchers.Main) {
@@ -2602,7 +2609,7 @@ class MainActivity : FlutterActivity() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    result.success(mapOf("success" to false, "message" to "测试邮件异常: ${e.message}"))
+                    result.success(mapOf("success" to false, "message" to I18n.msgf("err.testEmailException", e.message)))
                 }
             }
         }

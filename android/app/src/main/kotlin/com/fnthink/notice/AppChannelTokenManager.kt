@@ -88,7 +88,7 @@ object AppChannelTokenManager {
         }
         val (token, expiresIn) = fetcher.fetch()
         if (token.isEmpty()) {
-            throw TokenFetchException(-1, "token 端点返回空 access_token")
+            throw TokenFetchException(-1, I18n.msg("err.emptyToken"))
         }
         synchronized(lock) {
             cache[key] = CachedToken(key, token, now + expiresIn * 1000L)
@@ -114,7 +114,7 @@ object AppChannelTokenHelper {
         val base = raw.trim().trimEnd('/')
         val candidate = base.ifEmpty { fallback }
         require(candidate.startsWith("https://") || candidate.startsWith("http://")) {
-            "API 地址必须以 http(s):// 开头"
+            I18n.msg("err.httpPrefix")
         }
         return candidate
     }

@@ -17,10 +17,12 @@ void main() {
   final root = projectRoot();
   const noticeDir = 'android/app/src/main/kotlin/com/fnthink/notice';
 
-  /// 当前 `I18n.kt` 之外的 CJK 字面量总量（2026-11-22 基线）。
-  /// 口径：剥注释后统计双引号/三引号字符串里含 CJK 的**字面量个数**（不是字符数）；
-  /// 410 与独立状态机复核结果一致。
-  const baseline = 410;
+  /// 当前 `I18n.kt` 之外的 CJK 字面量总量（2026-11-22 迁移后基线）。
+  /// 口径：剥注释后统计双引号/三引号字符串里含 CJK 的**字面量个数**（不是字符数）。
+  /// 410 → 278：面向用户的错误原因、邮件正文、内置应用名、Toast/导出/下载文案
+  /// 已收进 `I18n.kt` 的消息目录；剩下的 278 处是日志、日志标签、以及
+  /// `NotificationProcessor` 里**必须保持中文**的匹配关键词（如 `contains("微信")`）。
+  const baseline = 278;
 
   Map<String, int> counts() {
     final dir = Directory('$root/$noticeDir');
@@ -59,20 +61,38 @@ void main() {
     );
   });
 
-  test('锁屏脱敏提示已收进 I18n，页面不再硬编码中文', () {
+  test('面向用户的高频文案已收进 I18n，不在页面里硬编码', () {
     final i18n = File('$root/$noticeDir/I18n.kt').readAsStringSync();
-    final processor = File('$root/$noticeDir/NotificationProcessor.kt')
-        .readAsStringSync();
     expect(
       i18n,
       contains('fun notificationContentMasked('),
       reason: '锁屏脱敏提示的唯一作者应在 I18n.kt',
     );
-    expect(
-      processor,
-      contains('I18n.notificationContentMasked('),
-      reason: 'NotificationProcessor 没有走 I18n ⇒ 英文用户仍会看到中文提示',
-    );
+    final migrated = <String, List<String>>{
+      'NotificationProcessor.kt': ['I18n.notificationContentMasked('],
+      'EmailSender.kt': [
+        'I18n.msg("email.authFailed")',
+        'I18n.msg("email.bodyDefault")',
+      ],
+      'AppNameResolution.kt': ['I18n.msg("app.wechat")'],
+      'ChannelRegistry.kt': ['I18n.msgf("err.bizFailCode"'],
+      'AppChannelSender.kt': ['I18n.msgf("err.tokenQueued"'],
+      'WebhookResponseParser.kt': ['I18n.msgf("err.httpServer"'],
+      'MainActivity.kt': ['I18n.msg("export.success")'],
+      'NotificationMonitorService.kt': ['I18n.msg("notif.channelName")'],
+    };
+    for (final entry in migrated.entries) {
+      final src = File('$root/$noticeDir/${entry.key}').readAsStringSync();
+      for (final needle in entry.value) {
+        expect(
+          src,
+          contains(needle),
+          reason: '${entry.key} 又绕开了 I18n（缺少 $needle）—— 英文用户会看到中文',
+        );
+      }
+    }
+    final processor = File('$root/$noticeDir/NotificationProcessor.kt')
+        .readAsStringSync();
     expect(
       processor,
       isNot(contains('"验证码内容被锁屏隐藏')),
