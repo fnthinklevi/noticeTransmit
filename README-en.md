@@ -440,7 +440,7 @@ Fnthink Push deployment (two regions, where to upload the contract file, reverse
 
 - **Dart unit tests** (`test/`): architecture contracts (bootstrap order, launcher manifest contract, channel-method parity across both ends, the Fnthink mirror key-name guard), database schema and migrations, backup / delivery / filter golden cases, page widget tests
 - **Shared protocol package tests** — `packages/fnthink_push`: contract validation and vector assertions, run on both ends
-- **Kotlin JVM unit tests** (`android/app/src/test/`): Dart/Kotlin rule-matching parity is locked by 51 golden cases in `rule_engine_golden.json`, and channel behaviour by byte-exact snapshots in `channel_behavior_golden.json` (50 payloads + 36 response parses)
+- **Kotlin JVM unit tests** (`android/app/src/test/`): Dart/Kotlin rule-matching parity is locked by 66 golden cases in `rule_engine_golden.json`, and channel behaviour by byte-exact snapshots in `channel_behavior_golden.json` (50 payloads + 36 response parses)
 - **Server contract tests** (`server/test/`, jest + supertest): login / TOTP enable & recovery-code consumption / session invalidation / IP blocking, plus the 18 Fnthink protocol routes (14 protocol routes + 4 intake forms)
 - **On-device tests** — `integration_test/smoke_test.dart` runs the main-path smoke test (launch -> inject -> notification page -> delivery status -> history -> service start/stop -> export), plus the `android/app/src/androidTest` instrumented tests, driven by `integration_test.yml` on an API 34 / x86_64 / Pixel 6 emulator
 

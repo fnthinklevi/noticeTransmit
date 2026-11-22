@@ -6,6 +6,6 @@ Copyright 2026 fnthinklevi
 server/package-lock.json（服务端 npm 依赖）、android/ 下的 Gradle 依赖树
 （`gradlew :app:dependencies`）。
 
-协议规范文件 protocol/fnthink-v1.json 与 protocol/fnthink-v1.md 是本项目的
+协议规范文件 protocol/fnthink-v1.json 与 protocol/fnthink-vectors-v1.json 是本项目的
 组成部分，同样按 Apache License 2.0 授权（见 LICENSE）。
 

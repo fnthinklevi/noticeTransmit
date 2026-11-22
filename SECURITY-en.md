@@ -8,7 +8,7 @@ This document describes the security-support scope, vulnerability-reporting proc
 
 ## 1. Supported Versions
 
-- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.76 (build 116)**.
+- **Only the latest stable release** receives security fixes. Currently supported: **v1.6.8 (build 168)** (single source: `pubspec.yaml`, guarded by `doc_readings_consistency_test`).
 - Older versions (including those no longer maintained) are not patched — please upgrade to the latest release.
 - The server runtime follows the same boundary: `server/package.json` declares `engines.node` as
   **`>=24`** (Node.js 24 LTS). Deployments on EOL Node (18 / 20) are unsupported — the dependency
