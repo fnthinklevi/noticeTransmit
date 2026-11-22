@@ -19,14 +19,11 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import android.util.Log
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.fnthink.notice.channels.ChannelDispatcher
 import com.fnthink.notice.channels.ChannelMirrorInvalidationHandler
@@ -64,18 +61,6 @@ class MainActivity : FlutterActivity() {
         const val EXTRA_NOTIFICATION_DATA = "notification_data"
         // webhook 送达结果广播：WebhookSender 发送后异步回传，Flutter 用于逐条记录显示送达状态
         const val ACTION_DELIVERY_RESULT = "com.fnthink.notice.DELIVERY_RESULT"
-        private const val REQUEST_SMS_PERMISSION = 1001
-        private const val REQUEST_PHONE_PERMISSION = 1002
-        private const val REQUEST_POST_NOTIFICATION_PERMISSION = 1003
-
-        // T124 片C：通话记录（READ_CALL_LOG）是**单独一次申请**，不并进 phone 那一次 ——
-        // "一条一开"：并进去等于用户点"电话状态"时顺手把通话记录也问了（而那是另一档数据面）。
-        private const val REQUEST_CALL_LOG_PERMISSION = 1004
-
-        // T124 片C-2：定位那一档（FINE+COARSE **一起**申请是系统的形状 —— Android 12+ 的
-        // "精确／大致"二选一就长在那一次弹框里；这不是"打包两条面"，而是一条面的两种精度）。
-        // ⚠ 不申请 ACCESS_BACKGROUND_LOCATION：后台读不到就诚实失败（location-unavailable）。
-        private const val REQUEST_LOCATION_PERMISSION = 1005
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
@@ -113,6 +98,9 @@ class MainActivity : FlutterActivity() {
     internal val prefs: SharedPreferences by lazy {
         getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
     }
+
+    /** P1-2：权限与系统设置跳转的单一实现（见 [PermissionOps]）。 */
+    internal val permissionOps: PermissionOps = PermissionOps(this)
 
     /** Bugly 是否已在本进程内完成初始化（initCrashReport 幂等保护） */
     internal var crashReportInitialized = false
@@ -516,7 +504,7 @@ class MainActivity : FlutterActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
-            REQUEST_SMS_PERMISSION -> {
+            PermissionOps.REQUEST_SMS_PERMISSION -> {
                 val granted = grantResults.isNotEmpty() &&
                     grantResults[0] == PackageManager.PERMISSION_GRANTED
                 methodChannel?.invokeMethod(
@@ -524,7 +512,7 @@ class MainActivity : FlutterActivity() {
                     mapOf("granted" to granted)
                 )
             }
-            REQUEST_PHONE_PERMISSION -> {
+            PermissionOps.REQUEST_PHONE_PERMISSION -> {
                 val granted = grantResults.isNotEmpty() &&
                     grantResults[0] == PackageManager.PERMISSION_GRANTED
                 if (granted) {
@@ -1070,61 +1058,6 @@ class MainActivity : FlutterActivity() {
     /** 跨端契约（通道方法 `getAppListPermissionState`）：granted / denied / unknown。 */
     internal fun getAppListPermissionState(): String = appListPermissionState().wire()
 
-    internal fun requestSmsPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(android.Manifest.permission.RECEIVE_SMS),
-                REQUEST_SMS_PERMISSION
-            )
-        }
-    }
-
-    internal fun requestPhonePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(android.Manifest.permission.READ_PHONE_STATE),
-                REQUEST_PHONE_PERMISSION
-            )
-        }
-    }
-
-    /** T124 片C：通话记录的**单独一次**申请（见 [REQUEST_CALL_LOG_PERMISSION] 上那句）。 */
-    internal fun requestCallLogPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(android.Manifest.permission.READ_CALL_LOG),
-                REQUEST_CALL_LOG_PERMISSION
-            )
-        }
-    }
-
-    /**
-     * T124 片C-2：定位的**一次**申请（FINE+COARSE 同框 —— 见 [REQUEST_LOCATION_PERMISSION] 上那句）。
-     */
-    internal fun requestLocationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    android.Manifest.permission.ACCESS_FINE_LOCATION,
-                    android.Manifest.permission.ACCESS_COARSE_LOCATION,
-                ),
-                REQUEST_LOCATION_PERMISSION
-            )
-        }
-    }
-
-    internal fun requestQueryAllPackagesPermission() {
-        try {
-            openAppDetailsSettings()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     internal fun setEnabledPackages(packages: List<String>) {
         val jsonArray = org.json.JSONArray(packages)
         prefs.edit().putString("flutter.enabled_packages", jsonArray.toString()).apply()
@@ -1314,371 +1247,6 @@ class MainActivity : FlutterActivity() {
             }
         } catch (_: Exception) {
             1
-        }
-    }
-
-    internal fun isNotificationListenerPermissionGranted(): Boolean {
-        val flat = Settings.Secure.getString(
-            contentResolver,
-            "enabled_notification_listeners"
-        ) ?: ""
-        return flat.contains(packageName)
-    }
-
-    /**
-     * T55：申请 **POST_PROMOTED_NOTIFICATIONS**（Android 16 起"提升/悬浮通知"的运行时权限）。
-     *
-     * ⚠ 为什么必须走原生而不能用 permission_handler：那一版（13.x）的枚举里**没有**这一枚，
-     *   硬塞进现有枚举等于让"没这一项"这件事在编译期看不见 —— 而漏申请的代价是
-     *   `FLAG_PROMOTED_ONGOING` 静默无效（上不了岛），没有任何报错。
-     * ⚠ 36 以下**直接回已授予**：那一档系统没有这个权限，也没有"用户拒绝"这回事 ——
-     *   在那里弹一个不存在的权限框，用户只会看到一个莫名其妙的应用信息页。
-     */
-    internal fun requestPromotedNotificationPermission(requestCode: Int) {
-        if (Build.VERSION.SDK_INT < 36) return
-        try {
-            requestPermissions(
-                arrayOf("android.permission.POST_PROMOTED_NOTIFICATIONS"),
-                requestCode,
-            )
-        } catch (e: Exception) {
-            Log.w("MainActivity", "申请提升通知权限失败（其余能力不受影响）", e)
-        }
-    }
-
-    internal fun isPromotedNotificationPermissionGranted(): Boolean {
-        if (Build.VERSION.SDK_INT < 36) return true
-        return ContextCompat.checkSelfPermission(
-            this,
-            "android.permission.POST_PROMOTED_NOTIFICATIONS"
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    internal fun requestNotificationListenerPermission() {
-        try {
-            val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val intent = Intent(Settings.ACTION_SECURITY_SETTINGS)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e2: Exception) {
-                e2.printStackTrace()
-            }
-        }
-    }
-
-    internal fun isPostNotificationPermissionGranted(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-    }
-
-    internal fun requestPostNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
-                REQUEST_POST_NOTIFICATION_PERMISSION
-            )
-        }
-    }
-
-    internal fun isIgnoringBatteryOptimizations(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            powerManager.isIgnoringBatteryOptimizations(packageName)
-        } else {
-            true
-        }
-    }
-
-    internal fun isSmsPermissionGranted(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.RECEIVE_SMS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-    }
-
-    internal fun isPhonePermissionGranted(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.READ_PHONE_STATE
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-    }
-
-    internal fun isCallLogPermissionGranted(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.READ_CALL_LOG
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-    }
-
-    /** T124 片C-2：FINE 或 COARSE **任一**给了就算给了（"大致位置"是能用的一种，不是拒绝）。 */
-    internal fun isLocationPermissionGranted(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
-        val fine = ContextCompat.checkSelfPermission(
-            this,
-            android.Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(
-            this,
-            android.Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        return fine || coarse
-    }
-
-    internal fun requestBatteryOptimization() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            try {
-                val intent = Intent()
-                intent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                intent.data = Uri.parse("package:$packageName")
-                startActivity(intent)
-            } catch (e: Exception) {
-                try {
-                    val intent = Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
-                    startActivity(intent)
-                } catch (e2: Exception) {
-                    e2.printStackTrace()
-                }
-            }
-        }
-    }
-
-    /**
-     * T137 验收③：直接跳到收件渠道（fnthink_inbox_v2）自己的系统设置页。
-     *
-     * 为什么只有"跳"没有"读"：厂商（MIUI 等）在 AOSP 之上另有按应用的悬浮/锁屏/声音开关，
-     * 而那几枚不在任何 APK 可读的 API 里（六厂商官方口径，roadmap §8 附录）——
-     * 界面能诚实做的只有"报我们自己那侧 + 把用户送到能看见全部开关的那一页"。
-     * 26 以下没有按渠道跳转这一档（渠道本身也不存在），退回应用详情页。
-     */
-    internal fun openInboxChannelSettings() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                intent.putExtra(Settings.EXTRA_CHANNEL_ID, FnthinkInboxDisplay.CHANNEL_ID)
-                startActivity(intent)
-                return
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-        openAppDetailsSettings()
-    }
-
-    internal fun requestXiaomiAutoStart() {
-        try {
-            val intent = Intent()
-            intent.component = ComponentName(
-                "com.miui.securitycenter",
-                "com.miui.permcenter.autostart.AutoStartManagementActivity"
-            )
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val intent = Intent("miui.intent.action.OP_AUTO_START")
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e2: Exception) {
-                try {
-                    val intent = Intent()
-                    intent.component = ComponentName(
-                        "com.miui.securitycenter",
-                        "com.miui.permcenter.permissions.PermissionsEditorActivity"
-                    )
-                    intent.putExtra("extra_pkgname", packageName)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                } catch (e3: Exception) {
-                    openAppDetailsSettings()
-                }
-            }
-        }
-    }
-
-    internal fun requestMeizuBackground() {
-        try {
-            val intent = Intent("com.meizu.safe.security.SHOW_APPSEC")
-            intent.addCategory(Intent.CATEGORY_DEFAULT)
-            intent.putExtra("packageName", packageName)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val intent = Intent()
-                intent.component = ComponentName(
-                    "com.meizu.safe",
-                    "com.meizu.safe.permission.SmartBGControlActivity"
-                )
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e2: Exception) {
-                openAppDetailsSettings()
-            }
-        }
-    }
-
-    internal fun requestHuaweiLaunch() {
-        try {
-            val intent = Intent()
-            intent.component = ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.optimize.process.ProtectActivity"
-            )
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val intent = Intent()
-                intent.component = ComponentName(
-                    "com.huawei.systemmanager",
-                    "com.huawei.permissionmanager.ui.MainActivity"
-                )
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e2: Exception) {
-                openAppDetailsSettings()
-            }
-        }
-    }
-
-    internal fun requestOppoBackground() {
-        try {
-            val intent = Intent()
-            intent.component = ComponentName(
-                "com.coloros.safecenter",
-                "com.coloros.safecenter.permission.startup.StartupAppListActivity"
-            )
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val intent = Intent()
-                intent.component = ComponentName(
-                    "com.oppo.safe",
-                    "com.oppo.safe.permission.startup.StartupAppListActivity"
-                )
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e2: Exception) {
-                openAppDetailsSettings()
-            }
-        }
-    }
-
-    internal fun requestVivoBackground() {
-        try {
-            val intent = Intent()
-            intent.component = ComponentName(
-                "com.vivo.permissionmanager",
-                "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
-            )
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val intent = Intent()
-                intent.component = ComponentName(
-                    "com.iqoo.secure",
-                    "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"
-                )
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e2: Exception) {
-                openAppDetailsSettings()
-            }
-        }
-    }
-
-    // ── T198: 锁屏三项厂商跳转（骨架） ────────────────────────────────────────
-    //
-    // 三项（锁屏断开数据 / 睡眠模式 / WLAN 锁屏休眠）的 Intent 都是厂商私有，
-    // Android 原生没有公开 Intent 可跳。今天先搭骨架：
-    //   - 下面 15 个 internal 方法全部兜底到 openAppDetailsSettings()
-    //   - 真机逐 ROM 核到具体 Intent 后，照 requestXiaomiAutoStart() 同款 try/catch 链填进去
-    // 每个厂商 × 每项 = 1 个方法：LockData（锁屏断开数据）/ Sleep（睡眠模式）/ WifiSleep（WLAN 锁屏休眠）
-
-    internal fun requestXiaomiLockData() = openAppDetailsSettings()
-    internal fun requestMeizuLockData() = openAppDetailsSettings()
-    internal fun requestHuaweiLockData() = openAppDetailsSettings()
-    internal fun requestOppoLockData() = openAppDetailsSettings()
-    internal fun requestVivoLockData() = openAppDetailsSettings()
-
-    internal fun requestXiaomiSleep() = openAppDetailsSettings()
-    internal fun requestMeizuSleep() = openAppDetailsSettings()
-    internal fun requestHuaweiSleep() = openAppDetailsSettings()
-    internal fun requestOppoSleep() = openAppDetailsSettings()
-    internal fun requestVivoSleep() = openAppDetailsSettings()
-
-    internal fun requestXiaomiWifiSleep() = openAppDetailsSettings()
-    internal fun requestMeizuWifiSleep() = openAppDetailsSettings()
-    internal fun requestHuaweiWifiSleep() = openAppDetailsSettings()
-    internal fun requestOppoWifiSleep() = openAppDetailsSettings()
-    internal fun requestVivoWifiSleep() = openAppDetailsSettings()
-
-    internal fun openAppDetailsSettings() {
-        try {
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-            intent.data = Uri.fromParts("package", packageName, null)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    /**
-     * Android 12+ 是否已授权精确闹钟；12 以下系统无此概念，恒为 true。
-     *
-     * ⚠ 判定本身住在 [ExactAlarmPolicy]（T140 走 (c) 之后那一枚唯一作者）：这里只是通道侧的转交。
-     * 界面报的那一份与排闹钟时读的那一份**必须是同一个表达式**，否则又是两句话。
-     */
-    internal fun canScheduleExactAlarms(): Boolean = ExactAlarmPolicy.allowed(this)
-
-    /**
-     * 引导用户授权精确闹钟（B1）。
-     * Android 12~13：系统弹授权对话框（ACTION_REQUEST_SCHEDULE_EXACT_ALARM）。
-     * Android 14+：SCHEDULE_EXACT_ALARM 默认拒绝且无系统授权入口，跳应用详情页引导手动开启；
-     * 未授权时 DelayedPushManager 会捕获 SecurityException 自动降级为非精确闹钟，不阻塞功能。
-     */
-    internal fun requestExactAlarmPermission() {
-        try {
-            if (canScheduleExactAlarms()) return
-            if (Build.VERSION.SDK_INT in Build.VERSION_CODES.S..Build.VERSION_CODES.TIRAMISU) {
-                // data 为可选参数：官方文档 "Optionally, the Intent's data URI can specify the package name"。
-                // 部分 ROM（尤其国产）Settings 组件对该 action 的 intent-filter 不匹配带 data 的 intent，
-                // 设置 data 反而触发 ActivityNotFoundException；不带 data 时系统默认取调用者包名。
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } else {
-                openAppDetailsSettings()
-            }
-        } catch (e: Exception) {
-            openAppDetailsSettings()
         }
     }
 

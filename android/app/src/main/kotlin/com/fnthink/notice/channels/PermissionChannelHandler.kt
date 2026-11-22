@@ -7,35 +7,35 @@ import io.flutter.plugin.common.MethodChannel
 /**
  * 权限与系统设置域：通知监听/通知发送/短信/电话/应用列表权限的检查与申请，
  * 精确闹钟、电池优化白名单、应用详情页，以及国产 ROM 保活跳转（小米/魅族/华为/OPPO/vivo）。
+ *
+ * P1-2：实现已搬进 `PermissionOps`（MainActivity 只保留 `onRequestPermissionsResult` 的转交）；
+ * 本 Handler 继续只负责「方法名 → 实现」的映射，调用面一个字符都没变。
  */
 internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler(activity) {
-    companion object {
-        /** T61：请求码自定一个不与别的申请撞的（T84 那批用的是 71–78 那一段）。 */
-        const val PROMOTED_PERMISSION_REQUEST_CODE = 9101
-    }
+    private val ops get() = activity.permissionOps
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "isNotificationPermissionGranted" -> {
-                result.success(activity.isNotificationListenerPermissionGranted())
+                result.success(ops.isNotificationListenerPermissionGranted())
             }
             "isPostNotificationPermissionGranted" -> {
-                result.success(activity.isPostNotificationPermissionGranted())
+                result.success(ops.isPostNotificationPermissionGranted())
             }
             "requestNotificationListenerPermission" -> {
-                activity.requestNotificationListenerPermission()
+                ops.requestNotificationListenerPermission()
                 result.success(true)
             }
             "requestPostNotificationPermission" -> {
-                activity.requestPostNotificationPermission()
+                ops.requestPostNotificationPermission()
                 result.success(true)
             }
             // T55：提升/悬浮通知权限（36+ 才有；36 以下原生直接回 true，见那一侧注释）
             "isPromotedNotificationPermissionGranted" -> {
-                result.success(activity.isPromotedNotificationPermissionGranted())
+                result.success(ops.isPromotedNotificationPermissionGranted())
             }
             "requestPromotedNotificationPermission" -> {
-                activity.requestPromotedNotificationPermission(PROMOTED_PERMISSION_REQUEST_CODE)
+                ops.requestPromotedNotificationPermission()
                 result.success(true)
             }
             // T55：权限那一族有一枚是 36+ 才有的（提升/悬浮通知），界面要靠它决定显不显示
@@ -44,10 +44,10 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
             }
 
             "isSmsPermissionGranted" -> {
-                result.success(activity.isSmsPermissionGranted())
+                result.success(ops.isSmsPermissionGranted())
             }
             "isPhonePermissionGranted" -> {
-                result.success(activity.isPhonePermissionGranted())
+                result.success(ops.isPhonePermissionGranted())
             }
             "getAppListPermissionState" -> {
                 // 三态（granted / denied / unknown）。旧的布尔方法
@@ -56,28 +56,28 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 result.success(activity.getAppListPermissionState())
             }
             "requestSmsPermission" -> {
-                activity.requestSmsPermission()
+                ops.requestSmsPermission()
                 result.success(true)
             }
             "requestPhonePermission" -> {
-                activity.requestPhonePermission()
+                ops.requestPhonePermission()
                 result.success(true)
             }
-            // T124 片C：通话记录那一格（单独申请，不并进 phone —— 见 MainActivity 那枚请求码上的一句）
+            // T124 片C：通话记录那一格（单独申请，不并进 phone —— 见 PermissionOps 那枚请求码上的一句）
             "isCallLogPermissionGranted" -> {
-                result.success(activity.isCallLogPermissionGranted())
+                result.success(ops.isCallLogPermissionGranted())
             }
             "requestCallLogPermission" -> {
-                activity.requestCallLogPermission()
+                ops.requestCallLogPermission()
                 result.success(true)
             }
             // T124 片C-2：定位那一格（FINE+COARSE 一起申请是系统"精确／大致"那一次弹框的形状；
-            // 判据收在 activity.isLocationPermissionGranted 一枚方法里 —— 大致也算给了）
+            // 判据收在 permissionOps.isLocationPermissionGranted 一枚方法里 —— 大致也算给了）
             "isLocationPermissionGranted" -> {
-                result.success(activity.isLocationPermissionGranted())
+                result.success(ops.isLocationPermissionGranted())
             }
             "requestLocationPermission" -> {
-                activity.requestLocationPermission()
+                ops.requestLocationPermission()
                 result.success(true)
             }
             "canQueryAllPackages" -> {
@@ -86,72 +86,72 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 result.success(activity.canQueryAllPackages())
             }
             "requestQueryAllPackagesPermission" -> {
-                activity.requestQueryAllPackagesPermission()
+                ops.requestQueryAllPackagesPermission()
                 result.success(true)
             }
             // T140 走 (c)：精确闹钟只剩一枚真值 = 系统授权。
             // 那一枚 App 内开关的两个通道方法（读/写）已一起删除，Dart 侧同步不再有调用点；
             // 不许"只删一侧"——那会让 Dart 的 invokeMethod 打到 no-method 上被 try/catch 吞成 false。
             "canScheduleExactAlarms" -> {
-                result.success(activity.canScheduleExactAlarms())
+                result.success(ops.canScheduleExactAlarms())
             }
             "requestExactAlarmPermission" -> {
-                activity.requestExactAlarmPermission()
+                ops.requestExactAlarmPermission()
                 result.success(true)
             }
             "requestBatteryOptimization" -> {
-                activity.requestBatteryOptimization()
+                ops.requestBatteryOptimization()
                 result.success(true)
             }
             // T137 验收③：收件渠道自己的系统设置页 —— 厂商的悬浮/锁屏/声音开关不在 AOSP
             // 可读范围里，界面只能"报自己那侧 + 一键跳"，没有"读回来"的那一半。
             "openInboxChannelSettings" -> {
-                activity.openInboxChannelSettings()
+                ops.openInboxChannelSettings()
                 result.success(true)
             }
             "isIgnoringBatteryOptimizations" -> {
-                result.success(activity.isIgnoringBatteryOptimizations())
+                result.success(ops.isIgnoringBatteryOptimizations())
             }
             "openAppDetailsSettings" -> {
-                activity.openAppDetailsSettings()
+                ops.openAppDetailsSettings()
                 result.success(true)
             }
             "requestXiaomiAutoStart" -> {
-                activity.requestXiaomiAutoStart()
+                ops.requestXiaomiAutoStart()
                 result.success(true)
             }
             "requestMeizuBackground" -> {
-                activity.requestMeizuBackground()
+                ops.requestMeizuBackground()
                 result.success(true)
             }
             "requestHuaweiLaunch" -> {
-                activity.requestHuaweiLaunch()
+                ops.requestHuaweiLaunch()
                 result.success(true)
             }
             "requestOppoBackground" -> {
-                activity.requestOppoBackground()
+                ops.requestOppoBackground()
                 result.success(true)
             }
             "requestVivoBackground" -> {
-                activity.requestVivoBackground()
+                ops.requestVivoBackground()
                 result.success(true)
             }
             // ── T198: 锁屏三项厂商跳转（骨架） ──────────────────────────────
-            "requestXiaomiLockData" -> { activity.requestXiaomiLockData(); result.success(true) }
-            "requestMeizuLockData" -> { activity.requestMeizuLockData(); result.success(true) }
-            "requestHuaweiLockData" -> { activity.requestHuaweiLockData(); result.success(true) }
-            "requestOppoLockData" -> { activity.requestOppoLockData(); result.success(true) }
-            "requestVivoLockData" -> { activity.requestVivoLockData(); result.success(true) }
-            "requestXiaomiSleep" -> { activity.requestXiaomiSleep(); result.success(true) }
-            "requestMeizuSleep" -> { activity.requestMeizuSleep(); result.success(true) }
-            "requestHuaweiSleep" -> { activity.requestHuaweiSleep(); result.success(true) }
-            "requestOppoSleep" -> { activity.requestOppoSleep(); result.success(true) }
-            "requestVivoSleep" -> { activity.requestVivoSleep(); result.success(true) }
-            "requestXiaomiWifiSleep" -> { activity.requestXiaomiWifiSleep(); result.success(true) }
-            "requestMeizuWifiSleep" -> { activity.requestMeizuWifiSleep(); result.success(true) }
-            "requestHuaweiWifiSleep" -> { activity.requestHuaweiWifiSleep(); result.success(true) }
-            "requestOppoWifiSleep" -> { activity.requestOppoWifiSleep(); result.success(true) }
-            "requestVivoWifiSleep" -> { activity.requestVivoWifiSleep(); result.success(true) }
+            "requestXiaomiLockData" -> { ops.requestXiaomiLockData(); result.success(true) }
+            "requestMeizuLockData" -> { ops.requestMeizuLockData(); result.success(true) }
+            "requestHuaweiLockData" -> { ops.requestHuaweiLockData(); result.success(true) }
+            "requestOppoLockData" -> { ops.requestOppoLockData(); result.success(true) }
+            "requestVivoLockData" -> { ops.requestVivoLockData(); result.success(true) }
+            "requestXiaomiSleep" -> { ops.requestXiaomiSleep(); result.success(true) }
+            "requestMeizuSleep" -> { ops.requestMeizuSleep(); result.success(true) }
+            "requestHuaweiSleep" -> { ops.requestHuaweiSleep(); result.success(true) }
+            "requestOppoSleep" -> { ops.requestOppoSleep(); result.success(true) }
+            "requestVivoSleep" -> { ops.requestVivoSleep(); result.success(true) }
+            "requestXiaomiWifiSleep" -> { ops.requestXiaomiWifiSleep(); result.success(true) }
+            "requestMeizuWifiSleep" -> { ops.requestMeizuWifiSleep(); result.success(true) }
+            "requestHuaweiWifiSleep" -> { ops.requestHuaweiWifiSleep(); result.success(true) }
+            "requestOppoWifiSleep" -> { ops.requestOppoWifiSleep(); result.success(true) }
+            "requestVivoWifiSleep" -> { ops.requestVivoWifiSleep(); result.success(true) }
             else -> return false
         }
         return true

@@ -80,7 +80,7 @@ void main() {
   const policyRel =
       'android/app/src/main/kotlin/com/fnthink/notice/ExactAlarmPolicy.kt';
   const callersRel =
-      'android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt';
+      'android/app/src/main/kotlin/com/fnthink/notice/PermissionOps.kt';
 
   /// 现在排精确闹钟的三处（延迟推送／聚合推送／幻念收货闹钟）。
   const alarmSites = <String>[
@@ -166,7 +166,7 @@ void main() {
         readKotlin(callersRel),
         contains('ExactAlarmPolicy.allowed('),
         reason:
-            'MainActivity 若自己内联一份 `AlarmManager.canScheduleExactAlarms()`，'
+            'PermissionOps 若自己内联一份 `AlarmManager.canScheduleExactAlarms()`，'
             '就又是两个表达式：③ 修好了、① 也会跟着长回来。'
             '这一条钉的是"界面那一行报出去的那一份，与三处闹钟读的那一份同源"。',
       );
