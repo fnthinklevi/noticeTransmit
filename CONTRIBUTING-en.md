@@ -244,8 +244,8 @@ Do not copy numbers by hand, and do not keep a second readings list anywhere els
 | fnthink_push package tests | 601 <!--k:push_tests--> |
 | Kotlin JVM unit tests | 776 <!--k:kotlin_tests--> |
 | Kotlin test classes | 102 <!--k:kotlin_classes--> |
-| Server contract tests (jest) | 871 <!--k:jest_tests--> |
-| Server test suites | 47 <!--k:jest_suites--> |
+| Server contract tests (jest) | 878 <!--k:jest_tests--> |
+| Server test suites | 48 <!--k:jest_suites--> |
 | l10n keys (zh; en locked to same count) | 1771 <!--k:l10n_keys--> |
 | Dart lines (lib/) | 95035 <!--k:dart_loc_lib--> |
 | Dart test lines (test/) | 95779 <!--k:dart_loc_test--> |

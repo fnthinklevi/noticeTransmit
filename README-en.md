@@ -457,8 +457,8 @@ committed back (`--fix`), while PR / fork runs fail the build and ask for a loca
 | fnthink_push package tests | 601 <!--k:push_tests--> |
 | Kotlin JVM unit tests | 776 <!--k:kotlin_tests--> |
 | Kotlin test classes | 102 <!--k:kotlin_classes--> |
-| Server contract tests (jest) | 871 <!--k:jest_tests--> |
-| Server test suites | 47 <!--k:jest_suites--> |
+| Server contract tests (jest) | 878 <!--k:jest_tests--> |
+| Server test suites | 48 <!--k:jest_suites--> |
 | l10n keys (zh; en locked to same count) | 1771 <!--k:l10n_keys--> |
 | Dart lines (lib/) | 95035 <!--k:dart_loc_lib--> |
 | Dart test lines (test/) | 95779 <!--k:dart_loc_test--> |
@@ -547,6 +547,13 @@ This app includes sensitive permissions such as `RECEIVE_SMS` / `READ_SMS` / `RE
 2. Did device self-registration succeed (the Fnthink page can show its own identity)
 3. Is the peer in your **pairing list**, and is forwarding checked for it
 4. Are the certificate and system time correct (signatures are time-sensitive)
+
+### Fnthink Push messages arrive late?
+1. Confirm the server runs as a **single process**: `pm2 ls` must show exactly one `update-server`, and the startup log must contain `[single-instance] 检查通过`. A cluster start (`pm2 start ... -i N`) is rejected with a pointed log line; follow the command printed there
+2. Make sure the phone is on the **battery-optimization allowlist** and **autostart** is enabled (Xiaomi / Huawei / OPPO require vendor settings; the receive page shows the exemption state)
+3. With a healthy wake-up connection the server sends a wake immediately on connect and the client reseats timers on link-state changes; the fallback poll is **60s**, so healthy delivery should be a matter of seconds
+4. Two cases can still be slow: reconnect windows after network / NAT changes (up to ~60s), and a genuinely **frozen** process (even alarms do not run; only vendor allowlisting helps)
+5. On debug builds run `adb logcat | grep -E "fnthink|SSE"` and check for `SSE 流断了` / `SSE 超过` before the delay
 
 ### A remote-control instruction does nothing?
 1. Was the matching level granted on the receiver (L2 per item; L3 off by default)

@@ -77,6 +77,10 @@ curl -s localhost:3456/health                       # {"status":"ok","timestamp"
 curl -s "localhost:3456/api/version/check?version=1.5.76&build=116&platform=android" | head -c 200
 ```
 
+> ⚠ **必须单进程，不要开 pm2 cluster。** 服务端状态是进程内 Map + `server/data/*.json`（没有跨进程锁），SSE 的 waiter / listener / 一次性票也只在当前进程。`pm2 start ... -i N` 或 `pm2 scale` 会让消息落在 A、SSE 连在 B，表现是“消息到了设备不醒”，还可能并发覆盖同一份 JSON。
+>
+> 启动时有单实例硬闸：cluster worker 会拒绝启动并打印改回 fork 的命令；同一 `DATA_DIR` 被第二个进程占用也会拒绝。正常启动日志应有 `[single-instance] 检查通过（pid=…，锁=…）`。若上次被 `kill -9` 留下 `server/data/.single-instance.lock`，确认旧进程不存在后删除该文件再启动即可。
+
 ---
 
 ## 3. 加装幻念推送公网面（形态 B）
