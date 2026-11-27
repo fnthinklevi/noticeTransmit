@@ -86,6 +86,7 @@ server/data/totp_config.json
 server/data/totp.json
 server/data/sessions.json
 server/data/rate_limit.json
+server/data/.single-instance.lock
 
 # Gradle build artifacts
 install_dir/

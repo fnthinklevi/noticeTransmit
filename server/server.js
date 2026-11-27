@@ -7,8 +7,15 @@
 require('dotenv').config({ quiet: true });
 const app = require('./lib/app');
 const store = require('./lib/store');
+const { enforceSingleInstance } = require('./lib/singleInstance');
 
 const PORT = process.env.PORT || 3456;
+
+// 单实例硬闸：数据层是进程内 Map + data/*.json，多副本会让消息/票/SSE 订阅分散，
+// 表现是"消息到了设备不醒"（见 lib/singleInstance.js 头注释）。必须在起定时器与
+// listen 之前判：否则 cluster worker 会先跑起一套后台任务再退出，留下半截状态。
+const instanceLock = enforceSingleInstance({ dataDir: store.DATA_DIR });
+if (instanceLock) process.once('exit', instanceLock.release);
 
 // 定期清理 + 持久化：保存到文件防止重启丢失
 setInterval(() => {
