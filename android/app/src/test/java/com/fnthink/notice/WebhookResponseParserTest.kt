@@ -91,6 +91,56 @@ class WebhookResponseParserTest {
         )
     }
 
+    // ===== P0：HTTP 202 = 已受理，不是已送达 =====
+
+    @Test
+    fun http202_emptyBody_isQueuedNotSuccess() {
+        val r = parse(WebhookType.GENERIC, 202, "  ")
+        assertEquals(DeliveryStatus.QUEUED, r.status)
+        assertFalse("已受理不是失败，不触发自动重试", r.retryable)
+    }
+
+    @Test
+    fun http202_genericNoBusinessCode_isQueued() {
+        // 幻念 /p/... 端点回 202 + {messageId, action}；没有业务码 ⇒ 不能落 SUCCESS。
+        val r = parse(
+            WebhookType.GENERIC,
+            202,
+            """{"messageId":"m_1","action":"queued"}""",
+        )
+        assertEquals(DeliveryStatus.QUEUED, r.status)
+        assertTrue(r.message.contains("202"))
+    }
+
+    @Test
+    fun http202_genericNonJsonBody_isQueued() {
+        val r = parse(WebhookType.GENERIC, 202, "accepted")
+        assertEquals(DeliveryStatus.QUEUED, r.status)
+    }
+
+    @Test
+    fun http202_platformSuccess_isQueuedNotSuccess() {
+        // 平台自己的 parse 说"业务成功"，也只证明它受理了；202 仍不能标已送达。
+        val r = parse(WebhookType.WECHAT_WORK, 202, """{"errcode":0,"errmsg":"ok"}""")
+        assertEquals(DeliveryStatus.QUEUED, r.status)
+    }
+
+    @Test
+    fun http202_platformBizError_stillFails() {
+        // 202 + 明确错误码：不能因为状态码是 202 就把错误吞成"排队中"。
+        val r = parse(WebhookType.WECHAT_WORK, 202, """{"errcode":42001,"errmsg":"token expired"}""")
+        assertEquals(DeliveryStatus.BIZ_FAIL, r.status)
+        assertFalse(r.retryable)
+    }
+
+    @Test
+    fun testSuccess_acceptsQueued_butNotFailure() {
+        assertTrue(WebhookResponseParser.isTestSuccess(DeliveryStatus.SUCCESS))
+        assertTrue(WebhookResponseParser.isTestSuccess(DeliveryStatus.QUEUED))
+        assertFalse(WebhookResponseParser.isTestSuccess(DeliveryStatus.BIZ_FAIL))
+        assertFalse(WebhookResponseParser.isTestSuccess(DeliveryStatus.NETWORK_FAIL))
+    }
+
     // ===== 企业微信 / 钉钉：errcode =====
 
     @Test

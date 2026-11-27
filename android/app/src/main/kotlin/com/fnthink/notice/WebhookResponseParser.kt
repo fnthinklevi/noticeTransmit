@@ -99,11 +99,18 @@ object WebhookResponseParser {
         // HTTP 2xx：解析 body 判断业务状态
         val body = responseBody.trim()
         if (body.isEmpty()) {
+            // P0：202 = 已受理，不是已送达（异步网关、幻念 /p/... 端点都这么用）。
+            // 它没有可查询的终态回执；标 SUCCESS 就是"幽灵消息"的起点。
+            if (httpCode == 202) {
+                return ParseResult(
+                    DeliveryStatus.QUEUED, httpCode, I18n.msg("err.acceptedQueued"), false
+                )
+            }
             // HTTP 2xx 且 body 为空：视为成功
             return ParseResult(DeliveryStatus.SUCCESS, httpCode, "OK (empty body)", false)
         }
 
-        return try {
+        val parsed = try {
             val json = JSONObject(body)
             parseBusinessCode(spec, httpCode, json, body)
         } catch (e: Exception) {
@@ -119,18 +126,40 @@ object WebhookResponseParser {
             //    HTTP 状态码（ntfy 回 text/plain，Discord 回 204 空 body）。
             // 声明位：响应契约由描述符给出（此前写成 type != GENERIC && parse != null 的间接推断）
             val jsonContractPlatform = spec.requiresJsonContract
-            return if (jsonContractPlatform) {
+            if (jsonContractPlatform) {
                 ParseResult(
                     DeliveryStatus.BIZ_FAIL,
                     httpCode,
                     I18n.msgf("err.nonJson", body.take(120)),
                     false
                 )
+            } else if (httpCode == 202) {
+                ParseResult(
+                    DeliveryStatus.QUEUED, httpCode, I18n.msg("err.acceptedQueued"), false
+                )
             } else {
                 ParseResult(DeliveryStatus.SUCCESS, httpCode, body.take(200), false)
             }
         }
+        // P0：202 无论走哪条解析（含平台自己的 parse），都不许停在 SUCCESS。
+        // 平台在 202 body 里明确报错（BIZ_FAIL / RATE_LIMITED）时保留它的结论。
+        return if (httpCode == 202 && parsed.status == DeliveryStatus.SUCCESS) {
+            parsed.copy(
+                status = DeliveryStatus.QUEUED,
+                message = I18n.msg("err.acceptedQueued"),
+                retryable = false,
+            )
+        } else {
+            parsed
+        }
     }
+
+    /**
+     * 「测试」按钮的判据：SUCCESS 与 QUEUED（已受理）都算通。
+     * 测试只验证地址/凭据是否可达，不承担"已送达"的证明 —— 202 不该把一次正常测试显示成失败。
+     */
+    fun isTestSuccess(status: DeliveryStatus): Boolean =
+        status == DeliveryStatus.SUCCESS || status == DeliveryStatus.QUEUED
 
     /**
      * 业务码判定 —— 分派经 [ChannelRegistry] 描述符表（新增通道只需改表）。

@@ -729,7 +729,7 @@ class MainActivity : FlutterActivity() {
                         val parseResult = WebhookResponseParser.parse(
                             WebhookPayloadBuilder.detectType(url), response.code, responseBody
                         )
-                        (parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS) to
+                        (WebhookResponseParser.isTestSuccess(parseResult.status)) to
                             parseResult.message
                     }
                 }
@@ -2033,7 +2033,7 @@ class MainActivity : FlutterActivity() {
                         val responseBody = response.body.string()
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
                         Triple(
-                            parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                            WebhookResponseParser.isTestSuccess(parseResult.status),
                             parseResult.message,
                             false
                         )
@@ -2051,7 +2051,7 @@ class MainActivity : FlutterActivity() {
                         val responseBody = response.body.string()
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
                         Triple(
-                            parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                            WebhookResponseParser.isTestSuccess(parseResult.status),
                             parseResult.message,
                             false
                         )
@@ -2072,7 +2072,7 @@ class MainActivity : FlutterActivity() {
                         val responseBody = response.body.string()
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
                         Triple(
-                            parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                            WebhookResponseParser.isTestSuccess(parseResult.status),
                             parseResult.message,
                             false
                         )
@@ -2099,7 +2099,7 @@ class MainActivity : FlutterActivity() {
                             val responseBody = response.body.string()
                             val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
                             Triple(
-                                parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                                WebhookResponseParser.isTestSuccess(parseResult.status),
                                 parseResult.message,
                                 false
                             )
@@ -2150,7 +2150,7 @@ class MainActivity : FlutterActivity() {
                         val fullMessage = "$detail\n${parseResult.message.take(300)}"
 
                         Triple(
-                            parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                            WebhookResponseParser.isTestSuccess(parseResult.status),
                             fullMessage,
                             !secret.isNullOrEmpty()
                         )
