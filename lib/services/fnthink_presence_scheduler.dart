@@ -103,9 +103,11 @@ class FnthinkPresenceScheduler {
     // 循环还在跑时它不会真的响；循环一停，最迟那一档之后由 worker 接手。
     //
     // T185 第二步的三档：
-    //  - SSE 健康 ⇒ 兜底退到 `stream.safetyPollSeconds`（正常时门铃立刻叫醒，
-    //    这一颗只防"流静默死了但连接还在"）；
-    //  - 后台那一轮 / 常驻档 ⇒ 契约最慢档（60s），是"进程被杀"的接手间隔；
+    //  - SSE 健康 ⇒ 兜底按契约最慢档（60s），不再退回 `stream.safetyPollSeconds`
+    //    （300s）。门铃只防"流静默死了但连接还在"；进程被 ROM 冻结时 SSE 字节一样读不到，
+    //    wake 等于丢了 —— 300s 里没有任何东西能接手（2026-11-27 延迟复盘，小米实测）。
+    //    仍是"契约允许的最慢一档"，不在实现里另写一个数；
+    //  - 后台那一轮 / 常驻档 ⇒ 同一档（60s），是"进程被杀"的接手间隔；
     //  - 都没有 ⇒ 用户选的那一档常态 cadence。
     final int alarmSeconds;
     if (backoff) {
@@ -115,7 +117,7 @@ class FnthinkPresenceScheduler {
       // 它必须压过 `fnthinkStreamHealthy`，否则"被杀后 60s 接手"会变成 300s。
       alarmSeconds = await _backstopSeconds();
     } else if (fnthinkStreamHealthy) {
-      alarmSeconds = await _streamSafetySeconds();
+      alarmSeconds = await _backstopSeconds();
     } else if (fnthinkLiveModeActive) {
       alarmSeconds = await _backstopSeconds();
     } else {
@@ -163,14 +165,6 @@ class FnthinkPresenceScheduler {
   Future<int> _backstopSeconds() async {
     final contract = await contracts.load();
     return contract.pollIntervalRange.max;
-  }
-
-  /// SSE 健康时的兜底间隔：契约 `presence.stream.safetyPollSeconds`。
-  /// 段缺（旧契约）时退回契约最慢档 —— 宁可 60 秒兜一次，也不在实现里写一个数。
-  Future<int> _streamSafetySeconds() async {
-    final contract = await contracts.load();
-    return contract.streamSpec?.safetyPollSeconds ??
-        contract.pollIntervalRange.max;
   }
 
   /// 下一轮的间隔：T192 起「收取间隔」滑杆下线，固定用契约

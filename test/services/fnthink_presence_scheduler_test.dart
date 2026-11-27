@@ -349,7 +349,7 @@ void main() {
                 as Map)['seconds']
             as int;
 
-    test('门铃健康 ⇒ 不 start live、撤锁，兜底退到契约的 safetyPollSeconds', () async {
+    test('门铃健康 ⇒ 不 start live、撤锁，兜底按契约最慢档（60s，不再等 300s）', () async {
       mockAppChannel(reply: true);
       fnthinkStreamHealthy = true;
       final contract = FnthinkContract.parse(realContractText);
@@ -365,7 +365,13 @@ void main() {
         reason: '门铃健康时网络回包本身会唤醒 CPU，再持一把锁就是白耗电',
       );
       expect(calls.where((c) => c.method == 'stopFnthinkLive'), isNotEmpty);
-      expect(scheduledSeconds(), contract.streamSpec!.safetyPollSeconds);
+      expect(
+        scheduledSeconds(),
+        contract.pollIntervalRange.max,
+        reason:
+            '进程被 ROM 冻结时 SSE 字节读不到、wake 等于丢了；兜底再排 safetyPollSeconds（300s）'
+            '就等于 5 分钟里没有任何东西接手（2026-11-27 小米实测）',
+      );
     });
 
     test('后台那一轮 ⇒ 不开常驻档（引擎只活一轮），兜底仍是契约最慢档', () async {
