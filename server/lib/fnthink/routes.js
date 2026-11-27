@@ -653,13 +653,19 @@ router.get('/stream', (req, res) => {
   res.write(': connected\n\n');
 
   // 消息/回执/配对面变化时叫醒这台设备挂着的流。写失败（连接刚断）由 close 清理。
-  const off = onWake(device, () => {
+  const wake = () => {
     try {
       res.write('event: wake\ndata: {}\n\n');
     } catch (e) {
       // 连接已经断了；close 那边会 removeListener。这里不抛，免得带崩别的订阅者。
     }
-  });
+  };
+  const off = onWake(device, wake);
+  // 建流即补一发 wake：客户端的换票那一发 `/poll` 是**只发票、不取货**的，
+  // 而建流前 / 重连退避窗口里到达的消息没有 listener、也没有 wake 可补 ——
+  // 不写这一下，它只能等客户端 `safetyPollSeconds`（300 秒）兜底。
+  // 重复 wake 是安全的：客户端那一侧会合并成"立刻 poll 一轮"。
+  wake();
   const heartbeatSeconds = Math.max(5, Number(STREAM.heartbeatSeconds) || 20);
   const timer = setInterval(() => {
     try {

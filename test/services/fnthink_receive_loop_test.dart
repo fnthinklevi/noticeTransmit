@@ -337,6 +337,83 @@ void main() {
       loop.stop();
     });
 
+    test('叫醒轮空手而归也只排 20s：不许再回到 300s 兜底', () async {
+      final scheduled = <Duration>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => const FnthinkReceiveOutcome(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 300),
+        ),
+        pollNow: () async => const FnthinkReceiveOutcome(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 300),
+        ),
+        ack: (_, _) async => const FnthinkAckResult(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 20),
+        ),
+        persist: (_) async => true,
+        nowMs: () => 1700000000000,
+        schedule: (delay, callback) {
+          scheduled.add(delay);
+          final t = Timer(Duration.zero, () {});
+          _timers.add(t);
+          return t;
+        },
+      );
+      loop.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(scheduled, [const Duration(seconds: 300)]);
+      loop.wakeNow();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        scheduled.last,
+        const Duration(seconds: 20),
+        reason:
+            '叫醒轮空手（无消息/回执/积压）时沿用 safetyPollSeconds ⇒ 第二条仍要等 5 分钟；'
+            '1.6.8 的注释写着"丢一次唤醒最多 20 秒补取"，代码必须做到',
+      );
+      loop.stop();
+    });
+
+    test('降级重排只换定时器：300s → 20s，不额外跑一轮', () async {
+      final scheduled = <Duration>[];
+      var polls = 0;
+      final loop = FnthinkReceiveLoop(
+        poll: () async {
+          polls++;
+          return const FnthinkReceiveOutcome(
+            status: FnthinkPollStatus.ok,
+            nextDelay: Duration(seconds: 300),
+          );
+        },
+        ack: (_, _) async => const FnthinkAckResult(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 20),
+        ),
+        persist: (_) async => true,
+        nowMs: () => 1700000000000,
+        schedule: (delay, callback) {
+          scheduled.add(delay);
+          final t = Timer(Duration.zero, () {});
+          _timers.add(t);
+          return t;
+        },
+      );
+      loop.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(scheduled, [const Duration(seconds: 300)]);
+      expect(polls, 1);
+
+      loop.reschedule(const Duration(seconds: 20));
+      expect(scheduled, [
+        const Duration(seconds: 300),
+        const Duration(seconds: 20),
+      ], reason: 'degraded 只换排期；旧 300s 不被替换，短轮询就要等满 5 分钟才生效');
+      expect(polls, 1, reason: '重排不是补轮：探针由 probeOnStale 负责，这里多跑一轮会重复取货');
+      loop.stop();
+    });
+
     test('叫醒轮接管后，被叫停的旧轮不再排第二个定时器', () async {
       final h = _Harness();
       final scheduled = <Duration>[];

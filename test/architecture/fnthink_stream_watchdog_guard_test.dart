@@ -68,6 +68,37 @@ void main() {
     expect(src, contains('onLinkStateChanged:'));
   });
 
+  test('三态切换接管定时器：degraded 重排 20s、offline 用 wakeNow（都不许 runOnce）', () {
+    final src = stripComments(File('$root/$coordinatorRel').readAsStringSync());
+    final build = blockAfter(
+      src,
+      'FnthinkReceiveLoop buildFnthinkReceiveLoop(',
+    );
+    final degradedAt = build.indexOf(
+      'FnthinkStreamLinkState.degraded && loop.isRunning',
+    );
+    final offlineAt = build.indexOf(
+      'FnthinkStreamLinkState.offline && loop.isRunning',
+    );
+    final probeAt = build.indexOf('probeOnStale:');
+    expect(degradedAt, greaterThanOrEqualTo(0), reason: 'degraded 分支消失');
+    expect(offlineAt, greaterThan(degradedAt), reason: 'offline 分支消失');
+    expect(probeAt, greaterThan(offlineAt));
+
+    expect(
+      build.substring(degradedAt, offlineAt),
+      contains('loop.reschedule(const Duration(seconds: 20))'),
+      reason: '降级不重排 ⇒ 门铃健康时那颗 300s 定时器不动，短轮询要等满 5 分钟才生效',
+    );
+    final offlineBlock = build.substring(offlineAt, probeAt);
+    expect(offlineBlock, contains('loop.wakeNow()'));
+    expect(
+      offlineBlock,
+      isNot(contains('runOnce')),
+      reason: '离线用 runOnce ⇒ 补到的只是开跑那一刻，下一条仍等旧 300s',
+    );
+  });
+
   test('pollOnce 的 hold 计算是短轮询的唯一落点', () {
     final src = stripComments(File('$root/$receiverRel').readAsStringSync());
     // ⚠ 不能 blockAfter 签名：pollOnce({bool hold = true}) 的**第一个 `{` 是命名参数表**，

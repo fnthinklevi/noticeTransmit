@@ -420,7 +420,7 @@ describe('POST /api/fnthink/poll 长轮询（T185）', () => {
     expect(res.headers[String(contract.presence.longPoll.responseHeader)]).toBeUndefined();
   });
 
-  test('SSE：有效票能连上，消息落盘时收到 wake（门铃不投递）', async () => {
+  test('SSE：建流即补一发 wake；消息落盘再收第二发（门铃不投递）', async () => {
     const http = require('http');
     const { issueTicket } = require('../lib/fnthink/streams');
     const spec = contract.presence.stream;
@@ -430,11 +430,15 @@ describe('POST /api/fnthink/poll 长轮询（T185）', () => {
     try {
       const port = server.address().port;
       let connectedSeen = false;
-      let wakeSeen = false;
+      let wakeCount = 0;
       let connectedResolve;
-      let wakeResolve;
+      let initialWakeResolve;
+      let secondWakeResolve;
       const connected = new Promise((r) => (connectedResolve = r));
-      const woken = new Promise((r) => (wakeResolve = r));
+      // 建流窗口：换票那一发 /poll 只发票不取货，客户端要靠建流时补的这发 wake
+      // 才去立刻 poll。没有它，窗口里到达的消息只能等 safetyPollSeconds（300s）。
+      const initialWake = new Promise((r) => (initialWakeResolve = r));
+      const secondWake = new Promise((r) => (secondWakeResolve = r));
       sseReq = http.get(
         {
           port,
@@ -451,10 +455,14 @@ describe('POST /api/fnthink/poll 长轮询（T185）', () => {
               connectedSeen = true;
               connectedResolve();
             }
-            if (!wakeSeen && buf.includes('event: wake')) {
-              wakeSeen = true;
-              wakeResolve();
-              res.destroy();
+            const seen = (buf.match(/event: wake/g) || []).length;
+            if (seen > wakeCount) {
+              wakeCount = seen;
+              if (wakeCount >= 1) initialWakeResolve();
+              if (wakeCount >= 2) {
+                secondWakeResolve();
+                res.destroy();
+              }
             }
           });
         },
@@ -463,11 +471,12 @@ describe('POST /api/fnthink/poll 长轮询（T185）', () => {
         // destroy 之后的 ECONNRESET 是预期的。
       });
       await connected;
+      await initialWake;
       await request(app)
         .post('/api/fnthink/message')
         .send(messageBody({ target: LONG }))
         .expect(202);
-      await woken;
+      await secondWake;
       // 门铃不投递：消息仍在队列里，下一次 poll 才取走（本用例只验 wake 到了）。
       const messages = messagestore.loadMessages();
       const queued = Object.values(messages).filter(

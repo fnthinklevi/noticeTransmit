@@ -284,12 +284,19 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
                 debugPrint('[fnthink] 门铃状态没落盘（后台那一轮会按 60 秒兜底）：$e');
               }
             }());
+            if (state == FnthinkStreamLinkState.degraded && loop.isRunning) {
+              // 判死后的探针那一轮（probeOnStale）不带定时器；必须在这里把门铃健康时
+              // 那颗 300s 排期换掉，否则 shortPollMode 要等旧定时器到点才生效 ——
+              // 症状正是"SSE 判死之后仍等满 300 秒"（2026-11-27 延迟复盘）。
+              loop.reschedule(const Duration(seconds: 20));
+            }
             if (state == FnthinkStreamLinkState.offline && loop.isRunning) {
-              // 真离线：立刻补一轮（不 hold）把断线期间的消息取回来；
-              // degraded 的那一发短轮询探针已经在 `probeOnStale` 里跑过，不重复。
+              // 真离线：立刻补一轮（不 hold）把断线期间的消息取回来。
+              // ⚠ 必须 wakeNow（带定时器接管），不能 runOnce —— 后者跑完不碰定时器，
+              //   补到的只是"开跑那一刻"，下一条仍要等旧的 300s。
               // ⚠ 只在循环还开着时补：`stop()` 也会触发 offline，
               //   那一刻再跑一轮就等于"用户刚关掉接收，又去问了一次货"。
-              unawaited(loop.runOnce(manual: true));
+              loop.wakeNow();
             }
           },
           probeOnStale: () async {

@@ -180,6 +180,24 @@ class FnthinkReceiveLoop {
     _tick(manual: true);
   }
 
+  /// 门铃状态切换（degraded / offline）时**只换定时器**，不额外跑一轮。
+  ///
+  /// 病根（2026-11-27 延迟复盘）：状态切换那一侧走的是 `runOnce(manual: true)`
+  /// （探针 / 补轮），而 [runOnce] 明确是"不带定时器的入口"。于是门铃健康时那颗
+  /// `safetyPollSeconds`（300s）定时器原封不动 —— `shortPollMode` 虽然已设成 true，
+  /// 也要等旧定时器到点才真正开始 20 秒短轮询。症状与"丢唤醒"无法区分：都是 300 秒。
+  ///
+  /// 探针那一轮由 `probeOnStale` 负责、offline 的补轮由 [wakeNow] 负责；
+  /// 这里只回答"下一次什么时候来"。递增代际是为了让**在途那一轮**收尾时不再排期，
+  /// 否则它会再种一颗定时器，和这里排的抢同一个循环。
+  void reschedule(Duration delay) {
+    if (!_wantRunning) return;
+    _tickToken++;
+    _timer?.cancel();
+    _timer = null;
+    _timer = schedule(delay, _tick);
+  }
+
   void _tick({bool manual = false}) {
     if (!_wantRunning) return;
     final token = ++_tickToken;
@@ -187,7 +205,8 @@ class FnthinkReceiveLoop {
       runOnce(manual: manual)
           .then((report) {
             if (!_wantRunning || token != _tickToken) return;
-            final Duration next;
+            var serverBackoff = false;
+            var next = Duration.zero;
             if (report.skipped) {
               // 上一轮还在途：不是失败，沿用报告给的保守间隔。
               next = report.nextDelay;
@@ -202,12 +221,23 @@ class FnthinkReceiveLoop {
               _failureStreak = 0;
               // 服务端给的退避（poll 429 或 ack 全被 429 挡住）原样放行，
               // 常驻档只压常态节奏。
-              final serverBackoff =
+              serverBackoff =
                   report.status == FnthinkPollStatus.rateLimited ||
                   report.ackSkipped > 0;
               next = serverBackoff
                   ? report.nextDelay
                   : (clampDelay?.call(report.nextDelay) ?? report.nextDelay);
+            }
+            // 门铃叫醒那一轮（manual=true 只来自 [wakeNow]）空手而归时，不许再回
+            // `safetyPollSeconds`（300s）—— 1.6.8 的注释写着"丢一次唤醒最多 20 秒补取"，
+            // 但那条路径没有做到：连发第二条撞上"abort 在途 poll → 消息 delivering →
+            // 叫醒轮空手"时，仍会等满 5 分钟。服务端明确限流的退避不压。
+            if (manual &&
+                report.status == FnthinkPollStatus.ok &&
+                !report.skipped &&
+                !serverBackoff &&
+                next > _wakeFollowUpCap) {
+              next = _wakeFollowUpCap;
             }
             _timer = schedule(next, _tick);
             onRound?.call(report);
@@ -221,6 +251,10 @@ class FnthinkReceiveLoop {
           }),
     );
   }
+
+  /// 叫醒轮空手而归时下一轮的上限（见 [_tick]）。不是常态节奏的第二作者：
+  /// 常态间隔仍由内核/契约给，这里只封"叫醒之后又排回 5 分钟"这一种形状。
+  static const Duration _wakeFollowUpCap = Duration(seconds: 20);
 
   static Duration get _fallbackDelay => const Duration(seconds: 60);
 
