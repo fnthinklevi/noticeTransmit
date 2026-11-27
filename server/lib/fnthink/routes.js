@@ -663,7 +663,7 @@ router.get('/stream', (req, res) => {
   const off = onWake(device, wake);
   // 建流即补一发 wake：客户端的换票那一发 `/poll` 是**只发票、不取货**的，
   // 而建流前 / 重连退避窗口里到达的消息没有 listener、也没有 wake 可补 ——
-  // 不写这一下，它只能等客户端 `safetyPollSeconds`（300 秒）兜底。
+  // 不写这一下，它只能等客户端 `safetyPollSeconds`（60 秒）兜底。
   // 重复 wake 是安全的：客户端那一侧会合并成"立刻 poll 一轮"。
   wake();
   const heartbeatSeconds = Math.max(5, Number(STREAM.heartbeatSeconds) || 20);

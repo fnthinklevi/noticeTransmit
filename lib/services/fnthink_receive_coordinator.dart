@@ -261,7 +261,7 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
           baseUri: spec.baseUri,
           requestTicket: service.requestStreamTicket,
           // 门铃一响就跑一轮（不 hold）并**接管定时器**：门铃健康时常态轮询被压到
-          // safetyPollSeconds（300s），叫醒轮若不重排，丢一次唤醒就要等满 5 分钟。
+          // safetyPollSeconds（60s），叫醒轮若不重排，丢一次唤醒就要等满 1 分钟。
           // 与手动「立即收取」同一条串行入口：在途的长轮询会先被叫停。
           onWake: () => loop.wakeNow(),
           // T216：重连退避的尾巴按前后台分档 —— 判据与 `fnthinkStreamHealthy` 同一层，

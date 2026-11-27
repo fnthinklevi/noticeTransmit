@@ -80,7 +80,7 @@ class FnthinkStreamService {
   /// 返回 true = 路径可达（degraded），false = 真离线（offline）。
   final Future<bool> Function()? probeOnStale;
 
-  /// degraded 态重探门铃的间隔；null = 读契约 `stream.safetyPollSeconds`（300 秒）。
+  /// degraded 态重探门铃的间隔；null = 读契约 `stream.safetyPollSeconds`（60 秒）。
   final Duration? degradedProbeInterval;
 
   final FnthinkSseOpen _open;
@@ -119,7 +119,7 @@ class FnthinkStreamService {
   @visibleForTesting
   Duration get degradedProbeIntervalForTest =>
       degradedProbeInterval ??
-      Duration(seconds: contract.streamSpec?.safetyPollSeconds ?? 300);
+      Duration(seconds: contract.streamSpec?.safetyPollSeconds ?? 60);
 
   void start() {
     if (_running) return;

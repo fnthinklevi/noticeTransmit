@@ -369,8 +369,8 @@ void main() {
         scheduledSeconds(),
         contract.pollIntervalRange.max,
         reason:
-            '进程被 ROM 冻结时 SSE 字节读不到、wake 等于丢了；兜底再排 safetyPollSeconds（300s）'
-            '就等于 5 分钟里没有任何东西接手（2026-11-27 小米实测）',
+            '进程被 ROM 冻结时 SSE 字节读不到、wake 等于丢了；兜底必须按契约最慢档（60s）排，'
+            '不能回到旧契约的 safetyPollSeconds（300s）',
       );
     });
 

@@ -168,7 +168,7 @@ class FnthinkReceiveLoop {
 
   /// 门铃叫醒（T185）：取消原定时器，立刻跑一轮**不 hold** 的取货，并按这一轮的结论重排。
   ///
-  /// ⚠ 必须接管定时器。门铃健康时常态轮询被压到契约的 `stream.safetyPollSeconds`（300s）；
+  /// ⚠ 必须接管定时器。门铃健康时常态轮询被压到契约的 `stream.safetyPollSeconds`（60s）；
   ///   旧写法直接 `runOnce(manual: true)`，跑完不碰定时器 ⇒ 下一次轮询仍停在 5 分钟后。
   ///   于是第二条消息的唤醒只要丢一次（重连窗口、边缘吞事件、多进程部署），它就要等满
   ///   5 分钟 —— 2026-11-21 实测「相隔 6 秒的两条端点消息，第一条即时、第二条晚了 6 分 37 秒」
@@ -184,7 +184,7 @@ class FnthinkReceiveLoop {
   ///
   /// 病根（2026-11-27 延迟复盘）：状态切换那一侧走的是 `runOnce(manual: true)`
   /// （探针 / 补轮），而 [runOnce] 明确是"不带定时器的入口"。于是门铃健康时那颗
-  /// `safetyPollSeconds`（300s）定时器原封不动 —— `shortPollMode` 虽然已设成 true，
+  /// `safetyPollSeconds`（60s）定时器原封不动 —— `shortPollMode` 虽然已设成 true，
   /// 也要等旧定时器到点才真正开始 20 秒短轮询。症状与"丢唤醒"无法区分：都是 300 秒。
   ///
   /// 探针那一轮由 `probeOnStale` 负责、offline 的补轮由 [wakeNow] 负责；
@@ -229,7 +229,7 @@ class FnthinkReceiveLoop {
                   : (clampDelay?.call(report.nextDelay) ?? report.nextDelay);
             }
             // 门铃叫醒那一轮（manual=true 只来自 [wakeNow]）空手而归时，不许再回
-            // `safetyPollSeconds`（300s）—— 1.6.8 的注释写着"丢一次唤醒最多 20 秒补取"，
+            // `safetyPollSeconds`（60s）—— 1.6.8 的注释写着"丢一次唤醒最多 20 秒补取"，
             // 但那条路径没有做到：连发第二条撞上"abort 在途 poll → 消息 delivering →
             // 叫醒轮空手"时，仍会等满 5 分钟。服务端明确限流的退避不压。
             if (manual &&

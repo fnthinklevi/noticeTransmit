@@ -213,7 +213,7 @@ void main() {
         contains('onWake: () => loop.wakeNow()'),
         reason:
             '直接 `runOnce(manual: true)` 不碰定时器：门铃健康时下一次轮询仍停在 '
-            'safetyPollSeconds（300s），丢一次唤醒就要等满 5 分钟',
+            'safetyPollSeconds（60s），丢一次唤醒仍要等满 1 分钟',
       );
       expect(
         coordinator,

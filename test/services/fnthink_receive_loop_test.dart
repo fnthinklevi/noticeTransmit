@@ -370,7 +370,7 @@ void main() {
         scheduled.last,
         const Duration(seconds: 20),
         reason:
-            '叫醒轮空手（无消息/回执/积压）时沿用 safetyPollSeconds ⇒ 第二条仍要等 5 分钟；'
+            '模拟内核仍报 300s（旧契约/服务端兜底）时，叫醒轮空手也不许沿用 —— 第二条仍要等 5 分钟；'
             '1.6.8 的注释写着"丢一次唤醒最多 20 秒补取"，代码必须做到',
       );
       loop.stop();

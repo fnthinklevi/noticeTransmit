@@ -436,7 +436,7 @@ describe('POST /api/fnthink/poll 长轮询（T185）', () => {
       let secondWakeResolve;
       const connected = new Promise((r) => (connectedResolve = r));
       // 建流窗口：换票那一发 /poll 只发票不取货，客户端要靠建流时补的这发 wake
-      // 才去立刻 poll。没有它，窗口里到达的消息只能等 safetyPollSeconds（300s）。
+      // 才去立刻 poll。没有它，窗口里到达的消息只能等 safetyPollSeconds（60s）。
       const initialWake = new Promise((r) => (initialWakeResolve = r));
       const secondWake = new Promise((r) => (secondWakeResolve = r));
       sseReq = http.get(
