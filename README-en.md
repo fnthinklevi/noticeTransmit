@@ -452,18 +452,18 @@ committed back (`--fix`), while PR / fork runs fail the build and ask for a loca
 <!-- readings:v1 (generated & checked by tools/gen_readings.py; CI --check blocks manual edits)
 | Reading | Value |
 |---|---|
-| Dart unit tests (flutter test) | 3821 <!--k:dart_tests--> |
+| Dart unit tests (flutter test) | 3823 <!--k:dart_tests--> |
 | Dart test files (test/) | 342 <!--k:dart_test_files--> |
 | fnthink_push package tests | 601 <!--k:push_tests--> |
-| Kotlin JVM unit tests | 776 <!--k:kotlin_tests--> |
-| Kotlin test classes | 102 <!--k:kotlin_classes--> |
+| Kotlin JVM unit tests | 784 <!--k:kotlin_tests--> |
+| Kotlin test classes | 103 <!--k:kotlin_classes--> |
 | Server contract tests (jest) | 878 <!--k:jest_tests--> |
 | Server test suites | 48 <!--k:jest_suites--> |
-| l10n keys (zh; en locked to same count) | 1771 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 95035 <!--k:dart_loc_lib--> |
-| Dart test lines (test/) | 95779 <!--k:dart_loc_test--> |
-| Kotlin lines (android main) | 25434 <!--k:kotlin_loc_main--> |
-| Kotlin test lines (android test) | 15930 <!--k:kotlin_loc_test--> |
+| l10n keys (zh; en locked to same count) | 1772 <!--k:l10n_keys--> |
+| Dart lines (lib/) | 95098 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 95853 <!--k:dart_loc_test--> |
+| Kotlin lines (android main) | 25469 <!--k:kotlin_loc_main--> |
+| Kotlin test lines (android test) | 16025 <!--k:kotlin_loc_test--> |
 | App version (pubspec) | 1.6.8+168 <!--k:app_version--> |
 | Database schema version | 29 <!--k:db_version--> |
 | Flutter (CI pin) | 3.47.7 <!--k:flutter_version--> |

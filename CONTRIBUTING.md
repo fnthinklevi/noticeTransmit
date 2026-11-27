@@ -225,18 +225,18 @@ PR / fork 场景判红、要求本地 `--fix`。不要再手抄数字，也不�
 <!-- readings:v1（tools/gen_readings.py 生成与校验；手改会被 CI --check 拦下）
 | 读数 | 值 |
 |---|---|
-| App 全量测试（flutter test） | 3821 例 <!--k:dart_tests--> |
+| App 全量测试（flutter test） | 3823 例 <!--k:dart_tests--> |
 | App 测试文件数（test/） | 342 个 <!--k:dart_test_files--> |
 | 幻念推送包测试（fnthink_push） | 601 例 <!--k:push_tests--> |
-| Kotlin JVM 单元测试 | 776 例 <!--k:kotlin_tests--> |
-| Kotlin 测试类数 | 102 类 <!--k:kotlin_classes--> |
+| Kotlin JVM 单元测试 | 784 例 <!--k:kotlin_tests--> |
+| Kotlin 测试类数 | 103 类 <!--k:kotlin_classes--> |
 | 服务端契约测试（jest） | 878 例 <!--k:jest_tests--> |
 | 服务端测试套件数 | 48 套件 <!--k:jest_suites--> |
-| l10n 词条（zh；en 同数锁定） | 1771 条 <!--k:l10n_keys--> |
-| Dart 源码行数（lib/） | 95035 行 <!--k:dart_loc_lib--> |
-| Dart 测试行数（test/） | 95779 行 <!--k:dart_loc_test--> |
-| Kotlin 源码行数（android main） | 25434 行 <!--k:kotlin_loc_main--> |
-| Kotlin 测试行数（android test） | 15930 行 <!--k:kotlin_loc_test--> |
+| l10n 词条（zh；en 同数锁定） | 1772 条 <!--k:l10n_keys--> |
+| Dart 源码行数（lib/） | 95098 行 <!--k:dart_loc_lib--> |
+| Dart 测试行数（test/） | 95853 行 <!--k:dart_loc_test--> |
+| Kotlin 源码行数（android main） | 25469 行 <!--k:kotlin_loc_main--> |
+| Kotlin 测试行数（android test） | 16025 行 <!--k:kotlin_loc_test--> |
 | 应用版本（pubspec） | 1.6.8+168 <!--k:app_version--> |
 | 数据库 schema 版本 | 29 v <!--k:db_version--> |
 | Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |
