@@ -102,6 +102,7 @@ const {
   pendingCountFor,
   receiptsForSender,
   requeueOnAbortedResponse,
+  unmarkReceiptsOnAbortedResponse,
   requeueUnackedStale,
   saveMessages,
 } = require('./messagestore');
@@ -464,6 +465,10 @@ router.post(
     // T217-A：本轮最后一次 collect 交给设备的 messageId。响应没写完就断开时，
     // 只有这一批需要退回（更早的 collect 不可能带消息：一带消息 hasNews 就退出 hold）。
     let lastTaken = [];
+    // P1-4：本轮最后一次 collect 交出去的回执 messageId。与 lastTaken 同一个边界 ——
+    // `receiptsForSender` 在响应写出**之前**就把 `receiptSentAt` 落了盘，响应中途断掉时
+    // 发送端一条都没收到而服务端认为"报过了" ⇒ 那条回执再也不会出现。
+    let lastReceipts = [];
     // 取一次货。长轮询会重复调用它，每次用**当下**的时刻（过期扫描与回执都按它算）：
     // 一次 hold 25 秒之后还拿请求到达那一刻判过期，会把刚过期的货再交出去。
     const collect = (at) => {
@@ -503,6 +508,7 @@ router.post(
         at,
         contract.clientEvents.poll.maxBatchPerPoll,
       );
+      lastReceipts = receipts.map((r) => r.messageId);
       saveMessages(messages);
 
       // 一次 collect 只读一遍这张表：两面（谁在请求配对你 / 我发起的那条）读的是**同一份**，
@@ -540,7 +546,7 @@ router.post(
     //   听它会让长轮询连等都等不了。
     res.on('close', () => {
       closed = true;
-      if (lastTaken.length === 0) return;
+      if (lastTaken.length === 0 && lastReceipts.length === 0) return;
       try {
         const messages = loadMessages();
         const requeued = requeueOnAbortedResponse(
@@ -551,7 +557,16 @@ router.post(
           res,
           Date.now(),
         );
-        if (requeued.length > 0) saveMessages(messages);
+        // P1-4：回执也退回「没报过」那一态。两件事共用同一个 close 边界，
+        // 但各判各的（消息退回看状态机、回执退回只看 receiptSentAt）。
+        const reverted = unmarkReceiptsOnAbortedResponse(
+          contract,
+          messages,
+          auth.sender,
+          lastReceipts,
+          res,
+        );
+        if (requeued.length > 0 || reverted.length > 0) saveMessages(messages);
       } catch (e) {
         console.error(
           `[fnthink:poll] 响应未写完，退回本轮取走的消息失败 device=${auth.sender}: ${e.message}`,
@@ -625,6 +640,23 @@ router.post(
       contract.clientEvents.poll.maxBatchPerPoll,
     );
     saveMessages(messages);
+
+    // P1-4：这一发同样把 `receiptSentAt` 在**写出之前**落了盘。响应中途断掉时
+    // 发送端一条都没收到，而服务端认为"报过了" ⇒ 那条回执再也不会出现。
+    // 与 /poll 那处同一个判据（`res.writableFinished` 之后不退回）。
+    const mine = receipts.map((r) => r.messageId);
+    res.on('close', () => {
+      if (mine.length === 0) return;
+      try {
+        const latest = loadMessages();
+        const reverted = unmarkReceiptsOnAbortedResponse(contract, latest, auth.sender, mine, res);
+        if (reverted.length > 0) saveMessages(latest);
+      } catch (e) {
+        console.error(
+          `[fnthink:receipts] 响应未写完，退回本轮交出去的回执失败 device=${auth.sender}: ${e.message}`,
+        );
+      }
+    });
     res.status(200).json({ receipts, serverTime: Date.now() });
   }),
 );

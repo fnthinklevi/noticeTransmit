@@ -474,6 +474,35 @@ function requeueOnAbortedResponse(contract, messages, device, messageIds, res, n
   return requeueDispatched(contract, messages, device, messageIds, now);
 }
 
+/// T217-A 的回执半（P1-4）：把「本轮 poll 已经交给发送端、但响应没写完」的回执退回。
+///
+/// 与消息那一半是同一个道理，也同样只在本轮自己交出去的那批上动手：
+/// [receiptsForSender] 在响应**写出之前**就把 `receiptSentAt` 落了盘，响应中途断掉时
+/// 发送端一条都没收到，而服务端认为"报过了" ⇒ 那条回执再也不会出现 —— 发送端历史
+/// 永远停在「已推送到服务器·待目标设备上线」，而对面其实早已收下。
+///
+/// ⚠ 只清 `receiptSentAt`（回到"没报过"那一态），**不动** `receipt` / `state` /
+/// `updatedAt`：后三者是状态机的账，「报没报给发送端」与「对面什么时候收下的」
+/// 是两件事，混在一起会让 T105 那个 `at` 变成"最后一次重报的时刻"。
+function unmarkReceiptsSent(contract, messages, sender, messageIds) {
+  const reverted = [];
+  for (const messageId of messageIds || []) {
+    const message = messages[messageId];
+    if (!message || message.sender !== sender) continue;
+    if (!delivery.isTerminal(contract, message.state)) continue;
+    if (!message.receiptSentAt) continue;
+    delete message.receiptSentAt;
+    reverted.push(messageId);
+  }
+  return reverted;
+}
+
+/// 响应已经完整写出时不退回回执（与 [requeueOnAbortedResponse] 同一道边界）。
+function unmarkReceiptsOnAbortedResponse(contract, messages, sender, messageIds, res) {
+  if (!res || res.writableFinished) return [];
+  return unmarkReceiptsSent(contract, messages, sender, messageIds);
+}
+
 /// 到期扫描：非终态且超过 maxRetentionDays 的全部走一遍 `ttl_elapsed`。
 /// 由路由侧在 poll 时顺手跑（服务端不主动探测设备），所以它必须是幂等的。
 function expireDueMessages(contract, messages, now) {
@@ -509,4 +538,6 @@ module.exports = {
   requeueOnAbortedResponse,
   requeueUnackedStale,
   saveMessages,
+  unmarkReceiptsOnAbortedResponse,
+  unmarkReceiptsSent,
 };

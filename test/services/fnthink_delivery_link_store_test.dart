@@ -275,5 +275,98 @@ void main() {
       final info = jsonDecode(row!['delivery_info'] as String) as Map;
       expect(info.values.single['status'], 'queued', reason: '没有映射就不该改任何人的那一格');
     });
+
+    // ── P1-4：映射「先消费再写」改为「写成功才删」 ──────────────────────────
+    group('P1-4 映射在 DB 写成功之后才删', () {
+      final key = channelDeliveryKey(kFnthinkChannelSlug);
+
+      test('DB 写失败 ⇒ 映射仍在，下一轮同一条回执还能把状态补上', () async {
+        await freshDb();
+        await insertRecord();
+        await FnthinkDeliveryLinkStore().link(
+          messageId: 'm_out',
+          recordId: 'rec_1',
+        );
+
+        // 让那一发 update 抛：把库关掉，`_write` 里那一步就会失败（真实故障形状之一）。
+        final db = helper.debugDatabase!;
+        await db.close();
+        await applyFnthinkDeliveryReceipt('m_out', 'delivered');
+
+        // 映射还在 —— 这就是 P1-4 的整个要点（原来这里已经没了）。
+        expect(
+          await FnthinkDeliveryLinkStore().peekRecordId('m_out'),
+          'rec_1',
+          reason: '先消费再写 ⇒ DB 一失败映射就没了，那条回执永远改不动历史那一行',
+        );
+
+        // 故障解除，同一条回执再来一次 ⇒ 那一格终于翻过去。
+        final reopened = await databaseFactory.openDatabase(
+          dbPath,
+          options: OpenDatabaseOptions(version: DatabaseHelper.dbVersion),
+        );
+        helper.debugDatabase = reopened;
+        addTearDown(() async {
+          helper.debugDatabase = null;
+          await reopened.close();
+        });
+        await applyFnthinkDeliveryReceipt('m_out', 'delivered');
+        final row = await helper.getNotificationById('rec_1');
+        final info = jsonDecode(row!['delivery_info'] as String) as Map;
+        expect(info[key]['status'], peerDeliveredStatus);
+        // 写成功之后映射才消失。
+        expect(await FnthinkDeliveryLinkStore().peekRecordId('m_out'), isNull);
+      });
+
+      test('写成功之后映射消失 ⇒ 同一条回执再来一次是幂等的', () async {
+        await freshDb();
+        await insertRecord();
+        await FnthinkDeliveryLinkStore().link(
+          messageId: 'm_out',
+          recordId: 'rec_1',
+        );
+
+        await applyFnthinkDeliveryReceipt('m_out', 'delivered');
+        expect(await FnthinkDeliveryLinkStore().peekRecordId('m_out'), isNull);
+        await applyFnthinkDeliveryReceipt('m_out', 'delivered');
+        final row = await helper.getNotificationById('rec_1');
+        final info = jsonDecode(row!['delivery_info'] as String) as Map;
+        expect(info[key]['status'], peerDeliveredStatus);
+      });
+
+      test('记录已被删 ⇒ 映射也清掉（它已经对不上任何一行了）', () async {
+        await freshDb();
+        await insertRecord();
+        await FnthinkDeliveryLinkStore().link(
+          messageId: 'm_out',
+          recordId: 'rec_gone',
+        );
+
+        await applyFnthinkDeliveryReceipt('m_out', 'delivered');
+        expect(
+          await FnthinkDeliveryLinkStore().peekRecordId('m_out'),
+          isNull,
+          reason: '目标行不在时留着映射只会让每次回执都白读一遍',
+        );
+      });
+
+      test('那一格已经是终态 ⇒ 映射也清掉（重复回执不该永久占着一条映射）', () async {
+        await freshDb();
+        await insertRecord();
+        await FnthinkDeliveryLinkStore().link(
+          messageId: 'm_out',
+          recordId: 'rec_1',
+        );
+        // 先落一次，让那一格变成"已送达"；再手动把映射放回去模拟"重复回执 + 映射仍在"。
+        await applyFnthinkDeliveryReceipt('m_out', 'delivered');
+        await FnthinkDeliveryLinkStore().link(
+          messageId: 'm_out',
+          recordId: 'rec_1',
+        );
+
+        await applyFnthinkDeliveryReceipt('m_out', 'delivered');
+        expect(await FnthinkDeliveryLinkStore().peekRecordId('m_out'), isNull);
+      });
+    });
   });
 }

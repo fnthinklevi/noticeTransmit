@@ -58,6 +58,11 @@ class FnthinkDeliveryLinkStore {
   }
 
   /// 取走并删除这一条映射。null = 没有映射（手动发的/旧版本发的/已被取走）。
+  ///
+  /// ⚠ P1-4 之后**生产代码不再走它**：它先消耗再交给调用方，而调用方接下来那一步
+  /// （写 DB）会失败 —— DB 写失败时映射已经没了，那条回执就再也改不动历史那一行
+  /// （审计叫"状态幽灵"）。生产走 [peekRecordId] + 写成功后再 [forgetRecordId]。
+  /// 这里保留是因为它表达的"一次消耗"语义本身没有错，只是不该由回执那条路用。
   Future<String?> takeRecordId(String messageId) async {
     if (messageId.isEmpty) return null;
     try {
@@ -75,6 +80,52 @@ class FnthinkDeliveryLinkStore {
     } catch (e) {
       debugPrint('[fnthink] 送达映射读取失败（按没有映射处理）: $e');
       return null;
+    }
+  }
+
+  /// **读**这一条映射但**不删**它（P1-4）。
+  ///
+  /// 与 [takeRecordId] 的差别只有一处：调用方拿到 recordId 之后还要落一次 DB，
+  /// 那一步可能失败。先删再写的话，写失败时这一条回执就永远对不上历史那一行了。
+  /// 现在只在**DB 写成功之后**才 [forgetRecordId]。
+  ///
+  /// 重复回执不会因此重复改历史：`applyFnthinkReceiptToDelivery` 对"已经是那个状态"
+  /// 返回 null（不降级、不重写），所以留着映射是安全的。
+  Future<String?> peekRecordId(String messageId) async {
+    if (messageId.isEmpty) return null;
+    try {
+      final prefs = await _prefs();
+      await prefs.reload();
+      final links = _read(prefs);
+      final at = links.indexWhere((e) => e.messageId == messageId);
+      if (at < 0) return null;
+      final recordId = links[at].recordId;
+      return recordId.isEmpty ? null : recordId;
+    } catch (e) {
+      debugPrint('[fnthink] 送达映射读取失败（按没有映射处理）: $e');
+      return null;
+    }
+  }
+
+  /// 删掉这一条映射（P1-4：只在**历史那一行真的写成功之后**调）。
+  ///
+  /// 删不掉不算错：留着的最坏后果是同一条回执下次再被读一次，而那时
+  /// `applyFnthinkReceiptToDelivery` 会判成"已经是那个状态"返回 null。
+  Future<void> forgetRecordId(String messageId) async {
+    if (messageId.isEmpty) return;
+    try {
+      final prefs = await _prefs();
+      await prefs.reload();
+      final links = _read(prefs);
+      final before = links.length;
+      links.removeWhere((e) => e.messageId == messageId);
+      if (links.length == before) return;
+      await prefs.setString(
+        prefsKey,
+        jsonEncode([for (final e in links) e.toJson()]),
+      );
+    } catch (e) {
+      debugPrint('[fnthink] 送达映射清理失败（下次那条回执还会被读一次，无害）: $e');
     }
   }
 
@@ -187,19 +238,29 @@ bool fnthinkDeliveryStillAwaitingReceipt(Map<String, dynamic> delivery) {
 /// 生产装配给收件循环的 `recordDelivery`。失败只打印：一条回执写不进历史，
 /// 不该让整轮收货停摆；那一格留在 `queued`（"本机交出去了，还不知道对面取没取"）
 /// 仍然是一句真话。
+///
+/// P1-4：这里改成**先读映射 → 写 DB → 写成功才删映射**。原来是先 `takeRecordId`
+/// 消耗映射再写 DB，DB 写失败时映射已经没了 ⇒ 那条回执再也改不动历史那一行
+/// （审计叫"状态幽灵"：发送端历史永远停在 queued，而对面其实早已收下）。
 Future<void> applyFnthinkDeliveryReceipt(
   String messageId,
   String receipt,
 ) async {
-  // 先判词再取映射：取走是**消耗性**的，而一条非终态回执不该把映射用掉 ——
-  // 否则同一个 messageId 后面那条真正的 delivered 就再也对不上本机那一行了。
+  // 先判词再取映射：一条非终态回执不该碰任何状态 —— 否则同一个 messageId
+  // 后面那条真正的 delivered 就再也对不上本机那一行了。
   if (!fnthinkReceiptIsTerminal(receipt)) return;
-  final recordId = await FnthinkDeliveryLinkStore().takeRecordId(messageId);
+  final store = FnthinkDeliveryLinkStore();
+  final recordId = await store.peekRecordId(messageId);
   if (recordId == null) return;
   try {
     final db = DatabaseHelper();
     final row = await db.getNotificationById(recordId);
-    if (row == null) return;
+    if (row == null) {
+      // 那一行已经不在（保留策略裁掉/用户删了）：映射留着也没用，可以清。
+      // ⚠ 这是唯一一处"写没发生也删映射"的分支，因为它已经对不上任何行了。
+      await store.forgetRecordId(messageId);
+      return;
+    }
     Map<String, dynamic> info = <String, dynamic>{};
     final raw = row['delivery_info'];
     if (raw is String && raw.isNotEmpty) {
@@ -213,9 +274,15 @@ Future<void> applyFnthinkDeliveryReceipt(
       }
     }
     final next = applyFnthinkReceiptToDelivery(info, receipt);
-    if (next == null) return;
+    if (next == null) {
+      // 这一格已经是那个状态（重复回执 / 已到终态不许降级）：账也结完了，删映射。
+      await store.forgetRecordId(messageId);
+      return;
+    }
     await db.updateNotificationDelivery(recordId, next);
+    // 写成功了才删映射 —— 这一行的顺序就是 P1-4 的整个要点。
+    await store.forgetRecordId(messageId);
   } catch (e) {
-    debugPrint('[fnthink] 端到端回执写不进历史（那一格留在原状态）: $e');
+    debugPrint('[fnthink] 端到端回执写不进历史（那一格留在原状态，映射保留待下轮重试）: $e');
   }
 }

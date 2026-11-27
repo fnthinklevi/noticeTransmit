@@ -613,6 +613,82 @@ describe('回执账（T35）', () => {
     expect(store.receiptsForSender(contract, messages, SENDER, T0 + 40, 50)).toEqual([]);
   });
 
+  // ── P1-4：响应没写完时回执要能退回去 ────────────────────────────────────
+  //
+  // 背景：receiptsForSender 在响应**写出之前**就把 receiptSentAt 落了盘。响应中途
+  // 断掉时发送端一条都没收到，而服务端认为"报过了" ⇒ 那条回执再也不会出现，
+  // 发送端历史永远停在「已推送到服务器·待目标设备上线」，而对面其实早已收下。
+  test('P1-4 响应没写完：退回本轮交出去的回执，同一 sender 下一轮还能再取到', () => {
+    const messages = {};
+    const { message } = putFrom(messages, SENDER, 'DEV-1', 21);
+    store.advanceMessage(contract, messages, message.messageId, 'dispatch', { now: T0 + 10 });
+    store.advanceMessage(contract, messages, message.messageId, 'ack_ok', { now: T0 + 20 });
+
+    const first = store.receiptsForSender(contract, messages, SENDER, T0 + 30, 50);
+    expect(first.length).toBe(1);
+    const ids = first.map((r) => r.messageId);
+
+    // 响应没写出（writableFinished === false）⇒ 退回
+    const reverted = store.unmarkReceiptsOnAbortedResponse(contract, messages, SENDER, ids, {});
+    expect(reverted).toEqual(ids);
+    expect(messages[ids[0]].receiptSentAt).toBeUndefined();
+
+    // 下一轮还能取到同一条（这才是"发送端最终会知道"）
+    const again = store.receiptsForSender(contract, messages, SENDER, T0 + 40, 50);
+    expect(again.map((r) => r.messageId)).toEqual(ids);
+    // ⚠ 退回只清"报没报过"，不许动回执/状态/时刻：那个 at 是"对面收下那一刻"，
+    //    不是"最后一次重报的时刻"。
+    expect(again[0].receipt).toBe('delivered');
+    expect(again[0].at).toBe(T0 + 20);
+  });
+
+  test('P1-4 响应已经完整写出：不许退回（那是真的送到了）', () => {
+    const messages = {};
+    const { message } = putFrom(messages, SENDER, 'DEV-1', 22);
+    store.advanceMessage(contract, messages, message.messageId, 'dispatch', { now: T0 + 10 });
+    store.advanceMessage(contract, messages, message.messageId, 'ack_ok', { now: T0 + 20 });
+    const first = store.receiptsForSender(contract, messages, SENDER, T0 + 30, 50);
+
+    const reverted = store.unmarkReceiptsOnAbortedResponse(
+      contract,
+      messages,
+      SENDER,
+      first.map((r) => r.messageId),
+      { writableFinished: true },
+    );
+    expect(reverted).toEqual([]);
+    expect(messages[first[0].messageId].receiptSentAt).toBe(T0 + 30);
+    expect(store.receiptsForSender(contract, messages, SENDER, T0 + 40, 50)).toEqual([]);
+  });
+
+  test('P1-4 只退回自己的、只退回终态的那几条', () => {
+    const messages = {};
+    const mine = putFrom(messages, SENDER, 'DEV-1', 23);
+    const other = putFrom(messages, OTHER_SENDER, 'DEV-1', 24);
+    store.advanceMessage(contract, messages, mine.message.messageId, 'dispatch', { now: T0 + 10 });
+    store.advanceMessage(contract, messages, mine.message.messageId, 'ack_ok', { now: T0 + 20 });
+    store.advanceMessage(contract, messages, other.message.messageId, 'dispatch', { now: T0 + 10 });
+    store.advanceMessage(contract, messages, other.message.messageId, 'ack_ok', {
+      now: T0 + 20,
+    });
+    store.receiptsForSender(contract, messages, SENDER, T0 + 30, 50);
+
+    const reverted = store.unmarkReceiptsSent(contract, messages, SENDER, [
+      mine.message.messageId,
+      other.message.messageId,
+    ]);
+    expect(reverted).toEqual([mine.message.messageId]);
+    // 别人的那条一个字都不能动
+    expect(messages[other.message.messageId].receiptSentAt).toBeUndefined();
+  });
+
+  test('P1-4 非终态的条不在退回范围内（它本来就没有回执账）', () => {
+    const messages = {};
+    const { message } = putFrom(messages, SENDER, 'DEV-1', 25);
+    // 还在排队：没有 receiptSentAt
+    expect(store.unmarkReceiptsSent(contract, messages, SENDER, [message.messageId])).toEqual([]);
+  });
+
   test('别人发的消息不进我的回执账', () => {
     const messages = {};
     const { message } = putFrom(messages, OTHER_SENDER, 'DEV-1', 3);
