@@ -2540,6 +2540,8 @@ describe('契约声明的路径 == 实际挂载的路径', () => {
     // transport.apiPaths（那张表只管设备面，混进来等于宣布"设备面路径也可以携带口令"）；
     // 但它同样是"契约声明了一条路径"，漏在这一格里就会变成"声明了却没挂，客户端敲一年 404"。
     contract.endpoint.probe.bearerPath,
+    // P0：端点 202 的终态查询（只读，Bearer 口令）。它同样不进 apiPaths，但必须挂上。
+    contract.endpoint.status.bearerPath,
     // T185 第二步：SSE 门铃。它不是签名事件（GET + 一次性票），所以也不进 apiPaths
     // （那张表的每一项都要能反查一个 clientEvent），但它同样是一条必须挂上的声明路径。
     contract.presence.stream.path,

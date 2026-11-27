@@ -688,3 +688,107 @@ describe('数字只从契约读', () => {
     expect(() => intake.ingressFromContract(noKeys)).toThrow(/messageTypes 里的一个词|必须是布尔/);
   });
 });
+
+describe('端点终态查询（P0：202 只是受理）', () => {
+  const statusPath = (endpointId, messageId) =>
+    `/api/fnthink/p/${endpointId}/status?messageId=${encodeURIComponent(messageId)}`;
+
+  // 状态查询只读；这里直接落队，避免把 ingress 的 15/分额度花在"造一条消息"上
+  // （那会让前面收单用例的 429 变成假失败）。
+  function enqueueFor(which) {
+    const messages = ms.loadMessages();
+    const result = ms.enqueue(
+      contract,
+      messages,
+      {
+        sender: `endpoint:${which.id}`,
+        device: OWNER,
+        type: 'notice',
+        item: '',
+        title: '机箱温度',
+        body: '温度 63 度',
+        appName: '',
+      },
+      Date.now(),
+      process.env.ENCRYPTION_KEY,
+    );
+    ms.saveMessages(messages);
+    return result.message.messageId;
+  }
+
+  test('刚收单 ⇒ 200 + queued，且不回正文/标题/目标设备', async () => {
+    const messageId = enqueueFor(endpoint);
+    const res = await request(app).get(statusPath(endpoint.id, messageId)).set(bearer());
+    expect(res.status).toBe(200);
+    // 字段清单由契约声明：多回一个正文键就是隐私面的第二份实现。
+    expect(Object.keys(res.body).sort()).toEqual([...contract.endpoint.status.fields].sort());
+    expect(res.body.messageId).toBe(messageId);
+    expect(res.body.state).toBe(contract.delivery.initialState);
+    expect(res.body.terminal).toBe(false);
+    expect(res.body.receipt).toBeNull();
+    expect(res.body).not.toHaveProperty('title');
+    expect(res.body).not.toHaveProperty('body');
+    expect(res.body).not.toHaveProperty('device');
+  });
+
+  test('取走并 ack 后 ⇒ terminal=true，receipt 可查', async () => {
+    const messageId = enqueueFor(endpoint);
+    const messages = ms.loadMessages();
+    ms.advanceMessage(contract, messages, messageId, 'dispatch', { now: Date.now() });
+    ms.advanceMessage(contract, messages, messageId, 'ack_ok', { now: Date.now() });
+    ms.saveMessages(messages);
+
+    const res = await request(app).get(statusPath(endpoint.id, messageId)).set(bearer());
+    expect(res.status).toBe(200);
+    expect(res.body.state).toBe('delivered');
+    expect(res.body.terminal).toBe(true);
+    expect(res.body.receipt).toBe('delivered');
+    expect(res.body.updatedAt).toBeGreaterThan(0);
+  });
+
+  test('口令错 / URL 里的 endpointId 与口令不匹配 ⇒ 401 空 body', async () => {
+    const messageId = enqueueFor(endpoint);
+    const wrong = await request(app)
+      .get(statusPath(endpoint.id, messageId))
+      .set({ Authorization: 'Bearer wrong-secret' });
+    expect(wrong.status).toBe(statusCode(contract, 'unauthorized'));
+    expect(wrong.text).toBe('');
+
+    // 用 endpoint 的口令但 URL 写 strict 的 id：不许串端点，也不许泄露"这把口令属于谁"。
+    const mismatch = await request(app).get(statusPath(strict.id, messageId)).set(bearer());
+    expect(mismatch.status).toBe(statusCode(contract, 'unauthorized'));
+    expect(mismatch.text).toBe('');
+  });
+
+  test('别的端点发的 messageId ⇒ 403 空 body，不泄露状态', async () => {
+    const otherId = enqueueFor(strict);
+    const res = await request(app).get(statusPath(endpoint.id, otherId)).set(bearer());
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.text).toBe('');
+  });
+
+  test('postOnly 端点也能查状态（Bearer 头，不是 URL 口令）', async () => {
+    const messageId = enqueueFor(strict);
+    const res = await request(app)
+      .get(statusPath(strict.id, messageId))
+      .set({ Authorization: `Bearer ${strict.secret}` });
+    expect(res.status).toBe(200);
+    expect(res.body.messageId).toBe(messageId);
+  });
+
+  test('查询不写 callLog（轮询查询会把收单记录挤掉）', async () => {
+    const messageId = enqueueFor(endpoint);
+    const before = (ds.loadEndpoints()[endpoint.id].calls || []).length;
+    await request(app).get(statusPath(endpoint.id, messageId)).set(bearer());
+    const after = (ds.loadEndpoints()[endpoint.id].calls || []).length;
+    expect(after).toBe(before);
+  });
+
+  test('路由注册在 /p/:endpointId/:secret 之前（否则 status 会被当成口令）', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../lib/fnthink/routes.js'), 'utf8');
+    const statusAt = src.indexOf("'/p/:endpointId/status'");
+    const secretAt = src.indexOf("'/p/:endpointId/:secret'");
+    expect(statusAt).toBeGreaterThanOrEqual(0);
+    expect(secretAt).toBeGreaterThan(statusAt);
+  });
+});

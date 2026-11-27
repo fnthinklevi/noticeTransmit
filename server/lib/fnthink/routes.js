@@ -62,7 +62,9 @@ const {
   armPairingCode,
   createEndpoint,
   endpointConfigFromContract,
+  endpointIpAllowed,
   endpointSummary,
+  findEndpointBySecret,
   loadDevices,
   loadEndpoints,
   peerReadoutFromContract,
@@ -103,10 +105,11 @@ const {
   requeueUnackedStale,
   saveMessages,
 } = require('./messagestore');
-const { createEndpointIngress, readIngress } = require('./endpointintake');
+const { createEndpointIngress, readIngress, insecureAllowed } = require('./endpointintake');
 const versionEcho = require('./version_echo');
 const { waitForDevice, wakeDevice, onWake } = require('./waiters');
 const { issueTicket, consumeTicket } = require('./streams');
+const { isTerminal } = require('./delivery');
 
 const contract = assertSupported(loadContract());
 const router = express.Router();
@@ -1421,6 +1424,56 @@ function handleEndpointProbe(req, res) {
   //   调用日志是有界环，自动重探每轮塞几行就会把自己要观察的那份历史挤掉。
   res.status(200).json({ [PROBE_READY_FIELD]: !!verdict.ok, serverTime: now });
 }
+
+// ── GET /p/:endpointId/status：端点终态查询（P0）──────────────────────────
+//
+// 202 只是「已受理」：端点没有取货通道，设备面的 /poll 与回执都只认设备签名，
+// 调用方原本无法回答「我那条最终到没到」。这一条只读、用与收单同一把 Bearer 口令、
+// 同一套 IP 白名单；回状态与时间，正文/标题/目标设备一概不回。
+// 不记 callLog（契约 endpoint.status.writesCallLog=false）：查询会被轮询，
+// 每查一次都记进有界日志会把真正要排查的收单记录挤掉。
+function handleEndpointStatus(req, res, endpointId) {
+  const now = Date.now();
+  const ip = req.ip || 'unknown';
+  const secure =
+    req.secure === true || String(req.headers['x-forwarded-proto'] || '').toLowerCase() === 'https';
+  // 与收单同一条传输纪律：明文的 Bearer 口令同样不许上路。
+  if (!secure && !insecureAllowed()) {
+    return res.status(statusCode(contract, 'forbidden')).end();
+  }
+  const endpoints = loadEndpoints();
+  const found = findEndpointBySecret(
+    contract,
+    endpoints,
+    bearerSecret(req),
+    now,
+    endpointIngress.state.endpointCfg,
+  );
+  // 口令错 / 端点不存在 / URL 里的 endpointId 与口令不属于同一端点 / IP 不在白名单：
+  // 对外一律 401 空 body，与收单那条同形（不送枚举面）。
+  if (!found || found.id !== endpointId || !endpointIpAllowed(found, ip)) {
+    return res.status(statusCode(contract, 'unauthorized')).end();
+  }
+  const messageId = String((req.query && req.query.messageId) || '');
+  const message = loadMessages()[messageId];
+  // 「不存在」与「不是这个端点发的」同形：messageId 虽然随机，也不额外送一个枚举面。
+  if (!message || message.sender !== `endpoint:${found.id}`) {
+    return res.status(statusCode(contract, 'forbidden')).end();
+  }
+  return res.status(200).json({
+    messageId: message.messageId,
+    state: message.state,
+    terminal: isTerminal(contract, message.state),
+    queuedAt: message.queuedAt || 0,
+    updatedAt: message.updatedAt || 0,
+    receipt: message.receipt || null,
+  });
+}
+
+router.get(
+  '/p/:endpointId/status',
+  asyncHandler(async (req, res) => handleEndpointStatus(req, res, req.params.endpointId)),
+);
 
 router.post(
   '/p/:endpointId/probe',

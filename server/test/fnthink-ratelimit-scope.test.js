@@ -258,6 +258,8 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
         // T106 片①b：端点档的干跑也在第四类之内（它同样是一把口令鉴权、没有设备地址可当主键），
         // 而它的额度**不花** ingress.quota —— 不花的原因写在契约 endpoint.probe 那句 _why 里。
         contract.endpoint.probe.bearerPath,
+        // P0：端点终态查询（只读）——同属第四类，不花 ingress.quota。
+        contract.endpoint.status.bearerPath,
       ].sort(),
     );
   });

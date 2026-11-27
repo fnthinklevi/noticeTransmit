@@ -372,6 +372,20 @@
       "_ignoreItemFieldWhy": "`item` 是设备侧的**动作钩子**（从 `capabilities.itemRequiredFromLevel` 那一档起逐条勾选）。本面的授权清单恒为空（`capabilities.endpointGrant`），落队那一位也**恒写成空串**（`server/lib/fnthink/routes.js` 里 enqueue 的 `item: ''`，由用例钉住）⇒ 第三方带来的 `item` 结构上不可能变成一次动作，它只是那条通知自己的一个字段名（工单、电商、监控都叫它 `item`）。true = 当噪音忽略；false = 旧行为（带 item 一律 403 + rejected_capability）。⚠ 把它读成 true 的前提是「落队那一发不转发 item」这条实现不变量还在，两处要同一批改 —— 少了这个前提，忽略就等于把动作钩子放进一条普通通知。",
       "_levelWhy": "端点这一面**产出的东西**由 `capabilities.endpointMaxLevel`（当前 L1）决定，不由载荷决定：`type` 与 `level` 只有写着词表内那三个词／档位内那三档时才算越权请求，才 403 + rejected_capability，而且走 `capabilities.endpointGrant` 那份裁决（**不在这里再写一份档位表**）；词表外的取值按 `unknownTypeAs` 折价或忽略，`item` 按 `ignoreItemField` 处理。⚠ 「多余的字段一律忽略」这句对外话今天要按字段说：`appName` 自 T226 起**可选接受**（见 `_appNameWhy`，只进已签信封、不参与裁决），`timestamp`／`level: high`／`item: 4521` 确实被忽略，唯一还会被拒的是载荷里恰好写着 `action`／`setting`／`L2`／`L3` 这几个词。教程、README 与部署手册都按这一句写，别再写成无条件的一律忽略。"
     },
+    "status": {
+      "bearerPath": "/api/fnthink/p/:endpointId/status",
+      "fields": [
+        "messageId",
+        "state",
+        "terminal",
+        "queuedAt",
+        "updatedAt",
+        "receipt"
+      ],
+      "writesCallLog": false,
+      "_why": "端点收单回 202 只是「已受理」：端点没有取货通道，设备面的 /poll 与回执都只认设备签名，调用方原本拿不到终态。这一条只读查询让第三方用同一把 Bearer 口令问「我那条最终到没到」，回答只有状态与时间，正文/标题/目标设备一概不回。它用 Bearer 头而不是路径段口令，所以不受 postOnly 那条限制（那条只针对把口令写进 URL 的收单 GET）。",
+      "_writesCallLogWhy": "查询会被轮询（调用方等终态），每查一次都记进有界调用日志会把真正要排查的收单记录挤掉。想知道谁在查：access log 里这条路径不含口令。"
+    },
     "probe": {
       "_why": "端点档的**干跑**（T106 片①b）：问一句「这条入口现在收不收得进」，而一条都不投递。它存在的理由与签名面那条 `/probe` 完全同一条：没有它，一个 webhook 目标的通道就只能靠真发一条去测（对面会收到一条他没要过的消息），于是这一族的健康度永远只由人手动测那两枚写。⚠ 它**不是** clientEvents.probe 的第二份实现，也不许合并成一条路由：那边靠 Ed25519 签名证明是谁、查的是「这台到那台的关系与档位立不立得住」，这边靠一把共享长期口令、查的是「这把口令还对吗、这个来源被允许吗、这条端点还活着且绑着设备吗」。两类发送方的鉴权根本不同 —— 硬共用的话，口令就得塞进被签的载荷，而每一条 clientEvents 的 mayNotCarry 里明令禁的正是 endpointSecret 这一件事。",
       "bearerPath": "/api/fnthink/p/:endpointId/probe",
