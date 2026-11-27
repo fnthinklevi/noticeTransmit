@@ -2731,6 +2731,14 @@
   "fnthinkPresenceRecover": "Recover",
   "fnthinkLastRoundAt": "Last successful fetch: {time}",
   "fnthinkLastRoundNever": "Last successful fetch: no record yet",
+  "fnthinkPersistFailedWarning": "{count} Fnthink message(s) in the last round could not be written to the local inbox and may be lost. Check free storage and retry.",
+  "@fnthinkPersistFailedWarning": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkWorkChain": "Background tasks: fetch {presenceWork} · fanout {fanoutWork} · {queue} queued",
   "fnthinkDiagAlarmAt": "Last alarm fired: {time}",
   "@fnthinkDiagAlarmAt": {

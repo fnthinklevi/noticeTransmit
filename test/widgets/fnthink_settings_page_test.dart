@@ -4652,6 +4652,33 @@ void main() {
     });
   });
 
+  group('落库失败要看得见（P0）', () {
+    testWidgets('上一轮有消息没落进收件表 ⇒ 顶部常驻警告并说清条数', (tester) async {
+      // 这是 Dart 自己写的键（Android 上由插件加 flutter. 前缀）：模拟上一轮 persist 抛了 2 次。
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+        'flutter.fnthink_last_persist_failed': 2,
+      });
+      // 页面进页会先读原生 presence；缺桩会让 `_readPresence` 卡在那一发，
+      // 后面的落库失败读数根本走不到（这不是被测行为）。
+      stubChannels();
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-persist-failed')),
+        findsOneWidget,
+        reason: '落库失败等于这条消息没有进收件表、也没有 ack；只写日志用户永远不知道',
+      );
+      expect(
+        find.text(l10n.fnthinkPersistFailedWarning(2)),
+        findsOneWidget,
+        reason: '必须说清有几条、可能已丢失，而不是一句笼统的"同步异常"',
+      );
+    });
+  });
+
   group('接收卡那一行「下一次自己醒」（§4-9 片1d）', () {
     Future<void> tapSwitch(WidgetTester tester) async {
       final sw = find.byKey(const ValueKey('fnthink-receive-switch'));

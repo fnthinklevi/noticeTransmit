@@ -330,6 +330,43 @@ void main() {
       expect(report, isNotNull);
       expect(rec.builds, 1);
     });
+
+    test('落库失败条数落盘：lastPersistFailed 读得到，下一轮成功归零', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final rec = _LoopRecorder()
+        ..pollMessages = [
+          const FnthinkDelivered(
+            messageId: 'm_1',
+            type: 'notice',
+            item: '',
+            title: '机箱温度',
+            body: '温度 63 度',
+            sender: '8K3FJ6QPTM9WZ4VHNS',
+          ),
+        ]
+        ..persistFails = true;
+      final c = coordinator(recorder: rec);
+
+      await c.receiveOnce();
+      await pumpEventQueue();
+      expect(
+        await c.lastPersistFailed(),
+        1,
+        reason: '落库失败只留在这一轮的 summary 里 ⇒ 用户永远不知道有消息可能已经丢了',
+      );
+
+      rec.persistFails = false;
+      await c.receiveOnce();
+      await pumpEventQueue();
+      expect(
+        await c.lastPersistFailed(),
+        0,
+        reason: '下一轮成功必须把警告归零，否则"可能丢失"会一直挂着',
+      );
+    });
   });
 
   group('续排闹钟 presenceNotice（T33 第二片 / §4-9 片1b）', () {
@@ -3058,6 +3095,12 @@ class _LoopRecorder {
   FnthinkPollStatus pollStatus = FnthinkPollStatus.ok;
   List<FnthinkPairRequest> pollPairRequests = const [];
 
+  /// 这一轮"取回"的消息（P0 落库失败用例用）。
+  List<FnthinkDelivered> pollMessages = const [];
+
+  /// true ⇒ persist 抛异常（模拟磁盘满 / SQLCipher 密钥坏）。
+  bool persistFails = false;
+
   /// T110 第二面：本机**发起过**的那些（含终态）。这一份也要有人接住。
   List<FnthinkSentPairRequest> pollSentPairRequests = const [];
 
@@ -3068,6 +3111,7 @@ class _LoopRecorder {
         polls++;
         return FnthinkReceiveOutcome(
           status: pollStatus,
+          messages: pollMessages,
           pairRequests: pollPairRequests,
           sentPairRequests: pollSentPairRequests,
           nextDelay: const Duration(seconds: 20),
@@ -3078,7 +3122,10 @@ class _LoopRecorder {
         status: FnthinkPollStatus.ok,
         nextDelay: Duration.zero,
       ),
-      persist: (_) async => true,
+      persist: (_) async {
+        if (persistFails) throw StateError('磁盘满');
+        return true;
+      },
       // 协调者塞进 spec 的那一行必须接上：不接，"后台那几轮的账"这件事在测试里就永远不发生，
       // 那条用例只会红在别处（或者谁也不红）。
       onRound: spec.onRound,

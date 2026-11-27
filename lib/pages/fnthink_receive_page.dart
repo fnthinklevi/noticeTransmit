@@ -131,6 +131,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   /// T176 自检：上一次**成功**收取的时刻（0 = 从没成功过）。
   int _lastRoundAt = 0;
 
+  /// P0：最近一轮落库失败的条数（>0 时页面顶部显示"可能已丢失"的警告）。
+  int _persistFailed = 0;
+
   /// T176 自检：两项后台授权（null = 还没读到 / 测试没注入权限服务）。
   bool? _exactAlarmGranted;
   bool? _batteryOptimizationIgnored;
@@ -193,6 +196,7 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   Future<void> _readPresence() async {
     FnthinkPresenceStatus? status;
     int lastRoundAt = 0;
+    int persistFailed = 0;
     bool? exactAlarm;
     bool? batteryIgnored;
     try {
@@ -203,6 +207,9 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
     }
     try {
       lastRoundAt = await _coordinator.lastRoundAt();
+    } catch (_) {}
+    try {
+      persistFailed = await _coordinator.lastPersistFailed();
     } catch (_) {}
     final permission = _deps.permission;
     if (permission != null) {
@@ -221,6 +228,7 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
     setState(() {
       _presence = status;
       _lastRoundAt = lastRoundAt;
+      _persistFailed = persistFailed;
       _exactAlarmGranted = exactAlarm;
       _batteryOptimizationIgnored = batteryIgnored;
       _inboxChannelState = inboxState;
@@ -635,6 +643,7 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
         _roundNote = null;
         // summary 只有计数（没有标题、正文与消息 id），所以可以直接上界面。
         _lastRound = round.report!.summary;
+        _persistFailed = round.report!.persistedFailed;
         _startNote = null;
       }
       _busy = false;
@@ -655,6 +664,13 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
           if (error != null)
             FnthinkNote(keyName: 'fnthink-contract-error', text: error)
           else ...[
+            // P0：落库失败的消息既没有进收件表、也没有被 ack；服务端重投几次后会过期。
+            // 这行警告必须独立于 summary 常驻显示，不能只出现在手动收取那一次的读数里。
+            if (_persistFailed > 0)
+              FnthinkNote(
+                keyName: 'fnthink-persist-failed',
+                text: l10n.fnthinkPersistFailedWarning(_persistFailed),
+              ),
             // 远程执行那一格 T97 片C 搬去「远程控制」独立页了 —— 那件事（别人能不能指挥这台）
             // 与这一页（这台收不收别人的东西）代价不同，混一页会让"我关了接收"被读成
             // "远程执行也关了"。入口在通知引擎 hub 那一行（带前置三选一）。

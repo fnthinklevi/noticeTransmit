@@ -2752,6 +2752,14 @@
   "fnthinkPresenceRecover": "立即恢复",
   "fnthinkLastRoundAt": "上次成功收取：{time}",
   "fnthinkLastRoundNever": "上次成功收取：还没有记录",
+  "fnthinkPersistFailedWarning": "上一轮有 {count} 条幻念消息未能写入本地收件表，可能已丢失；请检查存储空间后重试",
+  "@fnthinkPersistFailedWarning": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "fnthinkWorkChain": "后台任务：收货 {presenceWork} · 转发 {fanoutWork} · 待发 {queue} 条",
   "fnthinkDiagAlarmAt": "上次闹钟触发：{time}",
   "@fnthinkDiagAlarmAt": {

@@ -4903,6 +4903,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkLastRoundNever => 'Last successful fetch: no record yet';
 
   @override
+  String fnthinkPersistFailedWarning(int count) {
+    return '$count Fnthink message(s) in the last round could not be written to the local inbox and may be lost. Check free storage and retry.';
+  }
+
+  @override
   String fnthinkWorkChain(
     Object fanoutWork,
     Object presenceWork,

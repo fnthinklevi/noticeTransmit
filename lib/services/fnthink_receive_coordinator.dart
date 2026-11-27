@@ -31,6 +31,13 @@ typedef FnthinkStartResult = ({bool started, String reason});
 /// 最近一次**成功**收取的时刻（T176 自检）。键名不带 `flutter.`：这是 Dart 自己写的。
 const String kFnthinkLastRoundAtKey = 'fnthink_last_round_at';
 
+/// 最近一轮**落库失败**的条数（P0：不能只留在 summary 里）。
+///
+/// 落库失败意味着这条消息没有进收件表、也没有 ack；服务端会按 180 秒重投几次，
+/// 但磁盘满/密钥坏这类原因不会自己好。界面必须把"有几条可能要丢"说出来，
+/// 而不是等用户在服务端看到 expired。键名不带 `flutter.`：Dart 自己写。
+const String kFnthinkPersistFailedKey = 'fnthink_last_persist_failed';
+
 /// T196：把一轮的结论压成诊断读数里那一格（`ok` / `failed:transport` / `rateLimited` …）。
 /// 只给状态与原因，不带标题、正文或服务地址。
 String fnthinkPollDiagStatus(FnthinkLoopReport report) {
@@ -781,6 +788,27 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  Future<void> _markPersistFailed(int count) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(kFnthinkPersistFailedKey, count);
+    } catch (e) {
+      debugPrint('[fnthink] 记录落库失败条数失败：$e');
+    }
+  }
+
+  /// 最近一轮落库失败的条数。0 = 没有失败（或从没收到过）。
+  /// 读失败也回 0：这是"要不要显示警告"的读数，不能反过来让整页起不来。
+  Future<int> lastPersistFailed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(kFnthinkPersistFailedKey) ?? 0;
+    } catch (e) {
+      debugPrint('[fnthink] 读落库失败条数失败：$e');
+      return 0;
+    }
+  }
+
   void _noteRound(FnthinkLoopReport report) {
     // T196：每一发 poll 的尝试（成功或失败）都留一枚时刻与结论。只写状态与原因，
     // 不写标题/正文；写盘失败只留日志，不许反过来影响收货。
@@ -811,6 +839,9 @@ class FnthinkReceiveCoordinator {
       // T176：最近一次成功收取的时刻。失败不覆盖它 —— 自检要回答的是
       // "上一次真的拿到货是什么时候"，不是"上一次尝试是什么时候"。
       unawaited(_markLastRound());
+      // P0：这一轮有几条没落进收件表。与"成功收取时刻"同一条链路落盘，
+      // 页面读它来决定要不要显示"可能丢失"的警告。
+      unawaited(_markPersistFailed(report.persistedFailed));
     }
     // 失败的那一轮同样要续排：transportError / 429 说明"这一路还活着，只是这次没取到"，
     // 停在这儿等于"一次网络抖动就把这台永久叫醒的机会弄没了"。

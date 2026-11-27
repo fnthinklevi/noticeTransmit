@@ -8406,6 +8406,12 @@ abstract class AppLocalizations {
   /// **'上次成功收取：还没有记录'**
   String get fnthinkLastRoundNever;
 
+  /// No description provided for @fnthinkPersistFailedWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一轮有 {count} 条幻念消息未能写入本地收件表，可能已丢失；请检查存储空间后重试'**
+  String fnthinkPersistFailedWarning(int count);
+
   /// No description provided for @fnthinkWorkChain.
   ///
   /// In zh, this message translates to:

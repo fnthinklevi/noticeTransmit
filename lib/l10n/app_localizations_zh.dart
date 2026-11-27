@@ -4660,6 +4660,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkLastRoundNever => '上次成功收取：还没有记录';
 
   @override
+  String fnthinkPersistFailedWarning(int count) {
+    return '上一轮有 $count 条幻念消息未能写入本地收件表，可能已丢失；请检查存储空间后重试';
+  }
+
+  @override
   String fnthinkWorkChain(
     Object fanoutWork,
     Object presenceWork,
