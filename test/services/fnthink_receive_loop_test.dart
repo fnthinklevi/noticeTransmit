@@ -164,6 +164,89 @@ void main() {
     });
   });
 
+  /// P1-1：落库失败扣队列 + 开跑前重试队列。
+  ///
+  /// 这两个钩子不改任何既有判据 —— 它们只是给"落库失败"那一格加一条本机自己的后路。
+  /// 所以这里钉的重点是**不许改变原有语义**：不 ack、不显示、不挡取货。
+  group('P1-1 落库失败扣队列与开跑前重试', () {
+    test('落库失败的那条被扣进队列，且仍然不 ack 也不显示', () async {
+      final h = _Harness(failPersistFor: ['m_2']);
+      final queued = <String>[];
+      var shown = 0;
+      final report = await h
+          .loop(
+            pollScript: [
+              _ok([_msg('m_1'), _msg('m_2')]),
+            ],
+            onPersistFailed: (message) async => queued.add(message.messageId),
+          )
+          .runOnce();
+      expect(queued, ['m_2']);
+      expect(report.persistedFailed, 1);
+      // 扣下不等于 ack：① 那条不变量原封不动。
+      expect(h.ackOrder, ['m_1']);
+      expect(shown, 0);
+    });
+
+    test('入队钩子自己抛异常也不许把这一轮带走（其余条照常 ack）', () async {
+      final h = _Harness(failPersistFor: ['m_2']);
+      final report = await h
+          .loop(
+            pollScript: [
+              _ok([_msg('m_1'), _msg('m_2'), _msg('m_3')]),
+            ],
+            onPersistFailed: (_) async => throw StateError('队列也写不进去'),
+          )
+          .runOnce();
+      expect(report.persistedFailed, 1);
+      expect(h.ackOrder, ['m_1', 'm_3']);
+      expect(report.acked, 2);
+    });
+
+    test('开跑之前先重试一次队列，且排在取货之前', () async {
+      final h = _Harness();
+      final order = <String>[];
+      await h
+          .loop(
+            pollScript: [_ok(const [])],
+            beforeRound: () async => order.add('drain'),
+          )
+          .runOnce();
+      order.add('after');
+      expect(order, ['drain', 'after']);
+      expect(h.pollCalls, 1);
+    });
+
+    test('重试钩子抛异常也不挡取货（这一轮照常落库与 ack）', () async {
+      final h = _Harness();
+      final report = await h
+          .loop(
+            pollScript: [
+              _ok([_msg('m_1')]),
+            ],
+            beforeRound: () async => throw StateError('队列读不出来'),
+          )
+          .runOnce();
+      expect(report.taken, 1);
+      expect(report.inserted, 1);
+      expect(h.ackOrder, ['m_1']);
+    });
+
+    test('两个钩子都不接（旧装配）时行为与过去完全一致', () async {
+      final h = _Harness(failPersistFor: ['m_2']);
+      final report = await h
+          .loop(
+            pollScript: [
+              _ok([_msg('m_1'), _msg('m_2')]),
+            ],
+          )
+          .runOnce();
+      expect(report.persistedFailed, 1);
+      expect(h.ackOrder, ['m_1']);
+      expect(report.acked, 1);
+    });
+  });
+
   group('失败与闸门', () {
     test('取货没成功 ⇒ 不落库不 ack，也不产生"这条没了"的判断', () async {
       final h = _Harness();
@@ -1212,6 +1295,8 @@ class _Harness {
   FnthinkReceiveLoop loop({
     List<FnthinkReceiveOutcome>? pollScript,
     int Function()? nowMs,
+    Future<void> Function(FnthinkInboxMessage message)? onPersistFailed,
+    Future<void> Function()? beforeRound,
   }) {
     if (pollScript != null) {
       _pollScript
@@ -1224,6 +1309,8 @@ class _Harness {
       pollNow: pollNow,
       ack: ack,
       persist: persist,
+      onPersistFailed: onPersistFailed,
+      beforeRound: beforeRound,
       nowMs: nowMs ?? () => 1700000000000,
       schedule: schedule,
     );

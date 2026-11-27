@@ -8412,6 +8412,24 @@ abstract class AppLocalizations {
   /// **'上一轮有 {count} 条幻念消息未能写入本地收件表，可能已丢失；请检查存储空间后重试'**
   String fnthinkPersistFailedWarning(int count);
 
+  /// No description provided for @fnthinkPersistQueuedWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机还压着 {count} 条没写进收件表的幻念消息，每轮收取开跑之前会再试一次'**
+  String fnthinkPersistQueuedWarning(int count);
+
+  /// No description provided for @fnthinkPersistAbandonedWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'有 {count} 条幻念消息已放弃重试（存放超过 24 小时或已试满 20 次），它们不会再自己进收件表'**
+  String fnthinkPersistAbandonedWarning(int count);
+
+  /// No description provided for @fnthinkPersistAbandonedClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清掉这个计数'**
+  String get fnthinkPersistAbandonedClear;
+
   /// No description provided for @fnthinkWorkChain.
   ///
   /// In zh, this message translates to:

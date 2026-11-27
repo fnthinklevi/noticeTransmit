@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/models/fnthink_pair_request_record.dart';
 import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
@@ -30,6 +31,7 @@ import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
 import 'package:notice_transmit/services/fnthink_grant_items.dart';
 import 'package:notice_transmit/services/fnthink_pair_link.dart';
+import 'package:notice_transmit/services/fnthink_persist_retry_queue.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_service_bridge.dart';
@@ -187,6 +189,8 @@ void main() {
     // T98 片③：通道那一包的替身。勾上那一枚是会**连带建一条通道**的，
     // 那一步只能经接口被钉住（留真服务就是在依赖 sqflite，而这里刻意不开盘）。
     FnthinkChannelStore? channels,
+    // P1-1：落库失败待重试队列。不传 ⇒ 页面那两行不画（"没接队列"与"队列是空的"分开）。
+    FnthinkPersistRetryQueue? persistQueue,
   }) {
     final loader = FnthinkContractLoader(
       readAsset: (_) async {
@@ -369,6 +373,7 @@ void main() {
           presence: FnthinkPresenceScheduler(contracts: loader),
           loadPeers: loadPeersStub,
           healthOf: healthOf,
+          persistQueue: persistQueue,
         ),
       ),
       // T97 片C：远程执行那一格搬成了独立一页。依赖是同一份替身；
@@ -4675,6 +4680,100 @@ void main() {
         find.text(l10n.fnthinkPersistFailedWarning(2)),
         findsOneWidget,
         reason: '必须说清有几条、可能已丢失，而不是一句笼统的"同步异常"',
+      );
+    });
+  });
+
+  group('P1-1 落库失败的本地待重试队列要看得见', () {
+    // 队列里的一行（字段只要够 `FnthinkInboxMessage` 落地，正文是占位）。
+    FnthinkInboxMessage queuedRow(String id) => FnthinkInboxMessage(
+      messageId: id,
+      sender: 'peer-a',
+      type: 'notice',
+      item: 'app.x',
+      title: '标题',
+      body: '正文',
+      appName: 'X',
+      receivedAt: 1700000000000,
+    );
+
+    testWidgets('队列里还压着几条 ⇒ 说清条数与"每轮会再试一次"，而不是说"可能已丢失"', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      stubChannels();
+      // 用真队列：读数从 prefs 里读，条数由队列自己算 —— 不另造一份假读口。
+      final queue = FnthinkPersistRetryQueue(
+        persist: (_) async => true,
+        nowMs: () => 1700000000000,
+      );
+      await queue.enqueue(queuedRow('m_queued_1'));
+      await queue.enqueue(queuedRow('m_queued_2'));
+      final h = harness(persistQueue: queue);
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-persist-queued')),
+        findsOneWidget,
+        reason: '扣在本地队列里的那几条要说出来，否则用户以为已经没了',
+      );
+      expect(find.text(l10n.fnthinkPersistQueuedWarning(2)), findsOneWidget);
+      // 这一行与 P0 那行是两件事：P0 说的是"这一轮失败了几条"。
+      expect(
+        find.byKey(const ValueKey('fnthink-persist-failed')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('已放弃的条数 ⇒ 明确计数 + 一个清掉计数的入口', (tester) async {
+      final queue = FnthinkPersistRetryQueue(
+        persist: (_) async => throw StateError('永远失败'),
+        nowMs: () => 1700000000000,
+      );
+      // 攒出 3 条放弃：填满队列上限挤掉 3 条最旧的
+      for (var i = 0; i < FnthinkPersistRetryQueue.maxRows + 3; i++) {
+        await queue.enqueue(queuedRow('m_$i'));
+      }
+      stubChannels();
+      final h = harness(persistQueue: queue);
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-persist-abandoned')),
+        findsOneWidget,
+        reason: '审计 P1-1 的验收：放弃时 UI 有明确计数，而不是只有一行日志',
+      );
+      expect(find.text(l10n.fnthinkPersistAbandonedWarning(3)), findsOneWidget);
+      final clear = find.byKey(
+        const ValueKey('fnthink-persist-abandoned-clear'),
+      );
+      await revealTo(tester, clear);
+      expect(clear, findsOneWidget);
+
+      await tester.tap(clear);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('fnthink-persist-abandoned')),
+        findsNothing,
+        reason: '点完要当场消失（清完不重读的话用户会以为按钮没生效）',
+      );
+      expect(await queue.abandonedCount(), 0);
+    });
+
+    testWidgets('这一页没接队列 ⇒ 那两行都不画（不拿 0 冒充"空队列"）', (tester) async {
+      stubChannels();
+      final h = harness();
+      await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('fnthink-persist-queued')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-persist-abandoned')),
+        findsNothing,
       );
     });
   });

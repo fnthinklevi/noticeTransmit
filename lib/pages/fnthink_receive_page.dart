@@ -13,6 +13,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_inbox_channel_check.dart';
 import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_peer_service.dart';
+import '../services/fnthink_persist_retry_queue.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_relay_consent.dart';
 import '../services/fnthink_settings.dart';
@@ -39,6 +40,7 @@ class FnthinkReceiveDeps {
     this.healthOf,
     this.permission,
     this.inboxCheck,
+    this.persistQueue,
   });
 
   factory FnthinkReceiveDeps.fromLocator() => FnthinkReceiveDeps(
@@ -50,6 +52,8 @@ class FnthinkReceiveDeps {
     permission: GetIt.instance<PermissionService>(),
     // T173：收件通知渠道自检（读状态 / 重建 / 测试通知）。
     inboxCheck: FnthinkInboxChannelCheck(),
+    // P1-1：落库失败的本地重试队列（队列里还有几条 / 已放弃几条）。这两行读它一处。
+    persistQueue: GetIt.instance<FnthinkPersistRetryQueue>(),
     // 远程指令的「发一条」要挑收件人，而名单只能从协调者那一个读咽喉取。
     // 它不是「接收设置需要名单」，而是「这一格要推的那个页需要」——
     // 另开一条读库的路就会有两个排序口径。
@@ -73,6 +77,10 @@ class FnthinkReceiveDeps {
 
   /// 收件渠道自检（T173）。null = 测试没注入 ⇒ 那一张卡不画。
   final FnthinkInboxChannelCheck? inboxCheck;
+
+  /// P1-1：落库失败的本地待重试队列。null = 测试没注入 ⇒ 那两行不画
+  /// （"没有队列"与"队列是空的"是两件事，不能都显示成 0）。
+  final FnthinkPersistRetryQueue? persistQueue;
 }
 
 /// 接收设置（T44 的② + T56 同意门 + T88 间隔 + §4-9 保活那一行）与远程执行（T94 片2）。
@@ -132,7 +140,18 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
   int _lastRoundAt = 0;
 
   /// P0：最近一轮落库失败的条数（>0 时页面顶部显示"可能已丢失"的警告）。
+  ///
+  /// P1-1 之后它的含义变窄了：这一轮失败的那几条**已经扣进本地重试队列**
+  /// （`_persistQueued`），所以不再是"可能已丢失"，而是"排队等着、等会儿再试"。
   int _persistFailed = 0;
+
+  /// P1-1：本地待重试队列里还压着几条（null = 这一页没接队列）。
+  int? _persistQueued;
+
+  /// P1-1：队列里**已放弃**的累计条数（超龄 24 小时 / 超 20 次都算放弃）。
+  /// 这是一个只增不减的账，只有 `clearAbandoned()` 会清 —— 用它来分辨
+  /// "还在重试"与"已经放弃了但没有一条日志能看见"。
+  int? _persistAbandoned;
 
   /// T176 自检：两项后台授权（null = 还没读到 / 测试没注入权限服务）。
   bool? _exactAlarmGranted;
@@ -224,11 +243,26 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
     final inboxState = _deps.inboxCheck == null
         ? null
         : await _deps.inboxCheck!.state();
+    // P1-1：队列里还压着几条、累计放弃了几条。读不出来就保持 null（不画那两行），
+    // 不拿 0 冒充"队列是空的"。
+    int? queued;
+    int? abandoned;
+    final queue = _deps.persistQueue;
+    if (queue != null) {
+      try {
+        queued = await queue.pendingCount();
+        abandoned = await queue.abandonedCount();
+      } catch (e) {
+        debugPrint('[fnthink] 读落库重试队列读数失败：$e');
+      }
+    }
     if (!mounted) return;
     setState(() {
       _presence = status;
       _lastRoundAt = lastRoundAt;
       _persistFailed = persistFailed;
+      _persistQueued = queued;
+      _persistAbandoned = abandoned;
       _exactAlarmGranted = exactAlarm;
       _batteryOptimizationIgnored = batteryIgnored;
       _inboxChannelState = inboxState;
@@ -284,6 +318,25 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
           ? l10n.fnthinkInboxSelfCheckTestFailed
           : l10n.fnthinkInboxSelfCheckRebuilt(id);
     });
+  }
+
+  /// P1-1：把"已放弃"那一笔账清掉。**只清计数，不动队列** —— 队列里还在重试的那几条
+  /// 由 `drain()` 自己判超龄/超次数，这一发不许替它做决定。
+  ///
+  /// 清完之后立刻重读一次，否则界面上的数字要靠下一次 `_readPresence` 才更新
+  /// （用户点完看不到变化，会以为按钮没生效）。
+  Future<void> _clearPersistAbandoned() async {
+    final queue = _deps.persistQueue;
+    if (queue == null) return;
+    setState(() => _busy = true);
+    try {
+      await queue.clearAbandoned();
+    } catch (e) {
+      debugPrint('[fnthink] 清已放弃计数失败：$e');
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _readPresence();
   }
 
   Future<void> _testInboxNotification() async {
@@ -671,6 +724,35 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage>
                 keyName: 'fnthink-persist-failed',
                 text: l10n.fnthinkPersistFailedWarning(_persistFailed),
               ),
+            // P1-1：那几条现在已经**扣在本机重试队列里**，每轮收取开跑之前再试一遍。
+            // 这一行与上面那行是两件事：上面说"这一轮失败了几条"，这一行说"手上还压着几条"
+            // （上一轮扣下的、还没补成功的，含跨进程重启之后仍在的）。
+            if (_persistQueued case final int queued when queued > 0)
+              FnthinkNote(
+                keyName: 'fnthink-persist-queued',
+                text: l10n.fnthinkPersistQueuedWarning(queued),
+              ),
+            // P1-1：放弃的那一批要能被看见、也要能被清掉 —— 只留一行日志等于没发生
+            // （审计 P1-1 的验收就是这一条：放弃时 UI 有明确计数）。
+            if (_persistAbandoned case final int abandoned
+                when abandoned > 0) ...[
+              FnthinkNote(
+                keyName: 'fnthink-persist-abandoned',
+                text: l10n.fnthinkPersistAbandonedWarning(abandoned),
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FnthinkInlineAction(
+                    key: const ValueKey('fnthink-persist-abandoned-clear'),
+                    label: l10n.fnthinkPersistAbandonedClear,
+                    tone: FnthinkActionTone.neutral,
+                    onPressed: _busy ? null : _clearPersistAbandoned,
+                  ),
+                ],
+              ),
+            ],
             // 远程执行那一格 T97 片C 搬去「远程控制」独立页了 —— 那件事（别人能不能指挥这台）
             // 与这一页（这台收不收别人的东西）代价不同，混一页会让"我关了接收"被读成
             // "远程执行也关了"。入口在通知引擎 hub 那一行（带前置三选一）。

@@ -41,6 +41,8 @@ class FnthinkReceiveLoop {
     this.recordAck,
     this.recordDelivery,
     this.onCommand,
+    this.onPersistFailed,
+    this.beforeRound,
     int Function()? nowMs,
     Timer Function(Duration delay, void Function() callback)? schedule,
     this.clampDelay,
@@ -119,6 +121,23 @@ class FnthinkReceiveLoop {
   /// 执行、回执全在那边），循环这一层不碰协议 —— 那样第二条读者就长出来了。
   /// null = 这台设备没有远程执行那条链路 ⇒ 一律当普通通知（**不静默丢弃**）。
   final Future<bool> Function(FnthinkInboxMessage message)? onCommand;
+
+  /// **落库失败时先把这一条扣下来**（P1-1 的本地待重试队列入口）。null = 没有队列
+  /// ⇒ 这条只剩服务端重投那一条路（3 次 / `ackDeadlineSeconds=180`）。
+  ///
+  /// ⚠ 它与 ① 那条不变量不冲突：**扣下不等于 ack**。这一条仍然不显示、不 ack，
+  /// 服务端也仍会重投；队列只是让本机在"服务端放弃了"之后还有一次自己的机会
+  /// （磁盘满、SQLCipher 密钥损坏这类故障不会在 3 分钟内自愈）。
+  ///
+  /// 入队抛异常只记日志：调用点已经在处理一次失败，第二层失败不该把这一轮打断。
+  final Future<void> Function(FnthinkInboxMessage message)? onPersistFailed;
+
+  /// 每轮**开跑之前**问一次（P1-1：把上一轮扣下的那几条再试一遍）。null = 没有队列。
+  ///
+  /// ⚠ 它排在 `poll()` **之前**：先把自己手上能补的补完，再问服务端要新的 ——
+  /// 反过来的话这一轮取回来的新消息会与队列里的旧消息抢同一份"本轮结果"。
+  /// 它抛异常也只是被吞掉（下一轮再来），绝不允许挡住取货。
+  final Future<void> Function()? beforeRound;
 
   final int Function() nowMs;
   final Timer Function(Duration delay, void Function() callback) schedule;
@@ -334,6 +353,16 @@ class FnthinkReceiveLoop {
   }
 
   Future<FnthinkLoopReport> _runRound({required bool manual}) async {
+    // P1-1：开跑之前先把上一轮没落进库的那几条再试一遍。它不改这一轮的任何判据 ——
+    // 补成功的条下一次被服务端重投时会走 `known` 分支（照常再 ack 一次）。
+    final replay = beforeRound;
+    if (replay != null) {
+      try {
+        await replay();
+      } catch (e) {
+        debugPrint('[fnthink] 落库重试那一轮失败（不挡取货）：$e');
+      }
+    }
     final outcome = await (manual ? (pollNow ?? poll) : poll)();
     if (outcome.status != FnthinkPollStatus.ok) {
       // 一次失败的取货不产生任何"这条没了"的判断（五种失败的下一步在内核里分过类）。
@@ -360,6 +389,16 @@ class FnthinkReceiveLoop {
         duplicate++;
       } else {
         persistedFailed++;
+        // P1-1：先把这一条扣进本地重试队列，再走 ① 那条"不显示也不 ack"。
+        // 队列接不上（null）时行为与过去一致 —— 只剩服务端重投那一条路。
+        final queue = onPersistFailed;
+        if (queue != null) {
+          try {
+            await queue(row);
+          } catch (e) {
+            debugPrint('[fnthink] 落库待重试队列入队失败：${row.messageId} $e');
+          }
+        }
         continue; // ① 没落到盘上的这条**不显示也不 ack**：ack 会让服务端删正文
       }
       // ⑥ 远程指令（片3c）：**落库之后、显示之前**问一次。

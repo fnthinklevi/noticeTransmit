@@ -196,6 +196,8 @@ class FnthinkLoopSpec {
     this.recordAck,
     this.recordDelivery,
     this.onCommand,
+    this.onPersistFailed,
+    this.beforeRound,
     this.onRound,
     this.client,
   });
@@ -225,6 +227,15 @@ class FnthinkLoopSpec {
   /// ⚠ 它排在**落库之后、显示之前**：早于落库 ⇒ 远程指令不进收件表（"对方发来过什么"
   /// 就查不到）；晚于显示 ⇒ 指令以普通通知的形状弹出来。判定与执行都在那一格自己手里。
   final Future<bool> Function(FnthinkInboxMessage message)? onCommand;
+
+  /// P1-1：落库失败时把这一条扣进本地待重试队列。null = 这台没接队列。
+  ///
+  /// 与 ① 那条不变量不冲突：扣下不等于 ack，这一条仍然不显示、不 ack。
+  /// 队列只是让本机在服务端重投窗口（3 次 / 180 秒）之外还有一次自己的机会。
+  final Future<void> Function(FnthinkInboxMessage message)? onPersistFailed;
+
+  /// P1-1：每轮开跑之前把队列里的几条再试一遍。null = 这台没接队列。
+  final Future<void> Function()? beforeRound;
 
   /// 每轮结束后的账（**只**用来把这一轮 poll 到的配对请求交给协调者，见 [FnthinkReceiveLoop.onRound]）。
   /// 由协调者在 `_resolveSpec` 里填 `_noteRound`，所以这里带着它出去、`buildFnthinkReceiveLoop` 再把它接上。
@@ -331,6 +342,10 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
     //   东西动手，且远程执行历史一行都不写（判定与留痕都在这一格后面）。守卫按
     //   `FnthinkLoopSpec` 里声明的钩子逐格数转发，见 fnthink_receive_wiring_test。
     onCommand: spec.onCommand,
+    // P1-1：落库失败扣进本地待重试队列 + 开跑前把队列再试一遍。两格都可能是 null
+    // （这台没接队列），此时行为与过去完全一致：只剩服务端重投那一条路。
+    onPersistFailed: spec.onPersistFailed,
+    beforeRound: spec.beforeRound,
     onRound: spec.onRound,
   );
   return loop;
@@ -387,6 +402,8 @@ class FnthinkReceiveCoordinator {
     this.recordAck,
     this.recordDelivery,
     this.onCommand,
+    this.onPersistFailed,
+    this.beforeRound,
     this.recordPeer,
     this.updateGrant,
     this.removePeer,
@@ -435,6 +452,17 @@ class FnthinkReceiveCoordinator {
   /// ⚠ 漏接时的表现不是「指令不执行」，而是**它会作为一条普通通知弹出来** ——
   ///   那是「远程指令被当成通知显示掉」的形状，比不执行更难查。
   final Future<bool> Function(FnthinkInboxMessage message)? onCommand;
+
+  /// P1-1：落库失败时把这一条扣进本地待重试队列（`FnthinkPersistRetryQueue.enqueue`）。
+  /// null = 这台没接队列 ⇒ 只剩服务端重投那一条路（3 次 / 180 秒）。
+  ///
+  /// ⚠ 与"落库失败绝不 ack"不冲突：扣下不等于 ack。它只是让本机在服务端放弃之后
+  /// 还有一次自己的机会 —— 磁盘满、SQLCipher 密钥损坏不会在 3 分钟内自愈。
+  final Future<void> Function(FnthinkInboxMessage message)? onPersistFailed;
+
+  /// P1-1：每轮开跑之前把队列里的几条再试一遍（`FnthinkPersistRetryQueue.drain`）。
+  /// null = 这台没接队列。抛异常会被循环吞掉，绝不许挡住取货。
+  final Future<void> Function()? beforeRound;
 
   /// 服务端**认了**一条授权之后，把这一条写进本机配对名单（`fnthink_peers`）。
   /// null = 这台设备没装配落库链路 ⇒ 名单不写，而结论里会带着 [FnthinkPeerSkip.storeUnavailable]
@@ -1012,6 +1040,9 @@ class FnthinkReceiveCoordinator {
       recordDelivery: recordDelivery,
       // 片3c：远程指令判定那一格（null = 这台没装远程执行 ⇒ 照常当通知）。
       onCommand: onCommand,
+      // P1-1：落库失败扣队列 / 开跑前重试队列（两格同源，都来自 DI 里那个队列实例）。
+      onPersistFailed: onPersistFailed,
+      beforeRound: beforeRound,
       // 后台那几轮也要有人记账：只有页面"立即收取"那一条接了 `_noteRound`，
       // 待确认列表就会变成"点了按钮才有人来"，而开关开着时它本来就是自动在收的。
       onRound: _noteRound,

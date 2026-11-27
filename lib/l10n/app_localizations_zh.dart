@@ -4665,6 +4665,19 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String fnthinkPersistQueuedWarning(int count) {
+    return '本机还压着 $count 条没写进收件表的幻念消息，每轮收取开跑之前会再试一次';
+  }
+
+  @override
+  String fnthinkPersistAbandonedWarning(int count) {
+    return '有 $count 条幻念消息已放弃重试（存放超过 24 小时或已试满 20 次），它们不会再自己进收件表';
+  }
+
+  @override
+  String get fnthinkPersistAbandonedClear => '清掉这个计数';
+
+  @override
   String fnthinkWorkChain(
     Object fanoutWork,
     Object presenceWork,

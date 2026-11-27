@@ -4908,6 +4908,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String fnthinkPersistQueuedWarning(int count) {
+    return '$count Fnthink message(s) are still held locally and not yet in the inbox. Each fetch round retries them before it starts.';
+  }
+
+  @override
+  String fnthinkPersistAbandonedWarning(int count) {
+    return '$count Fnthink message(s) stopped being retried (held over 24 hours or tried 20 times). They will not reach the inbox on their own.';
+  }
+
+  @override
+  String get fnthinkPersistAbandonedClear => 'Clear this count';
+
+  @override
   String fnthinkWorkChain(
     Object fanoutWork,
     Object presenceWork,

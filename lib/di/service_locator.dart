@@ -25,6 +25,7 @@ import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_delivery_link_store.dart';
 import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_persist_retry_queue.dart';
 import '../services/fnthink_receipt_watchdog.dart';
 import '../services/fnthink_receiver_service.dart';
 import '../services/fnthink_l3_local_state.dart';
@@ -162,6 +163,21 @@ void setupLocator() {
       },
     ),
   );
+  // 落库失败的本地待重试队列（P1-1）。它接的是**同一个** `insertFnthinkInbox` ——
+  // 刻意不另开一条写入路：否则"落库"就有了两个作者，重试成功与正式落库的判据会漂。
+  //
+  // 为什么需要它：`persist` 抛异常时收货循环既不显示也不 ack（① 那条不变量），
+  // 剩下的唯一指望是服务端重投（`delivery.js` 的 `no_ack`，3 次、`ackDeadlineSeconds=180`）。
+  // 磁盘满、SQLCipher 密钥损坏、库文件损坏都不会在 3 分钟内自愈 ⇒ 那几条就成了幽灵消息
+  // （发送端拿到成功、服务端有记录、本机收件表永远没有）。
+  //
+  // ⚠ 它与 `SecureStorageService` 无关：那一层会抛 `SecureStorageUnavailable`、会超时，
+  //   不能当"必成功"的落点。这里走普通 prefs（与 `FnthinkDeliveryLinkStore`、
+  //   幻念转发待发队列同族），且**只写 String/int**（原生写过 Float 会让 `getAll` 抛）。
+  getIt.registerLazySingleton<FnthinkPersistRetryQueue>(
+    () =>
+        FnthinkPersistRetryQueue(persist: DatabaseHelper().insertFnthinkInbox),
+  );
   getIt.registerLazySingleton<FnthinkReceiveCoordinator>(
     () => FnthinkReceiveCoordinator(
       contracts: getIt<FnthinkContractLoader>(),
@@ -291,6 +307,16 @@ void setupLocator() {
         //   —— 一次崩溃把整轮收货带走，而那一轮里还有别的普通通知。
         if (getIt<FnthinkContractLoader>().cached == null) return false;
         return getIt<RemoteCommandWiring>().onCommand(message);
+      },
+      // P1-1：落库失败扣进本地待重试队列（磁盘满/密钥损坏这类故障，服务端重投窗口兜不住）。
+      // 漏接时的表现与过去一样：那几条只剩服务端那 3 次机会，之后就是幽灵消息 ——
+      // 而全场 Dart 测试仍然绿（循环用例把 hook 当参数传），守卫在装配点测试里。
+      onPersistFailed: (message) =>
+          getIt<FnthinkPersistRetryQueue>().enqueue(message),
+      // P1-1：每轮开跑之前把队列里那几条再试一遍。补成功的那条下次被服务端重投时
+      // 会走 `known` 分支（照常再 ack 一次），所以这里不需要碰 ack。
+      beforeRound: () async {
+        await getIt<FnthinkPersistRetryQueue>().drain();
       },
     ),
   );

@@ -2739,6 +2739,23 @@
       }
     }
   },
+  "fnthinkPersistQueuedWarning": "{count} Fnthink message(s) are still held locally and not yet in the inbox. Each fetch round retries them before it starts.",
+  "@fnthinkPersistQueuedWarning": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkPersistAbandonedWarning": "{count} Fnthink message(s) stopped being retried (held over 24 hours or tried 20 times). They will not reach the inbox on their own.",
+  "@fnthinkPersistAbandonedWarning": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkPersistAbandonedClear": "Clear this count",
   "fnthinkWorkChain": "Background tasks: fetch {presenceWork} · fanout {fanoutWork} · {queue} queued",
   "fnthinkDiagAlarmAt": "Last alarm fired: {time}",
   "@fnthinkDiagAlarmAt": {
