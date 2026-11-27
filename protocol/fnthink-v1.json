@@ -275,7 +275,7 @@
       "safetyPollSeconds": 60,
       "_why": "T185 第二步：长轮询把空闲请求压到 2.4 次/分，SSE 再把它压到一条连接（正常时只有心跳，没有请求）。SSE 只是**门铃**：收到 `wake` 后仍走唯一的 poll → 落库 → ack 那条链，投递语义一个字节都不改。",
       "_ticketWhy": "SSE 是 GET，没法把签名放进请求体；把签名塞 URL 会进访问日志。所以用一枚**一次性短票**：设备先用普通的 /poll（带 ticketRequestHeader）换票，再拿 ticketHeader 去连 /stream。票 90 秒过期、只用一次、只绑一台设备；服务端重启后票失效 ⇒ 客户端换一张即可。",
-      "_numbersWhy": "heartbeat 20s 小于常见反代的 60s 读超时；safetyPollSeconds 60 是「SSE 静默死了 / wake 被边缘吞掉但连接还在」时的兜底：最长 60 秒一定有一次真 poll。300 秒的旧值让一条丢失的 wake 要等满 5 分钟（2026-11-27 实测）；60 秒只比契约最慢档多一倍空转（1 次/分），不健康时仍回到 longPoll 的 25s。",
+      "_numbersWhy": "heartbeat 20s 小于常见反代的 60s 读超时；safetyPollSeconds 60 是「SSE 静默死了 / wake 被边缘吞掉但连接还在」时的兜底：最长 60 秒一定有一次真 poll。300 秒的旧值让一条丢失的 wake 要等满 5 分钟（2026-11-27 实测）；60 秒就是契约最慢档（1 次/分），仍是低频兜底，不健康时回到 longPoll 的 25s。",
       "_fallbackWhy": "流连不上（反代缓冲、证书、旧服务端）时客户端必须**退回长轮询**，而不是停摆：SSE 是加速器，不是唯一通道。"
     }
   },
