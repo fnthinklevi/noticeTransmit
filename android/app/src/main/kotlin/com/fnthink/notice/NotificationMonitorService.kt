@@ -542,34 +542,59 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     /**
-     * 重新请求绑定监听连接。官方文档明确：
-     * requestRebind(ComponentName) 是 onListenerDisconnected 之后唯一安全的恢复调用。
-     * 调用可能被系统节流或失败，15 秒后仍未重连则再试一次。
+     * 重新请求绑定监听连接，**持续退避直到连上**（P1-2）。
+     *
+     * 官方文档明确：requestRebind(ComponentName) 是 onListenerDisconnected 之后
+     * 唯一安全的恢复调用。但它可能被系统节流或静默忽略 —— 原实现 15 秒后再试
+     * 一次就收手，若系统那两次都没答应（国产 ROM 后台限制、权限页还开着、Doze
+     * 刚醒），监听器就一直不回来而 `onNotificationPosted` 不再回调 ⇒ 那段通知
+     * 静默漏读。现在按 [RebindBackoff] 一直试到 [onListenerConnected] 或服务销毁。
+     *
+     * 每次尝试都打一行日志（含第几次与间隔），真机上"到底试没试、多久试一次"
+     * 才查得出来 —— 这是本条审计的验收要求之一。
      */
     private fun requestRebindCompat() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+        requestRebindOnce()
+        scheduleRebindRetry(attempt = 0)
+    }
+
+    /** 发一次重绑请求。失败只记日志：下一次由退避闹钟再来。 */
+    private fun requestRebindOnce() {
         try {
             NotificationListenerService.requestRebind(
                 ComponentName(this, NotificationMonitorService::class.java)
             )
-            rebindRetry?.let { mainHandler.removeCallbacks(it) }
-            val retry = Runnable {
-                if (!isConnected) {
-                    Log.w(TAG, "Still disconnected after rebind, retrying")
-                    try {
-                        NotificationListenerService.requestRebind(
-                            ComponentName(this, NotificationMonitorService::class.java)
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "rebind retry failed", e)
-                    }
-                }
-            }
-            rebindRetry = retry
-            mainHandler.postDelayed(retry, 15_000L)
         } catch (e: Exception) {
             Log.e(TAG, "requestRebind failed", e)
         }
+    }
+
+    /**
+     * 排下一次重试。[attempt] 是本轮断连里的第几次重试（0 = 断开后的第一次等待）。
+     *
+     * ⚠ 先判 `isConnected` 再排：已经连上就什么都不做（否则会留下一个必然空转的 Runnable，
+     * 而 `onDestroy` 的 removeCallbacksAndMessages 之前它还可能先跑一次）。
+     * ⚠ 这里**不**判 `monitoringEnabled`：监听总开关管的是"要不要转发"，而监听器本身
+     * 断开之后即使当前没在转发，也要保持能收（用户随时可能再打开）。
+     */
+    private fun scheduleRebindRetry(attempt: Int) {
+        if (isConnected) return
+        rebindRetry?.let { mainHandler.removeCallbacks(it) }
+        val delay = RebindBackoff.delayFor(attempt)
+        val retry = Runnable {
+            if (!isConnected) {
+                Log.w(
+                    TAG,
+                    "Still disconnected after rebind, retrying (attempt ${attempt + 1}, " +
+                        "every ${delay}ms)"
+                )
+                requestRebindOnce()
+                scheduleRebindRetry(attempt + 1)
+            }
+        }
+        rebindRetry = retry
+        mainHandler.postDelayed(retry, delay)
     }
 
     private fun cancelRebindRetry() {

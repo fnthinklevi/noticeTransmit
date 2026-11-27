@@ -452,15 +452,15 @@ push 到仓库本体时漂移由 CI 自动校平并回写（`--fix`），PR / fo
 | App 全量测试（flutter test） | 3841 例 <!--k:dart_tests--> |
 | App 测试文件数（test/） | 343 个 <!--k:dart_test_files--> |
 | 幻念推送包测试（fnthink_push） | 601 例 <!--k:push_tests--> |
-| Kotlin JVM 单元测试 | 784 例 <!--k:kotlin_tests--> |
-| Kotlin 测试类数 | 103 类 <!--k:kotlin_classes--> |
+| Kotlin JVM 单元测试 | 790 例 <!--k:kotlin_tests--> |
+| Kotlin 测试类数 | 104 类 <!--k:kotlin_classes--> |
 | 服务端契约测试（jest） | 885 例 <!--k:jest_tests--> |
 | 服务端测试套件数 | 48 套件 <!--k:jest_suites--> |
 | l10n 词条（zh；en 同数锁定） | 1775 条 <!--k:l10n_keys--> |
 | Dart 源码行数（lib/） | 95590 行 <!--k:dart_loc_lib--> |
 | Dart 测试行数（test/） | 96209 行 <!--k:dart_loc_test--> |
-| Kotlin 源码行数（android main） | 25469 行 <!--k:kotlin_loc_main--> |
-| Kotlin 测试行数（android test） | 16025 行 <!--k:kotlin_loc_test--> |
+| Kotlin 源码行数（android main） | 25535 行 <!--k:kotlin_loc_main--> |
+| Kotlin 测试行数（android test） | 16087 行 <!--k:kotlin_loc_test--> |
 | 应用版本（pubspec） | 1.6.8+168 <!--k:app_version--> |
 | 数据库 schema 版本 | 29 v <!--k:db_version--> |
 | Flutter（CI pin） | 3.47.7 <!--k:flutter_version--> |
