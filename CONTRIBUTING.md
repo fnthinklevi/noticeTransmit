@@ -230,7 +230,7 @@ PR / fork 场景判红、要求本地 `--fix`。不要再手抄数字，也不�
 | 幻念推送包测试（fnthink_push） | 601 例 <!--k:push_tests--> |
 | Kotlin JVM 单元测试 | 784 例 <!--k:kotlin_tests--> |
 | Kotlin 测试类数 | 103 类 <!--k:kotlin_classes--> |
-| 服务端契约测试（jest） | 878 例 <!--k:jest_tests--> |
+| 服务端契约测试（jest） | 885 例 <!--k:jest_tests--> |
 | 服务端测试套件数 | 48 套件 <!--k:jest_suites--> |
 | l10n 词条（zh；en 同数锁定） | 1772 条 <!--k:l10n_keys--> |
 | Dart 源码行数（lib/） | 95098 行 <!--k:dart_loc_lib--> |

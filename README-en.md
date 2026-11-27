@@ -457,7 +457,7 @@ committed back (`--fix`), while PR / fork runs fail the build and ask for a loca
 | fnthink_push package tests | 601 <!--k:push_tests--> |
 | Kotlin JVM unit tests | 784 <!--k:kotlin_tests--> |
 | Kotlin test classes | 103 <!--k:kotlin_classes--> |
-| Server contract tests (jest) | 878 <!--k:jest_tests--> |
+| Server contract tests (jest) | 885 <!--k:jest_tests--> |
 | Server test suites | 48 <!--k:jest_suites--> |
 | l10n keys (zh; en locked to same count) | 1772 <!--k:l10n_keys--> |
 | Dart lines (lib/) | 95098 <!--k:dart_loc_lib--> |
