@@ -63,20 +63,6 @@ class NotificationProcessor(private val context: Context) {
             return null
         }
 
-        if (isOngoing) {
-            notifiedKeys.remove(dedupKey)
-            notifiedKeys.add(dedupKey)
-            if (notifiedKeys.size > MAX_NOTIFIED_KEYS) {
-                synchronized(notifiedKeys) {
-                    val toRemove = notifiedKeys.size - MAX_NOTIFIED_KEYS + 50
-                    val list = ArrayList(notifiedKeys)
-                    for (i in 0 until toRemove) {
-                        notifiedKeys.remove(list[i])
-                    }
-                }
-            }
-        }
-
         val extras = notification.extras
         val title = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString() ?: ""
         val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString() ?: ""
@@ -106,6 +92,24 @@ class NotificationProcessor(private val context: Context) {
             Log.d(TAG, "Notification content masked, replaced with hint: $packageName")
         }
         if (title.isEmpty() && content.isEmpty()) return null
+
+        // P0：去重键必须在**确认这条真的要转发**之后才记。
+        // 旧顺序是先记 key 再抽正文：首条纯进度条 / 纯 Custom RemoteViews（标题与正文都空）
+        // 会在这里 return null，却把 key 永久留在 notifiedKeys 里 —— 同一个 key 的后续更新
+        // 全被当重复拦掉，直到通知被移除或进程重启。这就是"常驻通知只来第一条"的锁死。
+        if (isOngoing) {
+            notifiedKeys.remove(dedupKey)
+            notifiedKeys.add(dedupKey)
+            if (notifiedKeys.size > MAX_NOTIFIED_KEYS) {
+                synchronized(notifiedKeys) {
+                    val toRemove = notifiedKeys.size - MAX_NOTIFIED_KEYS + 50
+                    val list = ArrayList(notifiedKeys)
+                    for (i in 0 until toRemove) {
+                        notifiedKeys.remove(list[i])
+                    }
+                }
+            }
+        }
 
         val baseAppName = getAppNameByPackage(packageName)
         val isPushService = isVendorPushService(packageName)
