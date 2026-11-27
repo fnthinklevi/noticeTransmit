@@ -460,8 +460,8 @@ committed back (`--fix`), while PR / fork runs fail the build and ask for a loca
 | Server contract tests (jest) | 871 <!--k:jest_tests--> |
 | Server test suites | 47 <!--k:jest_suites--> |
 | l10n keys (zh; en locked to same count) | 1771 <!--k:l10n_keys--> |
-| Dart lines (lib/) | 95041 <!--k:dart_loc_lib--> |
-| Dart test lines (test/) | 95773 <!--k:dart_loc_test--> |
+| Dart lines (lib/) | 95035 <!--k:dart_loc_lib--> |
+| Dart test lines (test/) | 95779 <!--k:dart_loc_test--> |
 | Kotlin lines (android main) | 25434 <!--k:kotlin_loc_main--> |
 | Kotlin test lines (android test) | 15930 <!--k:kotlin_loc_test--> |
 | App version (pubspec) | 1.6.8+168 <!--k:app_version--> |

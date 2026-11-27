@@ -457,8 +457,8 @@ push 到仓库本体时漂移由 CI 自动校平并回写（`--fix`），PR / fo
 | 服务端契约测试（jest） | 871 例 <!--k:jest_tests--> |
 | 服务端测试套件数 | 47 套件 <!--k:jest_suites--> |
 | l10n 词条（zh；en 同数锁定） | 1771 条 <!--k:l10n_keys--> |
-| Dart 源码行数（lib/） | 95041 行 <!--k:dart_loc_lib--> |
-| Dart 测试行数（test/） | 95773 行 <!--k:dart_loc_test--> |
+| Dart 源码行数（lib/） | 95035 行 <!--k:dart_loc_lib--> |
+| Dart 测试行数（test/） | 95779 行 <!--k:dart_loc_test--> |
 | Kotlin 源码行数（android main） | 25434 行 <!--k:kotlin_loc_main--> |
 | Kotlin 测试行数（android test） | 15930 行 <!--k:kotlin_loc_test--> |
 | 应用版本（pubspec） | 1.6.8+168 <!--k:app_version--> |
