@@ -39,4 +39,38 @@ internal object RecoveryWatermark {
         if (now - lastAliveAt < MIN_GAP_MS) return null
         return maxOf(lastAliveAt, lastScanAt, now - MAX_LOOKBACK_MS)
     }
+
+    /**
+     * 一次冷启动补扫的收尾决策（P1-3）。
+     *
+     * 背景：原实现**先**把 `LAST_SCAN` / `LAST_ALIVE` 推进到 `now`、**再**去扫，而
+     * 扫描在 `activeNotifications` 还是 null（监听器尚未接上）时静默 return ——
+     * 那一段通知就永远补不回来了：水位已经跨过去，下一次启动算出的下界比它们新。
+     *
+     * @param since 补扫下界（null = 不需要补扫）
+     * @param snapshotReadable 这一次是否真的拿到了活跃通知快照并扫完
+     */
+    fun settleStartupScan(since: Long?, snapshotReadable: Boolean): StartupScanSettle {
+        // 不需要补扫：照常推进水位（否则每次启动都重算同一段，而那段本来就没漏）
+        if (since == null) {
+            return StartupScanSettle(advanceWatermark = true, pendingSince = null)
+        }
+        // 需要补扫且真的扫完了：推进水位
+        if (snapshotReadable) {
+            return StartupScanSettle(advanceWatermark = true, pendingSince = null)
+        }
+        // 需要补扫但没拿到快照：**不推进**，把这一段挂成 pending 等监听器接上再补
+        return StartupScanSettle(advanceWatermark = false, pendingSince = since)
+    }
 }
+
+/**
+ * 冷启动补扫的收尾结论（见 [RecoveryWatermark.settleStartupScan]）。
+ *
+ * @property advanceWatermark 要不要把 `LAST_SCAN` / `LAST_ALIVE` 推进到 now
+ * @property pendingSince 非 null = 这一段还没扫，等 `onListenerConnected` 之后再补一次
+ */
+internal data class StartupScanSettle(
+    val advanceWatermark: Boolean,
+    val pendingSince: Long?,
+)

@@ -513,6 +513,19 @@ class NotificationMonitorService : NotificationListenerService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var rebindRetry: Runnable? = null
 
+    /**
+     * 挂着等补的冷启动下界（P1-3）。0 = 没有欠账。
+     *
+     * 冷启动 1.5 秒后那次补扫常常跑在监听器还没接上的时候（`activeNotifications` 是
+     * null）—— 那一段通知就永远补不回来，因为水位已经跨过去了。现在那种情况下水位
+     * **不推进**，把这个下界挂在这里，等 `onListenerConnected` 到了再补一次。
+     *
+     * ⚠ 它替代了**不能**替代的东西：`disconnectedAt` 记的是"这一次进程里断开过"，
+     * 冷启动时它必然是 0（进程都换了），所以原来那条 `recoverMissedNotifications`
+     * 在冷启动场景永远不会被触发。这两个标记必须分开。
+     */
+    @Volatile private var pendingColdStartScan: Long = 0L
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         isConnected = true
@@ -526,6 +539,9 @@ class NotificationMonitorService : NotificationListenerService() {
         try { refreshForegroundVisibility() } catch (_: Exception) {}
         Log.i(TAG, "Notification listener connected")
         recoverMissedNotifications()
+        // P1-3：冷启动那次补扫如果因为"监听器还没接上"没扫成，在这里补上。
+        // 它必须排在断线补扫之后（两者用的是两个不同的下界，互不覆盖）。
+        recoverPendingColdStartScan()
     }
 
     override fun onListenerDisconnected() {
@@ -617,6 +633,34 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     /**
+     * 补做冷启动那次没扫成的补扫（P1-3）。
+     *
+     * 触发条件只有 `pendingColdStartScan > 0`：那是 `recoverMissedOnStartup()` 在
+     * "需要补扫但拿不到 activeNotifications"时挂下的欠账。与 [recoverMissedNotifications]
+     * 的区别是**下界来源不同**：那里是"这一次进程里断开过"，这里是"上一次进程死之前
+     * 到现在这一段还没扫过"。
+     *
+     * 扫完之后**才**推进水位 —— 仍然是 P1-3 那条：没扫成就别跨过去。
+     */
+    private fun recoverPendingColdStartScan() {
+        val since = pendingColdStartScan
+        if (since <= 0L) return
+        val scanned = scanActiveSince(since, tag = "cold-start rescan (after listener connected)")
+        if (!scanned) {
+            Log.w(TAG, "cold-start rescan still failed (snapshot unreadable); keeping debt: since=$since")
+            return
+        }
+        pendingColdStartScan = 0L
+        val now = System.currentTimeMillis()
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(PREF_LAST_SCAN, now)
+            .putLong(PREF_LAST_ALIVE, now)
+            .apply()
+        Log.i(TAG, "cold-start rescan done; watermark advanced to $now")
+    }
+
+    /**
      * **服务启动补扫**（N9 漏通知修复核心）：覆盖「进程被系统回收 → 系统延迟/未重新绑定
      * 监听器 → 期间 `onNotificationPosted` 事件永久丢失，但通知仍驻留通知栏」的漏读。
      *
@@ -634,31 +678,57 @@ class NotificationMonitorService : NotificationListenerService() {
         val lastAlive = prefs.getLong(PREF_LAST_ALIVE, 0L)
         val lastScan = prefs.getLong(PREF_LAST_SCAN, 0L)
         val since = RecoveryWatermark.scanSinceOrNull(lastAlive, lastScan, now)
-        // 水位推进到 now（无论是否补扫），防止下次启动重复回放同一段
-        prefs.edit()
-            .putLong(PREF_LAST_SCAN, now)
-            .putLong(PREF_LAST_ALIVE, now)
-            .apply()
         if (since == null) {
+            // 不需要补扫：水位照常推进（这一段本来就没漏，不推进下次启动会重算同一段）
+            prefs.edit()
+                .putLong(PREF_LAST_SCAN, now)
+                .putLong(PREF_LAST_ALIVE, now)
+                .apply()
             Log.d(TAG, "启动补扫跳过（首次安装或服务未中断）")
             return
         }
         touchAlive()
-        scanActiveSince(since, tag = "启动补扫")
+        val scanned = scanActiveSince(since, tag = "启动补扫")
+        // P1-3：只有**真的扫完**才推进水位。没拿到 activeNotifications（监听器尚未接上）
+        // 时把这一段挂成 pending，等 onListenerConnected 再补一次 —— 否则那一段通知
+        // 会因为"水位已经跨过去、而扫描静默 return"永远补不回来。
+        val settle = RecoveryWatermark.settleStartupScan(since, scanned)
+        if (settle.advanceWatermark) {
+            prefs.edit()
+                .putLong(PREF_LAST_SCAN, now)
+                .putLong(PREF_LAST_ALIVE, now)
+                .apply()
+        } else {
+            pendingColdStartScan = settle.pendingSince ?: since
+            Log.w(
+                TAG,
+                "startup rescan could not read active notifications (listener not " +
+                    "connected yet); watermark NOT advanced, will rescan once connected: " +
+                    "since=$pendingColdStartScan"
+            )
+        }
     }
 
-    /** 补扫通知栏中「postTime >= since」的仍驻留通知，走与实时回调完全相同的处理管道 */
-    private fun scanActiveSince(since: Long, tag: String) {
+    /**
+     * 「这一轮冷启动补扫真的扫完了」（P1-3）。
+     *
+     * 返回 false 的那一半（`activeNotifications` 还是 null）必须让调用方**别推进水位**，
+     * 否则那一段通知就永远补不回来。返回 true 也包括"快照读得到但里面没有要补的条"——
+     * 那是"扫过了、确实没有"，与"没扫成"是两件事。
+     */
+    private fun scanActiveSince(since: Long, tag: String): Boolean {
         try {
-            val active = activeNotifications ?: return
+            val active = activeNotifications ?: return false
             val missed = active.filter { it.postTime >= since }
-            if (missed.isEmpty()) return
+            if (missed.isEmpty()) return true
             Log.i(TAG, "$tag: ${missed.size} notification(s) (postTime >= $since)")
             for (sbn in missed) {
                 dispatchPosted(sbn)
             }
+            return true
         } catch (e: Exception) {
             Log.e(TAG, "$tag 失败", e)
+            return false
         }
     }
 
