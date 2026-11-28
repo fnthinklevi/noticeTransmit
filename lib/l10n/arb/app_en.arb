@@ -2492,9 +2492,9 @@
     }
   },
   "fnthinkEndpointTitle": "Ingress endpoints (for NAS / scripts)",
-  "fnthinkEndpointWhy": "A long-lived token third-party platforms use to push to this device. The server stores only a digest; the token below is shown this once — close the page and it is gone.",
+  "fnthinkEndpointWhy": "Long-lived tokens that third-party platforms use to push notifications to this device. The server stores only a digest; the token below is shown only this time and cannot be seen again after leaving the page.",
   "fnthinkEndpointEntryDesc": "A long-lived token that lets external services — a NAS, scripts, monitoring — push in. Most people never need to touch this.",
-  "fnthinkEndpointCap": "This device can hold up to {max}; at the cap new ones are refused and none in use is displaced.",
+  "fnthinkEndpointCap": "This device can create up to {max} endpoints; at the cap, new endpoints are refused and endpoints in use are not displaced.",
   "@fnthinkEndpointCap": {
     "placeholders": {
       "max": {
@@ -2502,7 +2502,7 @@
       }
     }
   },
-  "fnthinkEndpointCountOf": "This device already has {n} (limit {max}).",
+  "fnthinkEndpointCountOf": "This device already has {n} endpoints (limit {max}).",
   "@fnthinkEndpointCountOf": {
     "placeholders": {
       "n": {
@@ -2513,8 +2513,8 @@
       }
     }
   },
-  "fnthinkEndpointNeverUsed": "never received anything",
-  "fnthinkEndpointLastUsed": "last received {ago}",
+  "fnthinkEndpointNeverUsed": "Never received a message",
+  "fnthinkEndpointLastUsed": "Last received {ago}",
   "@fnthinkEndpointLastUsed": {
     "placeholders": {
       "ago": {
@@ -2522,10 +2522,10 @@
       }
     }
   },
-  "fnthinkEndpointLastUsedUnknown": "not reported (peer build is older)",
-  "fnthinkEndpointCreate": "Create an endpoint",
-  "fnthinkEndpointDefaultName": "Created in-app",
-  "fnthinkEndpointId": "Ingress id: {id}",
+  "fnthinkEndpointLastUsedUnknown": "Not reported (the other device's build is older)",
+  "fnthinkEndpointCreate": "Create endpoint",
+  "fnthinkEndpointDefaultName": "Created in the app",
+  "fnthinkEndpointId": "Endpoint ID: {id}",
   "@fnthinkEndpointId": {
     "placeholders": {
       "id": {
@@ -2541,12 +2541,12 @@
       }
     }
   },
-  "fnthinkEndpointOnce": "This token appears only once — copy it now; afterwards you can only create a new one (nobody can hand back the old).",
-  "fnthinkEndpointTutorial": "How to call this one",
+  "fnthinkEndpointOnce": "This token is shown only once; copy it now. Afterwards you can only create a new endpoint (the old token cannot be recovered).",
+  "fnthinkEndpointTutorial": "Calling this endpoint",
   "fnthinkEndpointPostWhy": "The token is placed in the request header, not the URL, so it will not appear in reverse-proxy access logs. You can copy the full request example as-is",
   "fnthinkEndpointGetWarning": "The GET form is shown as a shape only: it puts the token in the URL path, so it does land in the reverse proxy's access log. Until log redaction is configured on this server, this branch gives no copyable real token — use the POST above if you need it working now.",
   "fnthinkEndpointCopyPushUrl": "Copy push URL",
-  "fnthinkEndpointPushUrlWhy": "Just need something to paste into another app's single webhook field: this one carries the token in the last path segment, so a plain POST is enough — no request headers required. ⚠ A token in the URL does land in the reverse proxy's access log. Until log redaction is configured on this server, prefer the Bearer form above whenever your client can send headers.",
+  "fnthinkEndpointPushUrlWhy": "When you only need to paste into another app's single Webhook field, this form carries the token in the last path segment, so a plain POST is enough — no request headers required. ⚠ A token in the URL does land in the reverse proxy's access log. Until log redaction is configured on this server, prefer the Bearer form above whenever your client can send headers.",
   "fnthinkEndpointFieldAlias": "Field names differ across platforms; the first non-empty value wins. Title candidates: {title}. Body candidates: {body}. Extra fields such as type／level／item are ignored; all payloads are treated as regular notifications (this token only posts notifications; requests carrying action／setting will be rejected). The delivery target cannot be specified in the request — it always targets this device only",
   "@fnthinkEndpointFieldAlias": {
     "placeholders": {
@@ -2558,11 +2558,11 @@
       }
     }
   },
-  "fnthinkEndpointCopyId": "Copy endpoint id",
+  "fnthinkEndpointCopyId": "Copy endpoint ID",
   "fnthinkEndpointCopySecret": "Copy token",
   "fnthinkEndpointCopyCommand": "Copy the whole command",
   "fnthinkEndpointCopyHint": "One-tap copy works only for a while right after you create (or rotate) one: the token lives just in this page's memory, and once you leave the page it can no longer be filled in — rotate to copy again.",
-  "fnthinkEndpointFailed": "Endpoint not created ({reason}) — no token came back either, so there is no 'created but uncopiable' state.",
+  "fnthinkEndpointFailed": "Endpoint creation failed ({reason}); no token was returned, so there is no \"created but uncopiable\" state.",
   "@fnthinkEndpointFailed": {
     "placeholders": {
       "reason": {
@@ -2570,8 +2570,8 @@
       }
     }
   },
-  "fnthinkEndpointListPending": "This device has not been asked which endpoints it owns. 'None' and 'haven't looked' are different sentences, so nothing is listed here and no claim is made.",
-  "fnthinkEndpointListRead": "Read the endpoints I created",
+  "fnthinkEndpointListPending": "The number of endpoints on this device has not been queried. \"None\" and \"not yet queried\" are different statements, so nothing is listed here and no claim of none is made.",
+  "fnthinkEndpointListRead": "Query endpoints created on this device",
   "fnthinkEndpointRowNamed": "\"{name}\" · {id}",
   "@fnthinkEndpointRowNamed": {
     "placeholders": {
@@ -2591,8 +2591,8 @@
       }
     }
   },
-  "fnthinkEndpointUsable": "still accepting pushes",
-  "fnthinkEndpointNotUsable": "no longer accepting pushes (the server records it as \"{status}\")",
+  "fnthinkEndpointUsable": "Accepting pushes",
+  "fnthinkEndpointNotUsable": "No longer accepting pushes (the server records the status as \"{status}\")",
   "@fnthinkEndpointNotUsable": {
     "placeholders": {
       "status": {
@@ -2600,8 +2600,8 @@
       }
     }
   },
-  "fnthinkEndpointNone": "Read successfully: this device owns no endpoints. Use the button above to create one.",
-  "fnthinkEndpointListFailed": "Could not read this time ({reason}) — 'could not read' is not 'none', so nothing is listed and no claim is made.",
+  "fnthinkEndpointNone": "Query completed: this device has no ingress endpoints. Use the button above to create one if needed.",
+  "fnthinkEndpointListFailed": "This query failed ({reason}); \"query failed\" is not \"none\", so nothing is listed here and no claim of none is made.",
   "fnthinkEndpointListCount": "{n} endpoint(s) on this device",
   "@fnthinkEndpointListCount": {
     "placeholders": {
@@ -2617,9 +2617,9 @@
       }
     }
   },
-  "fnthinkEndpointRevoke": "Close this one",
+  "fnthinkEndpointRevoke": "Close this endpoint",
   "fnthinkEndpointRevokeAskTitle": "Close this endpoint?",
-  "fnthinkEndpointRevokeAskMsg": "After {id} is closed, whatever holds that token starts getting refused immediately. The token cannot be recovered: the server stores only a digest, so reuse means creating a new one.",
+  "fnthinkEndpointRevokeAskMsg": "After {id} is closed, callers holding that token are refused immediately. The token cannot be recovered: the server stores only a digest, so continuing to use it requires creating a new endpoint.",
   "@fnthinkEndpointRevokeAskMsg": {
     "placeholders": {
       "id": {
@@ -2627,7 +2627,7 @@
       }
     }
   },
-  "fnthinkEndpointRevoked": "Closed {id}: that one no longer accepts pushes. The record stays, and the list shows it stopped.",
+  "fnthinkEndpointRevoked": "Closed {id}: that endpoint no longer accepts pushes. The record remains, and the list shows it stopped.",
   "@fnthinkEndpointRevoked": {
     "placeholders": {
       "id": {
@@ -2635,7 +2635,7 @@
       }
     }
   },
-  "fnthinkEndpointRevokeAlreadyGone": "{id} was already not accepting pushes — that is a goal reached, not a failure.",
+  "fnthinkEndpointRevokeAlreadyGone": "{id} had already stopped accepting pushes; this operation met the goal and is not a failure.",
   "@fnthinkEndpointRevokeAlreadyGone": {
     "placeholders": {
       "id": {
@@ -2643,7 +2643,7 @@
       }
     }
   },
-  "fnthinkEndpointRevokeFailed": "This one was not closed ({reason}) — it still accepts pushes, and the list shows the server's copy.",
+  "fnthinkEndpointRevokeFailed": "This endpoint was not closed ({reason}); it still accepts pushes, and the list shows the server's copy.",
   "@fnthinkEndpointRevokeFailed": {
     "placeholders": {
       "reason": {
@@ -2651,10 +2651,10 @@
       }
     }
   },
-  "fnthinkEndpointRotate": "Rotate this token",
+  "fnthinkEndpointRotate": "Rotate token",
   "fnthinkEndpointRotateAskTitle": "Rotate this endpoint's token?",
-  "fnthinkEndpointRotateAskMsg": "Rotating gives you a new token, shown exactly once. The old one keeps working until the grace period ends (the line below says when); after that, whatever holds it starts getting refused.",
-  "fnthinkEndpointRotated": "Rotated the token of {id} — the new one is shown above exactly once.",
+  "fnthinkEndpointRotateAskMsg": "Rotating generates a new token, shown only once. The old token remains valid until the grace period ends (the time is shown below); after that, callers holding the old token are refused.",
+  "fnthinkEndpointRotated": "Rotated the token for {id}; the new token is shown above only once.",
   "@fnthinkEndpointRotated": {
     "placeholders": {
       "id": {
@@ -2662,7 +2662,7 @@
       }
     }
   },
-  "fnthinkEndpointRotateGrace": "The old token keeps working until {until}.",
+  "fnthinkEndpointRotateGrace": "The old token remains valid until {until}.",
   "@fnthinkEndpointRotateGrace": {
     "placeholders": {
       "until": {
@@ -2670,7 +2670,7 @@
       }
     }
   },
-  "fnthinkEndpointRotateNotRotated": "{id} already accepts no pushes, so no token was rotated — rotating does not resurrect an endpoint; create a new one instead.",
+  "fnthinkEndpointRotateNotRotated": "{id} has stopped accepting pushes, so its token was not rotated; rotation does not restore the endpoint. Create a new one to continue using it.",
   "@fnthinkEndpointRotateNotRotated": {
     "placeholders": {
       "id": {
@@ -2678,7 +2678,7 @@
       }
     }
   },
-  "fnthinkEndpointRotateFailed": "Token not rotated ({reason})",
+  "fnthinkEndpointRotateFailed": "Token rotation failed ({reason})",
   "@fnthinkEndpointRotateFailed": {
     "placeholders": {
       "reason": {
@@ -3058,9 +3058,9 @@
   "remoteCredWhyTitle": "Why the credential and the device identity are two different keys",
   "remoteCredShort": "This key authorizes others to make this device act — it is not the key that proves this device is who it says it is.",
   "remoteCredWhy": "A credential authorizes one remote command, and it is a different key from your device identity: one proves which device this is, the other authorizes someone to make it act.",
-  "fnthinkEndpointWhyShort": "Access endpoints: how third parties push to this device",
-  "fnthinkEndpointListPendingShort": "Not read yet - how many keys this device has",
-  "fnthinkEndpointListFailedShort": "This read failed ({reason})",
+  "fnthinkEndpointWhyShort": "Ingress endpoints: how third parties push notifications to this device",
+  "fnthinkEndpointListPendingShort": "Endpoint count on this device has not been queried yet",
+  "fnthinkEndpointListFailedShort": "This query failed ({reason})",
   "@fnthinkEndpointListFailedShort": {
     "placeholders": {
       "reason": {

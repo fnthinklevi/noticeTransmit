@@ -8067,13 +8067,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointTitle.
   ///
   /// In zh, this message translates to:
-  /// **'接入端点（给 NAS / 脚本用）'**
+  /// **'接入端点（供 NAS / 脚本使用）'**
   String get fnthinkEndpointTitle;
 
   /// No description provided for @fnthinkEndpointWhy.
   ///
   /// In zh, this message translates to:
-  /// **'第三方平台往这台设备推通知用的长期口令。服务端只存摘要；下面这把口令只在这次显示，关掉页面就再也看不到。'**
+  /// **'第三方平台向本机推送通知所用的长期口令。服务端仅保存摘要；下方口令仅在本次显示，离开页面后无法再次查看。'**
   String get fnthinkEndpointWhy;
 
   /// No description provided for @fnthinkEndpointEntryDesc.
@@ -8085,49 +8085,49 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointCap.
   ///
   /// In zh, this message translates to:
-  /// **'这台设备最多建 {max} 把；到数了只拒新的，不会挤掉已经在用的那把。'**
+  /// **'本机最多可创建 {max} 个端点；达到上限后仅拒绝新建，不会挤占正在使用的端点。'**
   String fnthinkEndpointCap(int max);
 
   /// No description provided for @fnthinkEndpointCountOf.
   ///
   /// In zh, this message translates to:
-  /// **'这台已经有 {n} 把（上限 {max}）。'**
+  /// **'本机已有 {n} 个端点（上限 {max}）。'**
   String fnthinkEndpointCountOf(int n, int max);
 
   /// No description provided for @fnthinkEndpointNeverUsed.
   ///
   /// In zh, this message translates to:
-  /// **'从没收过一条'**
+  /// **'从未接收'**
   String get fnthinkEndpointNeverUsed;
 
   /// No description provided for @fnthinkEndpointLastUsed.
   ///
   /// In zh, this message translates to:
-  /// **'上次收信于 {ago}'**
+  /// **'上次接收于 {ago}'**
   String fnthinkEndpointLastUsed(String ago);
 
   /// No description provided for @fnthinkEndpointLastUsedUnknown.
   ///
   /// In zh, this message translates to:
-  /// **'这一栏没说（对面的版本没报）'**
+  /// **'未报告（对端版本较旧）'**
   String get fnthinkEndpointLastUsedUnknown;
 
   /// No description provided for @fnthinkEndpointCreate.
   ///
   /// In zh, this message translates to:
-  /// **'建一个端点'**
+  /// **'创建端点'**
   String get fnthinkEndpointCreate;
 
   /// No description provided for @fnthinkEndpointDefaultName.
   ///
   /// In zh, this message translates to:
-  /// **'App 里建的'**
+  /// **'在 App 内创建'**
   String get fnthinkEndpointDefaultName;
 
   /// No description provided for @fnthinkEndpointId.
   ///
   /// In zh, this message translates to:
-  /// **'入口 id：{id}'**
+  /// **'端点 ID：{id}'**
   String fnthinkEndpointId(String id);
 
   /// No description provided for @fnthinkEndpointSecret.
@@ -8139,13 +8139,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointOnce.
   ///
   /// In zh, this message translates to:
-  /// **'这一把只出现这一次 —— 现在抄走；之后只能重新建一把（旧的那把谁也拿不回来）。'**
+  /// **'此口令仅显示一次，请立即复制；此后只能重新创建端点（旧口令无法找回）。'**
   String get fnthinkEndpointOnce;
 
   /// No description provided for @fnthinkEndpointTutorial.
   ///
   /// In zh, this message translates to:
-  /// **'怎么调用这一把'**
+  /// **'调用方式'**
   String get fnthinkEndpointTutorial;
 
   /// No description provided for @fnthinkEndpointPostWhy.
@@ -8157,7 +8157,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointGetWarning.
   ///
   /// In zh, this message translates to:
-  /// **'GET 形态只给形状：它把口令写在网址的路径段里，因而会进反代的访问日志（access log）。本站日志脱敏还没配好之前，这一支不给可整行复制的真口令 —— 现在就要能用，请用上面那条 POST。'**
+  /// **'GET 形态仅用于展示结构：口令位于 URL 路径段，会进入反向代理访问日志。在本站日志脱敏配置完成前，此方式不提供可整行复制的真实口令；如需立即使用，请采用上方的 POST 方式。'**
   String get fnthinkEndpointGetWarning;
 
   /// No description provided for @fnthinkEndpointCopyPushUrl.
@@ -8169,7 +8169,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointPushUrlWhy.
   ///
   /// In zh, this message translates to:
-  /// **'只想粘进别的软件那一个 webhook 输入框：这一条把口令写在网址的最后一段，POST 过来即可，不必发请求头。⚠ 口令进了网址就会进反代的访问日志 —— 本站日志脱敏还没配好之前，能发请求头的客户端请优先用上面那条 Bearer。'**
+  /// **'仅需粘贴到其他软件的单个 Webhook 输入框时，此方式将口令放在 URL 最后一段，直接 POST 即可，无需请求头。⚠ 口令进入 URL 后会进入反向代理访问日志；在本站日志脱敏配置完成前，能够发送请求头的客户端应优先使用上方的 Bearer 方式。'**
   String get fnthinkEndpointPushUrlWhy;
 
   /// No description provided for @fnthinkEndpointFieldAlias.
@@ -8181,7 +8181,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointCopyId.
   ///
   /// In zh, this message translates to:
-  /// **'复制端点 id'**
+  /// **'复制端点 ID'**
   String get fnthinkEndpointCopyId;
 
   /// No description provided for @fnthinkEndpointCopySecret.
@@ -8199,25 +8199,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointCopyHint.
   ///
   /// In zh, this message translates to:
-  /// **'「一键复制」只在你刚建完（或刚换完）那一段时间可用：口令只活在这一页的内存里，离开本页再回来就插不进去了 —— 想再复制一次，只能换一把。'**
+  /// **'「一键复制」仅在创建（或轮换）后的一段时间内可用：口令只保存在当前页面内存中，离开后返回将无法再填入；如需再次复制，只能轮换口令。'**
   String get fnthinkEndpointCopyHint;
 
   /// No description provided for @fnthinkEndpointFailed.
   ///
   /// In zh, this message translates to:
-  /// **'端点没建成（{reason}）—— 也没回口令，所以不存在「建好了但抄不到」这种状态。'**
+  /// **'端点创建失败（{reason}）；服务端未返回口令，因此不存在「已创建但无法复制」的状态。'**
   String fnthinkEndpointFailed(String reason);
 
   /// No description provided for @fnthinkEndpointListPending.
   ///
   /// In zh, this message translates to:
-  /// **'还没读过这台设备名下有几把入口。「没有」与「还没看」是两句话，所以这里不列任何东西，也不说你没有。'**
+  /// **'尚未查询本机端点数量。「没有」与「尚未查询」含义不同，因此此处不列出任何内容，也不表示没有端点。'**
   String get fnthinkEndpointListPending;
 
   /// No description provided for @fnthinkEndpointListRead.
   ///
   /// In zh, this message translates to:
-  /// **'读一次我建过的入口'**
+  /// **'查询本机已创建的端点'**
   String get fnthinkEndpointListRead;
 
   /// No description provided for @fnthinkEndpointRowNamed.
@@ -8235,109 +8235,109 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointUsable.
   ///
   /// In zh, this message translates to:
-  /// **'还在收信'**
+  /// **'正在接收'**
   String get fnthinkEndpointUsable;
 
   /// No description provided for @fnthinkEndpointNotUsable.
   ///
   /// In zh, this message translates to:
-  /// **'已不收信（服务器上那一份写着「{status}」）'**
+  /// **'已停止接收（服务端记录状态为「{status}」）'**
   String fnthinkEndpointNotUsable(String status);
 
   /// No description provided for @fnthinkEndpointNone.
   ///
   /// In zh, this message translates to:
-  /// **'读到了：这台设备名下没有接入端点。要用的话点上面那一下建一把。'**
+  /// **'查询完成：本机名下没有接入端点。如需使用，请点击上方按钮创建。'**
   String get fnthinkEndpointNone;
 
   /// No description provided for @fnthinkEndpointListFailed.
   ///
   /// In zh, this message translates to:
-  /// **'这一次没读到（{reason}）—— 「没读到」不等于「没有」，所以这里仍然不列任何东西，也不说你没有。'**
+  /// **'本次查询失败（{reason}）；「查询失败」不等于「没有」，因此此处仍不列出任何内容，也不表示没有端点。'**
   String fnthinkEndpointListFailed(String reason);
 
   /// No description provided for @fnthinkEndpointListCount.
   ///
   /// In zh, this message translates to:
-  /// **'名下现有 {n} 把入口'**
+  /// **'本机现有 {n} 个端点'**
   String fnthinkEndpointListCount(int n);
 
   /// No description provided for @fnthinkEndpointRevoke.
   ///
   /// In zh, this message translates to:
-  /// **'关掉这把'**
+  /// **'关闭此端点'**
   String get fnthinkEndpointRevoke;
 
   /// No description provided for @fnthinkEndpointRevokeAskTitle.
   ///
   /// In zh, this message translates to:
-  /// **'关掉这把入口？'**
+  /// **'关闭此端点？'**
   String get fnthinkEndpointRevokeAskTitle;
 
   /// No description provided for @fnthinkEndpointRevokeAskMsg.
   ///
   /// In zh, this message translates to:
-  /// **'关掉「{id}」之后，拿着那把口令的地方会立刻开始被拒。口令找不回来：服务端只存摘要，要再用得重新建一把。'**
+  /// **'关闭「{id}」后，持有该口令的调用方将立即被拒绝。口令无法找回：服务端仅保存摘要，如需继续使用须重新创建。'**
   String fnthinkEndpointRevokeAskMsg(String id);
 
   /// No description provided for @fnthinkEndpointRevoked.
   ///
   /// In zh, this message translates to:
-  /// **'已关掉「{id}」：那一把不再收信。记录还在，列表里看得见它停了。'**
+  /// **'已关闭「{id}」：该端点不再接收。记录仍保留，列表中可看到其已停止。'**
   String fnthinkEndpointRevoked(String id);
 
   /// No description provided for @fnthinkEndpointRevokeAlreadyGone.
   ///
   /// In zh, this message translates to:
-  /// **'「{id}」本来就已经不收信了 —— 这是一次达成，不是失败。'**
+  /// **'「{id}」此前已停止接收；本次操作已达到目标，并非失败。'**
   String fnthinkEndpointRevokeAlreadyGone(String id);
 
   /// No description provided for @fnthinkEndpointRevokeFailed.
   ///
   /// In zh, this message translates to:
-  /// **'这把没关掉（{reason}）—— 它还在收信，列表按服务端那一份显示。'**
+  /// **'此端点未能关闭（{reason}）；它仍在接收，列表显示服务端记录。'**
   String fnthinkEndpointRevokeFailed(String reason);
 
   /// No description provided for @fnthinkEndpointRotate.
   ///
   /// In zh, this message translates to:
-  /// **'换一把口令'**
+  /// **'轮换口令'**
   String get fnthinkEndpointRotate;
 
   /// No description provided for @fnthinkEndpointRotateAskTitle.
   ///
   /// In zh, this message translates to:
-  /// **'换这把入口的口令？'**
+  /// **'轮换此端点的口令？'**
   String get fnthinkEndpointRotateAskTitle;
 
   /// No description provided for @fnthinkEndpointRotateAskMsg.
   ///
   /// In zh, this message translates to:
-  /// **'换完会给你一把新口令，只显示这一次。旧的那把还能用到宽限期结束（下面那行会写到什么时候），之后拿着它的地方开始被拒。'**
+  /// **'轮换后将生成一个新口令，仅显示一次。旧口令可使用至宽限期结束（下方会显示具体时间），此后持有旧口令的调用方将被拒绝。'**
   String get fnthinkEndpointRotateAskMsg;
 
   /// No description provided for @fnthinkEndpointRotated.
   ///
   /// In zh, this message translates to:
-  /// **'已换过「{id}」的口令 —— 新的那把只在上面显示这一次。'**
+  /// **'已轮换「{id}」的口令；新口令仅在上方显示一次。'**
   String fnthinkEndpointRotated(String id);
 
   /// No description provided for @fnthinkEndpointRotateGrace.
   ///
   /// In zh, this message translates to:
-  /// **'旧的那把还能用到 {until}。'**
+  /// **'旧口令可使用至 {until}。'**
   String fnthinkEndpointRotateGrace(String until);
 
   /// No description provided for @fnthinkEndpointRotateNotRotated.
   ///
   /// In zh, this message translates to:
-  /// **'「{id}」已经不收信了，所以没给它换口令 —— 换口令不会把它复活；要再用请重新建一把。'**
+  /// **'「{id}」已停止接收，因此未轮换口令；轮换不会恢复该端点，如需继续使用请重新创建。'**
   String fnthinkEndpointRotateNotRotated(String id);
 
   /// No description provided for @fnthinkEndpointRotateFailed.
   ///
   /// In zh, this message translates to:
-  /// **'口令没换成（{reason}）'**
+  /// **'口令轮换失败（{reason}）'**
   String fnthinkEndpointRotateFailed(String reason);
 
   /// No description provided for @fnthinkPresenceLive.
@@ -10430,19 +10430,19 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointWhyShort.
   ///
   /// In zh, this message translates to:
-  /// **'接入端点：让第三方平台往这台设备推通知'**
+  /// **'接入端点：供第三方平台向本机推送通知'**
   String get fnthinkEndpointWhyShort;
 
   /// No description provided for @fnthinkEndpointListPendingShort.
   ///
   /// In zh, this message translates to:
-  /// **'还没读过这台设备名下有几把入口'**
+  /// **'尚未查询本机端点数量'**
   String get fnthinkEndpointListPendingShort;
 
   /// No description provided for @fnthinkEndpointListFailedShort.
   ///
   /// In zh, this message translates to:
-  /// **'这一次没读到（{reason}）'**
+  /// **'本次查询失败（{reason}）'**
   String fnthinkEndpointListFailedShort(String reason);
 
   /// No description provided for @fnthinkShortcutsWhyShort.

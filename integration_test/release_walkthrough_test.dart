@@ -1893,7 +1893,7 @@ void main() {
         );
 
         await _backToHome(tester);
-        await _openEngineRow(tester, '接入端点（给 NAS / 脚本用）');
+        await _openEngineRow(tester, '接入端点（供 NAS / 脚本使用）');
         await _onPage(tester, FnthinkEndpointPage, '幻念接入端点页');
 
         // 上限那句是**条件渲染**（`if (cap != null)` 才画那一枚 FnthinkNote）：

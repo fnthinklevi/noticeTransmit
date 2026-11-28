@@ -4673,7 +4673,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkEndpointWhy =>
-      'A long-lived token third-party platforms use to push to this device. The server stores only a digest; the token below is shown this once — close the page and it is gone.';
+      'Long-lived tokens that third-party platforms use to push notifications to this device. The server stores only a digest; the token below is shown only this time and cannot be seen again after leaving the page.';
 
   @override
   String get fnthinkEndpointEntryDesc =>
@@ -4681,35 +4681,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkEndpointCap(int max) {
-    return 'This device can hold up to $max; at the cap new ones are refused and none in use is displaced.';
+    return 'This device can create up to $max endpoints; at the cap, new endpoints are refused and endpoints in use are not displaced.';
   }
 
   @override
   String fnthinkEndpointCountOf(int n, int max) {
-    return 'This device already has $n (limit $max).';
+    return 'This device already has $n endpoints (limit $max).';
   }
 
   @override
-  String get fnthinkEndpointNeverUsed => 'never received anything';
+  String get fnthinkEndpointNeverUsed => 'Never received a message';
 
   @override
   String fnthinkEndpointLastUsed(String ago) {
-    return 'last received $ago';
+    return 'Last received $ago';
   }
 
   @override
   String get fnthinkEndpointLastUsedUnknown =>
-      'not reported (peer build is older)';
+      'Not reported (the other device\'s build is older)';
 
   @override
-  String get fnthinkEndpointCreate => 'Create an endpoint';
+  String get fnthinkEndpointCreate => 'Create endpoint';
 
   @override
-  String get fnthinkEndpointDefaultName => 'Created in-app';
+  String get fnthinkEndpointDefaultName => 'Created in the app';
 
   @override
   String fnthinkEndpointId(String id) {
-    return 'Ingress id: $id';
+    return 'Endpoint ID: $id';
   }
 
   @override
@@ -4719,10 +4719,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkEndpointOnce =>
-      'This token appears only once — copy it now; afterwards you can only create a new one (nobody can hand back the old).';
+      'This token is shown only once; copy it now. Afterwards you can only create a new endpoint (the old token cannot be recovered).';
 
   @override
-  String get fnthinkEndpointTutorial => 'How to call this one';
+  String get fnthinkEndpointTutorial => 'Calling this endpoint';
 
   @override
   String get fnthinkEndpointPostWhy =>
@@ -4737,7 +4737,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkEndpointPushUrlWhy =>
-      'Just need something to paste into another app\'s single webhook field: this one carries the token in the last path segment, so a plain POST is enough — no request headers required. ⚠ A token in the URL does land in the reverse proxy\'s access log. Until log redaction is configured on this server, prefer the Bearer form above whenever your client can send headers.';
+      'When you only need to paste into another app\'s single Webhook field, this form carries the token in the last path segment, so a plain POST is enough — no request headers required. ⚠ A token in the URL does land in the reverse proxy\'s access log. Until log redaction is configured on this server, prefer the Bearer form above whenever your client can send headers.';
 
   @override
   String fnthinkEndpointFieldAlias(String title, String body) {
@@ -4745,7 +4745,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkEndpointCopyId => 'Copy endpoint id';
+  String get fnthinkEndpointCopyId => 'Copy endpoint ID';
 
   @override
   String get fnthinkEndpointCopySecret => 'Copy token';
@@ -4759,15 +4759,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkEndpointFailed(String reason) {
-    return 'Endpoint not created ($reason) — no token came back either, so there is no \'created but uncopiable\' state.';
+    return 'Endpoint creation failed ($reason); no token was returned, so there is no \"created but uncopiable\" state.';
   }
 
   @override
   String get fnthinkEndpointListPending =>
-      'This device has not been asked which endpoints it owns. \'None\' and \'haven\'t looked\' are different sentences, so nothing is listed here and no claim is made.';
+      'The number of endpoints on this device has not been queried. \"None\" and \"not yet queried\" are different statements, so nothing is listed here and no claim of none is made.';
 
   @override
-  String get fnthinkEndpointListRead => 'Read the endpoints I created';
+  String get fnthinkEndpointListRead =>
+      'Query endpoints created on this device';
 
   @override
   String fnthinkEndpointRowNamed(String name, String id) {
@@ -4780,20 +4781,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkEndpointUsable => 'still accepting pushes';
+  String get fnthinkEndpointUsable => 'Accepting pushes';
 
   @override
   String fnthinkEndpointNotUsable(String status) {
-    return 'no longer accepting pushes (the server records it as \"$status\")';
+    return 'No longer accepting pushes (the server records the status as \"$status\")';
   }
 
   @override
   String get fnthinkEndpointNone =>
-      'Read successfully: this device owns no endpoints. Use the button above to create one.';
+      'Query completed: this device has no ingress endpoints. Use the button above to create one if needed.';
 
   @override
   String fnthinkEndpointListFailed(String reason) {
-    return 'Could not read this time ($reason) — \'could not read\' is not \'none\', so nothing is listed and no claim is made.';
+    return 'This query failed ($reason); \"query failed\" is not \"none\", so nothing is listed here and no claim of none is made.';
   }
 
   @override
@@ -4802,59 +4803,59 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkEndpointRevoke => 'Close this one';
+  String get fnthinkEndpointRevoke => 'Close this endpoint';
 
   @override
   String get fnthinkEndpointRevokeAskTitle => 'Close this endpoint?';
 
   @override
   String fnthinkEndpointRevokeAskMsg(String id) {
-    return 'After $id is closed, whatever holds that token starts getting refused immediately. The token cannot be recovered: the server stores only a digest, so reuse means creating a new one.';
+    return 'After $id is closed, callers holding that token are refused immediately. The token cannot be recovered: the server stores only a digest, so continuing to use it requires creating a new endpoint.';
   }
 
   @override
   String fnthinkEndpointRevoked(String id) {
-    return 'Closed $id: that one no longer accepts pushes. The record stays, and the list shows it stopped.';
+    return 'Closed $id: that endpoint no longer accepts pushes. The record remains, and the list shows it stopped.';
   }
 
   @override
   String fnthinkEndpointRevokeAlreadyGone(String id) {
-    return '$id was already not accepting pushes — that is a goal reached, not a failure.';
+    return '$id had already stopped accepting pushes; this operation met the goal and is not a failure.';
   }
 
   @override
   String fnthinkEndpointRevokeFailed(String reason) {
-    return 'This one was not closed ($reason) — it still accepts pushes, and the list shows the server\'s copy.';
+    return 'This endpoint was not closed ($reason); it still accepts pushes, and the list shows the server\'s copy.';
   }
 
   @override
-  String get fnthinkEndpointRotate => 'Rotate this token';
+  String get fnthinkEndpointRotate => 'Rotate token';
 
   @override
   String get fnthinkEndpointRotateAskTitle => 'Rotate this endpoint\'s token?';
 
   @override
   String get fnthinkEndpointRotateAskMsg =>
-      'Rotating gives you a new token, shown exactly once. The old one keeps working until the grace period ends (the line below says when); after that, whatever holds it starts getting refused.';
+      'Rotating generates a new token, shown only once. The old token remains valid until the grace period ends (the time is shown below); after that, callers holding the old token are refused.';
 
   @override
   String fnthinkEndpointRotated(String id) {
-    return 'Rotated the token of $id — the new one is shown above exactly once.';
+    return 'Rotated the token for $id; the new token is shown above only once.';
   }
 
   @override
   String fnthinkEndpointRotateGrace(String until) {
-    return 'The old token keeps working until $until.';
+    return 'The old token remains valid until $until.';
   }
 
   @override
   String fnthinkEndpointRotateNotRotated(String id) {
-    return '$id already accepts no pushes, so no token was rotated — rotating does not resurrect an endpoint; create a new one instead.';
+    return '$id has stopped accepting pushes, so its token was not rotated; rotation does not restore the endpoint. Create a new one to continue using it.';
   }
 
   @override
   String fnthinkEndpointRotateFailed(String reason) {
-    return 'Token not rotated ($reason)';
+    return 'Token rotation failed ($reason)';
   }
 
   @override
@@ -6188,15 +6189,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkEndpointWhyShort =>
-      'Access endpoints: how third parties push to this device';
+      'Ingress endpoints: how third parties push notifications to this device';
 
   @override
   String get fnthinkEndpointListPendingShort =>
-      'Not read yet - how many keys this device has';
+      'Endpoint count on this device has not been queried yet';
 
   @override
   String fnthinkEndpointListFailedShort(String reason) {
-    return 'This read failed ($reason)';
+    return 'This query failed ($reason)';
   }
 
   @override

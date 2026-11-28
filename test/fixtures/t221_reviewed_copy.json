@@ -680,5 +680,167 @@
       "zh": "另有 {count} 条消息因超出每设备上限被移除。",
       "en": "{count} older message(s) were dropped to stay under the per-device cap."
     }
+  },
+  "lib/pages/fnthink_endpoint_page.dart": {
+    "fnthinkEndpointCreate": {
+      "zh": "创建端点",
+      "en": "Create endpoint"
+    },
+    "fnthinkEndpointDefaultName": {
+      "zh": "在 App 内创建",
+      "en": "Created in the app"
+    },
+    "fnthinkEndpointRevoke": {
+      "zh": "关闭此端点",
+      "en": "Close this endpoint"
+    },
+    "fnthinkEndpointRevokeAskTitle": {
+      "zh": "关闭此端点？",
+      "en": "Close this endpoint?"
+    },
+    "fnthinkEndpointRevokeAskMsg": {
+      "zh": "关闭「{id}」后，持有该口令的调用方将立即被拒绝。口令无法找回：服务端仅保存摘要，如需继续使用须重新创建。",
+      "en": "After {id} is closed, callers holding that token are refused immediately. The token cannot be recovered: the server stores only a digest, so continuing to use it requires creating a new endpoint."
+    },
+    "fnthinkEndpointRevokeFailed": {
+      "zh": "此端点未能关闭（{reason}）；它仍在接收，列表显示服务端记录。",
+      "en": "This endpoint was not closed ({reason}); it still accepts pushes, and the list shows the server's copy."
+    },
+    "fnthinkEndpointRevokeAlreadyGone": {
+      "zh": "「{id}」此前已停止接收；本次操作已达到目标，并非失败。",
+      "en": "{id} had already stopped accepting pushes; this operation met the goal and is not a failure."
+    },
+    "fnthinkEndpointRevoked": {
+      "zh": "已关闭「{id}」：该端点不再接收。记录仍保留，列表中可看到其已停止。",
+      "en": "Closed {id}: that endpoint no longer accepts pushes. The record remains, and the list shows it stopped."
+    },
+    "fnthinkEndpointRotate": {
+      "zh": "轮换口令",
+      "en": "Rotate token"
+    },
+    "fnthinkEndpointRotateAskTitle": {
+      "zh": "轮换此端点的口令？",
+      "en": "Rotate this endpoint's token?"
+    },
+    "fnthinkEndpointRotateAskMsg": {
+      "zh": "轮换后将生成一个新口令，仅显示一次。旧口令可使用至宽限期结束（下方会显示具体时间），此后持有旧口令的调用方将被拒绝。",
+      "en": "Rotating generates a new token, shown only once. The old token remains valid until the grace period ends (the time is shown below); after that, callers holding the old token are refused."
+    },
+    "fnthinkEndpointRotateFailed": {
+      "zh": "口令轮换失败（{reason}）",
+      "en": "Token rotation failed ({reason})"
+    },
+    "fnthinkEndpointRotateNotRotated": {
+      "zh": "「{id}」已停止接收，因此未轮换口令；轮换不会恢复该端点，如需继续使用请重新创建。",
+      "en": "{id} has stopped accepting pushes, so its token was not rotated; rotation does not restore the endpoint. Create a new one to continue using it."
+    },
+    "fnthinkEndpointRotated": {
+      "zh": "已轮换「{id}」的口令；新口令仅在上方显示一次。",
+      "en": "Rotated the token for {id}; the new token is shown above only once."
+    },
+    "fnthinkEndpointTitle": {
+      "zh": "接入端点（供 NAS / 脚本使用）",
+      "en": "Ingress endpoints (for NAS / scripts)"
+    },
+    "fnthinkEndpointTutorial": {
+      "zh": "调用方式",
+      "en": "Calling this endpoint"
+    },
+    "fnthinkEndpointLastUsedUnknown": {
+      "zh": "未报告（对端版本较旧）",
+      "en": "Not reported (the other device's build is older)"
+    },
+    "fnthinkEndpointNeverUsed": {
+      "zh": "从未接收",
+      "en": "Never received a message"
+    },
+    "fnthinkEndpointLastUsed": {
+      "zh": "上次接收于 {ago}",
+      "en": "Last received {ago}"
+    },
+    "fnthinkEndpointWhyShort": {
+      "zh": "接入端点：供第三方平台向本机推送通知",
+      "en": "Ingress endpoints: how third parties push notifications to this device"
+    },
+    "fnthinkEndpointWhy": {
+      "zh": "第三方平台向本机推送通知所用的长期口令。服务端仅保存摘要；下方口令仅在本次显示，离开页面后无法再次查看。",
+      "en": "Long-lived tokens that third-party platforms use to push notifications to this device. The server stores only a digest; the token below is shown only this time and cannot be seen again after leaving the page."
+    },
+    "fnthinkEndpointCap": {
+      "zh": "本机最多可创建 {max} 个端点；达到上限后仅拒绝新建，不会挤占正在使用的端点。",
+      "en": "This device can create up to {max} endpoints; at the cap, new endpoints are refused and endpoints in use are not displaced."
+    },
+    "fnthinkEndpointCountOf": {
+      "zh": "本机已有 {n} 个端点（上限 {max}）。",
+      "en": "This device already has {n} endpoints (limit {max})."
+    },
+    "fnthinkEndpointId": {
+      "zh": "端点 ID：{id}",
+      "en": "Endpoint ID: {id}"
+    },
+    "fnthinkEndpointOnce": {
+      "zh": "此口令仅显示一次，请立即复制；此后只能重新创建端点（旧口令无法找回）。",
+      "en": "This token is shown only once; copy it now. Afterwards you can only create a new endpoint (the old token cannot be recovered)."
+    },
+    "fnthinkEndpointFailed": {
+      "zh": "端点创建失败（{reason}）；服务端未返回口令，因此不存在「已创建但无法复制」的状态。",
+      "en": "Endpoint creation failed ({reason}); no token was returned, so there is no \"created but uncopiable\" state."
+    },
+    "fnthinkEndpointListRead": {
+      "zh": "查询本机已创建的端点",
+      "en": "Query endpoints created on this device"
+    },
+    "fnthinkEndpointListPendingShort": {
+      "zh": "尚未查询本机端点数量",
+      "en": "Endpoint count on this device has not been queried yet"
+    },
+    "fnthinkEndpointListFailedShort": {
+      "zh": "本次查询失败（{reason}）",
+      "en": "This query failed ({reason})"
+    },
+    "fnthinkEndpointListCount": {
+      "zh": "本机现有 {n} 个端点",
+      "en": "{n} endpoint(s) on this device"
+    },
+    "fnthinkEndpointListPending": {
+      "zh": "尚未查询本机端点数量。「没有」与「尚未查询」含义不同，因此此处不列出任何内容，也不表示没有端点。",
+      "en": "The number of endpoints on this device has not been queried. \"None\" and \"not yet queried\" are different statements, so nothing is listed here and no claim of none is made."
+    },
+    "fnthinkEndpointListFailed": {
+      "zh": "本次查询失败（{reason}）；「查询失败」不等于「没有」，因此此处仍不列出任何内容，也不表示没有端点。",
+      "en": "This query failed ({reason}); \"query failed\" is not \"none\", so nothing is listed here and no claim of none is made."
+    },
+    "fnthinkEndpointNone": {
+      "zh": "查询完成：本机名下没有接入端点。如需使用，请点击上方按钮创建。",
+      "en": "Query completed: this device has no ingress endpoints. Use the button above to create one if needed."
+    },
+    "fnthinkEndpointUsable": {
+      "zh": "正在接收",
+      "en": "Accepting pushes"
+    },
+    "fnthinkEndpointNotUsable": {
+      "zh": "已停止接收（服务端记录状态为「{status}」）",
+      "en": "No longer accepting pushes (the server records the status as \"{status}\")"
+    },
+    "fnthinkEndpointRotateGrace": {
+      "zh": "旧口令可使用至 {until}。",
+      "en": "The old token remains valid until {until}."
+    },
+    "fnthinkEndpointGetWarning": {
+      "zh": "GET 形态仅用于展示结构：口令位于 URL 路径段，会进入反向代理访问日志。在本站日志脱敏配置完成前，此方式不提供可整行复制的真实口令；如需立即使用，请采用上方的 POST 方式。",
+      "en": "The GET form is shown as a shape only: it puts the token in the URL path, so it does land in the reverse proxy's access log. Until log redaction is configured on this server, this branch gives no copyable real token — use the POST above if you need it working now."
+    },
+    "fnthinkEndpointPushUrlWhy": {
+      "zh": "仅需粘贴到其他软件的单个 Webhook 输入框时，此方式将口令放在 URL 最后一段，直接 POST 即可，无需请求头。⚠ 口令进入 URL 后会进入反向代理访问日志；在本站日志脱敏配置完成前，能够发送请求头的客户端应优先使用上方的 Bearer 方式。",
+      "en": "When you only need to paste into another app's single Webhook field, this form carries the token in the last path segment, so a plain POST is enough — no request headers required. ⚠ A token in the URL does land in the reverse proxy's access log. Until log redaction is configured on this server, prefer the Bearer form above whenever your client can send headers."
+    },
+    "fnthinkEndpointCopyHint": {
+      "zh": "「一键复制」仅在创建（或轮换）后的一段时间内可用：口令只保存在当前页面内存中，离开后返回将无法再填入；如需再次复制，只能轮换口令。",
+      "en": "One-tap copy works only for a while right after you create (or rotate) one: the token lives just in this page's memory, and once you leave the page it can no longer be filled in — rotate to copy again."
+    },
+    "fnthinkEndpointCopyId": {
+      "zh": "复制端点 ID",
+      "en": "Copy endpoint ID"
+    }
   }
 }

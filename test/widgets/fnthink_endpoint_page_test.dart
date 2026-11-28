@@ -102,10 +102,10 @@ void main() {
     // 每条取一句只有它才有的字 —— 拿标题去认会把"只搬了标题、正文丢了"读成通过。
     for (final fragment in const [
       '可直接复制完整请求示例',
-      '进反代的访问日志',
-      'webhook 输入框',
+      '进入反向代理访问日志',
+      'Webhook 输入框',
       '取第一个非空',
-      '口令只活在这一页的内存里',
+      '口令只保存在当前页面内存中',
     ]) {
       expect(
         find.textContaining(fragment),
