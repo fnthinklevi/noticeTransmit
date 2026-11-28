@@ -2226,5 +2226,39 @@
       "zh": "失败原因排行",
       "en": "Top Failure Reasons"
     }
+  },
+  "lib/pages/main_page_actions.dart": {
+    "exportConfirmDesc": {
+      "zh": "通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置；建议导出后妥善保管或及时删除。",
+      "en": "Records will be exported as a JSON file containing notification content and device information. Choose a save location; keep the file safe or delete it promptly after export."
+    },
+    "l3NoteAutostart": {
+      "zh": "系统仅提供各厂商入口，不提供统一读数",
+      "en": "Android exposes per-vendor entry points only; there is no unified reading"
+    },
+    "l3NoteLivesInFnthinkPage": {
+      "zh": "此开关位于「幻念推送」页",
+      "en": "This switch is on the Fnthink Push page"
+    },
+    "roleGuideTitle": {
+      "zh": "是否区分主备通道",
+      "en": "Split channels into primary and backup"
+    },
+    "roleGuideBody": {
+      "zh": "有 {n} 条通道需确认主备角色。若全部标为「主」，同一条通知将重复推送 {n} 次；将不常用的通道改为「备」后，仅在所有主通道均不可用时才由其接手。",
+      "en": "{n} channels need a primary/backup role. If all remain Primary, one notification is sent {n} times; mark less critical channels as Backup and they take over only when every Primary channel is unavailable."
+    },
+    "roleGuideAction": {
+      "zh": "前往设置",
+      "en": "Set up"
+    },
+    "roleGuideLater": {
+      "zh": "稍后再说",
+      "en": "Later"
+    },
+    "whatsNewTitle": {
+      "zh": "本次更新的内容",
+      "en": "What's new in this update"
+    }
   }
 }

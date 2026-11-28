@@ -327,7 +327,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String roleGuideBody(Object n) {
-    return '$n of your channels need a primary/backup role. While all of them stay Primary, one notification is sent $n times; mark the less critical ones as Backup and they only take over when every Primary channel is unavailable.';
+    return '$n channels need a primary/backup role. If all remain Primary, one notification is sent $n times; mark less critical channels as Backup and they take over only when every Primary channel is unavailable.';
   }
 
   @override
@@ -2901,7 +2901,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exportConfirmDesc =>
-      'Records will be exported as a JSON file containing notification content and device info. Choose a save location and keep the file safe or delete it promptly.';
+      'Records will be exported as a JSON file containing notification content and device information. Choose a save location; keep the file safe or delete it promptly after export.';
 
   @override
   String fnthinkExportInboxDesc(Object count) {
@@ -5142,11 +5142,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get l3NoteAutostart =>
-      'Android exposes per-vendor entry points only - there is no unified reading';
+      'Android exposes per-vendor entry points only; there is no unified reading';
 
   @override
   String get l3NoteLivesInFnthinkPage =>
-      'This switch lives on the Fnthink Push page';
+      'This switch is on the Fnthink Push page';
 
   @override
   String get updateBlockIntegrityFailed =>

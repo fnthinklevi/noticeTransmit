@@ -180,7 +180,7 @@
   "roleUnset": "Unset",
   "mainBackupUnsetNotice": "\"Unset\" is the initial state of a newly added channel: it never duplicates a primary send and is used only when no channel is marked Primary. Marking your everyday channel as \"Primary\" is more precise.",
   "roleGuideTitle": "Split channels into primary and backup",
-  "roleGuideBody": "{n} of your channels need a primary/backup role. While all of them stay Primary, one notification is sent {n} times; mark the less critical ones as Backup and they only take over when every Primary channel is unavailable.",
+  "roleGuideBody": "{n} channels need a primary/backup role. If all remain Primary, one notification is sent {n} times; mark less critical channels as Backup and they take over only when every Primary channel is unavailable.",
   "@roleGuideBody": {
     "placeholders": {
       "n": {}
@@ -1551,7 +1551,7 @@
     }
   },
   "historyBlockAppSelfToast": "This app's own notifications are governed by battery rules — adjust them in battery settings",
-  "exportConfirmDesc": "Records will be exported as a JSON file containing notification content and device info. Choose a save location and keep the file safe or delete it promptly.",
+  "exportConfirmDesc": "Records will be exported as a JSON file containing notification content and device information. Choose a save location; keep the file safe or delete it promptly after export.",
   "fnthinkExportInboxDesc": "Fnthink inbox messages ({count}) will be exported as a JSON file with message content and device info.",
   "fnthinkExportSentDesc": "Fnthink sent messages ({count}) will be exported as a JSON file with message content and device info.",
   "exportDone": "Export complete",
@@ -2888,8 +2888,8 @@
   "l3ItemMonitoring": "Notification forwarding listener",
   "l3ItemCollectInbox": "Fnthink inbox switch",
   "l3ItemNotificationReply": "Reply to notification",
-  "l3NoteAutostart": "Android exposes per-vendor entry points only - there is no unified reading",
-  "l3NoteLivesInFnthinkPage": "This switch lives on the Fnthink Push page",
+  "l3NoteAutostart": "Android exposes per-vendor entry points only; there is no unified reading",
+  "l3NoteLivesInFnthinkPage": "This switch is on the Fnthink Push page",
   "updateBlockIntegrityFailed": "Update package verification failed. Installation blocked.",
   "updateBlockChecksumMismatch": "Update package integrity check failed (checksum mismatch). Installation blocked.",
   "updateBlockUnverifiable": "Cannot verify the update package. Installation blocked.",

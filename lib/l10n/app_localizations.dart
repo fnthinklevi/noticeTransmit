@@ -616,25 +616,25 @@ abstract class AppLocalizations {
   /// No description provided for @roleGuideTitle.
   ///
   /// In zh, this message translates to:
-  /// **'要不要分一下主备通道'**
+  /// **'是否区分主备通道'**
   String get roleGuideTitle;
 
   /// No description provided for @roleGuideBody.
   ///
   /// In zh, this message translates to:
-  /// **'你有 {n} 条通道需要确认一下主备角色。全部标在「主」档时，同一条通知会重复推送 {n} 次；把不常用的改成「备」，它就只在所有主通道都不可用时才接手。'**
+  /// **'有 {n} 条通道需确认主备角色。若全部标为「主」，同一条通知将重复推送 {n} 次；将不常用的通道改为「备」后，仅在所有主通道均不可用时才由其接手。'**
   String roleGuideBody(Object n);
 
   /// No description provided for @roleGuideAction.
   ///
   /// In zh, this message translates to:
-  /// **'去设置'**
+  /// **'前往设置'**
   String get roleGuideAction;
 
   /// No description provided for @roleGuideLater.
   ///
   /// In zh, this message translates to:
-  /// **'以后再说'**
+  /// **'稍后再说'**
   String get roleGuideLater;
 
   /// No description provided for @mainBackupChannelGone.
@@ -5164,7 +5164,7 @@ abstract class AppLocalizations {
   /// No description provided for @exportConfirmDesc.
   ///
   /// In zh, this message translates to:
-  /// **'通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。'**
+  /// **'通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置；建议导出后妥善保管或及时删除。'**
   String get exportConfirmDesc;
 
   /// No description provided for @fnthinkExportInboxDesc.
@@ -8768,13 +8768,13 @@ abstract class AppLocalizations {
   /// No description provided for @l3NoteAutostart.
   ///
   /// In zh, this message translates to:
-  /// **'系统只有各厂商的入口，不提供统一读数'**
+  /// **'系统仅提供各厂商入口，不提供统一读数'**
   String get l3NoteAutostart;
 
   /// No description provided for @l3NoteLivesInFnthinkPage.
   ///
   /// In zh, this message translates to:
-  /// **'这一格的开关在「幻念推送」页'**
+  /// **'此开关位于「幻念推送」页'**
   String get l3NoteLivesInFnthinkPage;
 
   /// No description provided for @updateBlockIntegrityFailed.
@@ -10772,7 +10772,7 @@ abstract class AppLocalizations {
   /// No description provided for @whatsNewTitle.
   ///
   /// In zh, this message translates to:
-  /// **'这次更新带来了什么'**
+  /// **'本次更新的内容'**
   String get whatsNewTitle;
 }
 

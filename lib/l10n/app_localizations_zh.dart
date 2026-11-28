@@ -310,18 +310,18 @@ class AppLocalizationsZh extends AppLocalizations {
       '「未设置」是新增通道的初始状态：不会随主通道重复推送，仅在未设置任何主通道时使用。将常用通道设为「主」更为准确。';
 
   @override
-  String get roleGuideTitle => '要不要分一下主备通道';
+  String get roleGuideTitle => '是否区分主备通道';
 
   @override
   String roleGuideBody(Object n) {
-    return '你有 $n 条通道需要确认一下主备角色。全部标在「主」档时，同一条通知会重复推送 $n 次；把不常用的改成「备」，它就只在所有主通道都不可用时才接手。';
+    return '有 $n 条通道需确认主备角色。若全部标为「主」，同一条通知将重复推送 $n 次；将不常用的通道改为「备」后，仅在所有主通道均不可用时才由其接手。';
   }
 
   @override
-  String get roleGuideAction => '去设置';
+  String get roleGuideAction => '前往设置';
 
   @override
-  String get roleGuideLater => '以后再说';
+  String get roleGuideLater => '稍后再说';
 
   @override
   String get mainBackupChannelGone => '该通道已不存在，本次设置未保存。';
@@ -2782,7 +2782,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get exportConfirmDesc =>
-      '通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。';
+      '通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置；建议导出后妥善保管或及时删除。';
 
   @override
   String fnthinkExportInboxDesc(Object count) {
@@ -4874,10 +4874,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get l3ItemNotificationReply => '回复通知';
 
   @override
-  String get l3NoteAutostart => '系统只有各厂商的入口，不提供统一读数';
+  String get l3NoteAutostart => '系统仅提供各厂商入口，不提供统一读数';
 
   @override
-  String get l3NoteLivesInFnthinkPage => '这一格的开关在「幻念推送」页';
+  String get l3NoteLivesInFnthinkPage => '此开关位于「幻念推送」页';
 
   @override
   String get updateBlockIntegrityFailed => '更新包校验未通过，已阻止安装';
@@ -6043,5 +6043,5 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get whatsNewTitle => '这次更新带来了什么';
+  String get whatsNewTitle => '本次更新的内容';
 }
