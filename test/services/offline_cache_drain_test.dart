@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -33,6 +35,9 @@ void main() {
   final List<MethodCall> drainCallLog = <MethodCall>[];
   int drainCalls = 0;
 
+  /// 置真后第一次 `drainOfflineCache` 先卡住，专门量"并发调用等同一轮"。
+  Completer<void>? drainGate;
+
   /// 置真后，脚本给完就**一直**回「还有、同一条」——只用来试那枚循环上限，不是原生真会这样。
   bool drainSpinsForever = false;
 
@@ -51,6 +56,8 @@ void main() {
 
   Future<Object?> onChannelCall(MethodCall call) async {
     if (call.method == 'drainOfflineCache') {
+      final gate = drainGate;
+      if (gate != null) await gate.future;
       drainCalls++;
       drainCallLog.add(call);
       if (drainQueue.isNotEmpty) return drainQueue.removeAt(0);
@@ -72,6 +79,7 @@ void main() {
     drainPayload = null;
     drainSpinsForever = false;
     drainCalls = 0;
+    drainGate = null;
     drainQueue.clear();
     drainCallLog.clear();
     GetIt.instance.reset();
@@ -105,6 +113,37 @@ void main() {
     );
     // 记录同时要真的落库：只在内存里，历史页下次冷启动就又看不见了
     expect(await helper.getAllNotifications(), hasLength(2));
+  });
+
+  test('并发调用收敛到同一轮：补库完成前不提前返回', () async {
+    final gate = Completer<void>();
+    drainGate = gate;
+    drainPayload = <String, Object?>{
+      'records': [offlineRecord('off_concurrent')],
+      'dropped': 0,
+    };
+    final service = NotificationService();
+    final first = service.hydrateOfflineData();
+    final second = service.hydrateOfflineData();
+
+    // 同一轮：第二次调用不能另起一条 drain，更不能在 gate 松开前完成。
+    expect(
+      identical(first, second),
+      isTrue,
+      reason: '并发 hydrate 各跑一轮 ⇒ 第二次会读到第一次尚未落库的中间态',
+    );
+    expect(service.records, isEmpty);
+
+    gate.complete();
+    await Future.wait(<Future<void>>[first, second]);
+    expect(service.records.map((r) => r.id), contains('off_concurrent'));
+    // 一次真正的取货 + 结束时 `limit:0` 的确认各算一次 channel 调用；
+    // 并发只允许有**一次取货**（否则就是第二次调用另起了一轮）。
+    final fetchCalls = drainCallLog.where((call) {
+      final args = call.arguments;
+      return args is! Map || args['limit'] != 0;
+    }).length;
+    expect(fetchCalls, 1, reason: '两次调用只允许排空一次原生队列');
   });
 
   test('dropped=0 不留提示（不是每次开应用都报一次"一切正常"）', () async {

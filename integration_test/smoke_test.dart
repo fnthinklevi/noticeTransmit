@@ -201,7 +201,14 @@ void main() {
           'tabHome 未渲染中文 —— 语言钉定未生效，'
           '检查 setUpAll 的 app_language 预置与 LocaleService 回落逻辑',
     );
-    return GetIt.instance<NotificationService>();
+    final svc = GetIt.instance<NotificationService>();
+    // 等这一轮的离线补库真的跑完再交还用例：CI 的软件渲染比本机慢得多，
+    // 上一条用例的 hydrate 可能在本条 `clearAllNotifications` 之后才落库；旧服务随后
+    // 插进去的 smoke_offline_1 会让本条的 `_mergeOfflineBatch` 查到「库里已有」而跳过
+    // 内存注入 ⇒ 2/4 在 run #26 红、本机快时绿。`hydrateOfflineData` 现在会把并发调用
+    // 收敛到同一轮 Future（见 NotificationService），这里 await 就是那条确定性边界。
+    await svc.hydrateOfflineData();
+    return svc;
   }
 
   /// 等 drainOfflineCache 的记录合并进内存列表。

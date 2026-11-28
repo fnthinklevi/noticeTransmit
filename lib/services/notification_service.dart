@@ -71,26 +71,39 @@ class NotificationService {
     // 观察点已挪到 `main_page` 的 `_syncReceiptsThenSweep`（冷启动与回前台共用那一条链）。
   }
 
-  /// 首帧之后才做的"离线补库 + 送达补偿"（可重入保护：冷启动与回前台会各来一次）。
+  /// 首帧之后才做的"离线补库 + 送达补偿"（冷启动与回前台会各来一次）。
   ///
   /// 顺序是判据：
   /// 1. [migrateInterceptedRecords] 是存量修复（flag 记过就返回），但它是全表扫描，
   ///    不能放在启动页；
   /// 2. [_drainOfflineCache] 把原生离线队列**确认落库后**才 ack（见该方法）；
   /// 3. [drainPendingDeliveries] 补偿 Activity 销毁期间的送达结果。
-  Future<void> hydrateOfflineData() async {
-    if (_hydrating) return;
-    _hydrating = true;
+  ///
+  /// ⚠ 并发调用**返回同一轮 Future**，而不是像旧写法那样直接 `return`：
+  ///   首页冷启动的 `_hydrateOfflineThenSync` 与回前台/测试里的第二次调用会撞在一起，
+  ///   旧写法让后者在补库落库前就往下跑（刷新计数读到旧值）；冒烟测试里更直接：
+  ///   上一条用例的 hydrate 还在飞，下一条已经 `clearAllNotifications` 并启动，
+  ///   旧链随后插入的 `smoke_offline_1` 会让新链 `_mergeOfflineBatch` 查到"库里已有"
+  ///   而跳过内存注入 ⇒ 2/4 在 CI 的慢渲染下红、本机快时绿（run #26 实测）。
+  Future<void> hydrateOfflineData() {
+    final inFlight = _hydratingFuture;
+    if (inFlight != null) return inFlight;
+    final future = _hydrateOfflineDataOnce();
+    _hydratingFuture = future;
+    return future;
+  }
+
+  Future<void>? _hydratingFuture;
+
+  Future<void> _hydrateOfflineDataOnce() async {
     try {
       await migrateInterceptedRecords();
       await _drainOfflineCache();
       await drainPendingDeliveries();
     } finally {
-      _hydrating = false;
+      _hydratingFuture = null;
     }
   }
-
-  bool _hydrating = false;
 
   /// T175 ②：把超过 [olderThan] 仍是 `pending`/`queued` 的送达格改成
   /// `failed(no-receipt)`。返回改动了几条记录。
