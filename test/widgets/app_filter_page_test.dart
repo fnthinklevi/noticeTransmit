@@ -69,7 +69,7 @@ void main() {
       // 无任何分组头（注意：模式提示横幅文案里含"未选"，必须用精确匹配）
       expect(find.text('未选 0'), findsNothing);
       expect(find.text('未选 3'), findsNothing);
-      expect(find.text('已选 3'), findsNothing);
+      expect(find.text('已选择 3'), findsNothing);
     });
 
     testWidgets('有选择时已选应用置顶，显示已选/未选分组头', (tester) async {
@@ -84,8 +84,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 分组头：已选 2 / 未选 1（工具栏计数也是"已选 2"，共 2 处）
-      expect(find.text('已选 2'), findsNWidgets(2));
+      // 分组头：已选择 2 / 未选 1（工具栏计数也是"已选择 2"，共 2 处）
+      expect(find.text('已选择 2'), findsNWidgets(2));
       expect(find.text('未选 1'), findsOneWidget);
 
       // 三个应用都在列表中
@@ -112,15 +112,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('已选 1'), findsWidgets);
+      expect(find.text('已选择 1'), findsWidgets);
 
       // 点击已选中的 Alpha 取消选择
       await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
 
       expect(find.text('未选 3'), findsNothing); // 无分组头
-      expect(find.text('已选 1'), findsNothing);
-      expect(find.text('已选 0'), findsOneWidget); // 工具栏计数归零
+      expect(find.text('已选择 1'), findsNothing);
+      expect(find.text('已选择 0'), findsOneWidget); // 工具栏计数归零
     });
 
     testWidgets('无权限：进入弹窗提醒，拒绝后显示提示文案，点击文案发起申请', (tester) async {
@@ -375,11 +375,11 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('app-filter-quick-comm')));
       await tester.pumpAndSettle();
-      expect(find.text('已选 1'), findsWidgets, reason: '微信应被整组选中');
+      expect(find.text('已选择 1'), findsWidgets, reason: '微信应被整组选中');
 
       await tester.tap(find.byKey(const ValueKey('app-filter-quick-comm')));
       await tester.pumpAndSettle();
-      expect(find.text('已选 0'), findsWidgets, reason: '同一枚再点应整组取消');
+      expect(find.text('已选择 0'), findsWidgets, reason: '同一枚再点应整组取消');
     });
 
     testWidgets('阻止模式：点整组是"加进阻止集"，不是反选', (tester) async {
@@ -398,7 +398,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('app-filter-quick-mail')));
       await tester.pumpAndSettle();
       // 阻止模式下选中集 = 被阻止的；点「邮箱」应加进去（1 条），而不是把别的反选掉。
-      expect(find.text('已选 1'), findsWidgets);
+      expect(find.text('已选择 1'), findsWidgets);
       expect(
         find.text('未选 2'),
         findsOneWidget,

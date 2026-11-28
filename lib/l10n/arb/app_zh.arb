@@ -617,7 +617,7 @@
   "appListPerm": "应用列表权限",
   "appListPermDesc": "非必要权限用于提升特定功能的准确性",
   "appListPermTitle": "需要应用列表权限",
-  "appListPermMsg": "该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n点击「允许」后将跳转到系统设置页，请手动开启权限。",
+  "appListPermMsg": "此权限用于读取已安装应用列表，以支持按应用过滤通知。\n\n点击「允许」后将跳转至系统设置页，请手动授予权限。",
   "appListPermGuideTitle": "应用列表权限要让系统放行",
   "appListPermGuideMsg": "系统里这一项叫「读取已安装的应用列表」（部分机型在「权限」页，部分在「其他权限」或「应用权限」里）。\n\n点「去开启」会跳到本应用的系统设置页 —— 请找到这一项并允许；开完回到应用即可生效。",
   "autostartGuideTitle": "自启动要在厂商的设置里开",
@@ -742,9 +742,9 @@
   },
   "ruleEditTitle": "编辑规则",
   "ruleName": "规则名称",
-  "ruleNameHint": "输入规则名称",
+  "ruleNameHint": "请输入规则名称",
   "ruleDescription": "规则描述",
-  "ruleDescriptionHint": "可选，描述规则用途",
+  "ruleDescriptionHint": "可选；用于描述规则用途",
   "ruleConditions": "条件（IF）",
   "ruleActions": "动作（THEN）",
   "ruleAddCondition": "添加条件",
@@ -778,7 +778,7 @@
       }
     }
   },
-  "ruleAppScopeDesc": "被排除的应用不再适用本规则",
+  "ruleAppScopeDesc": "被排除的应用不再匹配本规则",
   "ruleAppPickTitle": "选择适用应用",
   "ruleAppNoPermission": "无应用列表读取权限，无法加载应用列表",
   "ruleMergeWindowRow": "聚合等待时长",
@@ -790,7 +790,7 @@
       }
     }
   },
-  "ruleMergeWindowPresets": "常用时长（点击填入）：",
+  "ruleMergeWindowPresets": "常用时长（点击以填入）：",
   "ruleMergeWindowInvalid": "请输入 5-86400 的整数（最小 5 秒）",
   "historyActionBlockAppShort": "屏蔽该应用",
   "historyActionBlockContentShort": "屏蔽内容",
@@ -840,8 +840,8 @@
   "ruleScheduleTimeHint": "如 22:00（当日到点推送）",
   "ruleBasicInfo": "基本信息",
   "ruleEnableRule": "启用规则",
-  "ruleEmptyConditions": "暂无条件，点击添加",
-  "ruleEmptyActions": "暂无动作，点击添加",
+  "ruleEmptyConditions": "暂无条件，点击即可添加",
+  "ruleEmptyActions": "暂无动作，点击即可添加",
   "ruleDelayMinute": "延迟 {n} 分钟",
   "@ruleDelayMinute": {
     "placeholders": {
@@ -873,7 +873,7 @@
   "condContentNotContains": "内容不包含",
   "condPriority": "通知优先级",
   "mergeWindowSeconds": "合并窗口（秒）",
-  "mergeWindowHint": "默认 5，同应用通知在此窗口内合并为一条推送",
+  "mergeWindowHint": "默认 5 秒；同一应用的通知在此窗口内合并为一条推送",
   "condTimeRange": "时间范围",
   "condRegex": "正则表达式",
   "condChargingState": "充电状态",
@@ -1035,7 +1035,7 @@
   },
   "iconSwitchFailed": "切换失败",
   "done": "完成",
-  "refreshAppList": "更新软件列表",
+  "refreshAppList": "刷新应用列表",
   "appFilterBlockModeInfo": "当前模式：不通知应用 — 未选择时全部应用都推送通知",
   "appFilterBlockModeSelected": "已选择 {n} 个应用，这些应用的通知不会被推送",
   "@appFilterBlockModeSelected": {
@@ -1059,9 +1059,9 @@
   "searchAppHint": "搜索应用名称或包名",
   "showSystemApps": "显示系统应用",
   "selectAll": "全选",
-  "deselectAll": "清空",
+  "deselectAll": "取消全选",
   "invertSelection": "反选",
-  "selectedCount": "已选 {n}",
+  "selectedCount": "已选择 {n}",
   "@selectedCount": {
     "placeholders": {
       "n": {
@@ -1077,7 +1077,7 @@
       }
     }
   },
-  "noAppsFound": "没有找到应用",
+  "noAppsFound": "未找到应用",
   "refreshFailed": "刷新失败：{e}",
   "@refreshFailed": {
     "placeholders": {
@@ -1538,10 +1538,10 @@
     }
   },
   "mergeMaxItemsLabel": "满 N 条提前推送",
-  "mergeMaxItemsHint": "达到此条数立即推送；0 或留空 = 等窗口到点（可选）",
+  "mergeMaxItemsHint": "达到此条数立即推送；0 或留空表示等待窗口结束（可选）",
   "mergeGroupByTitleLabel": "按会话分组",
-  "mergeGroupByTitleDesc": "同应用不同标题（联系人/群）分开聚合，默认按应用聚合",
-  "ruleMergeMaxItemsSummary": "满 {n} 条提前",
+  "mergeGroupByTitleDesc": "同一应用下按标题（联系人或群）分别聚合；默认按应用聚合",
+  "ruleMergeMaxItemsSummary": "达到 {n} 条提前推送",
   "ruleMergeGroupByTitleSummary": "按会话分组",
   "@ruleMergeMaxItemsSummary": {
     "placeholders": {

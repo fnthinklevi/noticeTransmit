@@ -1660,5 +1660,67 @@
       "zh": "无匹配记录",
       "en": "No matching records"
     }
+  },
+  "lib/pages/rule_edit_page.dart": {
+    "ruleNameHint": {
+      "zh": "请输入规则名称",
+      "en": "Enter rule name"
+    },
+    "ruleDescriptionHint": {
+      "zh": "可选；用于描述规则用途",
+      "en": "Optional: describe what this rule does"
+    },
+    "ruleEmptyConditions": {
+      "zh": "暂无条件，点击即可添加",
+      "en": "No conditions yet. Tap to add one"
+    },
+    "ruleEmptyActions": {
+      "zh": "暂无动作，点击即可添加",
+      "en": "No actions yet. Tap to add one"
+    },
+    "ruleAppScopeDesc": {
+      "zh": "被排除的应用不再匹配本规则",
+      "en": "Excluded apps do not match this rule"
+    },
+    "ruleMergeMaxItemsSummary": {
+      "zh": "达到 {n} 条提前推送",
+      "en": "flush early at {n} items"
+    },
+    "mergeWindowHint": {
+      "zh": "默认 5 秒；同一应用的通知在此窗口内合并为一条推送",
+      "en": "Default 5 s; notifications from the same app within this window are merged into one push"
+    },
+    "ruleMergeWindowPresets": {
+      "zh": "常用时长（点击以填入）：",
+      "en": "Presets (tap to fill in):"
+    },
+    "mergeMaxItemsHint": {
+      "zh": "达到此条数立即推送；0 或留空表示等待窗口结束（可选）",
+      "en": "Push as soon as this many items arrive; 0 or blank waits for the window (optional)"
+    },
+    "mergeGroupByTitleDesc": {
+      "zh": "同一应用下按标题（联系人或群）分别聚合；默认按应用聚合",
+      "en": "Aggregate by conversation title (contact or group) within the same app; app-level grouping is the default"
+    },
+    "appListPermMsg": {
+      "zh": "此权限用于读取已安装应用列表，以支持按应用过滤通知。\n\n点击「允许」后将跳转至系统设置页，请手动授予权限。",
+      "en": "This permission is used to read the installed app list, which enables notification filtering by app.\n\nTap \"Allow\" to open system settings and grant it manually."
+    },
+    "refreshAppList": {
+      "zh": "刷新应用列表",
+      "en": "Refresh App List"
+    },
+    "deselectAll": {
+      "zh": "取消全选",
+      "en": "Clear All"
+    },
+    "selectedCount": {
+      "zh": "已选择 {n}",
+      "en": "Selected {n}"
+    },
+    "noAppsFound": {
+      "zh": "未找到应用",
+      "en": "No apps found"
+    }
   }
 }

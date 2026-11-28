@@ -2260,7 +2260,7 @@ abstract class AppLocalizations {
   /// No description provided for @appListPermMsg.
   ///
   /// In zh, this message translates to:
-  /// **'该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n点击「允许」后将跳转到系统设置页，请手动开启权限。'**
+  /// **'此权限用于读取已安装应用列表，以支持按应用过滤通知。\n\n点击「允许」后将跳转至系统设置页，请手动授予权限。'**
   String get appListPermMsg;
 
   /// No description provided for @appListPermGuideTitle.
@@ -2758,7 +2758,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleNameHint.
   ///
   /// In zh, this message translates to:
-  /// **'输入规则名称'**
+  /// **'请输入规则名称'**
   String get ruleNameHint;
 
   /// No description provided for @ruleDescription.
@@ -2770,7 +2770,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleDescriptionHint.
   ///
   /// In zh, this message translates to:
-  /// **'可选，描述规则用途'**
+  /// **'可选；用于描述规则用途'**
   String get ruleDescriptionHint;
 
   /// No description provided for @ruleConditions.
@@ -2890,7 +2890,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleAppScopeDesc.
   ///
   /// In zh, this message translates to:
-  /// **'被排除的应用不再适用本规则'**
+  /// **'被排除的应用不再匹配本规则'**
   String get ruleAppScopeDesc;
 
   /// No description provided for @ruleAppPickTitle.
@@ -2920,7 +2920,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleMergeWindowPresets.
   ///
   /// In zh, this message translates to:
-  /// **'常用时长（点击填入）：'**
+  /// **'常用时长（点击以填入）：'**
   String get ruleMergeWindowPresets;
 
   /// No description provided for @ruleMergeWindowInvalid.
@@ -3094,13 +3094,13 @@ abstract class AppLocalizations {
   /// No description provided for @ruleEmptyConditions.
   ///
   /// In zh, this message translates to:
-  /// **'暂无条件，点击添加'**
+  /// **'暂无条件，点击即可添加'**
   String get ruleEmptyConditions;
 
   /// No description provided for @ruleEmptyActions.
   ///
   /// In zh, this message translates to:
-  /// **'暂无动作，点击添加'**
+  /// **'暂无动作，点击即可添加'**
   String get ruleEmptyActions;
 
   /// No description provided for @ruleDelayMinute.
@@ -3166,7 +3166,7 @@ abstract class AppLocalizations {
   /// No description provided for @mergeWindowHint.
   ///
   /// In zh, this message translates to:
-  /// **'默认 5，同应用通知在此窗口内合并为一条推送'**
+  /// **'默认 5 秒；同一应用的通知在此窗口内合并为一条推送'**
   String get mergeWindowHint;
 
   /// No description provided for @condTimeRange.
@@ -3682,7 +3682,7 @@ abstract class AppLocalizations {
   /// No description provided for @refreshAppList.
   ///
   /// In zh, this message translates to:
-  /// **'更新软件列表'**
+  /// **'刷新应用列表'**
   String get refreshAppList;
 
   /// No description provided for @appFilterBlockModeInfo.
@@ -3742,7 +3742,7 @@ abstract class AppLocalizations {
   /// No description provided for @deselectAll.
   ///
   /// In zh, this message translates to:
-  /// **'清空'**
+  /// **'取消全选'**
   String get deselectAll;
 
   /// No description provided for @invertSelection.
@@ -3754,7 +3754,7 @@ abstract class AppLocalizations {
   /// No description provided for @selectedCount.
   ///
   /// In zh, this message translates to:
-  /// **'已选 {n}'**
+  /// **'已选择 {n}'**
   String selectedCount(int n);
 
   /// No description provided for @unselectedCount.
@@ -3766,7 +3766,7 @@ abstract class AppLocalizations {
   /// No description provided for @noAppsFound.
   ///
   /// In zh, this message translates to:
-  /// **'没有找到应用'**
+  /// **'未找到应用'**
   String get noAppsFound;
 
   /// No description provided for @refreshFailed.
@@ -5128,7 +5128,7 @@ abstract class AppLocalizations {
   /// No description provided for @mergeMaxItemsHint.
   ///
   /// In zh, this message translates to:
-  /// **'达到此条数立即推送；0 或留空 = 等窗口到点（可选）'**
+  /// **'达到此条数立即推送；0 或留空表示等待窗口结束（可选）'**
   String get mergeMaxItemsHint;
 
   /// No description provided for @mergeGroupByTitleLabel.
@@ -5140,13 +5140,13 @@ abstract class AppLocalizations {
   /// No description provided for @mergeGroupByTitleDesc.
   ///
   /// In zh, this message translates to:
-  /// **'同应用不同标题（联系人/群）分开聚合，默认按应用聚合'**
+  /// **'同一应用下按标题（联系人或群）分别聚合；默认按应用聚合'**
   String get mergeGroupByTitleDesc;
 
   /// No description provided for @ruleMergeMaxItemsSummary.
   ///
   /// In zh, this message translates to:
-  /// **'满 {n} 条提前'**
+  /// **'达到 {n} 条提前推送'**
   String ruleMergeMaxItemsSummary(int n);
 
   /// No description provided for @ruleMergeGroupByTitleSummary.

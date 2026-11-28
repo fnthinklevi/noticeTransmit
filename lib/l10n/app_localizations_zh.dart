@@ -1183,7 +1183,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appListPermMsg =>
-      '该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n点击「允许」后将跳转到系统设置页，请手动开启权限。';
+      '此权限用于读取已安装应用列表，以支持按应用过滤通知。\n\n点击「允许」后将跳转至系统设置页，请手动授予权限。';
 
   @override
   String get appListPermGuideTitle => '应用列表权限要让系统放行';
@@ -1446,13 +1446,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleName => '规则名称';
 
   @override
-  String get ruleNameHint => '输入规则名称';
+  String get ruleNameHint => '请输入规则名称';
 
   @override
   String get ruleDescription => '规则描述';
 
   @override
-  String get ruleDescriptionHint => '可选，描述规则用途';
+  String get ruleDescriptionHint => '可选；用于描述规则用途';
 
   @override
   String get ruleConditions => '条件（IF）';
@@ -1516,7 +1516,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get ruleAppScopeDesc => '被排除的应用不再适用本规则';
+  String get ruleAppScopeDesc => '被排除的应用不再匹配本规则';
 
   @override
   String get ruleAppPickTitle => '选择适用应用';
@@ -1533,7 +1533,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get ruleMergeWindowPresets => '常用时长（点击填入）：';
+  String get ruleMergeWindowPresets => '常用时长（点击以填入）：';
 
   @override
   String get ruleMergeWindowInvalid => '请输入 5-86400 的整数（最小 5 秒）';
@@ -1626,10 +1626,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleEnableRule => '启用规则';
 
   @override
-  String get ruleEmptyConditions => '暂无条件，点击添加';
+  String get ruleEmptyConditions => '暂无条件，点击即可添加';
 
   @override
-  String get ruleEmptyActions => '暂无动作，点击添加';
+  String get ruleEmptyActions => '暂无动作，点击即可添加';
 
   @override
   String ruleDelayMinute(int n) {
@@ -1668,7 +1668,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mergeWindowSeconds => '合并窗口（秒）';
 
   @override
-  String get mergeWindowHint => '默认 5，同应用通知在此窗口内合并为一条推送';
+  String get mergeWindowHint => '默认 5 秒；同一应用的通知在此窗口内合并为一条推送';
 
   @override
   String get condTimeRange => '时间范围';
@@ -1949,7 +1949,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get done => '完成';
 
   @override
-  String get refreshAppList => '更新软件列表';
+  String get refreshAppList => '刷新应用列表';
 
   @override
   String get appFilterBlockModeInfo => '当前模式：不通知应用 — 未选择时全部应用都推送通知';
@@ -1983,14 +1983,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get selectAll => '全选';
 
   @override
-  String get deselectAll => '清空';
+  String get deselectAll => '取消全选';
 
   @override
   String get invertSelection => '反选';
 
   @override
   String selectedCount(int n) {
-    return '已选 $n';
+    return '已选择 $n';
   }
 
   @override
@@ -1999,7 +1999,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get noAppsFound => '没有找到应用';
+  String get noAppsFound => '未找到应用';
 
   @override
   String refreshFailed(String e) {
@@ -2760,17 +2760,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mergeMaxItemsLabel => '满 N 条提前推送';
 
   @override
-  String get mergeMaxItemsHint => '达到此条数立即推送；0 或留空 = 等窗口到点（可选）';
+  String get mergeMaxItemsHint => '达到此条数立即推送；0 或留空表示等待窗口结束（可选）';
 
   @override
   String get mergeGroupByTitleLabel => '按会话分组';
 
   @override
-  String get mergeGroupByTitleDesc => '同应用不同标题（联系人/群）分开聚合，默认按应用聚合';
+  String get mergeGroupByTitleDesc => '同一应用下按标题（联系人或群）分别聚合；默认按应用聚合';
 
   @override
   String ruleMergeMaxItemsSummary(int n) {
-    return '满 $n 条提前';
+    return '达到 $n 条提前推送';
   }
 
   @override

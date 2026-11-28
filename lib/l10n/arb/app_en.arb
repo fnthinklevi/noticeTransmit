@@ -617,7 +617,7 @@
   "appListPerm": "App List Permission",
   "appListPermDesc": "Improves accuracy of specific features",
   "appListPermTitle": "App List Permission Required",
-  "appListPermMsg": "This permission is needed to get installed apps list for app filtering.\n\nTap \"Allow\" to go to system settings and enable it manually.",
+  "appListPermMsg": "This permission is used to read the installed app list, which enables notification filtering by app.\n\nTap \"Allow\" to open system settings and grant it manually.",
   "appListPermGuideTitle": "Allow App-List Access in System Settings",
   "appListPermGuideMsg": "The system calls this \"Read installed apps\" (some ROMs put it under Permissions, others under Other permissions).\n\n\"Open settings\" takes you to this app's system page — find that item and allow it; it takes effect when you come back.",
   "autostartGuideTitle": "Auto-start Lives in Your OEM Settings",
@@ -744,7 +744,7 @@
   "ruleName": "Rule Name",
   "ruleNameHint": "Enter rule name",
   "ruleDescription": "Description",
-  "ruleDescriptionHint": "Optional",
+  "ruleDescriptionHint": "Optional: describe what this rule does",
   "ruleConditions": "Conditions (IF)",
   "ruleActions": "Actions (THEN)",
   "ruleAddCondition": "Add Condition",
@@ -778,7 +778,7 @@
       }
     }
   },
-  "ruleAppScopeDesc": "Excluded apps won't match this rule",
+  "ruleAppScopeDesc": "Excluded apps do not match this rule",
   "ruleAppPickTitle": "Select Applicable Apps",
   "ruleAppNoPermission": "No permission to read the app list",
   "ruleMergeWindowRow": "Merge wait duration",
@@ -790,7 +790,7 @@
       }
     }
   },
-  "ruleMergeWindowPresets": "Presets (tap to fill):",
+  "ruleMergeWindowPresets": "Presets (tap to fill in):",
   "ruleMergeWindowInvalid": "Enter an integer between 5 and 86400 (minimum 5s)",
   "historyActionBlockAppShort": "Block app",
   "historyActionBlockContentShort": "Block text",
@@ -840,8 +840,8 @@
   "ruleScheduleTimeHint": "e.g. 22:00 (push when due)",
   "ruleBasicInfo": "Basic Info",
   "ruleEnableRule": "Enable Rule",
-  "ruleEmptyConditions": "No conditions yet, tap to add",
-  "ruleEmptyActions": "No actions yet, tap to add",
+  "ruleEmptyConditions": "No conditions yet. Tap to add one",
+  "ruleEmptyActions": "No actions yet. Tap to add one",
   "ruleDelayMinute": "Delay {n} min",
   "@ruleDelayMinute": {
     "placeholders": {
@@ -873,7 +873,7 @@
   "condContentNotContains": "Content Not Contains",
   "condPriority": "Priority",
   "mergeWindowSeconds": "Merge Window (seconds)",
-  "mergeWindowHint": "Default 5. Notifications from the same app within this window are merged into one push",
+  "mergeWindowHint": "Default 5 s; notifications from the same app within this window are merged into one push",
   "condTimeRange": "Time Range",
   "condRegex": "Regex",
   "condChargingState": "Charging state",
@@ -1538,10 +1538,10 @@
     }
   },
   "mergeMaxItemsLabel": "Flush early at N items",
-  "mergeMaxItemsHint": "Push as soon as this many items arrive; 0 or empty = wait for the window (optional)",
+  "mergeMaxItemsHint": "Push as soon as this many items arrive; 0 or blank waits for the window (optional)",
   "mergeGroupByTitleLabel": "Group by conversation",
-  "mergeGroupByTitleDesc": "Aggregate per conversation title (contact/group) instead of per app",
-  "ruleMergeMaxItemsSummary": "flush at {n}",
+  "mergeGroupByTitleDesc": "Aggregate by conversation title (contact or group) within the same app; app-level grouping is the default",
+  "ruleMergeMaxItemsSummary": "flush early at {n} items",
   "ruleMergeGroupByTitleSummary": "by conversation",
   "@ruleMergeMaxItemsSummary": {
     "placeholders": {

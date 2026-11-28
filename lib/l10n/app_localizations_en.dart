@@ -1235,7 +1235,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appListPermMsg =>
-      'This permission is needed to get installed apps list for app filtering.\n\nTap \"Allow\" to go to system settings and enable it manually.';
+      'This permission is used to read the installed app list, which enables notification filtering by app.\n\nTap \"Allow\" to open system settings and grant it manually.';
 
   @override
   String get appListPermGuideTitle =>
@@ -1520,7 +1520,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ruleDescription => 'Description';
 
   @override
-  String get ruleDescriptionHint => 'Optional';
+  String get ruleDescriptionHint => 'Optional: describe what this rule does';
 
   @override
   String get ruleConditions => 'Conditions (IF)';
@@ -1585,7 +1585,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get ruleAppScopeDesc => 'Excluded apps won\'t match this rule';
+  String get ruleAppScopeDesc => 'Excluded apps do not match this rule';
 
   @override
   String get ruleAppPickTitle => 'Select Applicable Apps';
@@ -1602,7 +1602,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get ruleMergeWindowPresets => 'Presets (tap to fill):';
+  String get ruleMergeWindowPresets => 'Presets (tap to fill in):';
 
   @override
   String get ruleMergeWindowInvalid =>
@@ -1698,10 +1698,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ruleEnableRule => 'Enable Rule';
 
   @override
-  String get ruleEmptyConditions => 'No conditions yet, tap to add';
+  String get ruleEmptyConditions => 'No conditions yet. Tap to add one';
 
   @override
-  String get ruleEmptyActions => 'No actions yet, tap to add';
+  String get ruleEmptyActions => 'No actions yet. Tap to add one';
 
   @override
   String ruleDelayMinute(int n) {
@@ -1741,7 +1741,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mergeWindowHint =>
-      'Default 5. Notifications from the same app within this window are merged into one push';
+      'Default 5 s; notifications from the same app within this window are merged into one push';
 
   @override
   String get condTimeRange => 'Time Range';
@@ -2875,18 +2875,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mergeMaxItemsHint =>
-      'Push as soon as this many items arrive; 0 or empty = wait for the window (optional)';
+      'Push as soon as this many items arrive; 0 or blank waits for the window (optional)';
 
   @override
   String get mergeGroupByTitleLabel => 'Group by conversation';
 
   @override
   String get mergeGroupByTitleDesc =>
-      'Aggregate per conversation title (contact/group) instead of per app';
+      'Aggregate by conversation title (contact or group) within the same app; app-level grouping is the default';
 
   @override
   String ruleMergeMaxItemsSummary(int n) {
-    return 'flush at $n';
+    return 'flush early at $n items';
   }
 
   @override
