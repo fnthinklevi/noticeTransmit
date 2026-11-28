@@ -5611,7 +5611,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkReadEntryShort =>
-      'What the other side can read from this device; off by default, one at a time.';
+      'What the other side can read from this device; each item is off by default and enabled separately.';
 
   @override
   String get fnthinkReadWhy =>

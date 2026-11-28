@@ -2086,5 +2086,11 @@
       "zh": "同时作用于短信与电话",
       "en": "Applies to both SMS and calls"
     }
+  },
+  "lib/pages/fnthink_remote_page.dart": {
+    "fnthinkReadEntryShort": {
+      "zh": "对端可读取本机的哪些内容；每一项默认关闭，需单独开启。",
+      "en": "What the other side can read from this device; each item is off by default and enabled separately."
+    }
   }
 }

@@ -3148,7 +3148,7 @@
   "fnthinkReadLocationSubtitle": "Let paired devices read this device's last known location (read-only; it never starts a fix)",
   "fnthinkReadLocationDenied": "Location permission not granted; this remains off. Toggle again to retry, or grant it in system settings.",
   "fnthinkReadPageTitle": "Readable remotely",
-  "fnthinkReadEntryShort": "What the other side can read from this device; off by default, one at a time.",
+  "fnthinkReadEntryShort": "What the other side can read from this device; each item is off by default and enabled separately.",
   "fnthinkReadWhy": "Off by default: turn one on and paired devices can read it remotely (turning it on asks the system for that permission).",
   "fnthinkReadWhyTitle": "How remote reading is gated",
   "fnthinkReadWhyBody": "Two switches must both be on: (1) the toggle on this page — the device owner's explicit decision, off by default, changeable anytime, takes effect immediately when turned off; (2) Android runtime permission — requested on first use, changeable anytime in system settings. Only reads initiated by paired devices through the remote command surface take effect; the content is returned as a regular message (with receipt, delivered to the inbox), not as arbitrary device access.",

@@ -67,7 +67,7 @@ void main() {
     'lib/pages/privacy_policy_page.dart': 'reviewed',
     'lib/pages/sms_monitor_settings_page.dart': 'reviewed',
     'lib/pages/fnthink_receive_page.dart': 'reviewed',
-    'lib/pages/fnthink_remote_page.dart': 'pending',
+    'lib/pages/fnthink_remote_page.dart': 'reviewed',
     'lib/pages/keywords_page.dart': 'pending',
     'lib/pages/webhook_settings_item.dart': 'pending',
     'lib/pages/widget_guide_page.dart': 'reviewed',

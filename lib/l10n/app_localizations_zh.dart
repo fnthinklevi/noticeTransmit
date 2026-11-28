@@ -5301,7 +5301,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkReadPageTitle => '可被远程读取的内容';
 
   @override
-  String get fnthinkReadEntryShort => '对面能读这台什么；每一项默认关、单独开。';
+  String get fnthinkReadEntryShort => '对端可读取本机的哪些内容；每一项默认关闭，需单独开启。';
 
   @override
   String get fnthinkReadWhy => '各项默认关闭：开启某项后，已配对设备方可远程读取（开启时会向系统申请相应权限）。';

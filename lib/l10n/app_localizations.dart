@@ -9524,7 +9524,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkReadEntryShort.
   ///
   /// In zh, this message translates to:
-  /// **'对面能读这台什么；每一项默认关、单独开。'**
+  /// **'对端可读取本机的哪些内容；每一项默认关闭，需单独开启。'**
   String get fnthinkReadEntryShort;
 
   /// No description provided for @fnthinkReadWhy.
