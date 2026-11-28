@@ -2326,7 +2326,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'If you have any questions, comments, or suggestions about this Privacy Policy or data processing, you can reach us through:\n\n• Check the latest version and release notes on the \"More\" page in the app\n• Submit an Issue on GitHub: https://github.com/fnthinklevi/noticeTransmit\n\nWe will respond to your feedback as soon as possible.';
 
   @override
-  String get lastUpdate => 'Last updated: October 18, 2026';
+  String get lastUpdate => 'Last updated: November 28, 2026';
 
   @override
   String get deliveryLogTitle => 'Delivery Log';

@@ -168,8 +168,8 @@ void main() {
 
   test('⑥ 披露文案两侧都在，且那条重复的通讯录说明已收成一条', () {
     const stamp = {
-      'lib/l10n/arb/app_zh.arb': '最后更新：2026年10月18日',
-      'lib/l10n/arb/app_en.arb': 'Last updated: October 18, 2026',
+      'lib/l10n/arb/app_zh.arb': '最后更新：2026年11月28日',
+      'lib/l10n/arb/app_en.arb': 'Last updated: November 28, 2026',
     };
     const marker = {
       'lib/l10n/arb/app_zh.arb': '本机短信留存',
