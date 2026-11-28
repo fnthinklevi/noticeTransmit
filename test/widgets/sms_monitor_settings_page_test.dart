@@ -124,7 +124,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 副标题切换为单卡提示
-      expect(find.text('当前设备仅检测到一张SIM卡，无需选择'), findsOneWidget);
+      expect(find.text('当前设备仅检测到一张 SIM 卡，无需选择'), findsOneWidget);
 
       // 点击"仅卡1"不生效（置灰禁用）：无提醒弹窗、配置不变
       await tester.tap(find.text('仅卡1'), warnIfMissed: false);

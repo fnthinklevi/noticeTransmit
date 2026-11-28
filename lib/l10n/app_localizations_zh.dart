@@ -2020,16 +2020,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get smsMonitorSettings => '短信监听设置';
 
   @override
-  String get smsMonitorTotalDesc => '关闭后将不再监听、推送任何短信';
+  String get smsMonitorTotalDesc => '关闭后将不再监听或推送任何短信';
 
   @override
   String get simFilterTitle => '监听卡';
 
   @override
-  String get simFilterDesc => '同时作用于短信和电话';
+  String get simFilterDesc => '同时作用于短信与电话';
 
   @override
-  String get simFilterSingleSim => '当前设备仅检测到一张SIM卡，无需选择';
+  String get simFilterSingleSim => '当前设备仅检测到一张 SIM 卡，无需选择';
 
   @override
   String get simFilterAll => '全部';
@@ -2045,13 +2045,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get simFilterRemindMsg =>
-      '由于小米等系统的限制，部分短信无法识别所属卡（通知栏兜底链路）。这些短信不受该设置影响，将照常推送。';
+      '受小米等系统限制，部分短信无法识别所属 SIM 卡（通知栏兜底链路）。此类短信不受本设置影响，仍会照常推送。';
 
   @override
   String get codeMonitor => '监听验证码';
 
   @override
-  String get codeMonitorDesc => '关闭后，包含验证码的短信将不会被推送';
+  String get codeMonitorDesc => '关闭后，包含验证码的短信将不再推送';
 
   @override
   String get widgetBrandCurrentDevice => '当前设备';

@@ -2064,5 +2064,27 @@
       "zh": "新增通道默认启用",
       "en": "Newly added channels are enabled by default"
     }
+  },
+  "lib/pages/sms_monitor_settings_page.dart": {
+    "simFilterRemindMsg": {
+      "zh": "受小米等系统限制，部分短信无法识别所属 SIM 卡（通知栏兜底链路）。此类短信不受本设置影响，仍会照常推送。",
+      "en": "Due to system limitations (e.g. Xiaomi/HyperOS), some SMS cannot be attributed to a SIM card (notification fallback path). Such SMS are unaffected by this setting and will still be pushed."
+    },
+    "smsMonitorTotalDesc": {
+      "zh": "关闭后将不再监听或推送任何短信",
+      "en": "When off, no SMS will be monitored or pushed"
+    },
+    "codeMonitorDesc": {
+      "zh": "关闭后，包含验证码的短信将不再推送",
+      "en": "When off, SMS containing verification codes will not be pushed"
+    },
+    "simFilterSingleSim": {
+      "zh": "当前设备仅检测到一张 SIM 卡，无需选择",
+      "en": "Only one SIM detected on this device; no selection needed"
+    },
+    "simFilterDesc": {
+      "zh": "同时作用于短信与电话",
+      "en": "Applies to both SMS and calls"
+    }
   }
 }

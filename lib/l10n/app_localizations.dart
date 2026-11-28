@@ -3802,7 +3802,7 @@ abstract class AppLocalizations {
   /// No description provided for @smsMonitorTotalDesc.
   ///
   /// In zh, this message translates to:
-  /// **'关闭后将不再监听、推送任何短信'**
+  /// **'关闭后将不再监听或推送任何短信'**
   String get smsMonitorTotalDesc;
 
   /// No description provided for @simFilterTitle.
@@ -3814,13 +3814,13 @@ abstract class AppLocalizations {
   /// No description provided for @simFilterDesc.
   ///
   /// In zh, this message translates to:
-  /// **'同时作用于短信和电话'**
+  /// **'同时作用于短信与电话'**
   String get simFilterDesc;
 
   /// No description provided for @simFilterSingleSim.
   ///
   /// In zh, this message translates to:
-  /// **'当前设备仅检测到一张SIM卡，无需选择'**
+  /// **'当前设备仅检测到一张 SIM 卡，无需选择'**
   String get simFilterSingleSim;
 
   /// No description provided for @simFilterAll.
@@ -3850,7 +3850,7 @@ abstract class AppLocalizations {
   /// No description provided for @simFilterRemindMsg.
   ///
   /// In zh, this message translates to:
-  /// **'由于小米等系统的限制，部分短信无法识别所属卡（通知栏兜底链路）。这些短信不受该设置影响，将照常推送。'**
+  /// **'受小米等系统限制，部分短信无法识别所属 SIM 卡（通知栏兜底链路）。此类短信不受本设置影响，仍会照常推送。'**
   String get simFilterRemindMsg;
 
   /// No description provided for @codeMonitor.
@@ -3862,7 +3862,7 @@ abstract class AppLocalizations {
   /// No description provided for @codeMonitorDesc.
   ///
   /// In zh, this message translates to:
-  /// **'关闭后，包含验证码的短信将不会被推送'**
+  /// **'关闭后，包含验证码的短信将不再推送'**
   String get codeMonitorDesc;
 
   /// No description provided for @widgetBrandCurrentDevice.

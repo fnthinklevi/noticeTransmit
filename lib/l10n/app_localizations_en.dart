@@ -2116,7 +2116,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get simFilterSingleSim =>
-      'Only one SIM detected on this device — no selection needed';
+      'Only one SIM detected on this device; no selection needed';
 
   @override
   String get simFilterAll => 'All';
@@ -2132,7 +2132,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get simFilterRemindMsg =>
-      'Due to system limitations (e.g. Xiaomi/HyperOS), some SMS cannot be attributed to a SIM card (notification fallback link). These SMS are not affected by this setting and will still be pushed.';
+      'Due to system limitations (e.g. Xiaomi/HyperOS), some SMS cannot be attributed to a SIM card (notification fallback path). Such SMS are unaffected by this setting and will still be pushed.';
 
   @override
   String get codeMonitor => 'Monitor Verification Codes';
