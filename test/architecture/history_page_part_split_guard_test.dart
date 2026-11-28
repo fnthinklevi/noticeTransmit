@@ -4,11 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/source_guards.dart';
 
-/// P1-2：`history_page.dart` 按域拆成 part 之后的结构守卫。
+/// P1-2 / T184 B：`history_page.dart` 按屏区块拆成 part 之后的结构守卫。
 ///
 /// 拆分本身不是目的：这一条防的是"拆着拆着出现两份实现"与"part 声明漂了但没人发现"。
 /// 检查口径一律用 `librarySource`（入口 + 全部 part），负向断言不会因为方法搬进
 /// part 文件而变瞎；part 自身再钉"只许是 part of、不许自己 import"。
+/// T184 B 另钉入口行数上限（目标 ≤800），防止拆出去一块又被新代码填回来。
 void main() {
   final root = projectRoot();
   const entryRel = 'lib/pages/history_page.dart';
@@ -18,6 +19,9 @@ void main() {
     'history_page_details.dart': '_HistoryPageDetails',
     'history_page_rows.dart': '_HistoryPageRows',
     'history_page_swipe.dart': '_HistoryPageSwipe',
+    'history_page_data.dart': '_HistoryPageData',
+    'history_page_inbox.dart': '_HistoryPageInbox',
+    'history_page_services.dart': '_HistoryPageServices',
   };
 
   String entrySource() =>
@@ -66,6 +70,10 @@ void main() {
       'Future<void> _showRecordDetail(',
       'Widget _directionBar(',
       'void _setDirection(',
+      'Future<void> _loadSearch({',
+      'Future<void> _loadInbox(',
+      'Future<void> _loadCommandRecords(',
+      'Color _getTypeColor(',
     ]) {
       expect(
         RegExp(RegExp.escape(signature)).allMatches(lib).length,
@@ -86,11 +94,23 @@ void main() {
       'class _HistoryPageState extends State<HistoryPage>',
       'bool _selectMode = false;',
       'final Set<String> _selected = {};',
+      'final DatabaseHelper _dbHelper = DatabaseHelper();',
       'void initState()',
       'void dispose()',
       'Widget build(BuildContext context)',
     ]) {
       expect(entry.contains(needle), isTrue, reason: '入口缺 $needle');
     }
+  });
+
+  test('入口行数 ≤800（T184 B 的拆分目标）', () {
+    final lines = File('$root/$entryRel').readAsLinesSync().length;
+    expect(
+      lines,
+      lessThanOrEqualTo(800),
+      reason:
+          'history_page.dart 现有 $lines 行 ⇒ 超过 T184 B 的 800 行目标；'
+          '新逻辑该进对应 part，不要往入口回填',
+    );
   });
 }

@@ -36,6 +36,9 @@ void main() {
     'lib/pages/history_page_details.dart',
     'lib/pages/history_page_rows.dart',
     'lib/pages/history_page_swipe.dart',
+    'lib/pages/history_page_data.dart',
+    'lib/pages/history_page_inbox.dart',
+    'lib/pages/history_page_services.dart',
   ]) {
     codeByPath.remove(part);
   }
