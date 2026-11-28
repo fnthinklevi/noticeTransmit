@@ -992,5 +992,71 @@
       "zh": "移除此种子",
       "en": "Remove this seed"
     }
+  },
+  "lib/pages/fnthink_settings_page.dart": {
+    "fnthinkResetCodeTitle": {
+      "zh": "更换地址码？",
+      "en": "Change the address code?"
+    },
+    "fnthinkResetCodeMsg": {
+      "zh": "本机地址码将在所有对端白名单中立即失效，原有配对关系全部失效，需重新配对。",
+      "en": "This device's address code will stop working in every peer's allowlist immediately. All existing pairings become invalid and must be redone."
+    },
+    "fnthinkHostEditTitle": {
+      "zh": "修改服务地址",
+      "en": "Edit server address"
+    },
+    "fnthinkHostDesc": {
+      "zh": "仅填写主机名（可含端口）；scheme 由协议确定，无需填写 https://",
+      "en": "Host name only (port allowed); the scheme is determined by the protocol, so https:// is not needed"
+    },
+    "fnthinkHostNoCandidates": {
+      "zh": "协议契约未声明可选的服务地址",
+      "en": "The protocol contract declares no selectable server address"
+    },
+    "fnthinkSelfCheckPresenceOk": {
+      "zh": "对端状态读取接口正常",
+      "en": "Peer status read endpoint is healthy"
+    },
+    "fnthinkSelfCheckHealthUnknown": {
+      "zh": "服务可达；协议契约版本不可读",
+      "en": "Server reachable; contract version unavailable"
+    },
+    "fnthinkReachabilityNever": {
+      "zh": "尚未探测",
+      "en": "Not probed yet"
+    },
+    "fnthinkProtocolNever": {
+      "zh": "未知 · 暂无协议请求读数",
+      "en": "Unknown · no protocol request reading available yet"
+    },
+    "fnthinkProtocolUnverified": {
+      "zh": "未验证 · 服务有响应，但尚无成功的协议请求",
+      "en": "Unverified · the service responds, but no protocol request has succeeded"
+    },
+    "fnthinkRetentionDefault": {
+      "zh": "默认档",
+      "en": "Default"
+    },
+    "fnthinkHostProbing": {
+      "zh": "正在测量延迟…",
+      "en": "Measuring latency…"
+    },
+    "fnthinkHostProbeNow": {
+      "zh": "测量延迟",
+      "en": "Measure latency"
+    },
+    "fnthinkContractVersionMismatch": {
+      "zh": "服务器上的协议版本较旧，部分消息将无法发送",
+      "en": "The server runs an older protocol version; some messages cannot be sent"
+    },
+    "fnthinkContractVersionUnreadable": {
+      "zh": "无法判断服务器协议版本是否为最新",
+      "en": "Cannot determine whether the server's protocol version is current"
+    },
+    "fnthinkHostUpdateNote": {
+      "zh": "检查更新使用独立链路，不随此处切换。",
+      "en": "Update checks use a separate route and do not follow this setting."
+    }
   }
 }

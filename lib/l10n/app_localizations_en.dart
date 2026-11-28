@@ -3774,11 +3774,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkProtocolNever =>
-      'Unknown · no protocol request reading yet';
+      'Unknown · no protocol request reading available yet';
 
   @override
   String get fnthinkProtocolUnverified =>
-      'Unverified · service answers, but no protocol request has succeeded';
+      'Unverified · the service responds, but no protocol request has succeeded';
 
   @override
   String get fnthinkStatusRunning => 'Receiving';
@@ -3817,11 +3817,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkResetCode => 'Reset address code';
 
   @override
-  String get fnthinkResetCodeTitle => 'Replace the address code?';
+  String get fnthinkResetCodeTitle => 'Change the address code?';
 
   @override
   String get fnthinkResetCodeMsg =>
-      'The code in every peer\'s allowlist stops pointing at this device right away. All pairings must be redone.';
+      'This device\'s address code will stop working in every peer\'s allowlist immediately. All existing pairings become invalid and must be redone.';
 
   @override
   String get fnthinkPairingCode => 'Pairing code';
@@ -3892,11 +3892,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkHost => 'Server address';
 
   @override
-  String get fnthinkHostEditTitle => 'Change server address';
+  String get fnthinkHostEditTitle => 'Edit server address';
 
   @override
   String get fnthinkHostDesc =>
-      'Host name only (port allowed); the scheme comes from the protocol, do not type https://';
+      'Host name only (port allowed); the scheme is determined by the protocol, so https:// is not needed';
 
   @override
   String get fnthinkHostReset => 'Restore default';
@@ -3905,10 +3905,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkHostSwitch => 'Switch service';
 
   @override
-  String get fnthinkHostProbeNow => 'Test latency';
+  String get fnthinkHostProbeNow => 'Measure latency';
 
   @override
-  String get fnthinkHostProbing => 'Testing latency...';
+  String get fnthinkHostProbing => 'Measuring latency…';
 
   @override
   String get fnthinkHostRegionInternational => 'Overseas (Los Angeles)';
@@ -3918,19 +3918,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkHostNoCandidates =>
-      'The contract declares no selectable service address';
+      'The protocol contract declares no selectable server address';
 
   @override
   String get fnthinkHostUpdateNote =>
-      'Update checks use a different server and do not follow this setting.';
+      'Update checks use a separate route and do not follow this setting.';
 
   @override
   String get fnthinkContractVersionMismatch =>
-      'The server runs an older copy of the protocol — some messages won\'t go out';
+      'The server runs an older protocol version; some messages cannot be sent';
 
   @override
   String get fnthinkContractVersionUnreadable =>
-      'Can\'t tell whether the server\'s copy of the protocol is current';
+      'Cannot determine whether the server\'s protocol version is current';
 
   @override
   String get fnthinkBoundary =>
@@ -4350,7 +4350,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkSelfChecking => 'Checking…';
 
   @override
-  String get fnthinkSelfCheckPresenceOk => 'Peer-presence route is healthy';
+  String get fnthinkSelfCheckPresenceOk =>
+      'Peer status read endpoint is healthy';
 
   @override
   String fnthinkSelfCheckHealth(Object verdict) {

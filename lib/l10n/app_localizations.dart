@@ -6622,7 +6622,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkReachabilityNever.
   ///
   /// In zh, this message translates to:
-  /// **'还没探测过'**
+  /// **'尚未探测'**
   String get fnthinkReachabilityNever;
 
   /// No description provided for @fnthinkProtocolReadyShort.
@@ -6646,13 +6646,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkProtocolNever.
   ///
   /// In zh, this message translates to:
-  /// **'未知 · 还没有协议请求的读数'**
+  /// **'未知 · 暂无协议请求读数'**
   String get fnthinkProtocolNever;
 
   /// No description provided for @fnthinkProtocolUnverified.
   ///
   /// In zh, this message translates to:
-  /// **'未验证 · 服务在答，但没有协议请求成功过'**
+  /// **'未验证 · 服务有响应，但尚无成功的协议请求'**
   String get fnthinkProtocolUnverified;
 
   /// No description provided for @fnthinkStatusRunning.
@@ -6724,13 +6724,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkResetCodeTitle.
   ///
   /// In zh, this message translates to:
-  /// **'换一枚新地址码？'**
+  /// **'更换地址码？'**
   String get fnthinkResetCodeTitle;
 
   /// No description provided for @fnthinkResetCodeMsg.
   ///
   /// In zh, this message translates to:
-  /// **'这台设备在所有对端白名单里的那一串会当场作废，之前配好的关系全部失效，需要重新配对。'**
+  /// **'本机地址码将在所有对端白名单中立即失效，原有配对关系全部失效，需重新配对。'**
   String get fnthinkResetCodeMsg;
 
   /// No description provided for @fnthinkPairingCode.
@@ -6850,13 +6850,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHostEditTitle.
   ///
   /// In zh, this message translates to:
-  /// **'改服务地址'**
+  /// **'修改服务地址'**
   String get fnthinkHostEditTitle;
 
   /// No description provided for @fnthinkHostDesc.
   ///
   /// In zh, this message translates to:
-  /// **'只填主机名（可带端口）；scheme 由协议决定，不用写 https://'**
+  /// **'仅填写主机名（可含端口）；scheme 由协议确定，无需填写 https://'**
   String get fnthinkHostDesc;
 
   /// No description provided for @fnthinkHostReset.
@@ -6874,13 +6874,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHostProbeNow.
   ///
   /// In zh, this message translates to:
-  /// **'测延迟'**
+  /// **'测量延迟'**
   String get fnthinkHostProbeNow;
 
   /// No description provided for @fnthinkHostProbing.
   ///
   /// In zh, this message translates to:
-  /// **'正在测延迟…'**
+  /// **'正在测量延迟…'**
   String get fnthinkHostProbing;
 
   /// No description provided for @fnthinkHostRegionInternational.
@@ -6898,25 +6898,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHostNoCandidates.
   ///
   /// In zh, this message translates to:
-  /// **'契约里没有声明可选的服务地址'**
+  /// **'协议契约未声明可选的服务地址'**
   String get fnthinkHostNoCandidates;
 
   /// No description provided for @fnthinkHostUpdateNote.
   ///
   /// In zh, this message translates to:
-  /// **'检查更新走的是另一条链路，不随这里切换。'**
+  /// **'检查更新使用独立链路，不随此处切换。'**
   String get fnthinkHostUpdateNote;
 
   /// No description provided for @fnthinkContractVersionMismatch.
   ///
   /// In zh, this message translates to:
-  /// **'服务器上的协议是旧的那一份，部分消息会发不出去'**
+  /// **'服务器上的协议版本较旧，部分消息将无法发送'**
   String get fnthinkContractVersionMismatch;
 
   /// No description provided for @fnthinkContractVersionUnreadable.
   ///
   /// In zh, this message translates to:
-  /// **'读不出服务器那份协议是新的还是旧的'**
+  /// **'无法判断服务器协议版本是否为最新'**
   String get fnthinkContractVersionUnreadable;
 
   /// No description provided for @fnthinkBoundary.
@@ -7581,7 +7581,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSelfCheckPresenceOk.
   ///
   /// In zh, this message translates to:
-  /// **'对端状态读口正常'**
+  /// **'对端状态读取接口正常'**
   String get fnthinkSelfCheckPresenceOk;
 
   /// No description provided for @fnthinkSelfCheckHealth.
@@ -7593,7 +7593,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSelfCheckHealthUnknown.
   ///
   /// In zh, this message translates to:
-  /// **'服务可达；契约版本读不到'**
+  /// **'服务可达；协议契约版本不可读'**
   String get fnthinkSelfCheckHealthUnknown;
 
   /// No description provided for @fnthinkPeerForwardHint.
@@ -9974,7 +9974,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkRetentionDefault.
   ///
   /// In zh, this message translates to:
-  /// **'缺省档'**
+  /// **'默认档'**
   String get fnthinkRetentionDefault;
 
   /// No description provided for @fnthinkRetentionPick.

@@ -3593,7 +3593,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkReachabilityNever => '还没探测过';
+  String get fnthinkReachabilityNever => '尚未探测';
 
   @override
   String fnthinkProtocolReadyShort(String ago) {
@@ -3611,10 +3611,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkProtocolNever => '未知 · 还没有协议请求的读数';
+  String get fnthinkProtocolNever => '未知 · 暂无协议请求读数';
 
   @override
-  String get fnthinkProtocolUnverified => '未验证 · 服务在答，但没有协议请求成功过';
+  String get fnthinkProtocolUnverified => '未验证 · 服务有响应，但尚无成功的协议请求';
 
   @override
   String get fnthinkStatusRunning => '正在收取';
@@ -3650,11 +3650,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkResetCode => '重置地址码';
 
   @override
-  String get fnthinkResetCodeTitle => '换一枚新地址码？';
+  String get fnthinkResetCodeTitle => '更换地址码？';
 
   @override
-  String get fnthinkResetCodeMsg =>
-      '这台设备在所有对端白名单里的那一串会当场作废，之前配好的关系全部失效，需要重新配对。';
+  String get fnthinkResetCodeMsg => '本机地址码将在所有对端白名单中立即失效，原有配对关系全部失效，需重新配对。';
 
   @override
   String get fnthinkPairingCode => '配对口令';
@@ -3716,10 +3715,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHost => '服务地址';
 
   @override
-  String get fnthinkHostEditTitle => '改服务地址';
+  String get fnthinkHostEditTitle => '修改服务地址';
 
   @override
-  String get fnthinkHostDesc => '只填主机名（可带端口）；scheme 由协议决定，不用写 https://';
+  String get fnthinkHostDesc => '仅填写主机名（可含端口）；scheme 由协议确定，无需填写 https://';
 
   @override
   String get fnthinkHostReset => '恢复默认';
@@ -3728,10 +3727,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHostSwitch => '切换服务';
 
   @override
-  String get fnthinkHostProbeNow => '测延迟';
+  String get fnthinkHostProbeNow => '测量延迟';
 
   @override
-  String get fnthinkHostProbing => '正在测延迟…';
+  String get fnthinkHostProbing => '正在测量延迟…';
 
   @override
   String get fnthinkHostRegionInternational => '海外（洛杉矶）';
@@ -3740,16 +3739,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHostRegionMainland => '大陆（成都）';
 
   @override
-  String get fnthinkHostNoCandidates => '契约里没有声明可选的服务地址';
+  String get fnthinkHostNoCandidates => '协议契约未声明可选的服务地址';
 
   @override
-  String get fnthinkHostUpdateNote => '检查更新走的是另一条链路，不随这里切换。';
+  String get fnthinkHostUpdateNote => '检查更新使用独立链路，不随此处切换。';
 
   @override
-  String get fnthinkContractVersionMismatch => '服务器上的协议是旧的那一份，部分消息会发不出去';
+  String get fnthinkContractVersionMismatch => '服务器上的协议版本较旧，部分消息将无法发送';
 
   @override
-  String get fnthinkContractVersionUnreadable => '读不出服务器那份协议是新的还是旧的';
+  String get fnthinkContractVersionUnreadable => '无法判断服务器协议版本是否为最新';
 
   @override
   String get fnthinkBoundary => '开着接收之后，通知内容会经过服务器中转：服务器那一侧看得见消息正文与元数据。';
@@ -4142,7 +4141,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkSelfChecking => '自检中…';
 
   @override
-  String get fnthinkSelfCheckPresenceOk => '对端状态读口正常';
+  String get fnthinkSelfCheckPresenceOk => '对端状态读取接口正常';
 
   @override
   String fnthinkSelfCheckHealth(Object verdict) {
@@ -4150,7 +4149,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkSelfCheckHealthUnknown => '服务可达；契约版本读不到';
+  String get fnthinkSelfCheckHealthUnknown => '服务可达；协议契约版本不可读';
 
   @override
   String get fnthinkPeerForwardHint => '勾选后，本机收到的通知才会转发至该对端。';
@@ -5553,7 +5552,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkRetentionDaysUnit => '天';
 
   @override
-  String get fnthinkRetentionDefault => '缺省档';
+  String get fnthinkRetentionDefault => '默认档';
 
   @override
   String get fnthinkRetentionPick => '选择档位';
