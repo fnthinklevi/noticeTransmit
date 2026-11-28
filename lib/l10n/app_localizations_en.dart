@@ -1686,7 +1686,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ruleDelaySeconds => 'Delay (seconds)';
 
   @override
-  String get ruleDelaySecondsHint => 'e.g. 60 = 1 minute';
+  String get ruleDelaySecondsHint => 'e.g. 60 means a 1-minute delay';
 
   @override
   String get ruleScheduleTime => 'Schedule Time';

@@ -3064,7 +3064,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleDelaySecondsHint.
   ///
   /// In zh, this message translates to:
-  /// **'如 60 = 延迟 1 分钟'**
+  /// **'例如 60 表示延迟 1 分钟'**
   String get ruleDelaySecondsHint;
 
   /// No description provided for @ruleScheduleTime.
@@ -3076,7 +3076,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleScheduleTimeHint.
   ///
   /// In zh, this message translates to:
-  /// **'如 22:00（当日到点推送）'**
+  /// **'例如 22:00（当日到点推送）'**
   String get ruleScheduleTimeHint;
 
   /// No description provided for @ruleBasicInfo.
@@ -5122,7 +5122,7 @@ abstract class AppLocalizations {
   /// No description provided for @mergeMaxItemsLabel.
   ///
   /// In zh, this message translates to:
-  /// **'满 N 条提前推送'**
+  /// **'达到 N 条时提前推送'**
   String get mergeMaxItemsLabel;
 
   /// No description provided for @mergeMaxItemsHint.

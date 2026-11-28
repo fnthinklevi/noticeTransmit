@@ -835,9 +835,9 @@
   "ruleActionType": "动作类型",
   "ruleDelayTitle": "延迟推送参数（至少填写一项）",
   "ruleDelaySeconds": "延迟秒数",
-  "ruleDelaySecondsHint": "如 60 = 延迟 1 分钟",
+  "ruleDelaySecondsHint": "例如 60 表示延迟 1 分钟",
   "ruleScheduleTime": "定时时间",
-  "ruleScheduleTimeHint": "如 22:00（当日到点推送）",
+  "ruleScheduleTimeHint": "例如 22:00（当日到点推送）",
   "ruleBasicInfo": "基本信息",
   "ruleEnableRule": "启用规则",
   "ruleEmptyConditions": "暂无条件，点击即可添加",
@@ -1537,7 +1537,7 @@
       }
     }
   },
-  "mergeMaxItemsLabel": "满 N 条提前推送",
+  "mergeMaxItemsLabel": "达到 N 条时提前推送",
   "mergeMaxItemsHint": "达到此条数立即推送；0 或留空表示等待窗口结束（可选）",
   "mergeGroupByTitleLabel": "按会话分组",
   "mergeGroupByTitleDesc": "同一应用下按标题（联系人或群）分别聚合；默认按应用聚合",

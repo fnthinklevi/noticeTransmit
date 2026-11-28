@@ -835,7 +835,7 @@
   "ruleActionType": "Action Type",
   "ruleDelayTitle": "Delayed Push Params (fill at least one)",
   "ruleDelaySeconds": "Delay (seconds)",
-  "ruleDelaySecondsHint": "e.g. 60 = 1 minute",
+  "ruleDelaySecondsHint": "e.g. 60 means a 1-minute delay",
   "ruleScheduleTime": "Schedule Time",
   "ruleScheduleTimeHint": "e.g. 22:00 (push when due)",
   "ruleBasicInfo": "Basic Info",

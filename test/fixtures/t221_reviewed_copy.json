@@ -2040,5 +2040,19 @@
       "zh": "此条报错说明",
       "en": "About this error"
     }
+  },
+  "lib/pages/rule_edit_widgets.dart": {
+    "mergeMaxItemsLabel": {
+      "zh": "达到 N 条时提前推送",
+      "en": "Flush early at N items"
+    },
+    "ruleDelaySecondsHint": {
+      "zh": "例如 60 表示延迟 1 分钟",
+      "en": "e.g. 60 means a 1-minute delay"
+    },
+    "ruleScheduleTimeHint": {
+      "zh": "例如 22:00（当日到点推送）",
+      "en": "e.g. 22:00 (push when due)"
+    }
   }
 }

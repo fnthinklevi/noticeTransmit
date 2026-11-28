@@ -1611,13 +1611,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleDelaySeconds => '延迟秒数';
 
   @override
-  String get ruleDelaySecondsHint => '如 60 = 延迟 1 分钟';
+  String get ruleDelaySecondsHint => '例如 60 表示延迟 1 分钟';
 
   @override
   String get ruleScheduleTime => '定时时间';
 
   @override
-  String get ruleScheduleTimeHint => '如 22:00（当日到点推送）';
+  String get ruleScheduleTimeHint => '例如 22:00（当日到点推送）';
 
   @override
   String get ruleBasicInfo => '基本信息';
@@ -2758,7 +2758,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get batchPushUnsupported => '当前页面不支持补推';
 
   @override
-  String get mergeMaxItemsLabel => '满 N 条提前推送';
+  String get mergeMaxItemsLabel => '达到 N 条时提前推送';
 
   @override
   String get mergeMaxItemsHint => '达到此条数立即推送；0 或留空表示等待窗口结束（可选）';
