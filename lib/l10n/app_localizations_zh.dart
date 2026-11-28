@@ -3462,11 +3462,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkReceive => '接收推送';
 
   @override
-  String get fnthinkReceiveDesc => '开着才会去服务器取货；关掉则既不发送也不接收';
+  String get fnthinkReceiveDesc => '开启后才会从服务器收取消息；关闭后既不发送也不接收';
 
   @override
   String get fnthinkChannelDisclosure =>
-      '收到的推送响不响、震不震、弹不弹，由系统通知设置里「幻念推送 · 收件」这一枚渠道决定。本机这侧已按最高档创建：重要性＝紧急（会弹横幅）、声音＝系统默认通知音、振动＝已开。部分厂商系统（如小米）在这一层之上另有按应用的悬浮/锁屏开关，那些只能去系统设置里核对。';
+      '收到的推送是否响铃、振动或显示横幅，由系统通知设置中的「幻念推送 · 收件」渠道决定。本机已按最高档创建该渠道：重要性为紧急（显示横幅）、声音为系统默认通知音、振动已开启。部分厂商系统（如小米）在该层之上另有按应用管理的悬浮窗与锁屏开关，需在系统设置中核对。';
 
   @override
   String get fnthinkOpenChannelSettings => '打开系统渠道设置';
@@ -3485,10 +3485,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkConsentGranted => '已同意内容经服务器中转';
 
   @override
-  String get fnthinkConsentPending => '还没同意中转 —— 经服务器的收发全部停着';
+  String get fnthinkConsentPending => '尚未同意中转：经服务器的收发均已停止';
 
   @override
-  String get fnthinkConsentNotGranted => '这台还没同意内容经服务器中转，所以那一发什么都没做';
+  String get fnthinkConsentNotGranted => '本机尚未同意内容经服务器中转，本次操作未执行';
 
   @override
   String get fnthinkRelayConsentSection => '经服务器中转';
@@ -3504,7 +3504,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '撤销后，以下功能立即停止：经服务器的收发（收货循环下一轮起中断）、远程控制、接入端点的增/改/删、发起与批准配对、幻念通道的创建/启用与发送、以及携带正文的测试。非浸入探针不受影响（仅读取能力级，不触发实际投递）。配对名单、接入端点、幻念通道配置、收发历史与配对记录不会删除。恢复需重新完成同意流程';
 
   @override
-  String get fnthinkConsentRevokeDone => '已撤销：经服务器的收发与远程控制都不再可用，配置与历史一条没删。';
+  String get fnthinkConsentRevokeDone => '已撤销：经服务器的收发与远程控制均不可用，配置与历史记录未删除。';
 
   @override
   String get fnthinkConsentGateTitle => '这一步要先把内容交给服务器';
@@ -3552,7 +3552,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHubSendDesc => '发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档';
 
   @override
-  String get fnthinkHealthNever => '协议面未知：还没有协议请求的读数';
+  String get fnthinkHealthNever => '协议面未知：暂无协议请求读数';
 
   @override
   String get fnthinkHealthReachable => '协议面就绪：最近一次幻念请求成功';
@@ -3620,16 +3620,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkStatusRunning => '正在收取';
 
   @override
-  String get fnthinkStatusIdle => '当前没在跑';
+  String get fnthinkStatusIdle => '当前未运行';
 
   @override
   String get fnthinkReceiveNow => '立即收取';
 
   @override
-  String get fnthinkReceiveDisabled => '接收没开，所以这一发什么都没做';
+  String get fnthinkReceiveDisabled => '接收功能未开启，本次操作未执行';
 
   @override
-  String get fnthinkReceiveSkipped => '上一轮还在途，这一轮的结局马上见';
+  String get fnthinkReceiveSkipped => '上一轮尚未结束，本轮结果将在其结束后显示';
 
   @override
   String get fnthinkIdentitySection => '本机身份';
@@ -4617,39 +4617,39 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkPresenceLive => '常驻后台收取中（长轮询，有货即回）';
+  String get fnthinkPresenceLive => '后台常驻收取中（长轮询，有消息时立即返回）';
 
   @override
-  String get fnthinkPresenceLiveNoLock => '常驻后台收取中（长轮询，但系统没给唤醒锁）';
+  String get fnthinkPresenceLiveNoLock => '后台常驻收取中（长轮询，但系统未授予唤醒锁）';
 
   @override
   String fnthinkPresenceNext(String time, int seconds) {
-    return '下一次自己醒：$time（每 $seconds 秒）';
+    return '下次自动唤醒：$time（每 $seconds 秒）';
   }
 
   @override
   String fnthinkPresenceStreamHealthy(int seconds) {
-    return '实时唤醒已连接 · 兜底每 $seconds 秒';
+    return '实时唤醒已连接 · 兜底间隔 $seconds 秒';
   }
 
   @override
   String fnthinkPresenceNextNoCadence(String time) {
-    return '下一次自己醒：$time（间隔未知）';
+    return '下次自动唤醒：$time（间隔未知）';
   }
 
   @override
   String fnthinkPresenceBackoff(int minutes, int seconds) {
-    return '限流退避中：约 $minutes 分 $seconds 秒后自动重试（这是一次性退避，不是常态间隔）';
+    return '限流退避中：约 $minutes 分 $seconds 秒后自动重试（本次为一次性退避，非常规间隔）';
   }
 
   @override
-  String get fnthinkPresenceAsleep => '当前没在醒着（开关关着，或还没同意）';
+  String get fnthinkPresenceAsleep => '当前未自动运行（开关已关闭，或尚未同意中转）';
 
   @override
-  String get fnthinkPresenceDead => '复起链已断：这台不再会自己醒（开关与同意都还在）';
+  String get fnthinkPresenceDead => '自动恢复链已中断：本机不再自动唤醒（开关与同意均仍开启）';
 
   @override
-  String get fnthinkPresencePendingFirstRound => '还没排上第一轮（刚开起来，跑完第一轮会自己排上）';
+  String get fnthinkPresencePendingFirstRound => '尚未安排首轮收取（刚启动，首轮完成后将自动安排后续轮次）';
 
   @override
   String get fnthinkPresenceRecover => '立即恢复';
@@ -4660,7 +4660,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkLastRoundNever => '上次成功收取：还没有记录';
+  String get fnthinkLastRoundNever => '上次成功收取：暂无记录';
 
   @override
   String fnthinkPersistFailedWarning(int count) {
@@ -4669,16 +4669,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkPersistQueuedWarning(int count) {
-    return '本机还压着 $count 条没写进收件表的幻念消息，每轮收取开跑之前会再试一次';
+    return '本机仍有 $count 条幻念消息尚未写入收件表，每轮收取开始前将再次尝试写入';
   }
 
   @override
   String fnthinkPersistAbandonedWarning(int count) {
-    return '有 $count 条幻念消息已放弃重试（存放超过 24 小时或已试满 20 次），它们不会再自己进收件表';
+    return '有 $count 条幻念消息已停止重试（存放超过 24 小时或已尝试 20 次），不会再自动写入收件表';
   }
 
   @override
-  String get fnthinkPersistAbandonedClear => '清掉这个计数';
+  String get fnthinkPersistAbandonedClear => '清除此计数';
 
   @override
   String fnthinkWorkChain(
@@ -4686,7 +4686,7 @@ class AppLocalizationsZh extends AppLocalizations {
     Object presenceWork,
     Object queue,
   ) {
-    return '后台任务：收货 $presenceWork · 转发 $fanoutWork · 待发 $queue 条';
+    return '后台任务：收取 $presenceWork · 转发 $fanoutWork · 待发 $queue 条';
   }
 
   @override
@@ -4695,15 +4695,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkDiagAlarmNever => '上次闹钟触发：还没有记录';
+  String get fnthinkDiagAlarmNever => '上次闹钟触发：暂无记录';
 
   @override
   String fnthinkDiagWorkerAt(String result, String time) {
-    return '上次后台一轮：$result · $time';
+    return '上次后台轮次：$result · $time';
   }
 
   @override
-  String get fnthinkDiagWorkerNever => '上次后台一轮：还没有记录';
+  String get fnthinkDiagWorkerNever => '上次后台轮次：暂无记录';
 
   @override
   String fnthinkDiagPollAt(String time, String status) {
@@ -4711,7 +4711,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkDiagPollNever => '上次 poll：还没有记录';
+  String get fnthinkDiagPollNever => '上次 poll：暂无记录';
 
   @override
   String fnthinkDiagStreamAt(String time) {
@@ -4719,7 +4719,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkDiagStreamNever => '上次 SSE 字节：还没有记录';
+  String get fnthinkDiagStreamNever => '上次 SSE 字节：暂无记录';
 
   @override
   String fnthinkDiagSystem(
@@ -4738,10 +4738,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkDiagNo => '否';
 
   @override
-  String get fnthinkScreenKeepalive => '锁屏持续接收（更耗电）';
+  String get fnthinkScreenKeepalive => '锁屏持续接收（耗电增加）';
 
   @override
-  String get fnthinkScreenKeepaliveDesc => '锁屏后仍让 CPU 保持唤醒，收货更及时；会明显增加耗电。';
+  String get fnthinkScreenKeepaliveDesc => '锁屏后仍保持 CPU 唤醒，可更及时收取消息；耗电会明显增加。';
 
   @override
   String fnthinkDiagScreenLock(String enabled, String held) {
@@ -4749,60 +4749,60 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkExactAlarmMissing => '精确闹钟未授权：后台收取可能晚到。';
+  String get fnthinkExactAlarmMissing => '精确闹钟未授权：后台收取可能延迟。';
 
   @override
   String get fnthinkBatteryOptMissing => '未忽略电池优化：系统可能限制后台收取。';
 
   @override
-  String get fnthinkGrantNow => '去授权';
+  String get fnthinkGrantNow => '前往授权';
 
   @override
-  String get fnthinkInboxSelfCheckTitle => '通知自检';
+  String get fnthinkInboxSelfCheckTitle => '通知渠道自检';
 
   @override
   String get fnthinkInboxSelfCheckOk => '收件渠道配置正常';
 
   @override
-  String get fnthinkInboxIssueNotificationsOff => '系统通知权限关着';
+  String get fnthinkInboxIssueNotificationsOff => '系统通知权限已关闭';
 
   @override
-  String get fnthinkInboxIssueChannelMissing => '收件渠道还没建（第一次收件会自动建）';
+  String get fnthinkInboxIssueChannelMissing => '收件渠道尚未创建（首次收件时将自动创建）';
 
   @override
-  String get fnthinkInboxIssueNotHigh => '渠道被系统降级（不再弹横幅）';
+  String get fnthinkInboxIssueNotHigh => '渠道已被系统降级（不再显示横幅）';
 
   @override
-  String get fnthinkInboxIssueNoSound => '渠道没有声音';
+  String get fnthinkInboxIssueNoSound => '渠道未设置声音';
 
   @override
-  String get fnthinkInboxIssueNoVibration => '渠道没有震动';
+  String get fnthinkInboxIssueNoVibration => '渠道未开启振动';
 
   @override
-  String get fnthinkInboxIssueLockscreen => '锁屏不显示';
+  String get fnthinkInboxIssueLockscreen => '锁屏时不显示';
 
   @override
-  String get fnthinkInboxSelfCheckSettings => '去系统设置';
+  String get fnthinkInboxSelfCheckSettings => '系统设置';
 
   @override
   String get fnthinkInboxSelfCheckRebuild => '重建渠道';
 
   @override
-  String get fnthinkInboxSelfCheckTest => '发测试通知';
+  String get fnthinkInboxSelfCheckTest => '发送测试通知';
 
   @override
   String get fnthinkInboxSelfCheckRefresh => '重新自检';
 
   @override
   String fnthinkInboxSelfCheckRebuilt(Object id) {
-    return '已切到新的高优先级渠道：$id';
+    return '已切换至新的高优先级渠道：$id';
   }
 
   @override
-  String get fnthinkInboxSelfCheckTestSent => '测试通知已发出：去锁屏看一眼，确认响铃与震动';
+  String get fnthinkInboxSelfCheckTestSent => '测试通知已发出，请查看锁屏以确认响铃与振动';
 
   @override
-  String get fnthinkInboxSelfCheckTestFailed => '测试通知没发出去（先看系统通知权限）';
+  String get fnthinkInboxSelfCheckTestFailed => '测试通知未能发出（请先检查系统通知权限）';
 
   @override
   String fnthinkRegisterRateLimited(int minutes, int seconds) {
@@ -5864,7 +5864,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteCredTotpOnceShort => '这一枚只出现一次，现在录进对面那台的验证器';
 
   @override
-  String get fnthinkChannelDisclosureShort => '响不响、震不震、弹不弹，由系统那一侧的渠道决定';
+  String get fnthinkChannelDisclosureShort => '是否响铃、振动或显示横幅，由系统侧的通知渠道决定';
 
   @override
   String get fnthinkRemoteTitle => '远程控制';

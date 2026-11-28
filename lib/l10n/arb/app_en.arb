@@ -1854,20 +1854,20 @@
   "fnthinkPush": "Fnthink Push",
   "fnthinkSettingsTitle": "Fnthink push settings",
   "fnthinkReceive": "Receive pushes",
-  "fnthinkReceiveDesc": "Messages are only fetched while this is on; off means neither sending nor receiving",
-  "fnthinkChannelDisclosure": "Whether an incoming push sounds, vibrates, or pops up is decided by the \"Fnthink Push · Inbox\" notification channel in system settings. This device creates it at the top tier: importance = urgent (heads-up banner), sound = system default notification tone, vibration = on. Some vendor systems (e.g. Xiaomi) add per-app floating/lock-screen switches above this layer; those can only be checked in system settings.",
+  "fnthinkReceiveDesc": "Messages are fetched from the server only while this is on; when it is off, neither sending nor receiving occurs.",
+  "fnthinkChannelDisclosure": "Whether an incoming push sounds, vibrates, or displays a banner is determined by the \"Fnthink Push · Inbox\" notification channel in system notification settings. This device creates the channel at the top tier: importance = urgent (heads-up banner), sound = system default notification tone, vibration = on. Some vendor systems (e.g. Xiaomi) provide additional per-app floating-window and lock-screen switches above this layer; these must be checked in system settings.",
   "fnthinkOpenChannelSettings": "Open system channel settings",
   "fnthinkConsentTitle": "Allow notification content to be relayed through the server?",
   "fnthinkConsentMsg": "① Not using push: everything runs on this device; notification content never touches a server.\n② Only forwarding notifications locally: same — the server collects no notification content at all.\n③ Using push: messages must be relayed through the server to reach this phone. Until delivered, the body is encrypted and stored on the server for at most 7 days and is deleted immediately on delivery or expiry; pairing codes and the identity private key are never uploaded, and audits keep metadata only (no bodies).",
   "fnthinkConsentAgree": "I understand and agree",
   "fnthinkConsentGranted": "Content relay through the server is allowed",
-  "fnthinkConsentPending": "Relay not allowed yet — everything that goes through the server stays off",
-  "fnthinkConsentNotGranted": "This device has not allowed relaying content through the server, so nothing was sent",
+  "fnthinkConsentPending": "Relay consent has not been granted; all server-relayed sending and receiving are stopped.",
+  "fnthinkConsentNotGranted": "This device has not consented to relaying content through the server; this action was not performed.",
   "fnthinkRelayConsentSection": "Relay through the server",
   "fnthinkConsentRevoke": "Revoke consent",
   "fnthinkConsentRevokeTitle": "Revoke consent to relaying through the server?",
   "fnthinkConsentRevokeMsg": "After revoking, the following stop working immediately: server-relayed messaging (the next poll cycle of the receive loop will stop), remote control, endpoint create/update/delete, pair initiation and approval, fnthink channel create/enable/send, and text-bearing tests. Non-intrusive probes are unaffected (they only read capability levels, never trigger delivery). Pair lists, endpoints, channel configs, message history and pair records will not be deleted. Re-enabling requires going through the consent flow again",
-  "fnthinkConsentRevokeDone": "Revoked: relayed sending/receiving and remote control are unavailable; configs and history were not deleted.",
+  "fnthinkConsentRevokeDone": "Revoked: server-relayed sending and receiving, and remote control, are unavailable. No configuration or history was deleted.",
   "fnthinkConsentGateTitle": "This step routes content through the server",
   "fnthinkConsentGateMsg": "\"{action}\" requires the \"content relayed through the server\" consent first: fnthink messaging, endpoint management, pairing and channel delivery all route through the relay server. Please review and consent on the \"Fnthink → Receive Push\" page first (full text available before consent). Return here and tap again to continue",
   "fnthinkConsentGateGo": "Open that page",
@@ -1881,7 +1881,7 @@
   "fnthinkSendTargetWebhookOnlyForNotice": "Remote commands can only go to paired devices: a Webhook channel has no pairing and no level grant. Switch back to \"A notification\" to send to a channel.",
   "fnthinkSendNoticeVsCommand": "\"A notification\" lets the other side see a piece of content (no grant needed, no action taken); \"A remote command\" asks it to do something (needs the pairing and a level grant, and the top level also passes the delayed-confirm window).",
   "fnthinkHubSendDesc": "Send to a paired device, or to a Webhook channel; not the same tier as a remote command",
-  "fnthinkHealthNever": "Protocol plane unknown: no protocol request reading yet",
+  "fnthinkHealthNever": "Protocol plane unknown: no protocol request readings yet",
   "fnthinkHealthReachable": "Protocol plane ready: the last Fnthink request succeeded",
   "fnthinkHealthUnreachable": "Protocol plane unavailable: the last Fnthink request failed",
   "fnthinkPollGatewayTimeout": "Gateway timeout (origin did not respond within 25s)",
@@ -1953,8 +1953,8 @@
   "fnthinkStatusRunning": "Receiving",
   "fnthinkStatusIdle": "Not running",
   "fnthinkReceiveNow": "Receive now",
-  "fnthinkReceiveDisabled": "Receiving is off, so this did nothing",
-  "fnthinkReceiveSkipped": "A round is still in flight - its result shows up shortly",
+  "fnthinkReceiveDisabled": "Receiving is disabled; this action was not performed.",
+  "fnthinkReceiveSkipped": "The previous round is still in progress; this round's result will appear after it finishes.",
   "fnthinkIdentitySection": "This device",
   "fnthinkAddressCode": "Address code",
   "fnthinkAddressCodeNone": "Not created yet (created on first pairing code or when receiving starts)",
@@ -2686,9 +2686,9 @@
       }
     }
   },
-  "fnthinkPresenceLive": "Persistent background polling (long poll, returns as soon as there is mail)",
-  "fnthinkPresenceLiveNoLock": "Persistent background polling (long poll, but the system denied the wake lock)",
-  "fnthinkPresenceNext": "Next wake-up: {time} (every {seconds}s)",
+  "fnthinkPresenceLive": "Persistent background fetching (long polling; returns immediately when a message is available).",
+  "fnthinkPresenceLiveNoLock": "Persistent background fetching (long polling, but the system did not grant a wake lock).",
+  "fnthinkPresenceNext": "Next automatic wake-up: {time} (every {seconds}s).",
   "@fnthinkPresenceNext": {
     "placeholders": {
       "time": {
@@ -2699,7 +2699,7 @@
       }
     }
   },
-  "fnthinkPresenceStreamHealthy": "Real-time wake-up connected · fallback every {seconds}s",
+  "fnthinkPresenceStreamHealthy": "Real-time wake-up connected · fallback interval {seconds}s",
   "@fnthinkPresenceStreamHealthy": {
     "placeholders": {
       "seconds": {
@@ -2707,7 +2707,7 @@
       }
     }
   },
-  "fnthinkPresenceNextNoCadence": "Next wake-up: {time} (interval unknown)",
+  "fnthinkPresenceNextNoCadence": "Next automatic wake-up: {time} (interval unknown).",
   "@fnthinkPresenceNextNoCadence": {
     "placeholders": {
       "time": {
@@ -2715,7 +2715,7 @@
       }
     }
   },
-  "fnthinkPresenceBackoff": "Rate-limit backoff: retrying automatically in about {minutes} min {seconds} s (a one-off backoff, not the normal interval)",
+  "fnthinkPresenceBackoff": "Rate-limit backoff: automatic retry in about {minutes} min {seconds} s (a one-off backoff, not the regular interval).",
   "@fnthinkPresenceBackoff": {
     "placeholders": {
       "minutes": {
@@ -2726,12 +2726,12 @@
       }
     }
   },
-  "fnthinkPresenceAsleep": "Not waking on its own right now (switch off, or consent not given)",
-  "fnthinkPresenceDead": "Wake-up chain is broken: this device will no longer wake on its own (switch and consent are both still on)",
-  "fnthinkPresencePendingFirstRound": "First round not scheduled yet (just turned on; it arms itself after the first round)",
+  "fnthinkPresenceAsleep": "Not running automatically right now (the switch is off, or relay consent has not been granted).",
+  "fnthinkPresenceDead": "The automatic recovery chain is broken: this device will no longer wake on its own (the switch and consent are still enabled).",
+  "fnthinkPresencePendingFirstRound": "The first round has not been scheduled yet (just started; later rounds are scheduled automatically after the first round completes).",
   "fnthinkPresenceRecover": "Recover",
   "fnthinkLastRoundAt": "Last successful fetch: {time}",
-  "fnthinkLastRoundNever": "Last successful fetch: no record yet",
+  "fnthinkLastRoundNever": "Last successful fetch: none recorded yet",
   "fnthinkPersistFailedWarning": "{count} Fnthink message(s) in the last round could not be written to the local inbox and may be lost. Check free storage and retry.",
   "@fnthinkPersistFailedWarning": {
     "placeholders": {
@@ -2740,7 +2740,7 @@
       }
     }
   },
-  "fnthinkPersistQueuedWarning": "{count} Fnthink message(s) are still held locally and not yet in the inbox. Each fetch round retries them before it starts.",
+  "fnthinkPersistQueuedWarning": "{count} Fnthink message(s) are still held locally and have not been written to the inbox; they will be retried before each fetch round starts.",
   "@fnthinkPersistQueuedWarning": {
     "placeholders": {
       "count": {
@@ -2748,7 +2748,7 @@
       }
     }
   },
-  "fnthinkPersistAbandonedWarning": "{count} Fnthink message(s) stopped being retried (held over 24 hours or tried 20 times). They will not reach the inbox on their own.",
+  "fnthinkPersistAbandonedWarning": "{count} Fnthink message(s) have stopped being retried (held for over 24 hours or attempted 20 times) and will no longer be written to the inbox automatically.",
   "@fnthinkPersistAbandonedWarning": {
     "placeholders": {
       "count": {
@@ -2766,7 +2766,7 @@
       }
     }
   },
-  "fnthinkDiagAlarmNever": "Last alarm fired: no record yet",
+  "fnthinkDiagAlarmNever": "Last alarm fired: none recorded yet",
   "fnthinkDiagWorkerAt": "Last background round: {result} · {time}",
   "@fnthinkDiagWorkerAt": {
     "placeholders": {
@@ -2778,7 +2778,7 @@
       }
     }
   },
-  "fnthinkDiagWorkerNever": "Last background round: no record yet",
+  "fnthinkDiagWorkerNever": "Last background round: none recorded yet",
   "fnthinkDiagPollAt": "Last poll: {time} · {status}",
   "@fnthinkDiagPollAt": {
     "placeholders": {
@@ -2790,7 +2790,7 @@
       }
     }
   },
-  "fnthinkDiagPollNever": "Last poll: no record yet",
+  "fnthinkDiagPollNever": "Last poll: none recorded yet",
   "fnthinkDiagStreamAt": "Last SSE byte: {time}",
   "@fnthinkDiagStreamAt": {
     "placeholders": {
@@ -2799,7 +2799,7 @@
       }
     }
   },
-  "fnthinkDiagStreamNever": "Last SSE byte: no record yet",
+  "fnthinkDiagStreamNever": "Last SSE byte: none recorded yet",
   "fnthinkDiagSystem": "System: Doze {doze} · battery optimization ignored {battery} · power save {powerSave} · exact alarm {exact}",
   "@fnthinkDiagSystem": {
     "placeholders": {
@@ -2819,8 +2819,8 @@
   },
   "fnthinkDiagYes": "Yes",
   "fnthinkDiagNo": "No",
-  "fnthinkScreenKeepalive": "Keep receiving while locked (more battery)",
-  "fnthinkScreenKeepaliveDesc": "Keeps the CPU awake while the screen is off so messages arrive sooner; this uses noticeably more battery.",
+  "fnthinkScreenKeepalive": "Keep receiving while locked (increases battery use)",
+  "fnthinkScreenKeepaliveDesc": "Keeps the CPU awake while the screen is off so messages arrive sooner; battery use increases noticeably.",
   "fnthinkDiagScreenLock": "Keep receiving while locked: switch {enabled} · wake lock {held}",
   "@fnthinkDiagScreenLock": {
     "placeholders": {
@@ -2832,24 +2832,24 @@
       }
     }
   },
-  "fnthinkExactAlarmMissing": "Exact alarms not granted: background fetches may be late.",
+  "fnthinkExactAlarmMissing": "Exact alarms not granted: background fetches may be delayed.",
   "fnthinkBatteryOptMissing": "Battery optimization not ignored: the system may limit background fetches.",
-  "fnthinkGrantNow": "Grant",
-  "fnthinkInboxSelfCheckTitle": "Notification self-check",
+  "fnthinkGrantNow": "Grant access",
+  "fnthinkInboxSelfCheckTitle": "Notification channel self-check",
   "fnthinkInboxSelfCheckOk": "Inbox channel is configured correctly",
-  "fnthinkInboxIssueNotificationsOff": "System notifications are disabled",
-  "fnthinkInboxIssueChannelMissing": "Inbox channel not created yet (created on the first message)",
-  "fnthinkInboxIssueNotHigh": "Channel was downgraded (no more heads-up)",
-  "fnthinkInboxIssueNoSound": "Channel has no sound",
-  "fnthinkInboxIssueNoVibration": "Channel has no vibration",
-  "fnthinkInboxIssueLockscreen": "Hidden on lock screen",
+  "fnthinkInboxIssueNotificationsOff": "System notification permission is disabled.",
+  "fnthinkInboxIssueChannelMissing": "Inbox channel not created yet (it will be created automatically on the first message).",
+  "fnthinkInboxIssueNotHigh": "The channel has been downgraded by the system (heads-up banners are no longer shown).",
+  "fnthinkInboxIssueNoSound": "No sound is configured for the channel.",
+  "fnthinkInboxIssueNoVibration": "Channel vibration is not enabled.",
+  "fnthinkInboxIssueLockscreen": "Not shown on the lock screen",
   "fnthinkInboxSelfCheckSettings": "System settings",
   "fnthinkInboxSelfCheckRebuild": "Rebuild channel",
-  "fnthinkInboxSelfCheckTest": "Send test",
+  "fnthinkInboxSelfCheckTest": "Send test notification",
   "fnthinkInboxSelfCheckRefresh": "Re-check",
   "fnthinkInboxSelfCheckRebuilt": "Switched to a new high-priority channel: {id}",
-  "fnthinkInboxSelfCheckTestSent": "Test notification sent: check the lock screen for sound and vibration",
-  "fnthinkInboxSelfCheckTestFailed": "Test notification was not shown (check system notification permission first)",
+  "fnthinkInboxSelfCheckTestSent": "Test notification sent. Check the lock screen to confirm sound and vibration.",
+  "fnthinkInboxSelfCheckTestFailed": "The test notification could not be sent (check the system notification permission first).",
   "fnthinkRegisterRateLimited": "Registration is rate-limited; retrying automatically in {minutes} min {seconds} s",
   "fnthinkRegisterDayQuota": "Today's registration quota is used up; it resets tomorrow. This device retries automatically.",
   "@fnthinkRegisterRateLimited": {
@@ -3566,7 +3566,7 @@
   "fnthinkSendTargetWebhookEmptyShort": "No enabled Webhook channel yet",
   "remoteSendReportCountWhyShort": "Only this text travels - not read access",
   "remoteSendChannelIdWhyShort": "Type this one - this device cannot list the other side's channels",
-  "fnthinkChannelDisclosureShort": "Sound, vibration and banners are decided by the system-side channel",
+  "fnthinkChannelDisclosureShort": "Whether a push sounds, vibrates, or shows a banner is determined by the system-side notification channel.",
   "fnthinkRemoteTitle": "Remote control",
   "fnthinkRemoteNeedsReceive": "Please enable Receive first: the features on this page require the device to have fnthink receive enabled",
   "fnthinkRemoteNeedsConsent": "Not consented yet - read the note on the Receive page and agree",

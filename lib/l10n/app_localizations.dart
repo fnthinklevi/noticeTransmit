@@ -6394,13 +6394,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkReceiveDesc.
   ///
   /// In zh, this message translates to:
-  /// **'开着才会去服务器取货；关掉则既不发送也不接收'**
+  /// **'开启后才会从服务器收取消息；关闭后既不发送也不接收'**
   String get fnthinkReceiveDesc;
 
   /// No description provided for @fnthinkChannelDisclosure.
   ///
   /// In zh, this message translates to:
-  /// **'收到的推送响不响、震不震、弹不弹，由系统通知设置里「幻念推送 · 收件」这一枚渠道决定。本机这侧已按最高档创建：重要性＝紧急（会弹横幅）、声音＝系统默认通知音、振动＝已开。部分厂商系统（如小米）在这一层之上另有按应用的悬浮/锁屏开关，那些只能去系统设置里核对。'**
+  /// **'收到的推送是否响铃、振动或显示横幅，由系统通知设置中的「幻念推送 · 收件」渠道决定。本机已按最高档创建该渠道：重要性为紧急（显示横幅）、声音为系统默认通知音、振动已开启。部分厂商系统（如小米）在该层之上另有按应用管理的悬浮窗与锁屏开关，需在系统设置中核对。'**
   String get fnthinkChannelDisclosure;
 
   /// No description provided for @fnthinkOpenChannelSettings.
@@ -6436,13 +6436,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkConsentPending.
   ///
   /// In zh, this message translates to:
-  /// **'还没同意中转 —— 经服务器的收发全部停着'**
+  /// **'尚未同意中转：经服务器的收发均已停止'**
   String get fnthinkConsentPending;
 
   /// No description provided for @fnthinkConsentNotGranted.
   ///
   /// In zh, this message translates to:
-  /// **'这台还没同意内容经服务器中转，所以那一发什么都没做'**
+  /// **'本机尚未同意内容经服务器中转，本次操作未执行'**
   String get fnthinkConsentNotGranted;
 
   /// No description provided for @fnthinkRelayConsentSection.
@@ -6472,7 +6472,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkConsentRevokeDone.
   ///
   /// In zh, this message translates to:
-  /// **'已撤销：经服务器的收发与远程控制都不再可用，配置与历史一条没删。'**
+  /// **'已撤销：经服务器的收发与远程控制均不可用，配置与历史记录未删除。'**
   String get fnthinkConsentRevokeDone;
 
   /// No description provided for @fnthinkConsentGateTitle.
@@ -6556,7 +6556,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHealthNever.
   ///
   /// In zh, this message translates to:
-  /// **'协议面未知：还没有协议请求的读数'**
+  /// **'协议面未知：暂无协议请求读数'**
   String get fnthinkHealthNever;
 
   /// No description provided for @fnthinkHealthReachable.
@@ -6664,7 +6664,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkStatusIdle.
   ///
   /// In zh, this message translates to:
-  /// **'当前没在跑'**
+  /// **'当前未运行'**
   String get fnthinkStatusIdle;
 
   /// No description provided for @fnthinkReceiveNow.
@@ -6676,13 +6676,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkReceiveDisabled.
   ///
   /// In zh, this message translates to:
-  /// **'接收没开，所以这一发什么都没做'**
+  /// **'接收功能未开启，本次操作未执行'**
   String get fnthinkReceiveDisabled;
 
   /// No description provided for @fnthinkReceiveSkipped.
   ///
   /// In zh, this message translates to:
-  /// **'上一轮还在途，这一轮的结局马上见'**
+  /// **'上一轮尚未结束，本轮结果将在其结束后显示'**
   String get fnthinkReceiveSkipped;
 
   /// No description provided for @fnthinkIdentitySection.
@@ -8343,55 +8343,55 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPresenceLive.
   ///
   /// In zh, this message translates to:
-  /// **'常驻后台收取中（长轮询，有货即回）'**
+  /// **'后台常驻收取中（长轮询，有消息时立即返回）'**
   String get fnthinkPresenceLive;
 
   /// No description provided for @fnthinkPresenceLiveNoLock.
   ///
   /// In zh, this message translates to:
-  /// **'常驻后台收取中（长轮询，但系统没给唤醒锁）'**
+  /// **'后台常驻收取中（长轮询，但系统未授予唤醒锁）'**
   String get fnthinkPresenceLiveNoLock;
 
   /// No description provided for @fnthinkPresenceNext.
   ///
   /// In zh, this message translates to:
-  /// **'下一次自己醒：{time}（每 {seconds} 秒）'**
+  /// **'下次自动唤醒：{time}（每 {seconds} 秒）'**
   String fnthinkPresenceNext(String time, int seconds);
 
   /// No description provided for @fnthinkPresenceStreamHealthy.
   ///
   /// In zh, this message translates to:
-  /// **'实时唤醒已连接 · 兜底每 {seconds} 秒'**
+  /// **'实时唤醒已连接 · 兜底间隔 {seconds} 秒'**
   String fnthinkPresenceStreamHealthy(int seconds);
 
   /// No description provided for @fnthinkPresenceNextNoCadence.
   ///
   /// In zh, this message translates to:
-  /// **'下一次自己醒：{time}（间隔未知）'**
+  /// **'下次自动唤醒：{time}（间隔未知）'**
   String fnthinkPresenceNextNoCadence(String time);
 
   /// No description provided for @fnthinkPresenceBackoff.
   ///
   /// In zh, this message translates to:
-  /// **'限流退避中：约 {minutes} 分 {seconds} 秒后自动重试（这是一次性退避，不是常态间隔）'**
+  /// **'限流退避中：约 {minutes} 分 {seconds} 秒后自动重试（本次为一次性退避，非常规间隔）'**
   String fnthinkPresenceBackoff(int minutes, int seconds);
 
   /// No description provided for @fnthinkPresenceAsleep.
   ///
   /// In zh, this message translates to:
-  /// **'当前没在醒着（开关关着，或还没同意）'**
+  /// **'当前未自动运行（开关已关闭，或尚未同意中转）'**
   String get fnthinkPresenceAsleep;
 
   /// No description provided for @fnthinkPresenceDead.
   ///
   /// In zh, this message translates to:
-  /// **'复起链已断：这台不再会自己醒（开关与同意都还在）'**
+  /// **'自动恢复链已中断：本机不再自动唤醒（开关与同意均仍开启）'**
   String get fnthinkPresenceDead;
 
   /// No description provided for @fnthinkPresencePendingFirstRound.
   ///
   /// In zh, this message translates to:
-  /// **'还没排上第一轮（刚开起来，跑完第一轮会自己排上）'**
+  /// **'尚未安排首轮收取（刚启动，首轮完成后将自动安排后续轮次）'**
   String get fnthinkPresencePendingFirstRound;
 
   /// No description provided for @fnthinkPresenceRecover.
@@ -8409,7 +8409,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkLastRoundNever.
   ///
   /// In zh, this message translates to:
-  /// **'上次成功收取：还没有记录'**
+  /// **'上次成功收取：暂无记录'**
   String get fnthinkLastRoundNever;
 
   /// No description provided for @fnthinkPersistFailedWarning.
@@ -8421,25 +8421,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPersistQueuedWarning.
   ///
   /// In zh, this message translates to:
-  /// **'本机还压着 {count} 条没写进收件表的幻念消息，每轮收取开跑之前会再试一次'**
+  /// **'本机仍有 {count} 条幻念消息尚未写入收件表，每轮收取开始前将再次尝试写入'**
   String fnthinkPersistQueuedWarning(int count);
 
   /// No description provided for @fnthinkPersistAbandonedWarning.
   ///
   /// In zh, this message translates to:
-  /// **'有 {count} 条幻念消息已放弃重试（存放超过 24 小时或已试满 20 次），它们不会再自己进收件表'**
+  /// **'有 {count} 条幻念消息已停止重试（存放超过 24 小时或已尝试 20 次），不会再自动写入收件表'**
   String fnthinkPersistAbandonedWarning(int count);
 
   /// No description provided for @fnthinkPersistAbandonedClear.
   ///
   /// In zh, this message translates to:
-  /// **'清掉这个计数'**
+  /// **'清除此计数'**
   String get fnthinkPersistAbandonedClear;
 
   /// No description provided for @fnthinkWorkChain.
   ///
   /// In zh, this message translates to:
-  /// **'后台任务：收货 {presenceWork} · 转发 {fanoutWork} · 待发 {queue} 条'**
+  /// **'后台任务：收取 {presenceWork} · 转发 {fanoutWork} · 待发 {queue} 条'**
   String fnthinkWorkChain(Object fanoutWork, Object presenceWork, Object queue);
 
   /// No description provided for @fnthinkDiagAlarmAt.
@@ -8451,19 +8451,19 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkDiagAlarmNever.
   ///
   /// In zh, this message translates to:
-  /// **'上次闹钟触发：还没有记录'**
+  /// **'上次闹钟触发：暂无记录'**
   String get fnthinkDiagAlarmNever;
 
   /// No description provided for @fnthinkDiagWorkerAt.
   ///
   /// In zh, this message translates to:
-  /// **'上次后台一轮：{result} · {time}'**
+  /// **'上次后台轮次：{result} · {time}'**
   String fnthinkDiagWorkerAt(String result, String time);
 
   /// No description provided for @fnthinkDiagWorkerNever.
   ///
   /// In zh, this message translates to:
-  /// **'上次后台一轮：还没有记录'**
+  /// **'上次后台轮次：暂无记录'**
   String get fnthinkDiagWorkerNever;
 
   /// No description provided for @fnthinkDiagPollAt.
@@ -8475,7 +8475,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkDiagPollNever.
   ///
   /// In zh, this message translates to:
-  /// **'上次 poll：还没有记录'**
+  /// **'上次 poll：暂无记录'**
   String get fnthinkDiagPollNever;
 
   /// No description provided for @fnthinkDiagStreamAt.
@@ -8487,7 +8487,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkDiagStreamNever.
   ///
   /// In zh, this message translates to:
-  /// **'上次 SSE 字节：还没有记录'**
+  /// **'上次 SSE 字节：暂无记录'**
   String get fnthinkDiagStreamNever;
 
   /// No description provided for @fnthinkDiagSystem.
@@ -8516,13 +8516,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkScreenKeepalive.
   ///
   /// In zh, this message translates to:
-  /// **'锁屏持续接收（更耗电）'**
+  /// **'锁屏持续接收（耗电增加）'**
   String get fnthinkScreenKeepalive;
 
   /// No description provided for @fnthinkScreenKeepaliveDesc.
   ///
   /// In zh, this message translates to:
-  /// **'锁屏后仍让 CPU 保持唤醒，收货更及时；会明显增加耗电。'**
+  /// **'锁屏后仍保持 CPU 唤醒，可更及时收取消息；耗电会明显增加。'**
   String get fnthinkScreenKeepaliveDesc;
 
   /// No description provided for @fnthinkDiagScreenLock.
@@ -8534,7 +8534,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkExactAlarmMissing.
   ///
   /// In zh, this message translates to:
-  /// **'精确闹钟未授权：后台收取可能晚到。'**
+  /// **'精确闹钟未授权：后台收取可能延迟。'**
   String get fnthinkExactAlarmMissing;
 
   /// No description provided for @fnthinkBatteryOptMissing.
@@ -8546,13 +8546,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkGrantNow.
   ///
   /// In zh, this message translates to:
-  /// **'去授权'**
+  /// **'前往授权'**
   String get fnthinkGrantNow;
 
   /// No description provided for @fnthinkInboxSelfCheckTitle.
   ///
   /// In zh, this message translates to:
-  /// **'通知自检'**
+  /// **'通知渠道自检'**
   String get fnthinkInboxSelfCheckTitle;
 
   /// No description provided for @fnthinkInboxSelfCheckOk.
@@ -8564,43 +8564,43 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkInboxIssueNotificationsOff.
   ///
   /// In zh, this message translates to:
-  /// **'系统通知权限关着'**
+  /// **'系统通知权限已关闭'**
   String get fnthinkInboxIssueNotificationsOff;
 
   /// No description provided for @fnthinkInboxIssueChannelMissing.
   ///
   /// In zh, this message translates to:
-  /// **'收件渠道还没建（第一次收件会自动建）'**
+  /// **'收件渠道尚未创建（首次收件时将自动创建）'**
   String get fnthinkInboxIssueChannelMissing;
 
   /// No description provided for @fnthinkInboxIssueNotHigh.
   ///
   /// In zh, this message translates to:
-  /// **'渠道被系统降级（不再弹横幅）'**
+  /// **'渠道已被系统降级（不再显示横幅）'**
   String get fnthinkInboxIssueNotHigh;
 
   /// No description provided for @fnthinkInboxIssueNoSound.
   ///
   /// In zh, this message translates to:
-  /// **'渠道没有声音'**
+  /// **'渠道未设置声音'**
   String get fnthinkInboxIssueNoSound;
 
   /// No description provided for @fnthinkInboxIssueNoVibration.
   ///
   /// In zh, this message translates to:
-  /// **'渠道没有震动'**
+  /// **'渠道未开启振动'**
   String get fnthinkInboxIssueNoVibration;
 
   /// No description provided for @fnthinkInboxIssueLockscreen.
   ///
   /// In zh, this message translates to:
-  /// **'锁屏不显示'**
+  /// **'锁屏时不显示'**
   String get fnthinkInboxIssueLockscreen;
 
   /// No description provided for @fnthinkInboxSelfCheckSettings.
   ///
   /// In zh, this message translates to:
-  /// **'去系统设置'**
+  /// **'系统设置'**
   String get fnthinkInboxSelfCheckSettings;
 
   /// No description provided for @fnthinkInboxSelfCheckRebuild.
@@ -8612,7 +8612,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkInboxSelfCheckTest.
   ///
   /// In zh, this message translates to:
-  /// **'发测试通知'**
+  /// **'发送测试通知'**
   String get fnthinkInboxSelfCheckTest;
 
   /// No description provided for @fnthinkInboxSelfCheckRefresh.
@@ -8624,19 +8624,19 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkInboxSelfCheckRebuilt.
   ///
   /// In zh, this message translates to:
-  /// **'已切到新的高优先级渠道：{id}'**
+  /// **'已切换至新的高优先级渠道：{id}'**
   String fnthinkInboxSelfCheckRebuilt(Object id);
 
   /// No description provided for @fnthinkInboxSelfCheckTestSent.
   ///
   /// In zh, this message translates to:
-  /// **'测试通知已发出：去锁屏看一眼，确认响铃与震动'**
+  /// **'测试通知已发出，请查看锁屏以确认响铃与振动'**
   String get fnthinkInboxSelfCheckTestSent;
 
   /// No description provided for @fnthinkInboxSelfCheckTestFailed.
   ///
   /// In zh, this message translates to:
-  /// **'测试通知没发出去（先看系统通知权限）'**
+  /// **'测试通知未能发出（请先检查系统通知权限）'**
   String get fnthinkInboxSelfCheckTestFailed;
 
   /// No description provided for @fnthinkRegisterRateLimited.
@@ -10478,7 +10478,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelDisclosureShort.
   ///
   /// In zh, this message translates to:
-  /// **'响不响、震不震、弹不弹，由系统那一侧的渠道决定'**
+  /// **'是否响铃、振动或显示横幅，由系统侧的通知渠道决定'**
   String get fnthinkChannelDisclosureShort;
 
   /// No description provided for @fnthinkRemoteTitle.

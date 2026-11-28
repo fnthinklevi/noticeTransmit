@@ -1875,20 +1875,20 @@
   "fnthinkPush": "幻念推送",
   "fnthinkSettingsTitle": "幻念推送设置",
   "fnthinkReceive": "接收推送",
-  "fnthinkReceiveDesc": "开着才会去服务器取货；关掉则既不发送也不接收",
-  "fnthinkChannelDisclosure": "收到的推送响不响、震不震、弹不弹，由系统通知设置里「幻念推送 · 收件」这一枚渠道决定。本机这侧已按最高档创建：重要性＝紧急（会弹横幅）、声音＝系统默认通知音、振动＝已开。部分厂商系统（如小米）在这一层之上另有按应用的悬浮/锁屏开关，那些只能去系统设置里核对。",
+  "fnthinkReceiveDesc": "开启后才会从服务器收取消息；关闭后既不发送也不接收",
+  "fnthinkChannelDisclosure": "收到的推送是否响铃、振动或显示横幅，由系统通知设置中的「幻念推送 · 收件」渠道决定。本机已按最高档创建该渠道：重要性为紧急（显示横幅）、声音为系统默认通知音、振动已开启。部分厂商系统（如小米）在该层之上另有按应用管理的悬浮窗与锁屏开关，需在系统设置中核对。",
   "fnthinkOpenChannelSettings": "打开系统渠道设置",
   "fnthinkConsentTitle": "允许通知内容经服务器中转？",
   "fnthinkConsentMsg": "① 不用幻念推送：全部逻辑在本机完成，通知内容不经过任何服务器。\n② 只用本软件转发通知：同样不经过服务器，服务器不收集任何通知内容。\n③ 使用幻念推送：消息需经服务器中转才能送到这台手机 —— 未送达期间正文在服务端加密暂存，最长 7 天，送达或到期立即删除；配对口令与身份私钥不上传，审计只保存元数据（不含正文）。",
   "fnthinkConsentAgree": "我已了解并同意",
   "fnthinkConsentGranted": "已同意内容经服务器中转",
-  "fnthinkConsentPending": "还没同意中转 —— 经服务器的收发全部停着",
-  "fnthinkConsentNotGranted": "这台还没同意内容经服务器中转，所以那一发什么都没做",
+  "fnthinkConsentPending": "尚未同意中转：经服务器的收发均已停止",
+  "fnthinkConsentNotGranted": "本机尚未同意内容经服务器中转，本次操作未执行",
   "fnthinkRelayConsentSection": "经服务器中转",
   "fnthinkConsentRevoke": "撤销同意",
   "fnthinkConsentRevokeTitle": "要撤销「经服务器中转」的同意吗？",
   "fnthinkConsentRevokeMsg": "撤销后，以下功能立即停止：经服务器的收发（收货循环下一轮起中断）、远程控制、接入端点的增/改/删、发起与批准配对、幻念通道的创建/启用与发送、以及携带正文的测试。非浸入探针不受影响（仅读取能力级，不触发实际投递）。配对名单、接入端点、幻念通道配置、收发历史与配对记录不会删除。恢复需重新完成同意流程",
-  "fnthinkConsentRevokeDone": "已撤销：经服务器的收发与远程控制都不再可用，配置与历史一条没删。",
+  "fnthinkConsentRevokeDone": "已撤销：经服务器的收发与远程控制均不可用，配置与历史记录未删除。",
   "fnthinkConsentGateTitle": "这一步要先把内容交给服务器",
   "fnthinkConsentGateMsg": "「{action}」需先通过「内容经服务器中转」这一授权：幻念的收发、接入端点管理、配对关系与通道发送均经中转服务器处理，使用前请先同意。授权入口位于「幻念推送 → 接收推送」页（授权前可阅读完整说明）。授权后返回此处，再次点击即可继续",
   "fnthinkConsentGateGo": "去那一页同意",
@@ -1902,7 +1902,7 @@
   "fnthinkSendTargetWebhookOnlyForNotice": "远程指令只能发给已配对的设备：Webhook 那条没有配对关系、也没有档位授权。要发到通道就切回「一条通知」。",
   "fnthinkSendNoticeVsCommand": "「一条通知」是让对面看到一段内容（那边不需要任何授权、也不执行动作）；「一条远程指令」是让对面做一件事（要配对关系与档位授权，最高那一档还要过延时确认）。",
   "fnthinkHubSendDesc": "发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档",
-  "fnthinkHealthNever": "协议面未知：还没有协议请求的读数",
+  "fnthinkHealthNever": "协议面未知：暂无协议请求读数",
   "fnthinkHealthReachable": "协议面就绪：最近一次幻念请求成功",
   "fnthinkHealthUnreachable": "协议面不可用：最近一次幻念请求失败",
   "fnthinkPollGatewayTimeout": "网关超时（源站 25 秒内没有响应）",
@@ -1972,10 +1972,10 @@
   "fnthinkProtocolNever": "未知 · 还没有协议请求的读数",
   "fnthinkProtocolUnverified": "未验证 · 服务在答，但没有协议请求成功过",
   "fnthinkStatusRunning": "正在收取",
-  "fnthinkStatusIdle": "当前没在跑",
+  "fnthinkStatusIdle": "当前未运行",
   "fnthinkReceiveNow": "立即收取",
-  "fnthinkReceiveDisabled": "接收没开，所以这一发什么都没做",
-  "fnthinkReceiveSkipped": "上一轮还在途，这一轮的结局马上见",
+  "fnthinkReceiveDisabled": "接收功能未开启，本次操作未执行",
+  "fnthinkReceiveSkipped": "上一轮尚未结束，本轮结果将在其结束后显示",
   "fnthinkIdentitySection": "本机身份",
   "fnthinkAddressCode": "本机地址码",
   "fnthinkAddressCodeNone": "还没生成（第一次挂口令或开始接收时生成）",
@@ -2707,9 +2707,9 @@
       }
     }
   },
-  "fnthinkPresenceLive": "常驻后台收取中（长轮询，有货即回）",
-  "fnthinkPresenceLiveNoLock": "常驻后台收取中（长轮询，但系统没给唤醒锁）",
-  "fnthinkPresenceNext": "下一次自己醒：{time}（每 {seconds} 秒）",
+  "fnthinkPresenceLive": "后台常驻收取中（长轮询，有消息时立即返回）",
+  "fnthinkPresenceLiveNoLock": "后台常驻收取中（长轮询，但系统未授予唤醒锁）",
+  "fnthinkPresenceNext": "下次自动唤醒：{time}（每 {seconds} 秒）",
   "@fnthinkPresenceNext": {
     "placeholders": {
       "time": {
@@ -2720,7 +2720,7 @@
       }
     }
   },
-  "fnthinkPresenceStreamHealthy": "实时唤醒已连接 · 兜底每 {seconds} 秒",
+  "fnthinkPresenceStreamHealthy": "实时唤醒已连接 · 兜底间隔 {seconds} 秒",
   "@fnthinkPresenceStreamHealthy": {
     "placeholders": {
       "seconds": {
@@ -2728,7 +2728,7 @@
       }
     }
   },
-  "fnthinkPresenceNextNoCadence": "下一次自己醒：{time}（间隔未知）",
+  "fnthinkPresenceNextNoCadence": "下次自动唤醒：{time}（间隔未知）",
   "@fnthinkPresenceNextNoCadence": {
     "placeholders": {
       "time": {
@@ -2736,7 +2736,7 @@
       }
     }
   },
-  "fnthinkPresenceBackoff": "限流退避中：约 {minutes} 分 {seconds} 秒后自动重试（这是一次性退避，不是常态间隔）",
+  "fnthinkPresenceBackoff": "限流退避中：约 {minutes} 分 {seconds} 秒后自动重试（本次为一次性退避，非常规间隔）",
   "@fnthinkPresenceBackoff": {
     "placeholders": {
       "minutes": {
@@ -2747,12 +2747,12 @@
       }
     }
   },
-  "fnthinkPresenceAsleep": "当前没在醒着（开关关着，或还没同意）",
-  "fnthinkPresenceDead": "复起链已断：这台不再会自己醒（开关与同意都还在）",
-  "fnthinkPresencePendingFirstRound": "还没排上第一轮（刚开起来，跑完第一轮会自己排上）",
+  "fnthinkPresenceAsleep": "当前未自动运行（开关已关闭，或尚未同意中转）",
+  "fnthinkPresenceDead": "自动恢复链已中断：本机不再自动唤醒（开关与同意均仍开启）",
+  "fnthinkPresencePendingFirstRound": "尚未安排首轮收取（刚启动，首轮完成后将自动安排后续轮次）",
   "fnthinkPresenceRecover": "立即恢复",
   "fnthinkLastRoundAt": "上次成功收取：{time}",
-  "fnthinkLastRoundNever": "上次成功收取：还没有记录",
+  "fnthinkLastRoundNever": "上次成功收取：暂无记录",
   "fnthinkPersistFailedWarning": "上一轮有 {count} 条幻念消息未能写入本地收件表，可能已丢失；请检查存储空间后重试",
   "@fnthinkPersistFailedWarning": {
     "placeholders": {
@@ -2761,7 +2761,7 @@
       }
     }
   },
-  "fnthinkPersistQueuedWarning": "本机还压着 {count} 条没写进收件表的幻念消息，每轮收取开跑之前会再试一次",
+  "fnthinkPersistQueuedWarning": "本机仍有 {count} 条幻念消息尚未写入收件表，每轮收取开始前将再次尝试写入",
   "@fnthinkPersistQueuedWarning": {
     "placeholders": {
       "count": {
@@ -2769,7 +2769,7 @@
       }
     }
   },
-  "fnthinkPersistAbandonedWarning": "有 {count} 条幻念消息已放弃重试（存放超过 24 小时或已试满 20 次），它们不会再自己进收件表",
+  "fnthinkPersistAbandonedWarning": "有 {count} 条幻念消息已停止重试（存放超过 24 小时或已尝试 20 次），不会再自动写入收件表",
   "@fnthinkPersistAbandonedWarning": {
     "placeholders": {
       "count": {
@@ -2777,8 +2777,8 @@
       }
     }
   },
-  "fnthinkPersistAbandonedClear": "清掉这个计数",
-  "fnthinkWorkChain": "后台任务：收货 {presenceWork} · 转发 {fanoutWork} · 待发 {queue} 条",
+  "fnthinkPersistAbandonedClear": "清除此计数",
+  "fnthinkWorkChain": "后台任务：收取 {presenceWork} · 转发 {fanoutWork} · 待发 {queue} 条",
   "fnthinkDiagAlarmAt": "上次闹钟触发：{time}",
   "@fnthinkDiagAlarmAt": {
     "placeholders": {
@@ -2787,8 +2787,8 @@
       }
     }
   },
-  "fnthinkDiagAlarmNever": "上次闹钟触发：还没有记录",
-  "fnthinkDiagWorkerAt": "上次后台一轮：{result} · {time}",
+  "fnthinkDiagAlarmNever": "上次闹钟触发：暂无记录",
+  "fnthinkDiagWorkerAt": "上次后台轮次：{result} · {time}",
   "@fnthinkDiagWorkerAt": {
     "placeholders": {
       "result": {
@@ -2799,7 +2799,7 @@
       }
     }
   },
-  "fnthinkDiagWorkerNever": "上次后台一轮：还没有记录",
+  "fnthinkDiagWorkerNever": "上次后台轮次：暂无记录",
   "fnthinkDiagPollAt": "上次 poll：{time} · {status}",
   "@fnthinkDiagPollAt": {
     "placeholders": {
@@ -2811,7 +2811,7 @@
       }
     }
   },
-  "fnthinkDiagPollNever": "上次 poll：还没有记录",
+  "fnthinkDiagPollNever": "上次 poll：暂无记录",
   "fnthinkDiagStreamAt": "上次 SSE 字节：{time}",
   "@fnthinkDiagStreamAt": {
     "placeholders": {
@@ -2820,7 +2820,7 @@
       }
     }
   },
-  "fnthinkDiagStreamNever": "上次 SSE 字节：还没有记录",
+  "fnthinkDiagStreamNever": "上次 SSE 字节：暂无记录",
   "fnthinkDiagSystem": "系统：Doze {doze} · 电池优化已忽略 {battery} · 省电 {powerSave} · 精确闹钟 {exact}",
   "@fnthinkDiagSystem": {
     "placeholders": {
@@ -2840,8 +2840,8 @@
   },
   "fnthinkDiagYes": "是",
   "fnthinkDiagNo": "否",
-  "fnthinkScreenKeepalive": "锁屏持续接收（更耗电）",
-  "fnthinkScreenKeepaliveDesc": "锁屏后仍让 CPU 保持唤醒，收货更及时；会明显增加耗电。",
+  "fnthinkScreenKeepalive": "锁屏持续接收（耗电增加）",
+  "fnthinkScreenKeepaliveDesc": "锁屏后仍保持 CPU 唤醒，可更及时收取消息；耗电会明显增加。",
   "fnthinkDiagScreenLock": "锁屏持续接收：开关 {enabled} · 唤醒锁 {held}",
   "@fnthinkDiagScreenLock": {
     "placeholders": {
@@ -2853,24 +2853,24 @@
       }
     }
   },
-  "fnthinkExactAlarmMissing": "精确闹钟未授权：后台收取可能晚到。",
+  "fnthinkExactAlarmMissing": "精确闹钟未授权：后台收取可能延迟。",
   "fnthinkBatteryOptMissing": "未忽略电池优化：系统可能限制后台收取。",
-  "fnthinkGrantNow": "去授权",
-  "fnthinkInboxSelfCheckTitle": "通知自检",
+  "fnthinkGrantNow": "前往授权",
+  "fnthinkInboxSelfCheckTitle": "通知渠道自检",
   "fnthinkInboxSelfCheckOk": "收件渠道配置正常",
-  "fnthinkInboxIssueNotificationsOff": "系统通知权限关着",
-  "fnthinkInboxIssueChannelMissing": "收件渠道还没建（第一次收件会自动建）",
-  "fnthinkInboxIssueNotHigh": "渠道被系统降级（不再弹横幅）",
-  "fnthinkInboxIssueNoSound": "渠道没有声音",
-  "fnthinkInboxIssueNoVibration": "渠道没有震动",
-  "fnthinkInboxIssueLockscreen": "锁屏不显示",
-  "fnthinkInboxSelfCheckSettings": "去系统设置",
+  "fnthinkInboxIssueNotificationsOff": "系统通知权限已关闭",
+  "fnthinkInboxIssueChannelMissing": "收件渠道尚未创建（首次收件时将自动创建）",
+  "fnthinkInboxIssueNotHigh": "渠道已被系统降级（不再显示横幅）",
+  "fnthinkInboxIssueNoSound": "渠道未设置声音",
+  "fnthinkInboxIssueNoVibration": "渠道未开启振动",
+  "fnthinkInboxIssueLockscreen": "锁屏时不显示",
+  "fnthinkInboxSelfCheckSettings": "系统设置",
   "fnthinkInboxSelfCheckRebuild": "重建渠道",
-  "fnthinkInboxSelfCheckTest": "发测试通知",
+  "fnthinkInboxSelfCheckTest": "发送测试通知",
   "fnthinkInboxSelfCheckRefresh": "重新自检",
-  "fnthinkInboxSelfCheckRebuilt": "已切到新的高优先级渠道：{id}",
-  "fnthinkInboxSelfCheckTestSent": "测试通知已发出：去锁屏看一眼，确认响铃与震动",
-  "fnthinkInboxSelfCheckTestFailed": "测试通知没发出去（先看系统通知权限）",
+  "fnthinkInboxSelfCheckRebuilt": "已切换至新的高优先级渠道：{id}",
+  "fnthinkInboxSelfCheckTestSent": "测试通知已发出，请查看锁屏以确认响铃与振动",
+  "fnthinkInboxSelfCheckTestFailed": "测试通知未能发出（请先检查系统通知权限）",
   "fnthinkRegisterRateLimited": "注册被限流，还要等 {minutes} 分 {seconds} 秒，到点自动重试",
   "fnthinkRegisterDayQuota": "今日注册额度已用完，明日恢复；这台会自动重试（不用你手动点）",
   "@fnthinkRegisterRateLimited": {
@@ -3587,7 +3587,7 @@
   "remotePeersReadFailedShort": "名单读不出来 —— 这不等于「还没配对过」",
   "remoteCredKeyOnceShort": "这一串只出现这一次，现在就得抄走",
   "remoteCredTotpOnceShort": "这一枚只出现一次，现在录进对面那台的验证器",
-  "fnthinkChannelDisclosureShort": "响不响、震不震、弹不弹，由系统那一侧的渠道决定",
+  "fnthinkChannelDisclosureShort": "是否响铃、振动或显示横幅，由系统侧的通知渠道决定",
   "fnthinkRemoteTitle": "远程控制",
   "fnthinkRemoteNeedsReceive": "请先启用接收：此页功能依赖本机开启幻念接收权限",
   "fnthinkRemoteNeedsConsent": "还没过同意门 —— 去「接收」那一页读一次说明并同意",

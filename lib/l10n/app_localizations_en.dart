@@ -3611,11 +3611,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkReceiveDesc =>
-      'Messages are only fetched while this is on; off means neither sending nor receiving';
+      'Messages are fetched from the server only while this is on; when it is off, neither sending nor receiving occurs.';
 
   @override
   String get fnthinkChannelDisclosure =>
-      'Whether an incoming push sounds, vibrates, or pops up is decided by the \"Fnthink Push · Inbox\" notification channel in system settings. This device creates it at the top tier: importance = urgent (heads-up banner), sound = system default notification tone, vibration = on. Some vendor systems (e.g. Xiaomi) add per-app floating/lock-screen switches above this layer; those can only be checked in system settings.';
+      'Whether an incoming push sounds, vibrates, or displays a banner is determined by the \"Fnthink Push · Inbox\" notification channel in system notification settings. This device creates the channel at the top tier: importance = urgent (heads-up banner), sound = system default notification tone, vibration = on. Some vendor systems (e.g. Xiaomi) provide additional per-app floating-window and lock-screen switches above this layer; these must be checked in system settings.';
 
   @override
   String get fnthinkOpenChannelSettings => 'Open system channel settings';
@@ -3637,11 +3637,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkConsentPending =>
-      'Relay not allowed yet — everything that goes through the server stays off';
+      'Relay consent has not been granted; all server-relayed sending and receiving are stopped.';
 
   @override
   String get fnthinkConsentNotGranted =>
-      'This device has not allowed relaying content through the server, so nothing was sent';
+      'This device has not consented to relaying content through the server; this action was not performed.';
 
   @override
   String get fnthinkRelayConsentSection => 'Relay through the server';
@@ -3659,7 +3659,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkConsentRevokeDone =>
-      'Revoked: relayed sending/receiving and remote control are unavailable; configs and history were not deleted.';
+      'Revoked: server-relayed sending and receiving, and remote control, are unavailable. No configuration or history was deleted.';
 
   @override
   String get fnthinkConsentGateTitle =>
@@ -3710,7 +3710,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkHealthNever =>
-      'Protocol plane unknown: no protocol request reading yet';
+      'Protocol plane unknown: no protocol request readings yet';
 
   @override
   String get fnthinkHealthReachable =>
@@ -3790,11 +3790,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkReceiveNow => 'Receive now';
 
   @override
-  String get fnthinkReceiveDisabled => 'Receiving is off, so this did nothing';
+  String get fnthinkReceiveDisabled =>
+      'Receiving is disabled; this action was not performed.';
 
   @override
   String get fnthinkReceiveSkipped =>
-      'A round is still in flight - its result shows up shortly';
+      'The previous round is still in progress; this round\'s result will appear after it finishes.';
 
   @override
   String get fnthinkIdentitySection => 'This device';
@@ -4856,43 +4857,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPresenceLive =>
-      'Persistent background polling (long poll, returns as soon as there is mail)';
+      'Persistent background fetching (long polling; returns immediately when a message is available).';
 
   @override
   String get fnthinkPresenceLiveNoLock =>
-      'Persistent background polling (long poll, but the system denied the wake lock)';
+      'Persistent background fetching (long polling, but the system did not grant a wake lock).';
 
   @override
   String fnthinkPresenceNext(String time, int seconds) {
-    return 'Next wake-up: $time (every ${seconds}s)';
+    return 'Next automatic wake-up: $time (every ${seconds}s).';
   }
 
   @override
   String fnthinkPresenceStreamHealthy(int seconds) {
-    return 'Real-time wake-up connected · fallback every ${seconds}s';
+    return 'Real-time wake-up connected · fallback interval ${seconds}s';
   }
 
   @override
   String fnthinkPresenceNextNoCadence(String time) {
-    return 'Next wake-up: $time (interval unknown)';
+    return 'Next automatic wake-up: $time (interval unknown).';
   }
 
   @override
   String fnthinkPresenceBackoff(int minutes, int seconds) {
-    return 'Rate-limit backoff: retrying automatically in about $minutes min $seconds s (a one-off backoff, not the normal interval)';
+    return 'Rate-limit backoff: automatic retry in about $minutes min $seconds s (a one-off backoff, not the regular interval).';
   }
 
   @override
   String get fnthinkPresenceAsleep =>
-      'Not waking on its own right now (switch off, or consent not given)';
+      'Not running automatically right now (the switch is off, or relay consent has not been granted).';
 
   @override
   String get fnthinkPresenceDead =>
-      'Wake-up chain is broken: this device will no longer wake on its own (switch and consent are both still on)';
+      'The automatic recovery chain is broken: this device will no longer wake on its own (the switch and consent are still enabled).';
 
   @override
   String get fnthinkPresencePendingFirstRound =>
-      'First round not scheduled yet (just turned on; it arms itself after the first round)';
+      'The first round has not been scheduled yet (just started; later rounds are scheduled automatically after the first round completes).';
 
   @override
   String get fnthinkPresenceRecover => 'Recover';
@@ -4903,7 +4904,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkLastRoundNever => 'Last successful fetch: no record yet';
+  String get fnthinkLastRoundNever =>
+      'Last successful fetch: none recorded yet';
 
   @override
   String fnthinkPersistFailedWarning(int count) {
@@ -4912,12 +4914,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkPersistQueuedWarning(int count) {
-    return '$count Fnthink message(s) are still held locally and not yet in the inbox. Each fetch round retries them before it starts.';
+    return '$count Fnthink message(s) are still held locally and have not been written to the inbox; they will be retried before each fetch round starts.';
   }
 
   @override
   String fnthinkPersistAbandonedWarning(int count) {
-    return '$count Fnthink message(s) stopped being retried (held over 24 hours or tried 20 times). They will not reach the inbox on their own.';
+    return '$count Fnthink message(s) have stopped being retried (held for over 24 hours or attempted 20 times) and will no longer be written to the inbox automatically.';
   }
 
   @override
@@ -4938,7 +4940,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkDiagAlarmNever => 'Last alarm fired: no record yet';
+  String get fnthinkDiagAlarmNever => 'Last alarm fired: none recorded yet';
 
   @override
   String fnthinkDiagWorkerAt(String result, String time) {
@@ -4946,7 +4948,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkDiagWorkerNever => 'Last background round: no record yet';
+  String get fnthinkDiagWorkerNever =>
+      'Last background round: none recorded yet';
 
   @override
   String fnthinkDiagPollAt(String time, String status) {
@@ -4954,7 +4957,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkDiagPollNever => 'Last poll: no record yet';
+  String get fnthinkDiagPollNever => 'Last poll: none recorded yet';
 
   @override
   String fnthinkDiagStreamAt(String time) {
@@ -4962,7 +4965,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkDiagStreamNever => 'Last SSE byte: no record yet';
+  String get fnthinkDiagStreamNever => 'Last SSE byte: none recorded yet';
 
   @override
   String fnthinkDiagSystem(
@@ -4982,11 +4985,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkScreenKeepalive =>
-      'Keep receiving while locked (more battery)';
+      'Keep receiving while locked (increases battery use)';
 
   @override
   String get fnthinkScreenKeepaliveDesc =>
-      'Keeps the CPU awake while the screen is off so messages arrive sooner; this uses noticeably more battery.';
+      'Keeps the CPU awake while the screen is off so messages arrive sooner; battery use increases noticeably.';
 
   @override
   String fnthinkDiagScreenLock(String enabled, String held) {
@@ -4995,41 +4998,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkExactAlarmMissing =>
-      'Exact alarms not granted: background fetches may be late.';
+      'Exact alarms not granted: background fetches may be delayed.';
 
   @override
   String get fnthinkBatteryOptMissing =>
       'Battery optimization not ignored: the system may limit background fetches.';
 
   @override
-  String get fnthinkGrantNow => 'Grant';
+  String get fnthinkGrantNow => 'Grant access';
 
   @override
-  String get fnthinkInboxSelfCheckTitle => 'Notification self-check';
+  String get fnthinkInboxSelfCheckTitle => 'Notification channel self-check';
 
   @override
   String get fnthinkInboxSelfCheckOk => 'Inbox channel is configured correctly';
 
   @override
   String get fnthinkInboxIssueNotificationsOff =>
-      'System notifications are disabled';
+      'System notification permission is disabled.';
 
   @override
   String get fnthinkInboxIssueChannelMissing =>
-      'Inbox channel not created yet (created on the first message)';
+      'Inbox channel not created yet (it will be created automatically on the first message).';
 
   @override
   String get fnthinkInboxIssueNotHigh =>
-      'Channel was downgraded (no more heads-up)';
+      'The channel has been downgraded by the system (heads-up banners are no longer shown).';
 
   @override
-  String get fnthinkInboxIssueNoSound => 'Channel has no sound';
+  String get fnthinkInboxIssueNoSound =>
+      'No sound is configured for the channel.';
 
   @override
-  String get fnthinkInboxIssueNoVibration => 'Channel has no vibration';
+  String get fnthinkInboxIssueNoVibration =>
+      'Channel vibration is not enabled.';
 
   @override
-  String get fnthinkInboxIssueLockscreen => 'Hidden on lock screen';
+  String get fnthinkInboxIssueLockscreen => 'Not shown on the lock screen';
 
   @override
   String get fnthinkInboxSelfCheckSettings => 'System settings';
@@ -5038,7 +5043,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkInboxSelfCheckRebuild => 'Rebuild channel';
 
   @override
-  String get fnthinkInboxSelfCheckTest => 'Send test';
+  String get fnthinkInboxSelfCheckTest => 'Send test notification';
 
   @override
   String get fnthinkInboxSelfCheckRefresh => 'Re-check';
@@ -5050,11 +5055,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkInboxSelfCheckTestSent =>
-      'Test notification sent: check the lock screen for sound and vibration';
+      'Test notification sent. Check the lock screen to confirm sound and vibration.';
 
   @override
   String get fnthinkInboxSelfCheckTestFailed =>
-      'Test notification was not shown (check system notification permission first)';
+      'The test notification could not be sent (check the system notification permission first).';
 
   @override
   String fnthinkRegisterRateLimited(int minutes, int seconds) {
@@ -6213,7 +6218,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkChannelDisclosureShort =>
-      'Sound, vibration and banners are decided by the system-side channel';
+      'Whether a push sounds, vibrates, or shows a banner is determined by the system-side notification channel.';
 
   @override
   String get fnthinkRemoteTitle => 'Remote control';
