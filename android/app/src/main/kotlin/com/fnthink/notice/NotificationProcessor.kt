@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -68,6 +71,10 @@ class NotificationProcessor(private val context: Context) {
         val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString() ?: ""
         val bigText = extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
         val subText = extras.getCharSequence(android.app.Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+        // P2-3：group summary 的正文常常只写在 EXTRA_SUMMARY_TEXT（"3 条新消息"），
+        // 旧兜底链没有它 ⇒ 这类通知落到"标题+正文都空"被丢弃。
+        val summaryText =
+            extras.getCharSequence(android.app.Notification.EXTRA_SUMMARY_TEXT)?.toString() ?: ""
         val messagingContent = extractMessagingContent(extras)
         val textLines = extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES)
             ?.filterNotNull()
@@ -75,15 +82,18 @@ class NotificationProcessor(private val context: Context) {
         val ticker = notification.tickerText?.toString() ?: ""
         val postTime = sbn.postTime
 
-        // 内容兜底链：大文本 → 正文 → MessagingStyle 消息 → 多行文本 → ticker → 副标题。
+        // 内容兜底链：大文本 → 正文 → MessagingStyle 消息 → 多行文本 → group summary
+        // → ticker → 副标题 → RemoteViews 的 TextView 文本（有限提取，最后一道）。
         // 会话类通知（微信/QQ/Telegram 等）正文可能只存在于 MessagingStyle.messages 中，
         // 仅读 EXTRA_TEXT 会导致"标题和正文都为空被跳过"的漏通知。
         var content = bigText
             .ifEmpty { text }
             .ifEmpty { messagingContent }
             .ifEmpty { textLines }
+            .ifEmpty { summaryText }
             .ifEmpty { ticker }
             .ifEmpty { subText }
+            .ifEmpty { extractRemoteViewsText(notification) }
         // B3 星号兜底：锁屏脱敏时正文显示为 ******，直接转发无价值，
         // 改为发送提示（验证码等敏感内容需解锁后查看）
         if (isMaskedContent(content)) {
@@ -91,7 +101,19 @@ class NotificationProcessor(private val context: Context) {
             content = I18n.notificationContentMasked(content.trim())
             Log.d(TAG, "Notification content masked, replaced with hint: $packageName")
         }
-        if (title.isEmpty() && content.isEmpty()) return null
+        if (title.isEmpty() && content.isEmpty()) {
+            // P2-3：走到这里说明连 RemoteViews 都没提取到文本。留一条**不含正文**的
+            // 诊断（只报包名与候选来源是否在场），否则用户只看到"这条没转发"，
+            // 没有任何地方能回答"它到底有没有内容、卡在哪一步"。
+            Log.d(
+                TAG,
+                "无可用文本，按空内容跳过：$packageName " +
+                    "(summary=${summaryText.isNotEmpty()}, " +
+                    "lines=${textLines.isNotEmpty()}, " +
+                    "views=${hasRemoteViews(notification)})",
+            )
+            return null
+        }
 
         // P0：去重键必须在**确认这条真的要转发**之后才记。
         // 旧顺序是先记 key 再抽正文：首条纯进度条 / 纯 Custom RemoteViews（标题与正文都空）
@@ -340,6 +362,49 @@ class NotificationProcessor(private val context: Context) {
             message.senderPerson?.name?.toString()?.let { if (it.isNotBlank()) return it }
         }
         return message.sender?.toString().orEmpty()
+    }
+
+    /** 这条通知有没有可尝试提取的 RemoteViews（只看存在性，不改内容）。 */
+    @Suppress("DEPRECATION")
+    private fun hasRemoteViews(notification: android.app.Notification): Boolean =
+        notification.bigContentView != null || notification.contentView != null
+
+    /**
+     * 从 `bigContentView`/`contentView` 里**有限**提取文本（P2-3 的最后一道兜底）。
+     *
+     * 只做两件事：inflate 出视图树、读 `TextView` 的文本。不点按钮、不跑 PendingIntent、
+     * 不读其它属性 —— 第三方布局里可能有我们进程不认识的标签或动作，抛异常就按
+     * "这条视图没有文本"处理，继续试下一个候选，最后返回空串（由调用方留诊断）。
+     *
+     * 先试 `bigContentView`（展开态文本更全），再试 `contentView`（折叠态）。
+     */
+    @Suppress("DEPRECATION")
+    private fun extractRemoteViewsText(notification: android.app.Notification): String {
+        for (views in listOf(notification.bigContentView, notification.contentView)) {
+            if (views == null) continue
+            try {
+                // parent 传 null：只求把布局建出来读文本，不挂到任何窗口上。
+                val root = views.apply(context, null) ?: continue
+                val texts = ArrayList<String>()
+                collectTextViewTexts(root, texts)
+                val text = ViewTextDigest.format(texts)
+                if (text.isNotEmpty()) return text
+            } catch (e: Exception) {
+                // 只报异常类型，不报布局内容（与日志脱敏同规）。
+                Log.d(TAG, "RemoteViews 文本提取失败（按无文本继续）：${e.javaClass.simpleName}")
+            }
+        }
+        return ""
+    }
+
+    /** 深度优先收集 `TextView` 的文本；`ViewGroup` 只递归子节点，别的类型一律忽略。 */
+    private fun collectTextViewTexts(view: View, out: MutableList<String>) {
+        when (view) {
+            is TextView -> view.text?.toString()?.let { out.add(it) }
+            is ViewGroup -> for (index in 0 until view.childCount) {
+                collectTextViewTexts(view.getChildAt(index), out)
+            }
+        }
     }
 
     /** 带过滤原因版：返回 FilterResult，供服务端完成「拦截入历史 / 白名单标注」 */
