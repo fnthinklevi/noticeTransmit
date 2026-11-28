@@ -3846,7 +3846,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairingPeersHint =>
-      'The other device needs exactly these two: this device\'s address code and this one-time pairing code';
+      'The other device needs these two items: this device\'s address code and this one-time pairing code.';
 
   @override
   String get fnthinkPairingLifecycleActive =>
@@ -3982,22 +3982,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkOutcomeFailed => 'This step didn\'t go through';
 
   @override
-  String get fnthinkPairRequests => 'Pairing requests waiting for you';
+  String get fnthinkPairRequests => 'Pairing requests awaiting your approval';
 
   @override
   String fnthinkPairRequestLine(String peer, String level, String at) {
-    return '$peer asks to pair with you, requesting $level · $at';
+    return '$peer requests pairing with this device, requesting $level · $at';
   }
 
   @override
-  String get fnthinkPairRefresh => 'Ask whether the peer answered';
+  String get fnthinkPairRefresh =>
+      'Check the server for the other device\'s response';
 
   @override
   String get fnthinkPairRefreshQuiet =>
-      'Asked the server - no new answer from the peer yet';
+      'The server has been queried; the other device has no new response yet.';
 
   @override
-  String get fnthinkPairRequestsSent => 'Pairing requests you sent';
+  String get fnthinkPairRequestsSent => 'Pairing requests sent by this device';
 
   @override
   String fnthinkPairSentLine(
@@ -4006,24 +4007,24 @@ class AppLocalizationsEn extends AppLocalizations {
     String status,
     String at,
   ) {
-    return 'to $peer · requesting $level · $status · $at';
+    return 'sent to $peer · requesting $level · $status · $at';
   }
 
   @override
-  String get fnthinkPairStatePending => 'waiting for the other device';
+  String get fnthinkPairStatePending => 'Waiting for the other device';
 
   @override
-  String get fnthinkPairStateApproved => 'accepted by the other device';
+  String get fnthinkPairStateApproved => 'Approved by the other device';
 
   @override
-  String get fnthinkPairStateDenied => 'declined by the other device';
+  String get fnthinkPairStateDenied => 'Declined by the other device';
 
   @override
-  String get fnthinkPairStateExpired => 'the pairing code expired';
+  String get fnthinkPairStateExpired => 'The pairing code has expired';
 
   @override
   String fnthinkPairStateUnknown(String status) {
-    return 'unrecognised status: $status';
+    return 'Unknown status: $status';
   }
 
   @override
@@ -4035,10 +4036,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkPairHistoryOutgoing => 'sent by this device';
+  String get fnthinkPairHistoryOutgoing => 'Sent by this device';
 
   @override
-  String get fnthinkPairHistoryIncoming => 'requested by the other device';
+  String get fnthinkPairHistoryIncoming => 'Requested by the other device';
 
   @override
   String agoMinutes(int n) {
@@ -4067,12 +4068,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkPairWillGrant(String level) {
-    return 'This device can only grant $level: anything higher must be confirmed locally on it';
+    return 'This device can grant at most $level this time; any higher level must be confirmed on this device.';
   }
 
   @override
   String fnthinkPairUnknownLevel(String level) {
-    return 'The level \"$level\" is not in the table this device knows ⇒ approving is not possible, only denying';
+    return 'The level \"$level\" reported by the other device is not in this device\'s level table; it cannot be approved and can only be denied.';
   }
 
   @override
@@ -4083,30 +4084,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairApproveOutbound =>
-      'Also make it a forward target when approving';
+      'Also set it as an outbound target when approving';
 
   @override
   String get fnthinkPairApproveOutboundDesc =>
-      'Checked = both local legs happen right now: the roster tick plus a channel targeting it.';
+      'When checked, this device completes both local steps immediately: the roster entry is selected and a channel targeting it is created.';
 
   @override
   String get fnthinkPairChannelIdLabel => 'Which channel on this device (id)';
 
   @override
   String get fnthinkPairApprovedOneWay =>
-      'The two devices can now push notifications to each other: this one confirmation writes two grants, each living on the receiving device\'s list. What\'s still missing is the per-item side — L2 actions and L3 settings have to be ticked on that device\'s own approval screen; this one can\'t click for it.';
+      'The two devices can now send notifications to each other. This confirmation wrote two grants, each stored on the receiving device\'s list. What remains is the per-item permission set: L2 actions and L3 settings must be selected by the other device on its own consent screen; this device cannot do so on its behalf.';
 
   @override
   String get fnthinkPairAskTitle => 'Approve this pairing?';
 
   @override
   String fnthinkPairAskMsg(String peer, String level) {
-    return 'Adds $peer to this device\'s list and grants $level. Once approved it can push notifications to this device.';
+    return 'Adds $peer to this device\'s list and grants $level. After approval, that device can push notifications to this device.';
   }
 
   @override
   String fnthinkPairApproved(String peer, String level) {
-    return 'Approved $peer; the server recorded it at $level';
+    return 'Approved $peer; the server recorded level $level.';
   }
 
   @override
@@ -4116,7 +4117,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkPairKeySwapped(String peer) {
-    return '$peer presented a different public key for the same address code; nothing was changed — either it rebuilt its identity or someone is spoofing that code';
+    return '$peer presented a different public key for this address code; nothing was changed. The device may have rebuilt its identity, or someone may be spoofing the code.';
   }
 
   @override
@@ -4126,21 +4127,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairNoGrantedLevel =>
-      'The server accepted this one but did not say which level it recorded ⇒ nothing written to the local list';
+      'The server accepted it but did not return the recorded level; nothing was written to the local list.';
 
   @override
   String get fnthinkPeerStoreUnavailable =>
-      'The server accepted this one but no peer store is wired on this device ⇒ nothing written to the local list';
+      'The server accepted it but no peer store is connected on this device; nothing was written.';
 
   @override
   String get fnthinkPeerWriteFailed =>
-      'The server accepted this one but writing the local list failed ⇒ nothing written';
+      'The server accepted it but writing the local list failed; nothing was written.';
 
   @override
   String get fnthinkPeersTitle => 'Device pairing';
 
   @override
-  String get fnthinkSenderDisplayLabel => 'Sender name in inbox';
+  String get fnthinkSenderDisplayLabel =>
+      'How the sender is shown in the inbox';
 
   @override
   String get fnthinkSenderDisplayAliasFirst => 'Alias first';
@@ -4299,15 +4301,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPeerForwardToggle =>
-      'You → it · may receive what you forward';
+      'This device → peer · may receive notifications forwarded by this device';
 
   @override
   String get fnthinkPeerForwardChannelMade =>
-      'Created a channel to it (all three links are in place now)';
+      'Created a channel to the peer; all three conditions are now in place.';
 
   @override
   String get fnthinkPeerForwardChannelKept =>
-      'A channel to it already exists; nothing was created';
+      'A channel to the peer already exists; no duplicate was created.';
 
   @override
   String fnthinkPeerPresenceOnline(String ago) {
@@ -4361,24 +4363,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPeerForwardHint =>
-      'Check it so notifications this device receives are forwarded to it.';
+      'Check this so notifications received by this device are forwarded to the peer.';
 
   @override
   String fnthinkPeerLine(String level, String at) {
-    return 'it → you · granted $level · $at';
+    return 'peer → this device · granted $level · $at';
   }
 
   @override
-  String get fnthinkPeersEmpty => 'Nothing has been paired yet';
+  String get fnthinkPeersEmpty => 'No devices have been paired yet';
 
   @override
   String fnthinkPeersError(String reason) {
-    return 'The list could not be read ($reason) — an unreadable cell is not the same as no devices';
+    return 'The list could not be read ($reason); an unreadable view does not mean there are no paired devices.';
   }
 
   @override
   String get fnthinkPeersBoundary =>
-      'This cell records who this device has approved. Revoking first takes the grant back on the server, then this row disappears here; notifications already received are not deleted. The grant the other device gave you is its own to revoke.';
+      'This section records devices this device has approved. Revoking first has the server withdraw the grant; the corresponding row here then disappears, and notifications already received are not deleted. The grant the other device gave this device must be revoked by that device.';
 
   @override
   String get fnthinkPeerRevoke => 'Revoke';
@@ -4391,7 +4393,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPeerRenameTitle =>
-      'Name this peer (only this device sees it)';
+      'Name this peer (visible only on this device)';
 
   @override
   String fnthinkPeerRenameSaved(String alias) {
@@ -4489,7 +4491,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairPeerPendingNote =>
-      'Sending it only adds a pending request on the other device: it decides whether to approve, and this device\'s peer list only shows the row after the next round of receiving.';
+      'Submitting only adds a pending request on the other device: it decides whether to approve, and the corresponding row in this device\'s list appears after the next receive round.';
 
   @override
   String fnthinkPairPeerSubmitted(String id, String status) {
@@ -4535,7 +4537,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairLinkRejected =>
-      'This device cannot use that link: it is not a fnthink pairing link, or the protocol version does not match. Go back to the other device, arm a new code and open it again';
+      'This device cannot use this link: it is not a Fnthink pairing link, or the protocol version does not match. Return to that device, generate a new pairing code, and try again.';
 
   @override
   String fnthinkSendSheetTitle(String peer) {
@@ -4640,30 +4642,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkRevokeAskMsg(String peer) {
-    return 'After revoking, $peer can no longer push to this device; notifications already received stay. Only that leg breaks — this device\'s grant to push to it survives (that leg has to be struck on its own screen). This step needs the server, so it cannot be done offline.';
+    return 'After revoking, $peer can no longer push to this device; notifications already received are kept. This only ends that direction; this device\'s grant to push to it is unaffected (it must be revoked on the other device). The server must withdraw the grant, so this cannot be completed offline.';
   }
 
   @override
   String fnthinkRevoked(String peer) {
-    return 'Revoked $peer: it can no longer push to this device';
+    return 'Revoked $peer: that device can no longer push to this device.';
   }
 
   @override
   String fnthinkRevokeAlreadyGone(String peer) {
-    return 'The server no longer holds a grant for $peer (revoking is idempotent: the goal is already met)';
+    return 'The server no longer holds a grant for $peer (revocation is idempotent; the goal is already met).';
   }
 
   @override
   String get fnthinkRevokeStoreUnavailable =>
-      'The server revoked it, but this device has no row-deletion wiring, so this row stays';
+      'The server revoked it, but row deletion is not connected on this device; the row remains.';
 
   @override
   String get fnthinkRevokeRowRemains =>
-      'The server revoked it, but deleting this row failed, so the row stays';
+      'The server revoked it, but deleting this row failed; the row remains.';
 
   @override
   String fnthinkRevokeFailed(String reason) {
-    return 'Revoking failed ($reason) — the row stays in the list, which is the truth right now';
+    return 'Revoking failed ($reason); the row remains in the list, reflecting the current state.';
   }
 
   @override
@@ -6152,18 +6154,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPeersBoundaryShort =>
-      'This cell records who this device has approved';
+      'This section records devices this device has approved';
 
   @override
   String get fnthinkPairPeerPendingNoteShort =>
-      'Sending only adds a pending request on the other device';
+      'Submitting only adds a pending request on the other device';
 
   @override
   String get fnthinkPairApprovedOneWayShort =>
-      'Both sides can push now; the per-item side is theirs to tick';
+      'Both directions can send now; per-item permissions still require the other device to select them.';
 
   @override
-  String get fnthinkPairLinkRejectedShort => 'This device cannot use that link';
+  String get fnthinkPairLinkRejectedShort => 'This device cannot use this link';
 
   @override
   String get fnthinkSendNoticeVsCommandShort =>

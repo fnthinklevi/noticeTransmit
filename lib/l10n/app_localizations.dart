@@ -6772,7 +6772,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairingPeersHint.
   ///
   /// In zh, this message translates to:
-  /// **'对面要的就是这两样：本机地址码与这枚一次性口令'**
+  /// **'对端需要以下两项：本机地址码与本次一次性口令'**
   String get fnthinkPairingPeersHint;
 
   /// No description provided for @fnthinkPairingLifecycleActive.
@@ -7000,37 +7000,37 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairRequests.
   ///
   /// In zh, this message translates to:
-  /// **'等你答复的配对请求'**
+  /// **'待你确认的配对请求'**
   String get fnthinkPairRequests;
 
   /// No description provided for @fnthinkPairRequestLine.
   ///
   /// In zh, this message translates to:
-  /// **'{peer} 请求配对你，要的是 {level} · {at}'**
+  /// **'{peer} 请求与本机配对，请求档位为 {level} · {at}'**
   String fnthinkPairRequestLine(String peer, String level, String at);
 
   /// No description provided for @fnthinkPairRefresh.
   ///
   /// In zh, this message translates to:
-  /// **'问一次对面答了没'**
+  /// **'向服务器查询对端答复'**
   String get fnthinkPairRefresh;
 
   /// No description provided for @fnthinkPairRefreshQuiet.
   ///
   /// In zh, this message translates to:
-  /// **'问过服务器了，对面还没有新结论'**
+  /// **'已向服务器查询，对端暂无新结论'**
   String get fnthinkPairRefreshQuiet;
 
   /// No description provided for @fnthinkPairRequestsSent.
   ///
   /// In zh, this message translates to:
-  /// **'我发起过的配对请求'**
+  /// **'本机发起的配对请求'**
   String get fnthinkPairRequestsSent;
 
   /// No description provided for @fnthinkPairSentLine.
   ///
   /// In zh, this message translates to:
-  /// **'发给 {peer} · 要的是 {level} · {status} · {at}'**
+  /// **'发送至 {peer} · 请求档位 {level} · {status} · {at}'**
   String fnthinkPairSentLine(
     String peer,
     String level,
@@ -7041,31 +7041,31 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairStatePending.
   ///
   /// In zh, this message translates to:
-  /// **'还在等对方答复'**
+  /// **'等待对端答复'**
   String get fnthinkPairStatePending;
 
   /// No description provided for @fnthinkPairStateApproved.
   ///
   /// In zh, this message translates to:
-  /// **'对方已同意'**
+  /// **'对端已同意'**
   String get fnthinkPairStateApproved;
 
   /// No description provided for @fnthinkPairStateDenied.
   ///
   /// In zh, this message translates to:
-  /// **'对方已拒绝'**
+  /// **'对端已拒绝'**
   String get fnthinkPairStateDenied;
 
   /// No description provided for @fnthinkPairStateExpired.
   ///
   /// In zh, this message translates to:
-  /// **'那枚口令已过期'**
+  /// **'配对口令已过期'**
   String get fnthinkPairStateExpired;
 
   /// No description provided for @fnthinkPairStateUnknown.
   ///
   /// In zh, this message translates to:
-  /// **'不认识的状态：{status}'**
+  /// **'未知状态：{status}'**
   String fnthinkPairStateUnknown(String status);
 
   /// No description provided for @fnthinkPairHistoryTitle.
@@ -7077,19 +7077,19 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairHistoryWants.
   ///
   /// In zh, this message translates to:
-  /// **'要的是 {level}'**
+  /// **'请求档位 {level}'**
   String fnthinkPairHistoryWants(String level);
 
   /// No description provided for @fnthinkPairHistoryOutgoing.
   ///
   /// In zh, this message translates to:
-  /// **'我发起的'**
+  /// **'本机发起'**
   String get fnthinkPairHistoryOutgoing;
 
   /// No description provided for @fnthinkPairHistoryIncoming.
   ///
   /// In zh, this message translates to:
-  /// **'对方请求的'**
+  /// **'对端请求'**
   String get fnthinkPairHistoryIncoming;
 
   /// No description provided for @agoMinutes.
@@ -7125,13 +7125,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairWillGrant.
   ///
   /// In zh, this message translates to:
-  /// **'本机这次只能给到 {level}：更高那一档要在这台设备上本地确认'**
+  /// **'本机本次最多可授予 {level}；更高档位需在本机确认'**
   String fnthinkPairWillGrant(String level);
 
   /// No description provided for @fnthinkPairUnknownLevel.
   ///
   /// In zh, this message translates to:
-  /// **'对方报的档位「{level}」不在本机认识的档位表里 ⇒ 不能同意，只能拒绝'**
+  /// **'对端所报档位「{level}」不在本机档位表中，无法同意，仅可拒绝'**
   String fnthinkPairUnknownLevel(String level);
 
   /// No description provided for @fnthinkPairApprove.
@@ -7149,13 +7149,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairApproveOutbound.
   ///
   /// In zh, this message translates to:
-  /// **'同意时也把它设为往外发的目标'**
+  /// **'同意时同时将其设为外发目标'**
   String get fnthinkPairApproveOutbound;
 
   /// No description provided for @fnthinkPairApproveOutboundDesc.
   ///
   /// In zh, this message translates to:
-  /// **'勾上＝本机这两段当场办掉：那一列勾上 ＋ 一条目标=它的通道。'**
+  /// **'勾选后，本机将立即完成两项：勾选名单项，并创建一条目标为该设备的通道。'**
   String get fnthinkPairApproveOutboundDesc;
 
   /// No description provided for @fnthinkPairChannelIdLabel.
@@ -7167,7 +7167,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairApprovedOneWay.
   ///
   /// In zh, this message translates to:
-  /// **'两边已经能互发通知了：这一次确认写下两段授权，各住在被投那台的名单里。还缺的是逐条项 —— L2 动作与 L3 设置要对面那台自己在它的同意屏上勾，这台替它点不了。'**
+  /// **'两台设备现已可互相发送通知：本次确认写入了两段授权，分别保存在被投设备的名单中。尚未完成的是逐项权限：L2 动作与 L3 设置需由对端在其同意界面上自行勾选，本机无法代为操作。'**
   String get fnthinkPairApprovedOneWay;
 
   /// No description provided for @fnthinkPairAskTitle.
@@ -7179,13 +7179,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairAskMsg.
   ///
   /// In zh, this message translates to:
-  /// **'把 {peer} 记进本机名单并授到 {level}。同意之后它就能往这台设备推消息。'**
+  /// **'将 {peer} 加入本机名单并授予 {level}。同意后，该设备可向本机推送消息。'**
   String fnthinkPairAskMsg(String peer, String level);
 
   /// No description provided for @fnthinkPairApproved.
   ///
   /// In zh, this message translates to:
-  /// **'已同意 {peer}，服务端把它记到 {level}'**
+  /// **'已同意 {peer}，服务端记录档位为 {level}'**
   String fnthinkPairApproved(String peer, String level);
 
   /// No description provided for @fnthinkPairDenied.
@@ -7197,31 +7197,31 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairKeySwapped.
   ///
   /// In zh, this message translates to:
-  /// **'{peer} 这个地址码上次用的是另一把公钥，本机一行都没改 —— 要么它重建过身份，要么有人在冒用地址码'**
+  /// **'{peer} 的地址码上次使用另一把公钥，本机未作任何修改。该设备可能已重建身份，也可能有人冒用该地址码'**
   String fnthinkPairKeySwapped(String peer);
 
   /// No description provided for @fnthinkPairFailed.
   ///
   /// In zh, this message translates to:
-  /// **'没答应：{reason}'**
+  /// **'未获同意：{reason}'**
   String fnthinkPairFailed(String reason);
 
   /// No description provided for @fnthinkPairNoGrantedLevel.
   ///
   /// In zh, this message translates to:
-  /// **'服务端认了这条，但没回它记到哪一档 ⇒ 本机名单没写'**
+  /// **'服务端已接受，但未返回记录的档位，本机名单未写入'**
   String get fnthinkPairNoGrantedLevel;
 
   /// No description provided for @fnthinkPeerStoreUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'服务端认了这条，但这台设备没接名单落库 ⇒ 本机名单没写'**
+  /// **'服务端已接受，但本机未接入名单存储，名单未写入'**
   String get fnthinkPeerStoreUnavailable;
 
   /// No description provided for @fnthinkPeerWriteFailed.
   ///
   /// In zh, this message translates to:
-  /// **'服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写'**
+  /// **'服务端已接受，但本机写入名单失败，名单未写入'**
   String get fnthinkPeerWriteFailed;
 
   /// No description provided for @fnthinkPeersTitle.
@@ -7233,7 +7233,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSenderDisplayLabel.
   ///
   /// In zh, this message translates to:
-  /// **'收件里发送人怎么显示'**
+  /// **'收件中发送人的显示方式'**
   String get fnthinkSenderDisplayLabel;
 
   /// No description provided for @fnthinkSenderDisplayAliasFirst.
@@ -7251,7 +7251,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSenderDisplayBoth.
   ///
   /// In zh, this message translates to:
-  /// **'两者都给'**
+  /// **'两者均显示'**
   String get fnthinkSenderDisplayBoth;
 
   /// No description provided for @fnthinkHubTitle.
@@ -7503,19 +7503,19 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerForwardToggle.
   ///
   /// In zh, this message translates to:
-  /// **'你 → 它 · 可以收到你这台转发的通知'**
+  /// **'本机 → 对端 · 可接收本机转发的通知'**
   String get fnthinkPeerForwardToggle;
 
   /// No description provided for @fnthinkPeerForwardChannelMade.
   ///
   /// In zh, this message translates to:
-  /// **'已替你建了一条通往它的通道（三段现在齐了）'**
+  /// **'已为对端创建通道，三项条件均已具备'**
   String get fnthinkPeerForwardChannelMade;
 
   /// No description provided for @fnthinkPeerForwardChannelKept.
   ///
   /// In zh, this message translates to:
-  /// **'通往它的通道已经有一条，没另建'**
+  /// **'已存在通往该对端的通道，未重复创建'**
   String get fnthinkPeerForwardChannelKept;
 
   /// No description provided for @fnthinkPeerPresenceOnline.
@@ -7599,31 +7599,31 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerForwardHint.
   ///
   /// In zh, this message translates to:
-  /// **'勾上它，这台设备收到的通知才会往它那边转。'**
+  /// **'勾选后，本机收到的通知才会转发至该对端。'**
   String get fnthinkPeerForwardHint;
 
   /// No description provided for @fnthinkPeerLine.
   ///
   /// In zh, this message translates to:
-  /// **'它 → 你 · 授到 {level} · {at}'**
+  /// **'对端 → 本机 · 已授予 {level} · {at}'**
   String fnthinkPeerLine(String level, String at);
 
   /// No description provided for @fnthinkPeersEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'还没有配对过任何设备'**
+  /// **'尚未配对任何设备'**
   String get fnthinkPeersEmpty;
 
   /// No description provided for @fnthinkPeersError.
   ///
   /// In zh, this message translates to:
-  /// **'名单读不出来（{reason}）—— 这一格显示不了不等于「没有」'**
+  /// **'无法读取名单（{reason}）；显示失败并不表示没有已配对设备'**
   String fnthinkPeersError(String reason);
 
   /// No description provided for @fnthinkPeersBoundary.
   ///
   /// In zh, this message translates to:
-  /// **'这一格记的是「本机同意过谁」。点「撤销」是先让服务器收回那份授权，本机这一行随之消失；已经收到的通知不会被删掉。对面那台给你的许可，要由它自己去撤。'**
+  /// **'此处记录本机已同意的设备。撤销时先由服务器收回授权，本机对应行随后消失；已收到的通知不会被删除。对端授予本机的许可，需由对端自行撤销。'**
   String get fnthinkPeersBoundary;
 
   /// No description provided for @fnthinkPeerRevoke.
@@ -7635,7 +7635,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerSend.
   ///
   /// In zh, this message translates to:
-  /// **'发一条'**
+  /// **'发送一条'**
   String get fnthinkPeerSend;
 
   /// No description provided for @fnthinkPeerRename.
@@ -7647,25 +7647,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerRenameTitle.
   ///
   /// In zh, this message translates to:
-  /// **'给这台起个名字（只有这台自己看得到）'**
+  /// **'为该设备设置名称（仅本机可见）'**
   String get fnthinkPeerRenameTitle;
 
   /// No description provided for @fnthinkPeerRenameSaved.
   ///
   /// In zh, this message translates to:
-  /// **'已改名为 {alias}'**
+  /// **'名称已改为 {alias}'**
   String fnthinkPeerRenameSaved(String alias);
 
   /// No description provided for @fnthinkPeerRenameCleared.
   ///
   /// In zh, this message translates to:
-  /// **'已抹掉这个名字'**
+  /// **'名称已清除'**
   String get fnthinkPeerRenameCleared;
 
   /// No description provided for @fnthinkPeerRenameGone.
   ///
   /// In zh, this message translates to:
-  /// **'这一行已经不在名单里了'**
+  /// **'该设备已不在名单中'**
   String get fnthinkPeerRenameGone;
 
   /// No description provided for @fnthinkPeerDetailTitle.
@@ -7755,13 +7755,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairPeer.
   ///
   /// In zh, this message translates to:
-  /// **'配对另一台设备'**
+  /// **'与另一台设备配对'**
   String get fnthinkPairPeer;
 
   /// No description provided for @fnthinkPairPeerTitle.
   ///
   /// In zh, this message translates to:
-  /// **'向那台设备发起配对'**
+  /// **'向该设备发起配对'**
   String get fnthinkPairPeerTitle;
 
   /// No description provided for @fnthinkPairPeerTargetHint.
@@ -7803,7 +7803,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairPeerPendingNote.
   ///
   /// In zh, this message translates to:
-  /// **'发过去只等于对面那台多了一条待确认：同不同意由它自己点，本机名单里那一行要等下一轮收取才出现。'**
+  /// **'提交后仅在对端新增一条待确认请求：是否同意由对端决定，本机名单中的对应行将在下一轮收取后出现。'**
   String get fnthinkPairPeerPendingNote;
 
   /// No description provided for @fnthinkPairPeerSubmitted.
@@ -7869,7 +7869,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairLinkRejected.
   ///
   /// In zh, this message translates to:
-  /// **'这条链接这台设备用不上：不是幻念推送的配对链接，或协议版本对不上。回到那台设备重新挂一枚口令，再点一次'**
+  /// **'本机无法使用此链接：该链接不是幻念推送配对链接，或协议版本不匹配。请回到该设备重新生成配对口令后再试'**
   String get fnthinkPairLinkRejected;
 
   /// No description provided for @fnthinkSendSheetTitle.
@@ -8031,37 +8031,37 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkRevokeAskMsg.
   ///
   /// In zh, this message translates to:
-  /// **'撤销之后 {peer} 再也推不进本机；已经收到的通知留着。只断这一头 —— 这台投给它的授权不跟着消失（那一段要它在它的屏幕上划掉）。这一步要先让服务器收回授权，所以离线时做不成。'**
+  /// **'撤销后，{peer} 将无法再向本机推送；已收到的通知保留。此次仅终止该方向，本机授予对端的推送权限不受影响（需在对端自行撤销）。此操作需由服务器收回授权，离线时无法完成。'**
   String fnthinkRevokeAskMsg(String peer);
 
   /// No description provided for @fnthinkRevoked.
   ///
   /// In zh, this message translates to:
-  /// **'已撤销 {peer}：它以后推不进本机了'**
+  /// **'已撤销 {peer}：该设备此后无法向本机推送'**
   String fnthinkRevoked(String peer);
 
   /// No description provided for @fnthinkRevokeAlreadyGone.
   ///
   /// In zh, this message translates to:
-  /// **'服务器那边已经没有 {peer} 这份授权（撤销是幂等的：目标已达成）'**
+  /// **'服务器已不存在 {peer} 的授权（撤销具有幂等性，目标已达成）'**
   String fnthinkRevokeAlreadyGone(String peer);
 
   /// No description provided for @fnthinkRevokeStoreUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'服务器已经撤销，但这台设备没接名单删行 ⇒ 这一行还留着'**
+  /// **'服务器已撤销，但本机未接入名单删除功能，该行仍保留'**
   String get fnthinkRevokeStoreUnavailable;
 
   /// No description provided for @fnthinkRevokeRowRemains.
   ///
   /// In zh, this message translates to:
-  /// **'服务器已经撤销，本机删这一行时失败了 ⇒ 这一行还留着'**
+  /// **'服务器已撤销，但本机删除该行失败，该行仍保留'**
   String get fnthinkRevokeRowRemains;
 
   /// No description provided for @fnthinkRevokeFailed.
   ///
   /// In zh, this message translates to:
-  /// **'撤销没成（{reason}）—— 名单里那一行留着，那才是此刻的真话'**
+  /// **'撤销失败（{reason}）；名单中该行仍保留，反映当前实际状态'**
   String fnthinkRevokeFailed(String reason);
 
   /// No description provided for @fnthinkEndpointTitle.
@@ -10376,25 +10376,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeersBoundaryShort.
   ///
   /// In zh, this message translates to:
-  /// **'这一格记的是本机同意过谁'**
+  /// **'此处记录本机已同意的设备'**
   String get fnthinkPeersBoundaryShort;
 
   /// No description provided for @fnthinkPairPeerPendingNoteShort.
   ///
   /// In zh, this message translates to:
-  /// **'发过去只是对面多了一条待确认'**
+  /// **'提交后仅在对端新增一条待确认请求'**
   String get fnthinkPairPeerPendingNoteShort;
 
   /// No description provided for @fnthinkPairApprovedOneWayShort.
   ///
   /// In zh, this message translates to:
-  /// **'两边能互发了，逐条项还要对面自己勾'**
+  /// **'双向发送已开通，逐项权限仍需对端自行勾选'**
   String get fnthinkPairApprovedOneWayShort;
 
   /// No description provided for @fnthinkPairLinkRejectedShort.
   ///
   /// In zh, this message translates to:
-  /// **'这条链接这台设备用不上'**
+  /// **'本机无法使用此链接'**
   String get fnthinkPairLinkRejectedShort;
 
   /// No description provided for @fnthinkSendNoticeVsCommandShort.

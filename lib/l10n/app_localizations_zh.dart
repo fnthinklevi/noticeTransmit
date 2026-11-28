@@ -3677,7 +3677,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairingExpireNote => '是否过期、有没有被用掉都由服务器判，这台手机只负责把它挂出来';
 
   @override
-  String get fnthinkPairingPeersHint => '对面要的就是这两样：本机地址码与这枚一次性口令';
+  String get fnthinkPairingPeersHint => '对端需要以下两项：本机地址码与本次一次性口令';
 
   @override
   String get fnthinkPairingLifecycleActive => '这一枚看起来还有效：对端现在可以用它配对';
@@ -3797,21 +3797,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkOutcomeFailed => '这一步没做成';
 
   @override
-  String get fnthinkPairRequests => '等你答复的配对请求';
+  String get fnthinkPairRequests => '待你确认的配对请求';
 
   @override
   String fnthinkPairRequestLine(String peer, String level, String at) {
-    return '$peer 请求配对你，要的是 $level · $at';
+    return '$peer 请求与本机配对，请求档位为 $level · $at';
   }
 
   @override
-  String get fnthinkPairRefresh => '问一次对面答了没';
+  String get fnthinkPairRefresh => '向服务器查询对端答复';
 
   @override
-  String get fnthinkPairRefreshQuiet => '问过服务器了，对面还没有新结论';
+  String get fnthinkPairRefreshQuiet => '已向服务器查询，对端暂无新结论';
 
   @override
-  String get fnthinkPairRequestsSent => '我发起过的配对请求';
+  String get fnthinkPairRequestsSent => '本机发起的配对请求';
 
   @override
   String fnthinkPairSentLine(
@@ -3820,24 +3820,24 @@ class AppLocalizationsZh extends AppLocalizations {
     String status,
     String at,
   ) {
-    return '发给 $peer · 要的是 $level · $status · $at';
+    return '发送至 $peer · 请求档位 $level · $status · $at';
   }
 
   @override
-  String get fnthinkPairStatePending => '还在等对方答复';
+  String get fnthinkPairStatePending => '等待对端答复';
 
   @override
-  String get fnthinkPairStateApproved => '对方已同意';
+  String get fnthinkPairStateApproved => '对端已同意';
 
   @override
-  String get fnthinkPairStateDenied => '对方已拒绝';
+  String get fnthinkPairStateDenied => '对端已拒绝';
 
   @override
-  String get fnthinkPairStateExpired => '那枚口令已过期';
+  String get fnthinkPairStateExpired => '配对口令已过期';
 
   @override
   String fnthinkPairStateUnknown(String status) {
-    return '不认识的状态：$status';
+    return '未知状态：$status';
   }
 
   @override
@@ -3845,14 +3845,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkPairHistoryWants(String level) {
-    return '要的是 $level';
+    return '请求档位 $level';
   }
 
   @override
-  String get fnthinkPairHistoryOutgoing => '我发起的';
+  String get fnthinkPairHistoryOutgoing => '本机发起';
 
   @override
-  String get fnthinkPairHistoryIncoming => '对方请求的';
+  String get fnthinkPairHistoryIncoming => '对端请求';
 
   @override
   String agoMinutes(int n) {
@@ -3881,12 +3881,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkPairWillGrant(String level) {
-    return '本机这次只能给到 $level：更高那一档要在这台设备上本地确认';
+    return '本机本次最多可授予 $level；更高档位需在本机确认';
   }
 
   @override
   String fnthinkPairUnknownLevel(String level) {
-    return '对方报的档位「$level」不在本机认识的档位表里 ⇒ 不能同意，只能拒绝';
+    return '对端所报档位「$level」不在本机档位表中，无法同意，仅可拒绝';
   }
 
   @override
@@ -3896,30 +3896,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairDeny => '拒绝';
 
   @override
-  String get fnthinkPairApproveOutbound => '同意时也把它设为往外发的目标';
+  String get fnthinkPairApproveOutbound => '同意时同时将其设为外发目标';
 
   @override
   String get fnthinkPairApproveOutboundDesc =>
-      '勾上＝本机这两段当场办掉：那一列勾上 ＋ 一条目标=它的通道。';
+      '勾选后，本机将立即完成两项：勾选名单项，并创建一条目标为该设备的通道。';
 
   @override
   String get fnthinkPairChannelIdLabel => '本机哪一条通道（号）';
 
   @override
   String get fnthinkPairApprovedOneWay =>
-      '两边已经能互发通知了：这一次确认写下两段授权，各住在被投那台的名单里。还缺的是逐条项 —— L2 动作与 L3 设置要对面那台自己在它的同意屏上勾，这台替它点不了。';
+      '两台设备现已可互相发送通知：本次确认写入了两段授权，分别保存在被投设备的名单中。尚未完成的是逐项权限：L2 动作与 L3 设置需由对端在其同意界面上自行勾选，本机无法代为操作。';
 
   @override
   String get fnthinkPairAskTitle => '同意配对？';
 
   @override
   String fnthinkPairAskMsg(String peer, String level) {
-    return '把 $peer 记进本机名单并授到 $level。同意之后它就能往这台设备推消息。';
+    return '将 $peer 加入本机名单并授予 $level。同意后，该设备可向本机推送消息。';
   }
 
   @override
   String fnthinkPairApproved(String peer, String level) {
-    return '已同意 $peer，服务端把它记到 $level';
+    return '已同意 $peer，服务端记录档位为 $level';
   }
 
   @override
@@ -3929,28 +3929,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkPairKeySwapped(String peer) {
-    return '$peer 这个地址码上次用的是另一把公钥，本机一行都没改 —— 要么它重建过身份，要么有人在冒用地址码';
+    return '$peer 的地址码上次使用另一把公钥，本机未作任何修改。该设备可能已重建身份，也可能有人冒用该地址码';
   }
 
   @override
   String fnthinkPairFailed(String reason) {
-    return '没答应：$reason';
+    return '未获同意：$reason';
   }
 
   @override
-  String get fnthinkPairNoGrantedLevel => '服务端认了这条，但没回它记到哪一档 ⇒ 本机名单没写';
+  String get fnthinkPairNoGrantedLevel => '服务端已接受，但未返回记录的档位，本机名单未写入';
 
   @override
-  String get fnthinkPeerStoreUnavailable => '服务端认了这条，但这台设备没接名单落库 ⇒ 本机名单没写';
+  String get fnthinkPeerStoreUnavailable => '服务端已接受，但本机未接入名单存储，名单未写入';
 
   @override
-  String get fnthinkPeerWriteFailed => '服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写';
+  String get fnthinkPeerWriteFailed => '服务端已接受，但本机写入名单失败，名单未写入';
 
   @override
   String get fnthinkPeersTitle => '设备配对';
 
   @override
-  String get fnthinkSenderDisplayLabel => '收件里发送人怎么显示';
+  String get fnthinkSenderDisplayLabel => '收件中发送人的显示方式';
 
   @override
   String get fnthinkSenderDisplayAliasFirst => '备注优先';
@@ -3959,7 +3959,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkSenderDisplayDeviceName => '设备名';
 
   @override
-  String get fnthinkSenderDisplayBoth => '两者都给';
+  String get fnthinkSenderDisplayBoth => '两者均显示';
 
   @override
   String get fnthinkHubTitle => '幻念推送';
@@ -4095,13 +4095,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkPeerForwardToggle => '你 → 它 · 可以收到你这台转发的通知';
+  String get fnthinkPeerForwardToggle => '本机 → 对端 · 可接收本机转发的通知';
 
   @override
-  String get fnthinkPeerForwardChannelMade => '已替你建了一条通往它的通道（三段现在齐了）';
+  String get fnthinkPeerForwardChannelMade => '已为对端创建通道，三项条件均已具备';
 
   @override
-  String get fnthinkPeerForwardChannelKept => '通往它的通道已经有一条，没另建';
+  String get fnthinkPeerForwardChannelKept => '已存在通往该对端的通道，未重复创建';
 
   @override
   String fnthinkPeerPresenceOnline(String ago) {
@@ -4153,47 +4153,47 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkSelfCheckHealthUnknown => '服务可达；契约版本读不到';
 
   @override
-  String get fnthinkPeerForwardHint => '勾上它，这台设备收到的通知才会往它那边转。';
+  String get fnthinkPeerForwardHint => '勾选后，本机收到的通知才会转发至该对端。';
 
   @override
   String fnthinkPeerLine(String level, String at) {
-    return '它 → 你 · 授到 $level · $at';
+    return '对端 → 本机 · 已授予 $level · $at';
   }
 
   @override
-  String get fnthinkPeersEmpty => '还没有配对过任何设备';
+  String get fnthinkPeersEmpty => '尚未配对任何设备';
 
   @override
   String fnthinkPeersError(String reason) {
-    return '名单读不出来（$reason）—— 这一格显示不了不等于「没有」';
+    return '无法读取名单（$reason）；显示失败并不表示没有已配对设备';
   }
 
   @override
   String get fnthinkPeersBoundary =>
-      '这一格记的是「本机同意过谁」。点「撤销」是先让服务器收回那份授权，本机这一行随之消失；已经收到的通知不会被删掉。对面那台给你的许可，要由它自己去撤。';
+      '此处记录本机已同意的设备。撤销时先由服务器收回授权，本机对应行随后消失；已收到的通知不会被删除。对端授予本机的许可，需由对端自行撤销。';
 
   @override
   String get fnthinkPeerRevoke => '撤销';
 
   @override
-  String get fnthinkPeerSend => '发一条';
+  String get fnthinkPeerSend => '发送一条';
 
   @override
   String get fnthinkPeerRename => '改名';
 
   @override
-  String get fnthinkPeerRenameTitle => '给这台起个名字（只有这台自己看得到）';
+  String get fnthinkPeerRenameTitle => '为该设备设置名称（仅本机可见）';
 
   @override
   String fnthinkPeerRenameSaved(String alias) {
-    return '已改名为 $alias';
+    return '名称已改为 $alias';
   }
 
   @override
-  String get fnthinkPeerRenameCleared => '已抹掉这个名字';
+  String get fnthinkPeerRenameCleared => '名称已清除';
 
   @override
-  String get fnthinkPeerRenameGone => '这一行已经不在名单里了';
+  String get fnthinkPeerRenameGone => '该设备已不在名单中';
 
   @override
   String get fnthinkPeerDetailTitle => '设备详情';
@@ -4244,10 +4244,10 @@ class AppLocalizationsZh extends AppLocalizations {
       '服务器已按新清单执行，但这台本机的名单没写成；请重新打开这一页确认。';
 
   @override
-  String get fnthinkPairPeer => '配对另一台设备';
+  String get fnthinkPairPeer => '与另一台设备配对';
 
   @override
-  String get fnthinkPairPeerTitle => '向那台设备发起配对';
+  String get fnthinkPairPeerTitle => '向该设备发起配对';
 
   @override
   String get fnthinkPairPeerTargetHint => '对端地址码（那台设备上显示的那一串）';
@@ -4272,7 +4272,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPairPeerPendingNote =>
-      '发过去只等于对面那台多了一条待确认：同不同意由它自己点，本机名单里那一行要等下一轮收取才出现。';
+      '提交后仅在对端新增一条待确认请求：是否同意由对端决定，本机名单中的对应行将在下一轮收取后出现。';
 
   @override
   String fnthinkPairPeerSubmitted(String id, String status) {
@@ -4314,7 +4314,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPairLinkRejected =>
-      '这条链接这台设备用不上：不是幻念推送的配对链接，或协议版本对不上。回到那台设备重新挂一枚口令，再点一次';
+      '本机无法使用此链接：该链接不是幻念推送配对链接，或协议版本不匹配。请回到该设备重新生成配对口令后再试';
 
   @override
   String fnthinkSendSheetTitle(String peer) {
@@ -4408,28 +4408,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkRevokeAskMsg(String peer) {
-    return '撤销之后 $peer 再也推不进本机；已经收到的通知留着。只断这一头 —— 这台投给它的授权不跟着消失（那一段要它在它的屏幕上划掉）。这一步要先让服务器收回授权，所以离线时做不成。';
+    return '撤销后，$peer 将无法再向本机推送；已收到的通知保留。此次仅终止该方向，本机授予对端的推送权限不受影响（需在对端自行撤销）。此操作需由服务器收回授权，离线时无法完成。';
   }
 
   @override
   String fnthinkRevoked(String peer) {
-    return '已撤销 $peer：它以后推不进本机了';
+    return '已撤销 $peer：该设备此后无法向本机推送';
   }
 
   @override
   String fnthinkRevokeAlreadyGone(String peer) {
-    return '服务器那边已经没有 $peer 这份授权（撤销是幂等的：目标已达成）';
+    return '服务器已不存在 $peer 的授权（撤销具有幂等性，目标已达成）';
   }
 
   @override
-  String get fnthinkRevokeStoreUnavailable => '服务器已经撤销，但这台设备没接名单删行 ⇒ 这一行还留着';
+  String get fnthinkRevokeStoreUnavailable => '服务器已撤销，但本机未接入名单删除功能，该行仍保留';
 
   @override
-  String get fnthinkRevokeRowRemains => '服务器已经撤销，本机删这一行时失败了 ⇒ 这一行还留着';
+  String get fnthinkRevokeRowRemains => '服务器已撤销，但本机删除该行失败，该行仍保留';
 
   @override
   String fnthinkRevokeFailed(String reason) {
-    return '撤销没成（$reason）—— 名单里那一行留着，那才是此刻的真话';
+    return '撤销失败（$reason）；名单中该行仍保留，反映当前实际状态';
   }
 
   @override
@@ -5811,16 +5811,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteHistoryBoundaryShort => '这一页只记本机这一份';
 
   @override
-  String get fnthinkPeersBoundaryShort => '这一格记的是本机同意过谁';
+  String get fnthinkPeersBoundaryShort => '此处记录本机已同意的设备';
 
   @override
-  String get fnthinkPairPeerPendingNoteShort => '发过去只是对面多了一条待确认';
+  String get fnthinkPairPeerPendingNoteShort => '提交后仅在对端新增一条待确认请求';
 
   @override
-  String get fnthinkPairApprovedOneWayShort => '两边能互发了，逐条项还要对面自己勾';
+  String get fnthinkPairApprovedOneWayShort => '双向发送已开通，逐项权限仍需对端自行勾选';
 
   @override
-  String get fnthinkPairLinkRejectedShort => '这条链接这台设备用不上';
+  String get fnthinkPairLinkRejectedShort => '本机无法使用此链接';
 
   @override
   String get fnthinkSendNoticeVsCommandShort => '通知＝让对面看到内容；指令＝让对面做一件事';

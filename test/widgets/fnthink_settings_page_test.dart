@@ -1858,7 +1858,7 @@ void main() {
     testWidgets('对面没报名字 ⇒ 那一行只剩地址码，不写「未命名」', (tester) async {
       stubChannels();
       await openWith(tester, requests: [request('L1')]);
-      expect(find.textContaining('8KMNPQRSTVWX999777 请求配对你'), findsOneWidget);
+      expect(find.textContaining('8KMNPQRSTVWX999777 请求与本机配对'), findsOneWidget);
       expect(
         find.textContaining('(未命名)'),
         findsNothing,
@@ -2857,7 +2857,10 @@ void main() {
       );
       final note = find.byKey(const ValueKey('fnthink-peer-revoke-note'));
       await revealTo(tester, note);
-      expect(tester.widget<Text>(note).data, contains('撤销没成'));
+      expect(
+        tester.widget<Text>(note).data,
+        l10n.fnthinkRevokeFailed('rejected-unsigned'),
+      );
     });
 
     testWidgets('服务器撤了而本机删行抛 ⇒ 说得出"那一行还留着"，不说成撤销失败', (tester) async {

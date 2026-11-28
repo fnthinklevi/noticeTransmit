@@ -180,5 +180,231 @@
       "zh": "精确闹钟未授权：后台收取可能延迟。",
       "en": "Exact alarms not granted: background fetches may be delayed."
     }
+  },
+  "lib/pages/fnthink_peers_page.dart": {
+    "fnthinkPairingPeersHint": {
+      "zh": "对端需要以下两项：本机地址码与本次一次性口令",
+      "en": "The other device needs these two items: this device's address code and this one-time pairing code."
+    },
+    "fnthinkPairRequests": {
+      "zh": "待你确认的配对请求",
+      "en": "Pairing requests awaiting your approval"
+    },
+    "fnthinkPairApprovedOneWayShort": {
+      "zh": "双向发送已开通，逐项权限仍需对端自行勾选",
+      "en": "Both directions can send now; per-item permissions still require the other device to select them."
+    },
+    "fnthinkPairApprovedOneWay": {
+      "zh": "两台设备现已可互相发送通知：本次确认写入了两段授权，分别保存在被投设备的名单中。尚未完成的是逐项权限：L2 动作与 L3 设置需由对端在其同意界面上自行勾选，本机无法代为操作。",
+      "en": "The two devices can now send notifications to each other. This confirmation wrote two grants, each stored on the receiving device's list. What remains is the per-item permission set: L2 actions and L3 settings must be selected by the other device on its own consent screen; this device cannot do so on its behalf."
+    },
+    "fnthinkPairRequestsSent": {
+      "zh": "本机发起的配对请求",
+      "en": "Pairing requests sent by this device"
+    },
+    "fnthinkPairSentLine": {
+      "zh": "发送至 {peer} · 请求档位 {level} · {status} · {at}",
+      "en": "sent to {peer} · requesting {level} · {status} · {at}"
+    },
+    "fnthinkPairRefresh": {
+      "zh": "向服务器查询对端答复",
+      "en": "Check the server for the other device's response"
+    },
+    "fnthinkPairRefreshQuiet": {
+      "zh": "已向服务器查询，对端暂无新结论",
+      "en": "The server has been queried; the other device has no new response yet."
+    },
+    "fnthinkPairHistoryOutgoing": {
+      "zh": "本机发起",
+      "en": "Sent by this device"
+    },
+    "fnthinkPairHistoryIncoming": {
+      "zh": "对端请求",
+      "en": "Requested by the other device"
+    },
+    "fnthinkPairHistoryWants": {
+      "zh": "请求档位 {level}",
+      "en": "requesting {level}"
+    },
+    "fnthinkPairStatePending": {
+      "zh": "等待对端答复",
+      "en": "Waiting for the other device"
+    },
+    "fnthinkPairStateApproved": {
+      "zh": "对端已同意",
+      "en": "Approved by the other device"
+    },
+    "fnthinkPairStateDenied": {
+      "zh": "对端已拒绝",
+      "en": "Declined by the other device"
+    },
+    "fnthinkPairStateExpired": {
+      "zh": "配对口令已过期",
+      "en": "The pairing code has expired"
+    },
+    "fnthinkPairStateUnknown": {
+      "zh": "未知状态：{status}",
+      "en": "Unknown status: {status}"
+    },
+    "fnthinkPairRequestLine": {
+      "zh": "{peer} 请求与本机配对，请求档位为 {level} · {at}",
+      "en": "{peer} requests pairing with this device, requesting {level} · {at}"
+    },
+    "fnthinkPairWillGrant": {
+      "zh": "本机本次最多可授予 {level}；更高档位需在本机确认",
+      "en": "This device can grant at most {level} this time; any higher level must be confirmed on this device."
+    },
+    "fnthinkPairUnknownLevel": {
+      "zh": "对端所报档位「{level}」不在本机档位表中，无法同意，仅可拒绝",
+      "en": "The level \"{level}\" reported by the other device is not in this device's level table; it cannot be approved and can only be denied."
+    },
+    "fnthinkPairApproveOutbound": {
+      "zh": "同意时同时将其设为外发目标",
+      "en": "Also set it as an outbound target when approving"
+    },
+    "fnthinkPairApproveOutboundDesc": {
+      "zh": "勾选后，本机将立即完成两项：勾选名单项，并创建一条目标为该设备的通道。",
+      "en": "When checked, this device completes both local steps immediately: the roster entry is selected and a channel targeting it is created."
+    },
+    "fnthinkSenderDisplayLabel": {
+      "zh": "收件中发送人的显示方式",
+      "en": "How the sender is shown in the inbox"
+    },
+    "fnthinkSenderDisplayBoth": {
+      "zh": "两者均显示",
+      "en": "Show both"
+    },
+    "fnthinkPeersError": {
+      "zh": "无法读取名单（{reason}）；显示失败并不表示没有已配对设备",
+      "en": "The list could not be read ({reason}); an unreadable view does not mean there are no paired devices."
+    },
+    "fnthinkPeersEmpty": {
+      "zh": "尚未配对任何设备",
+      "en": "No devices have been paired yet"
+    },
+    "fnthinkPeerLine": {
+      "zh": "对端 → 本机 · 已授予 {level} · {at}",
+      "en": "peer → this device · granted {level} · {at}"
+    },
+    "fnthinkPeerSend": {
+      "zh": "发送一条",
+      "en": "Send"
+    },
+    "fnthinkPeerForwardToggle": {
+      "zh": "本机 → 对端 · 可接收本机转发的通知",
+      "en": "This device → peer · may receive notifications forwarded by this device"
+    },
+    "fnthinkPeerForwardChannelMade": {
+      "zh": "已为对端创建通道，三项条件均已具备",
+      "en": "Created a channel to the peer; all three conditions are now in place."
+    },
+    "fnthinkPeerForwardChannelKept": {
+      "zh": "已存在通往该对端的通道，未重复创建",
+      "en": "A channel to the peer already exists; no duplicate was created."
+    },
+    "fnthinkPeerForwardHint": {
+      "zh": "勾选后，本机收到的通知才会转发至该对端。",
+      "en": "Check this so notifications received by this device are forwarded to the peer."
+    },
+    "fnthinkPairLinkRejectedShort": {
+      "zh": "本机无法使用此链接",
+      "en": "This device cannot use this link"
+    },
+    "fnthinkPairPeerTitle": {
+      "zh": "向该设备发起配对",
+      "en": "Start pairing with that device"
+    },
+    "fnthinkPairLinkRejected": {
+      "zh": "本机无法使用此链接：该链接不是幻念推送配对链接，或协议版本不匹配。请回到该设备重新生成配对口令后再试",
+      "en": "This device cannot use this link: it is not a Fnthink pairing link, or the protocol version does not match. Return to that device, generate a new pairing code, and try again."
+    },
+    "fnthinkPairPeer": {
+      "zh": "与另一台设备配对",
+      "en": "Pair with another device"
+    },
+    "fnthinkPairPeerPendingNoteShort": {
+      "zh": "提交后仅在对端新增一条待确认请求",
+      "en": "Submitting only adds a pending request on the other device"
+    },
+    "fnthinkPairPeerPendingNote": {
+      "zh": "提交后仅在对端新增一条待确认请求：是否同意由对端决定，本机名单中的对应行将在下一轮收取后出现。",
+      "en": "Submitting only adds a pending request on the other device: it decides whether to approve, and the corresponding row in this device's list appears after the next receive round."
+    },
+    "fnthinkPeersBoundaryShort": {
+      "zh": "此处记录本机已同意的设备",
+      "en": "This section records devices this device has approved"
+    },
+    "fnthinkPeersBoundary": {
+      "zh": "此处记录本机已同意的设备。撤销时先由服务器收回授权，本机对应行随后消失；已收到的通知不会被删除。对端授予本机的许可，需由对端自行撤销。",
+      "en": "This section records devices this device has approved. Revoking first has the server withdraw the grant; the corresponding row here then disappears, and notifications already received are not deleted. The grant the other device gave this device must be revoked by that device."
+    },
+    "fnthinkPairAskMsg": {
+      "zh": "将 {peer} 加入本机名单并授予 {level}。同意后，该设备可向本机推送消息。",
+      "en": "Adds {peer} to this device's list and grants {level}. After approval, that device can push notifications to this device."
+    },
+    "fnthinkPairFailed": {
+      "zh": "未获同意：{reason}",
+      "en": "Not approved: {reason}"
+    },
+    "fnthinkPairNoGrantedLevel": {
+      "zh": "服务端已接受，但未返回记录的档位，本机名单未写入",
+      "en": "The server accepted it but did not return the recorded level; nothing was written to the local list."
+    },
+    "fnthinkPeerStoreUnavailable": {
+      "zh": "服务端已接受，但本机未接入名单存储，名单未写入",
+      "en": "The server accepted it but no peer store is connected on this device; nothing was written."
+    },
+    "fnthinkPeerWriteFailed": {
+      "zh": "服务端已接受，但本机写入名单失败，名单未写入",
+      "en": "The server accepted it but writing the local list failed; nothing was written."
+    },
+    "fnthinkPairKeySwapped": {
+      "zh": "{peer} 的地址码上次使用另一把公钥，本机未作任何修改。该设备可能已重建身份，也可能有人冒用该地址码",
+      "en": "{peer} presented a different public key for this address code; nothing was changed. The device may have rebuilt its identity, or someone may be spoofing the code."
+    },
+    "fnthinkPairApproved": {
+      "zh": "已同意 {peer}，服务端记录档位为 {level}",
+      "en": "Approved {peer}; the server recorded level {level}."
+    },
+    "fnthinkRevokeAskMsg": {
+      "zh": "撤销后，{peer} 将无法再向本机推送；已收到的通知保留。此次仅终止该方向，本机授予对端的推送权限不受影响（需在对端自行撤销）。此操作需由服务器收回授权，离线时无法完成。",
+      "en": "After revoking, {peer} can no longer push to this device; notifications already received are kept. This only ends that direction; this device's grant to push to it is unaffected (it must be revoked on the other device). The server must withdraw the grant, so this cannot be completed offline."
+    },
+    "fnthinkPeerRenameTitle": {
+      "zh": "为该设备设置名称（仅本机可见）",
+      "en": "Name this peer (visible only on this device)"
+    },
+    "fnthinkPeerRenameGone": {
+      "zh": "该设备已不在名单中",
+      "en": "This peer is no longer in the list"
+    },
+    "fnthinkPeerRenameCleared": {
+      "zh": "名称已清除",
+      "en": "Name cleared"
+    },
+    "fnthinkPeerRenameSaved": {
+      "zh": "名称已改为 {alias}",
+      "en": "Renamed to {alias}"
+    },
+    "fnthinkRevokeFailed": {
+      "zh": "撤销失败（{reason}）；名单中该行仍保留，反映当前实际状态",
+      "en": "Revoking failed ({reason}); the row remains in the list, reflecting the current state."
+    },
+    "fnthinkRevokeStoreUnavailable": {
+      "zh": "服务器已撤销，但本机未接入名单删除功能，该行仍保留",
+      "en": "The server revoked it, but row deletion is not connected on this device; the row remains."
+    },
+    "fnthinkRevokeRowRemains": {
+      "zh": "服务器已撤销，但本机删除该行失败，该行仍保留",
+      "en": "The server revoked it, but deleting this row failed; the row remains."
+    },
+    "fnthinkRevokeAlreadyGone": {
+      "zh": "服务器已不存在 {peer} 的授权（撤销具有幂等性，目标已达成）",
+      "en": "The server no longer holds a grant for {peer} (revocation is idempotent; the goal is already met)."
+    },
+    "fnthinkRevoked": {
+      "zh": "已撤销 {peer}：该设备此后无法向本机推送",
+      "en": "Revoked {peer}: that device can no longer push to this device."
+    }
   }
 }
