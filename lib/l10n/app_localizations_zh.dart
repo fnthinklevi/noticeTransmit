@@ -1186,24 +1186,24 @@ class AppLocalizationsZh extends AppLocalizations {
       '此权限用于读取已安装应用列表，以支持按应用过滤通知。\n\n点击「允许」后将跳转至系统设置页，请手动授予权限。';
 
   @override
-  String get appListPermGuideTitle => '应用列表权限要让系统放行';
+  String get appListPermGuideTitle => '应用列表权限需由系统放行';
 
   @override
   String get appListPermGuideMsg =>
-      '系统里这一项叫「读取已安装的应用列表」（部分机型在「权限」页，部分在「其他权限」或「应用权限」里）。\n\n点「去开启」会跳到本应用的系统设置页 —— 请找到这一项并允许；开完回到应用即可生效。';
+      '系统里这一项名为「读取已安装的应用列表」（部分机型位于「权限」页，部分位于「其他权限」或「应用权限」中）。\n\n点「去开启」将跳转至本应用的系统设置页，请找到该项并允许；设置完成后返回应用即可生效。';
 
   @override
-  String get autostartGuideTitle => '自启动要在厂商的设置里开';
+  String get autostartGuideTitle => '自启动需在厂商设置中开启';
 
   @override
   String get autostartGuideMsg =>
-      '自启动不是 Android 的标准权限，各家厂商把它放在自己的管家类应用里，系统没有统一的开关，应用内也申请不到。\n\n点「去开启」会跳到本机对应的那一页 —— 请把本应用设为「允许自启动」；开完回到应用即可生效。';
+      '自启动不属于 Android 的标准权限，各厂商将其置于自家的管家类应用内，系统没有统一开关，应用内亦无法申请。\n\n点「去开启」将跳转至本机对应的设置页，请将本应用设为「允许自启动」；设置完成后返回应用即可生效。';
 
   @override
   String get appListPermExtra => '用于获取已安装应用列表，支持按应用过滤通知功能';
 
   @override
-  String get appListPermUnknown => '该系统版本不提供明确状态，以能否读到应用列表为准';
+  String get appListPermUnknown => '该系统版本不提供明确状态，以能否读取应用列表为准';
 
   @override
   String get clickToSettings => '点击前往设置';
@@ -1218,19 +1218,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exactAlarmTitle => '精确闹钟（准时推送）';
 
   @override
-  String get exactAlarmDesc => '延迟/定时推送到点更准时；Android 12+ 需系统授权';
+  String get exactAlarmDesc => '延迟/定时推送可更准时触发；Android 12 及以上需系统授权';
 
   @override
   String get exactAlarmGranted => '已授权';
 
   @override
-  String get exactAlarmNeedGrant => '点击授权';
+  String get exactAlarmNeedGrant => '点击以授权';
 
   @override
   String get keepAliveGuideTitle => '后台保活引导';
 
   @override
-  String get keepAliveGuideDesc => '部分系统会限制后台服务，可能导致收不到通知。按以下步骤设置可提高稳定性：';
+  String get keepAliveGuideDesc => '部分系统会限制后台服务，可能导致无法接收通知。按以下步骤设置可提高稳定性：';
 
   @override
   String get keepAliveStep1 => '省电策略设为不限制';
@@ -4849,17 +4849,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get l3SettingsSectionTitle => '对端可以请求的系统设置';
 
   @override
-  String get l3SettingsSectionDesc =>
-      '这一档的每一项都要你在设备上点一下确认。没给的项不会藏起来，只会置灰并说清楚差在哪一格。';
+  String get l3SettingsSectionDesc => '本档中的每一项均需在本机手动确认。未授予的项目仍会显示，仅置灰并说明缺失原因。';
 
   @override
-  String get l3StateMissing => '还没给这台设备授权';
+  String get l3StateMissing => '尚未为本机授权';
 
   @override
-  String get l3StateUnreadable => '读不到这台设备的状态';
+  String get l3StateUnreadable => '无法读取本机状态';
 
   @override
-  String get l3StateUnsupported => '这台设备上没有这一项';
+  String get l3StateUnsupported => '本机不支持此项';
 
   @override
   String get l3ItemAutostart => '自启动（按厂商）';

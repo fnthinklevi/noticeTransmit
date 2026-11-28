@@ -156,7 +156,7 @@ void main() {
 
       // ① 引导框在场，且它说的是"这一项在系统里叫什么"
       expect(
-        find.text('应用列表权限要让系统放行'),
+        find.text('应用列表权限需由系统放行'),
         findsOneWidget,
         reason: '没有这一层 ⇒ 用户跳过去站在一页权限列表前不知道开哪一项',
       );
@@ -222,7 +222,7 @@ void main() {
       expect(find.text('对端可以请求的系统设置'), findsOneWidget);
       // ⚠ 这一条钉的是"隐藏"：未授权项被折叠掉的话，用户看到的是一个少了几行的列表，
       // 而"幻念推送要改哪些系统设置"本该在点之前就说完。行数**取自契约**，不在这里写死。
-      expect(find.text('还没给这台设备授权'), findsNWidgets(contract.l3Settings.length));
+      expect(find.text('尚未为本机授权'), findsNWidgets(contract.l3Settings.length));
     });
 
     testWidgets('契约新增一项而这一页还没配词条 ⇒ 那一行照画，标题就是那枚裸 key', (tester) async {
@@ -264,11 +264,11 @@ void main() {
         },
       );
 
-      expect(find.text('读不到这台设备的状态'), findsOneWidget);
+      expect(find.text('无法读取本机状态'), findsOneWidget);
       expect(find.text('自启动（按厂商）'), findsOneWidget);
       // 少了的那一条：unreadable 不再冒充 missing ⇒ missing 那一堆少一项
       expect(
-        find.text('还没给这台设备授权'),
+        find.text('尚未为本机授权'),
         findsNWidgets(contract.l3Settings.length - 1),
       );
     });
@@ -391,7 +391,7 @@ void main() {
         },
       );
       expect(loads, 1, reason: '进页面取一次');
-      expect(find.text('还没给这台设备授权'), findsNWidgets(contract.l3Settings.length));
+      expect(find.text('尚未为本机授权'), findsNWidgets(contract.l3Settings.length));
 
       granted = true;
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
@@ -401,7 +401,7 @@ void main() {
 
       expect(loads, 2, reason: '回前台必须**再取一次**：只重画不重取，画出来的还是进页那一刻那份快照');
       expect(
-        find.text('还没给这台设备授权'),
+        find.text('尚未为本机授权'),
         findsNWidgets(contract.l3Settings.length - 1),
         reason: '给了的那一项不能再挂着"还没给" —— 那是把用户刚做完的事抹掉',
       );
@@ -580,11 +580,11 @@ void main() {
         )
         .first;
 
-    testWidgets('未授权：那一行说「点击授权」，点一下就去系统里给', (tester) async {
+    testWidgets('未授权：那一行说「点击以授权」，点一下就去系统里给', (tester) async {
       await pumpPage(tester, appListState: 'granted');
 
       expect(
-        find.textContaining('点击授权'),
+        find.textContaining('点击以授权'),
         findsOneWidget,
         reason: '没给的时候要说"点这下去给"，而不是含糊的"未开启"',
       );

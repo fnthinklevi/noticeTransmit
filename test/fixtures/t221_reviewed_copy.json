@@ -1756,5 +1756,55 @@
       "zh": "留空时使用默认标题",
       "en": "Leave empty to use the default title"
     }
+  },
+  "lib/pages/permission_settings_page.dart": {
+    "autostartGuideTitle": {
+      "zh": "自启动需在厂商设置中开启",
+      "en": "Auto-start Is Enabled in Your Vendor Settings"
+    },
+    "autostartGuideMsg": {
+      "zh": "自启动不属于 Android 的标准权限，各厂商将其置于自家的管家类应用内，系统没有统一开关，应用内亦无法申请。\n\n点「去开启」将跳转至本机对应的设置页，请将本应用设为「允许自启动」；设置完成后返回应用即可生效。",
+      "en": "Auto-start is not a standard Android permission: each vendor keeps it in its own manager app. There is no unified switch, and apps cannot request it.\n\n“Open settings” jumps to the page your device provides: set this app to “allow auto-start”; it takes effect when you return to the app."
+    },
+    "appListPermUnknown": {
+      "zh": "该系统版本不提供明确状态，以能否读取应用列表为准",
+      "en": "This system version reports no explicit state; access is determined by whether the app list can actually be read"
+    },
+    "appListPermGuideTitle": {
+      "zh": "应用列表权限需由系统放行",
+      "en": "App-List Access Must Be Granted by the System"
+    },
+    "appListPermGuideMsg": {
+      "zh": "系统里这一项名为「读取已安装的应用列表」（部分机型位于「权限」页，部分位于「其他权限」或「应用权限」中）。\n\n点「去开启」将跳转至本应用的系统设置页，请找到该项并允许；设置完成后返回应用即可生效。",
+      "en": "The system calls this “Read installed apps” (some ROMs place it under Permissions, others under Other permissions or App permissions).\n\n“Open settings” takes you to this app’s system page: find that item and allow it; it takes effect when you return to the app."
+    },
+    "l3SettingsSectionDesc": {
+      "zh": "本档中的每一项均需在本机手动确认。未授予的项目仍会显示，仅置灰并说明缺失原因。",
+      "en": "Each item in this tier requires manual confirmation on this device. Items not granted remain listed, greyed out with the reason."
+    },
+    "l3StateMissing": {
+      "zh": "尚未为本机授权",
+      "en": "Not granted on this device yet"
+    },
+    "l3StateUnreadable": {
+      "zh": "无法读取本机状态",
+      "en": "This device does not report a state"
+    },
+    "l3StateUnsupported": {
+      "zh": "本机不支持此项",
+      "en": "Not available on this device"
+    },
+    "exactAlarmNeedGrant": {
+      "zh": "点击以授权",
+      "en": "Tap to grant"
+    },
+    "exactAlarmDesc": {
+      "zh": "延迟/定时推送可更准时触发；Android 12 及以上需系统授权",
+      "en": "Delayed/scheduled pushes fire on time; requires a system grant on Android 12 and above"
+    },
+    "keepAliveGuideDesc": {
+      "zh": "部分系统会限制后台服务，可能导致无法接收通知。按以下步骤设置可提高稳定性：",
+      "en": "Some systems restrict background services, which may prevent notifications from arriving. The following steps improve reliability:"
+    }
   }
 }

@@ -2266,25 +2266,25 @@ abstract class AppLocalizations {
   /// No description provided for @appListPermGuideTitle.
   ///
   /// In zh, this message translates to:
-  /// **'应用列表权限要让系统放行'**
+  /// **'应用列表权限需由系统放行'**
   String get appListPermGuideTitle;
 
   /// No description provided for @appListPermGuideMsg.
   ///
   /// In zh, this message translates to:
-  /// **'系统里这一项叫「读取已安装的应用列表」（部分机型在「权限」页，部分在「其他权限」或「应用权限」里）。\n\n点「去开启」会跳到本应用的系统设置页 —— 请找到这一项并允许；开完回到应用即可生效。'**
+  /// **'系统里这一项名为「读取已安装的应用列表」（部分机型位于「权限」页，部分位于「其他权限」或「应用权限」中）。\n\n点「去开启」将跳转至本应用的系统设置页，请找到该项并允许；设置完成后返回应用即可生效。'**
   String get appListPermGuideMsg;
 
   /// No description provided for @autostartGuideTitle.
   ///
   /// In zh, this message translates to:
-  /// **'自启动要在厂商的设置里开'**
+  /// **'自启动需在厂商设置中开启'**
   String get autostartGuideTitle;
 
   /// No description provided for @autostartGuideMsg.
   ///
   /// In zh, this message translates to:
-  /// **'自启动不是 Android 的标准权限，各家厂商把它放在自己的管家类应用里，系统没有统一的开关，应用内也申请不到。\n\n点「去开启」会跳到本机对应的那一页 —— 请把本应用设为「允许自启动」；开完回到应用即可生效。'**
+  /// **'自启动不属于 Android 的标准权限，各厂商将其置于自家的管家类应用内，系统没有统一开关，应用内亦无法申请。\n\n点「去开启」将跳转至本机对应的设置页，请将本应用设为「允许自启动」；设置完成后返回应用即可生效。'**
   String get autostartGuideMsg;
 
   /// No description provided for @appListPermExtra.
@@ -2296,7 +2296,7 @@ abstract class AppLocalizations {
   /// No description provided for @appListPermUnknown.
   ///
   /// In zh, this message translates to:
-  /// **'该系统版本不提供明确状态，以能否读到应用列表为准'**
+  /// **'该系统版本不提供明确状态，以能否读取应用列表为准'**
   String get appListPermUnknown;
 
   /// No description provided for @clickToSettings.
@@ -2326,7 +2326,7 @@ abstract class AppLocalizations {
   /// No description provided for @exactAlarmDesc.
   ///
   /// In zh, this message translates to:
-  /// **'延迟/定时推送到点更准时；Android 12+ 需系统授权'**
+  /// **'延迟/定时推送可更准时触发；Android 12 及以上需系统授权'**
   String get exactAlarmDesc;
 
   /// No description provided for @exactAlarmGranted.
@@ -2338,7 +2338,7 @@ abstract class AppLocalizations {
   /// No description provided for @exactAlarmNeedGrant.
   ///
   /// In zh, this message translates to:
-  /// **'点击授权'**
+  /// **'点击以授权'**
   String get exactAlarmNeedGrant;
 
   /// No description provided for @keepAliveGuideTitle.
@@ -2350,7 +2350,7 @@ abstract class AppLocalizations {
   /// No description provided for @keepAliveGuideDesc.
   ///
   /// In zh, this message translates to:
-  /// **'部分系统会限制后台服务，可能导致收不到通知。按以下步骤设置可提高稳定性：'**
+  /// **'部分系统会限制后台服务，可能导致无法接收通知。按以下步骤设置可提高稳定性：'**
   String get keepAliveGuideDesc;
 
   /// No description provided for @keepAliveStep1.
@@ -8720,25 +8720,25 @@ abstract class AppLocalizations {
   /// No description provided for @l3SettingsSectionDesc.
   ///
   /// In zh, this message translates to:
-  /// **'这一档的每一项都要你在设备上点一下确认。没给的项不会藏起来，只会置灰并说清楚差在哪一格。'**
+  /// **'本档中的每一项均需在本机手动确认。未授予的项目仍会显示，仅置灰并说明缺失原因。'**
   String get l3SettingsSectionDesc;
 
   /// No description provided for @l3StateMissing.
   ///
   /// In zh, this message translates to:
-  /// **'还没给这台设备授权'**
+  /// **'尚未为本机授权'**
   String get l3StateMissing;
 
   /// No description provided for @l3StateUnreadable.
   ///
   /// In zh, this message translates to:
-  /// **'读不到这台设备的状态'**
+  /// **'无法读取本机状态'**
   String get l3StateUnreadable;
 
   /// No description provided for @l3StateUnsupported.
   ///
   /// In zh, this message translates to:
-  /// **'这台设备上没有这一项'**
+  /// **'本机不支持此项'**
   String get l3StateUnsupported;
 
   /// No description provided for @l3ItemAutostart.

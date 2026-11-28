@@ -1239,18 +1239,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appListPermGuideTitle =>
-      'Allow App-List Access in System Settings';
+      'App-List Access Must Be Granted by the System';
 
   @override
   String get appListPermGuideMsg =>
-      'The system calls this \"Read installed apps\" (some ROMs put it under Permissions, others under Other permissions).\n\n\"Open settings\" takes you to this app\'s system page — find that item and allow it; it takes effect when you come back.';
+      'The system calls this “Read installed apps” (some ROMs place it under Permissions, others under Other permissions or App permissions).\n\n“Open settings” takes you to this app’s system page: find that item and allow it; it takes effect when you return to the app.';
 
   @override
-  String get autostartGuideTitle => 'Auto-start Lives in Your OEM Settings';
+  String get autostartGuideTitle =>
+      'Auto-start Is Enabled in Your Vendor Settings';
 
   @override
   String get autostartGuideMsg =>
-      'Auto-start is not a standard Android permission: each OEM keeps it in its own manager app. There is no unified switch and apps cannot request it.\n\n\"Open settings\" jumps to the page your device provides — set this app to \"allow auto-start\"; it takes effect when you come back.';
+      'Auto-start is not a standard Android permission: each vendor keeps it in its own manager app. There is no unified switch, and apps cannot request it.\n\n“Open settings” jumps to the page your device provides: set this app to “allow auto-start”; it takes effect when you return to the app.';
 
   @override
   String get appListPermExtra =>
@@ -1258,7 +1259,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appListPermUnknown =>
-      'This system version reports no explicit state; readability is decided by whether the app list can actually be read';
+      'This system version reports no explicit state; access is determined by whether the app list can actually be read';
 
   @override
   String get clickToSettings => 'Tap to open settings';
@@ -1276,7 +1277,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exactAlarmDesc =>
-      'Delayed/scheduled pushes fire on time; requires system grant on Android 12+';
+      'Delayed/scheduled pushes fire on time; requires a system grant on Android 12 and above';
 
   @override
   String get exactAlarmGranted => 'Granted';
@@ -1289,7 +1290,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keepAliveGuideDesc =>
-      'Some systems restrict background services and may miss notifications. Follow these steps:';
+      'Some systems restrict background services, which may prevent notifications from arriving. The following steps improve reliability:';
 
   @override
   String get keepAliveStep1 => 'Set battery optimization to Unrestricted';
@@ -5116,7 +5117,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get l3SettingsSectionDesc =>
-      'Each item here needs a confirmation you make on this device. Items you have not granted stay listed - greyed out, with the reason.';
+      'Each item in this tier requires manual confirmation on this device. Items not granted remain listed, greyed out with the reason.';
 
   @override
   String get l3StateMissing => 'Not granted on this device yet';
