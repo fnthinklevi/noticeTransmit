@@ -244,18 +244,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get channelFailureHelpBody =>
-      'This line is evidence, not a verdict: it stays even after the channel recovers.\n\nCouldn\'t reach the network — the request never got there (no connection, DNS, timeout).\nServer returned an error — the other side answered 4xx or 5xx; the exact code is in the delivery log.\nRate limited — the platform asked you to slow down (429); it retries after a wait.\nRejected by the platform — HTTP worked but the platform refused the content (non-zero errcode); retrying won\'t help.\nStopped on this device — this one was halted before it left (push paused or engine gone).\nUnclassified — there was an HTTP code, but it was 2xx or 3xx and nothing looked like a business rejection; we don\'t guess.\n\nN in a row — how many failures ran back to back ending at this one; a success in between resets the count.';
+      'This line is evidence only, not a current verdict: it remains even after the channel recovers.\n\nNetwork unreachable — the request never reached the other side (no connection, DNS failure, or timeout).\nServer returned an error — the other side returned 4xx or 5xx; the exact status code is in the delivery log.\nRate limited — the platform requested a lower sending rate (429); the system waits and retries automatically.\nRejected by the platform — HTTP succeeded, but the platform judged the content non-compliant (non-zero errcode); retrying will not help.\nStopped on this device — the message was stopped here before sending (push paused or engine not running).\nUnclassified — an HTTP status code exists, but it is 2xx or 3xx with no sign of a business rejection; the system does not guess.\n\nN in a row — the number of consecutive failures ending at this one; a success in between resets the count.';
 
   @override
   String get channelSelfCheck => 'Run full-chain check';
 
   @override
   String get channelSelfCheckConfirmTitle =>
-      'Send one test message to each family?';
+      'Send one test message to each of the four channel families?';
 
   @override
   String get channelSelfCheckConfirmBody =>
-      'Each family gets one smallest test message. The fnthink family only runs a non-invasive probe: nothing is delivered and no quota is used. The check writes no push history and does not change primary/backup state.';
+      'One channel from each family will actually send a minimal test message. The fnthink family only runs a non-invasive probe: nothing is delivered and no quota is used. The check writes no push history and does not change primary/backup state.';
 
   @override
   String get channelSelfCheckRunning => 'Checking…';
@@ -298,7 +298,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mainBackupRecommend =>
-      'Keep primary channels at 5 or fewer. More are allowed, but fan-out and failure detection get slower.';
+      'Keep primary channels at 5 or fewer. More are allowed, but fan-out and failure detection get slower as channels increase.';
 
   @override
   String get rolePrimary => 'Primary';
@@ -311,14 +311,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mainBackupExcluded =>
-      'Excluded channels keep their configuration but receive nothing until re-assigned.';
+      'Excluded channels keep their configuration but receive nothing until re-enabled.';
 
   @override
   String get roleUnset => 'Unset';
 
   @override
   String get mainBackupUnsetNotice =>
-      '\"Unset\" is where a newly added channel starts: it never duplicates a primary send, and it is used only when no channel is marked Primary. Set your everyday channel to \"Primary\".';
+      '\"Unset\" is the initial state of a newly added channel: it never duplicates a primary send and is used only when no channel is marked Primary. Marking your everyday channel as \"Primary\" is more precise.';
 
   @override
   String get roleGuideTitle => 'Split channels into primary and backup';
@@ -336,11 +336,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mainBackupChannelGone =>
-      'That channel is gone; the change was not saved.';
+      'That channel no longer exists; the change was not saved.';
 
   @override
   String backupModeBanner(int n) {
-    return 'Pushing via backup channels: the app fell back on its own and returns to primary after $n consecutive successful probes. You can also switch back any time.';
+    return 'Pushing via backup channels: the app falls back automatically when primary channels stay unavailable, and returns to primary after $n consecutive successful probes. You can also switch back at any time.';
   }
 
   @override
@@ -362,7 +362,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupAutoSwitchOffNote =>
-      'When off, only the primary channel is used: it is still attempted even when judged unavailable, failures are retried automatically, and the backup channel is never used.';
+      'When off, only primary channels are used: they are still attempted even when judged unavailable, failures are retried automatically, and backup channels are never used.';
 
   @override
   String get permSettings => 'Permissions';

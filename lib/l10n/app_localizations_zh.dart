@@ -200,11 +200,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelStatusTitle => '通道状态';
 
   @override
-  String get channelStatusShort => '这里列出所有已启用的通道，以及每条最近一次探测的结果与地址。';
+  String get channelStatusShort => '此处列出所有已启用通道，以及各通道最近一次探测的结果与地址。';
 
   @override
   String get channelStatusGuide =>
-      '这里列出所有已启用的通道，以及每条最近一次探测的结果与地址。点任意一条可直接进入它的配置页。';
+      '此处列出所有已启用通道，以及各通道最近一次探测的结果与地址。点击任意条目可直接进入其配置页。';
 
   @override
   String get channelStatusNeverProbed => '从未探测';
@@ -233,21 +233,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelFailureKindUnknown => '没对上号';
 
   @override
-  String get channelFailureHelpTitle => '最近一次失败怎么读';
+  String get channelFailureHelpTitle => '如何解读最近一次失败';
 
   @override
   String get channelFailureHelpBody =>
-      '这一行是取证，不是判决：通道后来恢复了，它照样留着。\n\n网络没连上 —— 请求没到对面（断网、DNS、连接超时）。\n服务器返回错误 —— 对面回了 4xx 或 5xx，具体码在送达记录里。\n平台限流 —— 对面让你慢一点（429），会自动等一会儿再试。\n平台业务拒绝 —— HTTP 通了但平台说内容不合规（errcode 非 0 那一类），重试没用。\n本机中断 —— 这条还没发出去就被本机停了（推送被暂停或引擎不在）。\n没对上号 —— 有 HTTP 码、却是 2xx 或 3xx，也没有业务拒绝的痕迹；我们不猜。\n\n连续 N 次 —— 从这一次失败往前，紧接着连着失败了几条；中间隔了一次成功就重新算。';
+      '此行仅为取证记录，不代表当前判定：即使通道后来恢复，该记录仍会保留。\n\n网络未连通 —— 请求未到达对端（断网、DNS 解析失败或连接超时）。\n服务器返回错误 —— 对端返回 4xx 或 5xx，具体状态码见送达记录。\n平台限流 —— 对端要求降低发送频率（429），系统将自动等待后重试。\n平台业务拒绝 —— HTTP 连接正常，但平台判定内容不合规（errcode 非 0），重试无效。\n本机中断 —— 消息尚未发出即被本机终止（推送已暂停或引擎未运行）。\n无法归类 —— 存在 HTTP 状态码，但为 2xx 或 3xx，且无业务拒绝迹象；系统不作推测。\n\n连续 N 次 —— 截至本次失败，向前连续失败的条数；中间出现一次成功即重新计数。';
 
   @override
   String get channelSelfCheck => '全链路自检';
 
   @override
-  String get channelSelfCheckConfirmTitle => '四族各发一条测试消息？';
+  String get channelSelfCheckConfirmTitle => '四个通道族各发送一条测试消息？';
 
   @override
   String get channelSelfCheckConfirmBody =>
-      '会向每一族挑一条通道真发一条最小测试消息；幻念只走探针，不投递、不占额度。自检不写推送历史，也不改变主备状态。';
+      '将从每个通道族中选取一条通道，实际发送一条最小测试消息；幻念仅执行探针，不投递，不占用额度。自检不写入推送历史，也不改变主备状态。';
 
   @override
   String get channelSelfCheckRunning => '自检中…';
@@ -278,7 +278,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String channelSelfCheckNoChannelLine(String family) {
-    return '$family — 这一族没有已启用的通道';
+    return '$family — 此通道族无已启用通道';
   }
 
   @override
@@ -288,7 +288,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainBackupHint => '主通道全量推送；仅当所有主通道都不可用时，才推给备用通道。同一通知不会被主备各推一次。';
 
   @override
-  String get mainBackupRecommend => '主通道建议不超过 5 条。超出仍可保存，但通道越多并发发送与失败判定越慢。';
+  String get mainBackupRecommend => '主通道建议不超过 5 条；超出后仍可保存，但通道数量越多，并发发送与失败判定越慢。';
 
   @override
   String get rolePrimary => '主';
@@ -300,14 +300,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get roleNone => '不参与';
 
   @override
-  String get mainBackupExcluded => '标记为「不参与」的通道保留配置但不推送，随时可归队。';
+  String get mainBackupExcluded => '标记为「不参与」的通道保留配置但不推送，可随时重新启用。';
 
   @override
   String get roleUnset => '未设置';
 
   @override
   String get mainBackupUnsetNotice =>
-      '「未设置」是新加通道的起点：它不会跟着主通道重复推送，只有你一条主通道都没设时才会被用到。把常用的那条设成「主」更准。';
+      '「未设置」是新增通道的初始状态：不会随主通道重复推送，仅在未设置任何主通道时使用。将常用通道设为「主」更为准确。';
 
   @override
   String get roleGuideTitle => '要不要分一下主备通道';
@@ -324,11 +324,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get roleGuideLater => '以后再说';
 
   @override
-  String get mainBackupChannelGone => '通道已不存在，本次设置未保存。';
+  String get mainBackupChannelGone => '该通道已不存在，本次设置未保存。';
 
   @override
   String backupModeBanner(int n) {
-    return '当前正在按备用通道推送：主通道连续不可用时系统会自动降级，攒够 $n 次连续探测成功后会自动回到主通道；也可以随时手动切回。';
+    return '当前正通过备用通道推送：主通道连续不可用时会自动降级，连续 $n 次探测成功后自动恢复主通道；也可随时手动切回。';
   }
 
   @override
@@ -349,7 +349,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backupAutoSwitchOffNote =>
-      '关掉之后只发主通道：即使判主通道不可用也照发，失败自动重试，绝不切到备用通道。';
+      '关闭后仅发送主通道：即使判定主通道不可用仍会发送，失败自动重试，不会切换至备用通道。';
 
   @override
   String get permSettings => '权限设置';

@@ -390,13 +390,13 @@ void main() {
 
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
-    expect(find.textContaining('以及每条最近一次探测的结果与地址'), findsOneWidget);
+    expect(find.textContaining('此处列出所有已启用通道'), findsOneWidget);
 
     // 收进问号的那半句（原来直接画在引导条里）：T97 片6 搬的位置，话一字没改 ——
     // 点开那一枚必须还能读到它，否则"搬进弹窗"就成了"删掉"。
     await tester.tap(find.byKey(const ValueKey('channel-status-guide-help')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('点任意一条可直接进入它的配置页'), findsOneWidget);
+    expect(find.textContaining('点击任意条目可直接进入其配置页'), findsOneWidget);
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();
 
@@ -407,7 +407,7 @@ void main() {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('以及每条最近一次探测的结果与地址'),
+      find.textContaining('此处列出所有已启用通道'),
       findsNothing,
       reason: '每次都弹就成了打扰，"只提示一次"靠的就是那个 prefs 键',
     );
@@ -507,7 +507,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('channel-status-open-roles')));
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('随时可归队'),
+        find.textContaining('可随时重新启用'),
         findsNothing,
         reason: '一条都没标"不参与"时不该凭空冒出一句解释',
       );
@@ -526,7 +526,7 @@ void main() {
         reason: '选了没落库 = 关掉弹层就复原，用户以为点了没反应',
       );
       expect(
-        find.textContaining('随时可归队'),
+        find.textContaining('可随时重新启用'),
         findsOneWidget,
         reason: '「未设置」有解释行而「不参与」没有 ⇒ 用户分不清"保留配置随时归队"和"这条已经废了"',
       );
@@ -542,7 +542,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('当前正在按备用通道推送'),
+        find.textContaining('当前正通过备用通道推送'),
         findsOneWidget,
         reason: '降级是自动的，界面不说清楚，用户只会觉得修好了还在走备用',
       );
@@ -552,7 +552,7 @@ void main() {
 
       expect(resetCalls, ['resetBackupMode']);
       expect(
-        find.textContaining('当前正在按备用通道推送'),
+        find.textContaining('当前正通过备用通道推送'),
         findsNothing,
         reason: '切回后横幅要跟着消失，否则按钮像是没生效',
       );
@@ -650,7 +650,7 @@ void main() {
         reason: '默认档必须是开：今天的行为本来就是自动切备',
       );
       expect(
-        find.textContaining('只发主通道'),
+        find.textContaining('仅发送主通道'),
         findsNothing,
         reason: '默认档不需要说明书；那句"关掉会怎样"是关掉之后才要说的',
       );
@@ -666,7 +666,7 @@ void main() {
       );
       expect(tester.widget<CupertinoSwitch>(switchFinder).value, isFalse);
       expect(
-        find.textContaining('只发主通道'),
+        find.textContaining('仅发送主通道'),
         findsOneWidget,
         reason: '关掉之后"只发主、失败自动重试、绝不切备"必须当场说清，不然下一屏就是"我的通知怎么不切了"',
       );
