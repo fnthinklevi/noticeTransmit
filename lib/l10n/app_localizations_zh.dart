@@ -981,7 +981,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookDesc3 => '新增通道默认启用';
 
   @override
-  String get webhookChannelNameHint => '可选，如 企业微信·通知';
+  String get webhookChannelNameHint => '可选，例如 企业微信·通知';
 
   @override
   String get webhookUrlLabel => 'Webhook 地址';
@@ -1008,14 +1008,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookHeadersLabel => '自定义请求头（可选）';
 
   @override
-  String get webhookHeadersHint => '每行一个，格式为 Name: Value，如 X-Api-Key: xxx';
+  String get webhookHeadersHint => '每行一个，格式为 Name: Value，例如 X-Api-Key: xxx';
 
   @override
   String get feishuMarkdownDowngradeHint =>
-      '飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号原样显示）。建议使用 text 格式。';
+      '飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号将原样显示）。建议使用 text 格式。';
 
   @override
-  String get webhookTemplateHint => '留空则使用预置模板；支持变量：';
+  String get webhookTemplateHint => '留空时使用预置模板；支持的变量：';
 
   @override
   String get platformWechat => 'WeCom';

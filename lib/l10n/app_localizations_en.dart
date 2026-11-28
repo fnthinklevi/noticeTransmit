@@ -1054,11 +1054,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feishuMarkdownDowngradeHint =>
-      'Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.';
+      'Feishu custom bots do not support markdown. Messages are sent as plain text (markdown symbols shown as-is). Consider using text format.';
 
   @override
   String get webhookTemplateHint =>
-      'Leave empty to use preset; supported variables:';
+      'Leave empty to use the preset; supported variables:';
 
   @override
   String get platformWechat => 'WeCom';

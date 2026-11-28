@@ -2106,5 +2106,23 @@
       "zh": "黑名单：通知内容包含任一关键词时，即使应用已被选中，也将不予推送",
       "en": "Blacklist: a notification containing any keyword will not be pushed even if the app is selected"
     }
+  },
+  "lib/pages/webhook_settings_item.dart": {
+    "webhookChannelNameHint": {
+      "zh": "可选，例如 企业微信·通知",
+      "en": "Optional, e.g. WeCom · Notifications"
+    },
+    "webhookHeadersHint": {
+      "zh": "每行一个，格式为 Name: Value，例如 X-Api-Key: xxx",
+      "en": "One per line as Name: Value, e.g. X-Api-Key: xxx"
+    },
+    "feishuMarkdownDowngradeHint": {
+      "zh": "飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号将原样显示）。建议使用 text 格式。",
+      "en": "Feishu custom bots do not support markdown. Messages are sent as plain text (markdown symbols shown as-is). Consider using text format."
+    },
+    "webhookTemplateHint": {
+      "zh": "留空时使用预置模板；支持的变量：",
+      "en": "Leave empty to use the preset; supported variables:"
+    }
   }
 }

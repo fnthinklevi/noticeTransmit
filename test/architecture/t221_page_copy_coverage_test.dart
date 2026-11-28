@@ -69,7 +69,7 @@ void main() {
     'lib/pages/fnthink_receive_page.dart': 'reviewed',
     'lib/pages/fnthink_remote_page.dart': 'reviewed',
     'lib/pages/keywords_page.dart': 'reviewed',
-    'lib/pages/webhook_settings_item.dart': 'pending',
+    'lib/pages/webhook_settings_item.dart': 'reviewed',
     'lib/pages/widget_guide_page.dart': 'reviewed',
     'lib/pages/fnthink_peer_detail_page.dart': 'reviewed',
     'lib/pages/update_server_page.dart': 'pending',

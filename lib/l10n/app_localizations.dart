@@ -1864,7 +1864,7 @@ abstract class AppLocalizations {
   /// No description provided for @webhookChannelNameHint.
   ///
   /// In zh, this message translates to:
-  /// **'可选，如 企业微信·通知'**
+  /// **'可选，例如 企业微信·通知'**
   String get webhookChannelNameHint;
 
   /// No description provided for @webhookUrlLabel.
@@ -1918,19 +1918,19 @@ abstract class AppLocalizations {
   /// No description provided for @webhookHeadersHint.
   ///
   /// In zh, this message translates to:
-  /// **'每行一个，格式为 Name: Value，如 X-Api-Key: xxx'**
+  /// **'每行一个，格式为 Name: Value，例如 X-Api-Key: xxx'**
   String get webhookHeadersHint;
 
   /// No description provided for @feishuMarkdownDowngradeHint.
   ///
   /// In zh, this message translates to:
-  /// **'飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号原样显示）。建议使用 text 格式。'**
+  /// **'飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号将原样显示）。建议使用 text 格式。'**
   String get feishuMarkdownDowngradeHint;
 
   /// No description provided for @webhookTemplateHint.
   ///
   /// In zh, this message translates to:
-  /// **'留空则使用预置模板；支持变量：'**
+  /// **'留空时使用预置模板；支持的变量：'**
   String get webhookTemplateHint;
 
   /// No description provided for @platformWechat.
