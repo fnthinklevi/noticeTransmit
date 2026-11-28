@@ -75,7 +75,7 @@ void main() {
     'lib/pages/update_server_page.dart': 'reviewed',
     'lib/pages/backup_restore_page.dart': 'reviewed',
     'lib/pages/main_page_actions.dart': 'reviewed',
-    'lib/pages/main_page_update.dart': 'pending',
+    'lib/pages/main_page_update.dart': 'reviewed',
     'lib/pages/stats_page.dart': 'reviewed',
     'lib/pages/fnthink_consent_gate.dart': 'reviewed',
     'lib/pages/splash_page.dart': 'reviewed',

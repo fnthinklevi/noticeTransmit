@@ -5161,7 +5161,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cannot verify the update package. Installation blocked.';
 
   @override
-  String get updateFailAllUrls => 'Every download address failed.';
+  String get updateFailAllUrls => 'All download addresses failed.';
 
   @override
   String get updateFailDownloaderStart => 'Cannot start the system downloader.';

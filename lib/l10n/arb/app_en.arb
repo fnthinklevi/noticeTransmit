@@ -2893,7 +2893,7 @@
   "updateBlockIntegrityFailed": "Update package verification failed. Installation blocked.",
   "updateBlockChecksumMismatch": "Update package integrity check failed (checksum mismatch). Installation blocked.",
   "updateBlockUnverifiable": "Cannot verify the update package. Installation blocked.",
-  "updateFailAllUrls": "Every download address failed.",
+  "updateFailAllUrls": "All download addresses failed.",
   "updateFailDownloaderStart": "Cannot start the system downloader.",
   "updateFailProgressQuery": "Failed to read the download progress.",
   "updateFailDownloader": "System downloader failed{detail}.",

@@ -5224,7 +5224,7 @@ abstract class AppLocalizations {
   /// No description provided for @updateForceRequired.
   ///
   /// In zh, this message translates to:
-  /// **'必须更新才能继续使用'**
+  /// **'需更新后方可继续使用'**
   String get updateForceRequired;
 
   /// No description provided for @updateFoundNew.
@@ -8798,7 +8798,7 @@ abstract class AppLocalizations {
   /// No description provided for @updateFailAllUrls.
   ///
   /// In zh, this message translates to:
-  /// **'所有下载地址均失败'**
+  /// **'所有下载地址均下载失败'**
   String get updateFailAllUrls;
 
   /// No description provided for @updateFailDownloaderStart.

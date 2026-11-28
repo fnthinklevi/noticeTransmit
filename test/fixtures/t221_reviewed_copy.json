@@ -2260,5 +2260,15 @@
       "zh": "本次更新的内容",
       "en": "What's new in this update"
     }
+  },
+  "lib/pages/main_page_update.dart": {
+    "updateForceRequired": {
+      "zh": "需更新后方可继续使用",
+      "en": "Update required to continue"
+    },
+    "updateFailAllUrls": {
+      "zh": "所有下载地址均下载失败",
+      "en": "All download addresses failed."
+    }
   }
 }

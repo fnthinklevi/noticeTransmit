@@ -2820,7 +2820,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get updateForceBadge => '重要更新';
 
   @override
-  String get updateForceRequired => '必须更新才能继续使用';
+  String get updateForceRequired => '需更新后方可继续使用';
 
   @override
   String get updateFoundNew => '发现新版本';
@@ -4889,7 +4889,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get updateBlockUnverifiable => '无法完成安全性校验，已阻止安装';
 
   @override
-  String get updateFailAllUrls => '所有下载地址均失败';
+  String get updateFailAllUrls => '所有下载地址均下载失败';
 
   @override
   String get updateFailDownloaderStart => '无法启动系统下载器';
