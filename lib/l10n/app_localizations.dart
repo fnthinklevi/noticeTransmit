@@ -7683,13 +7683,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerPermissionsShort.
   ///
   /// In zh, this message translates to:
-  /// **'允许对方在这台设备上做什么；改完点保存。'**
+  /// **'允许对端在本机执行的操作；修改后请点击保存。'**
   String get fnthinkPeerPermissionsShort;
 
   /// No description provided for @fnthinkPeerPermissionsHelp.
   ///
   /// In zh, this message translates to:
-  /// **'这一页只改「对方 → 这台」这一向的授权：保存后服务端立即按新清单判定，这台本机也同时按新清单放行或拒绝。你希望在它那台能做什么，要由它自己改。服务器版本旧时会直接说没有改权限的入口。'**
+  /// **'本页仅修改「对端 → 本机」方向的授权：保存后服务端立即按新清单判定，本机也同时按新清单放行或拒绝。希望在对方设备上执行的操作，须由对方自行修改。服务器版本较旧时将直接提示无权限修改入口。'**
   String get fnthinkPeerPermissionsHelp;
 
   /// No description provided for @fnthinkPeerGrantImpact.
@@ -7707,7 +7707,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerGrantLevelNote.
   ///
   /// In zh, this message translates to:
-  /// **'档位仍是 {level}；这一页只改逐项清单。'**
+  /// **'档位仍为 {level}；本页仅修改逐项清单。'**
   String fnthinkPeerGrantLevelNote(String level);
 
   /// No description provided for @fnthinkPeerGrantSave.
@@ -7719,7 +7719,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerGrantNoChange.
   ///
   /// In zh, this message translates to:
-  /// **'没有改动'**
+  /// **'无改动'**
   String get fnthinkPeerGrantNoChange;
 
   /// No description provided for @fnthinkPeerGrantSaved.

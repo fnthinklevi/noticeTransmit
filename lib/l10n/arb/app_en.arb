@@ -2326,11 +2326,11 @@
   "fnthinkPeerRenameGone": "This peer is no longer in the list",
   "fnthinkPeerDetailTitle": "Device details",
   "fnthinkPeerPermissions": "Permissions",
-  "fnthinkPeerPermissionsShort": "What this peer may do on this device. Save to apply.",
-  "fnthinkPeerPermissionsHelp": "This page changes only the peer → this device direction. After saving, the server enforces the new list immediately and this device allows or rejects by the same list. What you may do on the other device is the other device's to change. An older server will say there is no permission entry.",
+  "fnthinkPeerPermissionsShort": "What this peer may do on this device. Click Save to apply.",
+  "fnthinkPeerPermissionsHelp": "This page changes only the peer → this device direction. After saving, the server enforces the new list immediately and this device allows or rejects by the same list. What you may do on the other device must be changed there. An older server will state that no permission editing entry exists.",
   "fnthinkPeerGrantImpact": "If allowed, this peer may perform this item on this device.",
   "fnthinkPeerGrantAdvanced": "Advanced (collapsed by default)",
-  "fnthinkPeerGrantLevelNote": "The level stays {level}; this page changes individual items only.",
+  "fnthinkPeerGrantLevelNote": "The level remains {level}; this page only changes individual items.",
   "@fnthinkPeerGrantLevelNote": {
     "placeholders": {
       "level": {

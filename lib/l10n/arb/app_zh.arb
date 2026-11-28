@@ -2347,11 +2347,11 @@
   "fnthinkPeerRenameGone": "该设备已不在名单中",
   "fnthinkPeerDetailTitle": "设备详情",
   "fnthinkPeerPermissions": "权限",
-  "fnthinkPeerPermissionsShort": "允许对方在这台设备上做什么；改完点保存。",
-  "fnthinkPeerPermissionsHelp": "这一页只改「对方 → 这台」这一向的授权：保存后服务端立即按新清单判定，这台本机也同时按新清单放行或拒绝。你希望在它那台能做什么，要由它自己改。服务器版本旧时会直接说没有改权限的入口。",
+  "fnthinkPeerPermissionsShort": "允许对端在本机执行的操作；修改后请点击保存。",
+  "fnthinkPeerPermissionsHelp": "本页仅修改「对端 → 本机」方向的授权：保存后服务端立即按新清单判定，本机也同时按新清单放行或拒绝。希望在对方设备上执行的操作，须由对方自行修改。服务器版本较旧时将直接提示无权限修改入口。",
   "fnthinkPeerGrantImpact": "允许后，对方可以在这台设备上执行这一项。",
   "fnthinkPeerGrantAdvanced": "高级项（默认收起）",
-  "fnthinkPeerGrantLevelNote": "档位仍是 {level}；这一页只改逐项清单。",
+  "fnthinkPeerGrantLevelNote": "档位仍为 {level}；本页仅修改逐项清单。",
   "@fnthinkPeerGrantLevelNote": {
     "placeholders": {
       "level": {
@@ -2360,7 +2360,7 @@
     }
   },
   "fnthinkPeerGrantSave": "保存权限",
-  "fnthinkPeerGrantNoChange": "没有改动",
+  "fnthinkPeerGrantNoChange": "无改动",
   "fnthinkPeerGrantSaved": "权限已保存；服务端与这台设备都已按新清单执行。",
   "fnthinkPeerGrantFailed": "没保存：{reason}",
   "@fnthinkPeerGrantFailed": {

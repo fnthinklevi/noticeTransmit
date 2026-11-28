@@ -4202,11 +4202,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeerPermissions => '权限';
 
   @override
-  String get fnthinkPeerPermissionsShort => '允许对方在这台设备上做什么；改完点保存。';
+  String get fnthinkPeerPermissionsShort => '允许对端在本机执行的操作；修改后请点击保存。';
 
   @override
   String get fnthinkPeerPermissionsHelp =>
-      '这一页只改「对方 → 这台」这一向的授权：保存后服务端立即按新清单判定，这台本机也同时按新清单放行或拒绝。你希望在它那台能做什么，要由它自己改。服务器版本旧时会直接说没有改权限的入口。';
+      '本页仅修改「对端 → 本机」方向的授权：保存后服务端立即按新清单判定，本机也同时按新清单放行或拒绝。希望在对方设备上执行的操作，须由对方自行修改。服务器版本较旧时将直接提示无权限修改入口。';
 
   @override
   String get fnthinkPeerGrantImpact => '允许后，对方可以在这台设备上执行这一项。';
@@ -4216,14 +4216,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkPeerGrantLevelNote(String level) {
-    return '档位仍是 $level；这一页只改逐项清单。';
+    return '档位仍为 $level；本页仅修改逐项清单。';
   }
 
   @override
   String get fnthinkPeerGrantSave => '保存权限';
 
   @override
-  String get fnthinkPeerGrantNoChange => '没有改动';
+  String get fnthinkPeerGrantNoChange => '无改动';
 
   @override
   String get fnthinkPeerGrantSaved => '权限已保存；服务端与这台设备都已按新清单执行。';

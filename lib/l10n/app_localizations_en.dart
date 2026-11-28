@@ -4414,11 +4414,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPeerPermissionsShort =>
-      'What this peer may do on this device. Save to apply.';
+      'What this peer may do on this device. Click Save to apply.';
 
   @override
   String get fnthinkPeerPermissionsHelp =>
-      'This page changes only the peer → this device direction. After saving, the server enforces the new list immediately and this device allows or rejects by the same list. What you may do on the other device is the other device\'s to change. An older server will say there is no permission entry.';
+      'This page changes only the peer → this device direction. After saving, the server enforces the new list immediately and this device allows or rejects by the same list. What you may do on the other device must be changed there. An older server will state that no permission editing entry exists.';
 
   @override
   String get fnthinkPeerGrantImpact =>
@@ -4429,7 +4429,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkPeerGrantLevelNote(String level) {
-    return 'The level stays $level; this page changes individual items only.';
+    return 'The level remains $level; this page only changes individual items.';
   }
 
   @override

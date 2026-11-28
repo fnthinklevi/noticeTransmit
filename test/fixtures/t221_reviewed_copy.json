@@ -1188,5 +1188,23 @@
       "zh": "保存失败：必填字段未填写（{fields}）",
       "en": "Save failed: required fields are not filled in ({fields})"
     }
+  },
+  "lib/pages/fnthink_peer_detail_page.dart": {
+    "fnthinkPeerGrantLevelNote": {
+      "zh": "档位仍为 {level}；本页仅修改逐项清单。",
+      "en": "The level remains {level}; this page only changes individual items."
+    },
+    "fnthinkPeerPermissionsShort": {
+      "zh": "允许对端在本机执行的操作；修改后请点击保存。",
+      "en": "What this peer may do on this device. Click Save to apply."
+    },
+    "fnthinkPeerPermissionsHelp": {
+      "zh": "本页仅修改「对端 → 本机」方向的授权：保存后服务端立即按新清单判定，本机也同时按新清单放行或拒绝。希望在对方设备上执行的操作，须由对方自行修改。服务器版本较旧时将直接提示无权限修改入口。",
+      "en": "This page changes only the peer → this device direction. After saving, the server enforces the new list immediately and this device allows or rejects by the same list. What you may do on the other device must be changed there. An older server will state that no permission editing entry exists."
+    },
+    "fnthinkPeerGrantNoChange": {
+      "zh": "无改动",
+      "en": "No changes"
+    }
   }
 }
