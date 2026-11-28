@@ -2601,7 +2601,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceStateDesc =>
-      'Screen brightness and network changes can also trigger alerts. Only the moment of crossing counts (staying below the threshold will not repeat), and the same kind will not alert again within 30 minutes.';
+      'Changes in screen brightness and network state can also trigger alerts. Only the moment a threshold is crossed counts as an event (staying below it does not re-alert); the same category will not alert again within 30 minutes.';
 
   @override
   String brightnessPercentOnly(int percent) {
@@ -2627,7 +2627,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceStateNotes2 =>
-      'Brightness is judged by percentage; network rules only react to \"lost\" and \"reconnected\" and need no threshold.';
+      'Brightness is judged by percentage; network rules only react to \"disconnected\" and \"reconnected\" and need no threshold.';
 
   @override
   String get deviceStateNotifyEnabled => 'Device state alert push';
@@ -2652,7 +2652,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noDeviceStateRules =>
-      'No device state rules yet — tap + to add one';
+      'No device state rules yet. Tap + to add one';
 
   @override
   String get deviceStatusEntry => 'Device status snapshot';

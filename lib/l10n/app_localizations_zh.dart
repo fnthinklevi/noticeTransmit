@@ -2491,7 +2491,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceStateDesc =>
-      '屏幕亮度与网络状态的变化也能触发提醒。只有「跨越」的那一刻算一次事件（一直在阈值之下不会反复提醒），触发后 30 分钟内同一类不再重复提醒。';
+      '屏幕亮度与网络状态的变化同样可以触发提醒。仅在「跨越」阈值的那一刻计为一次事件（持续低于阈值不会重复提醒）；触发后 30 分钟内同一类别不再重复提醒。';
 
   @override
   String brightnessPercentOnly(int percent) {
@@ -2515,7 +2515,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '电池温度、设备温度、屏幕温度三个维度分别判定；本机无法读取的维度会在「试运行」中明确说明。';
 
   @override
-  String get deviceStateNotes2 => '亮度按百分比判定；网络类触发只看「断网」与「联网」这两件事，不需要阈值。';
+  String get deviceStateNotes2 => '亮度按百分比判定；网络类触发仅关注「断网」与「联网」两种事件，无需阈值。';
 
   @override
   String get deviceStateNotifyEnabled => '设备状态告警推送';
@@ -2527,19 +2527,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get brightnessAbove => '亮度高于';
 
   @override
-  String get networkConnected => '恢复联网时';
+  String get networkConnected => '网络恢复时';
 
   @override
-  String get networkDisconnected => '断网时';
+  String get networkDisconnected => '网络断开时';
 
   @override
   String get deviceStateValueLabel => '亮度阈值（%）';
 
   @override
-  String get deviceStateNoValue => '网络触发不需要阈值';
+  String get deviceStateNoValue => '网络触发无需阈值';
 
   @override
-  String get noDeviceStateRules => '暂无设备状态规则，点右上角 + 添加';
+  String get noDeviceStateRules => '暂无设备状态规则，点击右上角 + 添加';
 
   @override
   String get deviceStatusEntry => '设备状态快照';

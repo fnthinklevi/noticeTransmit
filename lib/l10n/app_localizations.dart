@@ -4684,7 +4684,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceStateDesc.
   ///
   /// In zh, this message translates to:
-  /// **'屏幕亮度与网络状态的变化也能触发提醒。只有「跨越」的那一刻算一次事件（一直在阈值之下不会反复提醒），触发后 30 分钟内同一类不再重复提醒。'**
+  /// **'屏幕亮度与网络状态的变化同样可以触发提醒。仅在「跨越」阈值的那一刻计为一次事件（持续低于阈值不会重复提醒）；触发后 30 分钟内同一类别不再重复提醒。'**
   String get deviceStateDesc;
 
   /// No description provided for @brightnessPercentOnly.
@@ -4720,7 +4720,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceStateNotes2.
   ///
   /// In zh, this message translates to:
-  /// **'亮度按百分比判定；网络类触发只看「断网」与「联网」这两件事，不需要阈值。'**
+  /// **'亮度按百分比判定；网络类触发仅关注「断网」与「联网」两种事件，无需阈值。'**
   String get deviceStateNotes2;
 
   /// No description provided for @deviceStateNotifyEnabled.
@@ -4744,13 +4744,13 @@ abstract class AppLocalizations {
   /// No description provided for @networkConnected.
   ///
   /// In zh, this message translates to:
-  /// **'恢复联网时'**
+  /// **'网络恢复时'**
   String get networkConnected;
 
   /// No description provided for @networkDisconnected.
   ///
   /// In zh, this message translates to:
-  /// **'断网时'**
+  /// **'网络断开时'**
   String get networkDisconnected;
 
   /// No description provided for @deviceStateValueLabel.
@@ -4762,13 +4762,13 @@ abstract class AppLocalizations {
   /// No description provided for @deviceStateNoValue.
   ///
   /// In zh, this message translates to:
-  /// **'网络触发不需要阈值'**
+  /// **'网络触发无需阈值'**
   String get deviceStateNoValue;
 
   /// No description provided for @noDeviceStateRules.
   ///
   /// In zh, this message translates to:
-  /// **'暂无设备状态规则，点右上角 + 添加'**
+  /// **'暂无设备状态规则，点击右上角 + 添加'**
   String get noDeviceStateRules;
 
   /// No description provided for @deviceStatusEntry.

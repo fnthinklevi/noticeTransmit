@@ -1926,5 +1926,31 @@
       "zh": "已将「{app}」保存为模板",
       "en": "\"{app}\" saved as template"
     }
+  },
+  "lib/pages/device_state_page.dart": {
+    "noDeviceStateRules": {
+      "zh": "暂无设备状态规则，点击右上角 + 添加",
+      "en": "No device state rules yet. Tap + to add one"
+    },
+    "deviceStateDesc": {
+      "zh": "屏幕亮度与网络状态的变化同样可以触发提醒。仅在「跨越」阈值的那一刻计为一次事件（持续低于阈值不会重复提醒）；触发后 30 分钟内同一类别不再重复提醒。",
+      "en": "Changes in screen brightness and network state can also trigger alerts. Only the moment a threshold is crossed counts as an event (staying below it does not re-alert); the same category will not alert again within 30 minutes."
+    },
+    "deviceStateNotes2": {
+      "zh": "亮度按百分比判定；网络类触发仅关注「断网」与「联网」两种事件，无需阈值。",
+      "en": "Brightness is judged by percentage; network rules only react to \"disconnected\" and \"reconnected\" and need no threshold."
+    },
+    "networkConnected": {
+      "zh": "网络恢复时",
+      "en": "When back online"
+    },
+    "networkDisconnected": {
+      "zh": "网络断开时",
+      "en": "When offline"
+    },
+    "deviceStateNoValue": {
+      "zh": "网络触发无需阈值",
+      "en": "Network triggers need no threshold"
+    }
   }
 }

@@ -108,9 +108,9 @@ void main() {
 
       expect(find.text('亮度高于'), findsOneWidget);
       expect(find.text('阈值 90%'), findsOneWidget);
-      expect(find.text('断网时'), findsOneWidget);
-      // 网络型没有第二个数字可写：跟着显示阈值就是凭空的读数（「断网时 · 0%」）
-      expect(find.textContaining('断网时 '), findsNothing);
+      expect(find.text('网络断开时'), findsOneWidget);
+      // 网络型没有第二个数字可写：跟着显示阈值就是凭空的读数（「网络断开时 · 0%」）
+      expect(find.textContaining('网络断开时 '), findsNothing);
       expect(find.text('阈值 0%'), findsNothing);
     });
 
@@ -143,11 +143,11 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
-      expect(find.text('暂无设备状态规则，点右上角 + 添加'), findsOneWidget);
+      expect(find.text('暂无设备状态规则，点击右上角 + 添加'), findsOneWidget);
 
       await service.addRule(rule(id: 'b2', type: 'network_connected'));
       await tester.pumpAndSettle();
-      expect(find.text('恢复联网时'), findsOneWidget);
+      expect(find.text('网络恢复时'), findsOneWidget);
     });
   });
 
@@ -233,7 +233,7 @@ void main() {
       expect(service.rules.single['title'], '旧标题', reason: '取消那条路也把值写进去了');
     });
 
-    testWidgets('编辑时切到网络型 ⇒ 没有滑杆，且那句「网络触发不需要阈值」在', (tester) async {
+    testWidgets('编辑时切到网络型 ⇒ 没有滑杆，且那句「网络触发无需阈值」在', (tester) async {
       await service.restoreSettings(
         rules: [rule(id: 'b1', type: 'brightness_below')],
       );
@@ -242,10 +242,10 @@ void main() {
 
       // 亮度型开着滑杆；切到网络型那一格之后它必须消失（凭空的数值会骗用户"断网也有阈值可调"）
       expect(find.byType(Slider), findsOneWidget);
-      await tester.tap(find.text('断网时'));
+      await tester.tap(find.text('网络断开时'));
       await tester.pumpAndSettle();
       expect(find.byType(Slider), findsNothing);
-      expect(find.text('网络触发不需要阈值'), findsOneWidget);
+      expect(find.text('网络触发无需阈值'), findsOneWidget);
     });
   });
 
