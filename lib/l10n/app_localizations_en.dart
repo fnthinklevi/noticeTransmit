@@ -2163,6 +2163,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryPeerDelivered => 'Delivered';
 
   @override
+  String get deliveryPeerDisplayed => 'Shown on the other device';
+
+  @override
   String get deliveryFailed => 'Failed';
 
   @override

@@ -22,14 +22,39 @@ void main() {
       expect(deliveredStatus, 'success');
     });
 
-    test('「已送达」是两个词：本机推成功 ＋ 对端取走了（T154 端到端）', () {
-      expect(deliveredStatuses, [deliveredStatus, peerDeliveredStatus]);
+    test('「已送达」是三个词：本机推成功 ＋ 对端取走了 ＋ 对端显示出来了（P2-1）', () {
+      expect(deliveredStatuses, [
+        deliveredStatus,
+        peerDeliveredStatus,
+        peerDisplayedStatus,
+      ]);
       expect(peerDeliveredStatus, isNot(deliveredStatus));
+      expect(peerDisplayedStatus, isNot(deliveredStatus));
+      // P2-1：`delivered` 与 `displayed` 是**两个不同的结论**，不是同义词 ——
+      // 前者是"进了收件表但（可能）没弹出来"，后者是"用户真的看见了"。
+      expect(peerDisplayedStatus, isNot(peerDeliveredStatus));
       expect(
         notDeliveredStatuses,
         isNot(contains(peerDeliveredStatus)),
         reason: '对端取走了还与"没发出去"同档 ⇒ 用户会在失败那一档里看见成功的记录',
       );
+      expect(
+        notDeliveredStatuses,
+        isNot(contains(peerDisplayedStatus)),
+        reason: '对端已经显示出来了更不该落进失败那一档',
+      );
+    });
+
+    test('两个端到端终态的强弱次序：displayed 比 delivered 更强', () {
+      // 回执会迟到、重复、乱序。这条次序就是"后到的不许把更强的那个改口"的判据。
+      expect(
+        peerReceiptRank[peerDisplayedStatus],
+        greaterThan(peerReceiptRank[peerDeliveredStatus]!),
+      );
+      expect(isPeerConcludedStatus(peerDeliveredStatus), isTrue);
+      expect(isPeerConcludedStatus(peerDisplayedStatus), isTrue);
+      expect(isPeerConcludedStatus('queued'), isFalse);
+      expect(isPeerConcludedStatus('success'), isFalse);
     });
 
     test('三个档名彼此不同且都不等于词表里的状态词（档名不是状态）', () {

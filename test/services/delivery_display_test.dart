@@ -18,12 +18,14 @@ void main() {
   group('送达状态那一格只有一个作者', () {
     // T154 片1：五档 → **六档**（加 `queued`，幻念设备档转发的回执档）；
     // T154 端到端：六档 → **七档**（加 `delivered`，对端取走后的回执档）；
-    // T175 ③：七档 → **八档**（加 `notAccounted`，快照有这一族而送达表缺这一格）。
-    test('八个认得的状态各有一句，且互不相同', () {
+    // T175 ③：七档 → **八档**（加 `notAccounted`，快照有这一族而送达表缺这一格）；
+    // P2-1：八档 → **九档**（加 `displayed`，对端显示出来了 —— 与 `delivered` 分开）。
+    test('九个认得的状态各有一句，且互不相同', () {
       final said = <String, String>{
         for (final s in const [
           'success',
           'delivered',
+          'displayed',
           'failed',
           'intercepted',
           'paused',
@@ -33,9 +35,13 @@ void main() {
         ])
           s: deliveryStatusText(zh, s),
       };
-      expect(said.values.toSet(), hasLength(8), reason: '两档共用一句话 = 这一档白分');
+      expect(said.values.toSet(), hasLength(9), reason: '两档共用一句话 = 这一档白分');
       expect(said['success'], zh.deliverySuccess);
       expect(said['delivered'], zh.deliveryPeerDelivered);
+      expect(said['displayed'], zh.deliveryPeerDisplayed);
+      // P2-1：这两档是**两个不同的结论**，句子也不许一样 ——
+      // 「进了收件表但没弹出来」与「用户真的看见了」混成一句，这一分就白分了。
+      expect(said['displayed'], isNot(said['delivered']));
       expect(said['failed'], zh.deliveryFailed);
       expect(said['intercepted'], zh.deliveryIntercepted);
       expect(said['pending'], zh.deliveryPending);
@@ -122,6 +128,9 @@ void main() {
       // T154 端到端：对端取走了与"本机推成功"同属终点 ⇒ 同一个绿点；
       // 但文案仍是两句（一个是"推成功"、一个是"对方真的收到了"）。
       expect(deliveryStatusColor(ctx, 'delivered'), AppColors.green);
+      // P2-1：`displayed` 与 `delivered` 同为终点、同一个绿点，但文案是两句
+      // （那一档是"用户真的看见了"，这一档只是"进了收件表"）。
+      expect(deliveryStatusColor(ctx, 'displayed'), AppColors.green);
       expect(deliveryStatusColor(ctx, 'failed'), AppColors.red);
       expect(deliveryStatusColor(ctx, 'intercepted'), AppColors.orange);
       expect(deliveryStatusColor(ctx, 'paused'), AppColors.orange);

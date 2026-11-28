@@ -3919,6 +3919,12 @@ abstract class AppLocalizations {
   /// **'已送达'**
   String get deliveryPeerDelivered;
 
+  /// No description provided for @deliveryPeerDisplayed.
+  ///
+  /// In zh, this message translates to:
+  /// **'对方已显示'**
+  String get deliveryPeerDisplayed;
+
   /// No description provided for @deliveryFailed.
   ///
   /// In zh, this message translates to:

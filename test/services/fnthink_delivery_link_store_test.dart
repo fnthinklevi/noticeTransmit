@@ -81,12 +81,14 @@ void main() {
   group('回执 → 送达格（纯函数）', () {
     final key = channelDeliveryKey(kFnthinkChannelSlug);
 
-    test('delivered / displayed 落「已送达」；expired / dropped 落失败', () {
+    test('delivered / displayed 各落**各自那一格**；expired / dropped 落失败', () {
+      // P2-1：这两个词不再合并 —— 合并之后发送端看不出"进了收件表但没弹出来"
+      // 与"用户真的看见了"的区别。
       for (final receipt in const ['delivered', 'displayed']) {
         final next = applyFnthinkReceiptToDelivery(<String, dynamic>{
           key: {'status': 'queued'},
         }, receipt);
-        expect(next?[key]['status'], peerDeliveredStatus, reason: receipt);
+        expect(next?[key]['status'], receipt, reason: receipt);
       }
       for (final receipt in const ['expired', 'dropped']) {
         final next = applyFnthinkReceiptToDelivery(<String, dynamic>{
@@ -94,6 +96,26 @@ void main() {
         }, receipt);
         expect(next?[key]['status'], 'failed', reason: receipt);
       }
+    });
+
+    test('P2-1 后到的 delivered 不许把 displayed 降级（反过来可以覆盖）', () {
+      // 回执会乱序：先到 displayed、后到 delivered。后者只说明"进了表"，
+      // 拿它覆盖是在对用户改口（"你看见了"→"只是收下了"）。
+      expect(
+        applyFnthinkReceiptToDelivery(<String, dynamic>{
+          key: {'status': peerDisplayedStatus},
+        }, 'delivered'),
+        isNull,
+        reason: '更强的那个已经在了，弱的不许覆盖',
+      );
+      final upgraded = applyFnthinkReceiptToDelivery(<String, dynamic>{
+        key: {'status': peerDeliveredStatus},
+      }, 'displayed');
+      expect(
+        upgraded?[key]['status'],
+        peerDisplayedStatus,
+        reason: '反过来是升级：先到「进了表」、后到「用户看见了」',
+      );
     });
 
     test('非终态回执不改那一格（宁可不说，也不把"还在路上"写成失败）', () {

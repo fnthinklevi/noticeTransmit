@@ -192,8 +192,14 @@ bool fnthinkReceiptIsTerminal(String receipt) {
 
 /// 把一条服务端回执落到通知记录的 `delivery_info` 上（T154 端到端）。
 ///
-/// 返回 null = 这条回执不该改这一格（非终态 / 本地已是「已送达」）。
+/// 返回 null = 这条回执不该改这一格（非终态 / 本地已是同级或更强的终态）。
 /// 纯函数：只算新 map，不写库；写库由 [applyFnthinkDeliveryReceipt] 负责。
+///
+/// P2-1：`displayed` 与 `delivered` **分两格**。协议这两个词本来就分开
+/// （接收端显示成功报 `displayed`、显示失败报 `delivered`），而服务端此前把两者
+/// 都压成 `delivered` ⇒ 发送端看不出"用户真的看见了"与"只是进了收件表"。
+/// 现在服务端存设备原话，这里就必须按强弱次序认：后到的 `delivered`
+/// 不许把 `displayed` 降级（那等于对用户改口）。
 Map<String, dynamic>? applyFnthinkReceiptToDelivery(
   Map<String, dynamic> delivery,
   String receipt,
@@ -204,13 +210,25 @@ Map<String, dynamic>? applyFnthinkReceiptToDelivery(
   }
   final key = channelDeliveryKey(kFnthinkChannelSlug);
   final previous = delivery[key];
-  // 一台设备取走就够了：多目标里后到的失败回执不许把「已送达」降级。
-  if (previous is Map && previous['status'] == peerDeliveredStatus) return null;
   final String status;
   if (receipt == 'delivered' || receipt == 'displayed') {
-    status = peerDeliveredStatus;
+    status = receipt;
   } else {
     status = 'failed';
+  }
+  // 终态之间按强弱比：已经是更强的那个就不动（多目标里一台成一台败是常态）。
+  if (previous is Map) {
+    final prevStatus = previous['status']?.toString() ?? '';
+    final prevRank = isPeerConcludedStatus(prevStatus)
+        ? peerReceiptRank[prevStatus]!
+        : -1;
+    final nextRank = isPeerConcludedStatus(status)
+        ? peerReceiptRank[status]!
+        : -1;
+    // `failed` 之前对上一律不覆盖（"已送达"不许被后到的失败降级）；
+    // `delivered`/`displayed` 之间只许由弱到强。
+    if (prevRank >= 0 && nextRank <= prevRank) return null;
+    if (nextRank < 0 && prevRank >= 0) return null;
   }
   final next = Map<String, dynamic>.from(delivery);
   next[key] = <String, dynamic>{

@@ -33,11 +33,39 @@ const String deliveredStatus = 'success';
 /// 分开是因为界面要能回答"发出去了"与"对面收下了"这两件事；筛选与统计把它们都算"送达"。
 const String peerDeliveredStatus = 'delivered';
 
-/// 算"已送达"的两枚状态词（[deliveryBucketOf] 与历史页统计共用这一张表）。
+/// 端到端「已展示」：对端**把它显示出来了**（P2-1）。
+///
+/// 与 [peerDeliveredStatus] 的区别是接收端那一侧的两条路：显示成功报 `displayed`、
+/// 显示失败（渠道/通知栏抛异常）报 `delivered`（`fnthink_receive_loop` 的不变量 ⑤）。
+/// 协议这两个词本来就分开，但服务端一度把两者都压成 `delivered`（`resultToEvent`
+/// 把它们推进同一个 `ack_ok`，回执取自 `step.receipt`）⇒ 发送端永远看不到区别。
+///
+/// P2-1 之后服务端存**设备原话**，于是这里要把两个词分成两格：
+/// 「进了收件表但没弹出来」与「用户真的看见了」是两件事，前者说明接收端的显示路有故障。
+const String peerDisplayedStatus = 'displayed';
+
+/// 算"已送达"的三枚状态词（[deliveryBucketOf] 与历史页统计共用这一张表）。
+///
+/// `displayed` 也算送达：它比 `delivered` **更强**（对端不仅收下、还显示出来了），
+/// 把它排除在外会让最成功的那一档落进"在途"，用户反而看不到它。
 const List<String> deliveredStatuses = <String>[
   deliveredStatus,
   peerDeliveredStatus,
+  peerDisplayedStatus,
 ];
+
+/// 端到端两个终态的**强弱次序**（数字越大越强）。
+///
+/// 回执会迟到、重复、乱序：后到的 `delivered` 不许把 `displayed` 降级 ——
+/// 那等于把"用户看见了"改口说成"只是进了表"。反过来 `displayed` 可以覆盖 `delivered`。
+const Map<String, int> peerReceiptRank = <String, int>{
+  peerDeliveredStatus: 1,
+  peerDisplayedStatus: 2,
+};
+
+/// 这一格是不是已经拿到了端到端终态（`delivered` / `displayed` 都算）。
+bool isPeerConcludedStatus(String status) =>
+    peerReceiptRank.containsKey(status);
 
 /// 算"没发出去的"那几个状态词 —— 筛选档「没发出去的」与 SQL 粗筛共用这一张表。
 const List<String> notDeliveredStatuses = <String>[

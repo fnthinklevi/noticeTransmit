@@ -1110,6 +1110,7 @@
   "statsRank": "App Push Ranking",
   "deliverySuccess": "Sent",
   "deliveryPeerDelivered": "Delivered",
+  "deliveryPeerDisplayed": "Shown on the other device",
   "deliveryFailed": "Failed",
   "deliveryPending": "Sending",
   "deliveryQueued": "Queued on server · waiting for the target to come online",

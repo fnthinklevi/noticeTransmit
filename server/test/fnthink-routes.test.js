@@ -524,10 +524,13 @@ describe('POST /api/fnthink/ack', () => {
     expect(ack.body.state).toBe('delivered');
     const messages = messagestore.loadMessages();
     expect(messages[messageId].body).toBeUndefined(); // 送达即删正文
-    expect(messages[messageId].receipt).toBe('delivered');
+    // P2-1：设备报的是 `displayed`，存的就该是 `displayed`。
+    // 原来这里存的是 `delivered`（`resultToEvent` 把两个词都推进 `ack_ok`，而回执取自
+    // `step.receipt`），于是「用户看见了」与「只是进了收件表」在协议层再也分不开。
+    expect(messages[messageId].receipt).toBe('displayed');
 
     // 回执的收件人是**发送方**（不是刚 ack 的那台设备）：TARGET 取自己的队列取不到它，
-    // 要 SENDER 来 poll 才会拿到这条 delivered。
+    // 要 SENDER 来 poll 才会拿到这条。
     const withReceipt = await request(app)
       .post('/api/fnthink/poll')
       .send(eventBody('poll', senderKey, SENDER))
@@ -536,11 +539,71 @@ describe('POST /api/fnthink/ack', () => {
     // T105 片③：只有 id 与词的话，发送侧那句「对端接收时间」永远无值可填。
     const firstReceipt = withReceipt.body.receipts.find((r) => r.messageId === messageId);
     expect(firstReceipt.at).toBeGreaterThan(0);
+    // P2-1：发送端能看见**设备报的是哪个词**（这就是「已展示」与「已送达」可分的现场）。
+    expect(firstReceipt.receipt).toBe('displayed');
     const second = await request(app)
       .post('/api/fnthink/poll')
       .send(eventBody('poll', senderKey, SENDER))
       .expect(200);
     expect(JSON.stringify(second.body.receipts)).not.toContain(messageId);
+  });
+
+  // ── P2-1：`displayed` 与 `delivered` 在协议层必须分得开 ─────────────────
+  //
+  // 状态机只有「送达了」一个结论（`ack_ok`），但**设备报的是哪个词**是另一件事：
+  // 显示成功报 `displayed`，显示失败报 `delivered`（`fnthink_receive_loop` 的不变量 ⑤）。
+  // 原来两者在服务端被压成同一个词，发送端永远看不到区别。
+  test('P2-1 报 delivered 的存 delivered：两个词各存各的，不互相冒充', async () => {
+    const posted = await request(app).post('/api/fnthink/message').send(messageBody()).expect(202);
+    const messageId = posted.body.messageId;
+    await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', targetKey, TARGET))
+      .expect(200);
+    await request(app)
+      .post('/api/fnthink/ack')
+      .send(
+        eventBody('ack', targetKey, TARGET, {
+          body: JSON.stringify({ messageId, result: 'delivered' }),
+        }),
+      )
+      .expect(200);
+    expect(messagestore.loadMessages()[messageId].receipt).toBe('delivered');
+
+    const poll = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', senderKey, SENDER))
+      .expect(200);
+    const row = poll.body.receipts.find((r) => r.messageId === messageId);
+    expect(row.receipt).toBe('delivered');
+  });
+
+  test('P2-1 迟到的重复 ack 不改已经存下的那个词', async () => {
+    const posted = await request(app).post('/api/fnthink/message').send(messageBody()).expect(202);
+    const messageId = posted.body.messageId;
+    await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', targetKey, TARGET))
+      .expect(200);
+    await request(app)
+      .post('/api/fnthink/ack')
+      .send(
+        eventBody('ack', targetKey, TARGET, {
+          body: JSON.stringify({ messageId, result: 'displayed' }),
+        }),
+      )
+      .expect(200);
+    // 第二次 ack 是"迟到的重复"：状态机判 ignored，回执那一格不许被改口
+    // （那次改口会让「谁最后说了什么」变成"谁最后到"）。
+    await request(app)
+      .post('/api/fnthink/ack')
+      .send(
+        eventBody('ack', targetKey, TARGET, {
+          body: JSON.stringify({ messageId, result: 'delivered' }),
+        }),
+      )
+      .expect(200);
+    expect(messagestore.loadMessages()[messageId].receipt).toBe('displayed');
   });
 
   test('ack 一条不属于我的消息 ⇒ 拒绝（不能替别人把消息标成已送达）', async () => {

@@ -747,6 +747,21 @@ router.post(
     if (!event) return sendFailure(res, statusCode(contract, 'forbidden'), 'rejected_capability');
 
     const { step } = advanceMessage(contract, messages, auth.messageId, event, { now });
+    // P2-1：设备报的**是哪个词**必须留下来。
+    //
+    // 契约 `clientEvents.ack.resultToEvent` 把 `delivered` 与 `displayed` 都推进到
+    // `ack_ok`（状态机只认"送达了"这一个结论），而回执的词来自 `step.receipt` ——
+    // 于是设备明明报的是 `displayed`，发送端收到的仍是 `delivered`，
+    // 「用户看见了」与「只是进了收件表」在协议层再也分不开。
+    //
+    // 这里把回执那一格改成**设备原话**：两个词都在 `receipts` 词表里，也都在
+    // `fnthinkReceiptIsTerminal` 认的那一档，所以下游不用改判据。
+    // 只在"这一步真的产生了回执"时替换（`failed_action` 那一步 `step.receipt` 是 null，
+    // 迟到的重复 ack 那一步 `step.ignored` 非空）—— 两个条件都不成立时才不动那一格。
+    const stored = messages[auth.messageId];
+    if (!step.ignored && step.receipt && stored && stored.receipt) {
+      stored.receipt = auth.result;
+    }
     saveMessages(messages);
     // T185：回执是给**原发送方**的 —— 它可能正 hold 在 /poll 上等「我发的那条到了没有」。
     // sender 可能是端点（`endpoint:<id>`），归一化后为 null ⇒ 叫醒函数自然空转。

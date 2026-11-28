@@ -23,6 +23,11 @@ String deliveryStatusText(AppLocalizations l10n, String status) {
       // T154 端到端：对端已经取走并 ack。与「推送成功」分开 ——
       // 前者说的是"本机交给通道成功"，这一档说的是"对面收下了"。
       return l10n.deliveryPeerDelivered;
+    case 'displayed':
+      // P2-1：对端不仅收下、还**显示出来了**。与上一档分开是这条审计的要点：
+      // 显示失败的接收端报的是 `delivered`（进表但没弹出来），那一档说明对端的
+      // 显示路有故障；这一档才是"用户真的看见了"。
+      return l10n.deliveryPeerDisplayed;
     case 'failed':
       return l10n.deliveryFailed;
     case 'intercepted':
@@ -62,6 +67,9 @@ Color deliveryStatusColor(BuildContext context, String status) {
   return switch (status) {
     'success' => AppColors.green,
     'delivered' => AppColors.green,
+    // P2-1：`displayed` 与 `delivered` 同为终点、同一个绿点（两档都算"到了"）——
+    // 但它们说的是两句不同的话，所以文案仍是两句（见 [deliveryStatusText]）。
+    'displayed' => AppColors.green,
     'failed' => AppColors.red,
     'intercepted' => AppColors.orange,
     'paused' => AppColors.orange,
