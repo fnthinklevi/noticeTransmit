@@ -2124,5 +2124,63 @@
       "zh": "留空时使用预置模板；支持的变量：",
       "en": "Leave empty to use the preset; supported variables:"
     }
+  },
+  "lib/pages/update_server_page.dart": {
+    "updateServerShort": {
+      "zh": "检查更新与下载安装包所使用的服务器由本页决定，不影响幻念推送的服务地址。",
+      "en": "This page decides which server checks and downloads updates. It does not change the Fnthink Push service address."
+    },
+    "updateServerHelpTitle": {
+      "zh": "两种模式的含义与选择方式",
+      "en": "What the two options mean and how to choose"
+    },
+    "updateServerHelpBody": {
+      "zh": "软件在两台服务器上发布更新：大陆服务器为 notice.fnthink.com，海外服务器为 notice.fnthink.top；除域名后缀与 CDN 主机名外，两台的链接逐字一致。首次进入时按网络实测时延选择一台；此后每次打开本页都会分别探测两台。也可切换为手动模式固定某一台，固定后不会自动更改。「自动」表示跟随最近一次实测结果：若不打开本页，仍沿用上次测得的那一台。安装包的实际下载地址由所选服务器自行下发；两台的版本信息分别维护，可能短暂不一致。此时本页会分别列出两台报告的最新版本，供用户判断应切换至哪一台。",
+      "en": "Updates are published on two servers: notice.fnthink.com for mainland China and notice.fnthink.top for overseas users. Except for the domain suffix and CDN host name, the links are identical. On first entry, one server is selected based on measured network latency; afterwards, both are probed each time this page is opened. You may also switch to manual mode to pin one server, which then remains fixed. “Automatic” means following the most recent measurement: if this page is not opened, the previously measured server remains in use. The actual installer download address is issued by the selected server; version information is maintained separately on each server and may be briefly inconsistent. In that case this page lists the latest version reported by each server so you can decide which one to switch to."
+    },
+    "updateServerModeAuto": {
+      "zh": "自动（按实测时延选择）",
+      "en": "Automatic (by measured latency)"
+    },
+    "updateServerModeManual": {
+      "zh": "手动（固定一台）",
+      "en": "Manual (pin one)"
+    },
+    "updateServerAutoUnprobed": {
+      "zh": "自动模式尚无实测结果：当前使用默认服务器。",
+      "en": "Automatic mode has no measurement yet: the default server is in use."
+    },
+    "updateServerBothDown": {
+      "zh": "两台服务器均探测失败：暂时使用默认服务器，可稍后重新探测，或手动指定一台。",
+      "en": "Neither server answered: the default server is in use for now. Probe again later, or pin one manually."
+    },
+    "updateServerUnprobed": {
+      "zh": "尚未探测",
+      "en": "Not probed yet"
+    },
+    "updateServerNoAnswer": {
+      "zh": "无响应（网络或域名解析失败）",
+      "en": "No response (network or DNS failure)"
+    },
+    "updateServerHttpStatus": {
+      "zh": "该服务器返回 HTTP {code}",
+      "en": "This server returned HTTP {code}"
+    },
+    "updateServerAnswerEmpty": {
+      "zh": "连接成功，但该服务器未返回版本信息",
+      "en": "Connected, but the server returned no version information"
+    },
+    "updateServerLatestLine": {
+      "zh": "该服务器报告的最新版本：{version}+{build}",
+      "en": "Latest version reported: {version}+{build}"
+    },
+    "updateServerCdnLine": {
+      "zh": "安装包下载地址：{host}",
+      "en": "Package download host: {host}"
+    },
+    "updateServerCdnMismatch": {
+      "zh": "注意：安装包实际来自 {actual}，与本档约定的 {expected} 不一致",
+      "en": "Note: the installer actually comes from {actual}, not the expected {expected} for this region"
+    }
   }
 }

@@ -5198,11 +5198,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateServerHelpTitle =>
-      'What the two options are, and how the pick works';
+      'What the two options mean and how to choose';
 
   @override
   String get updateServerHelpBody =>
-      'Updates are published on two servers: notice.fnthink.com for mainland China and notice.fnthink.top for everywhere else. Apart from the domain suffix and the CDN host, the links are identical. On first launch one is picked by measured latency; every time you open this page both are probed again. You can also pin one manually - once pinned, nothing changes it for you. \'Automatic\' means following the most recent measurement: if you never open this page, the last measured choice is still what is used. Each server hands out its own download host, and the two version files are maintained separately, so they can briefly disagree; this page shows what each one reports so you can decide which to use.';
+      'Updates are published on two servers: notice.fnthink.com for mainland China and notice.fnthink.top for overseas users. Except for the domain suffix and CDN host name, the links are identical. On first entry, one server is selected based on measured network latency; afterwards, both are probed each time this page is opened. You may also switch to manual mode to pin one server, which then remains fixed. “Automatic” means following the most recent measurement: if this page is not opened, the previously measured server remains in use. The actual installer download address is issued by the selected server; version information is maintained separately on each server and may be briefly inconsistent. In that case this page lists the latest version reported by each server so you can decide which one to switch to.';
 
   @override
   String get updateServerModeSection => 'Choice';
@@ -5233,17 +5233,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateServerAutoUnprobed =>
-      'Automatic has never measured: the default server is in use for now.';
+      'Automatic mode has no measurement yet: the default server is in use.';
 
   @override
   String get updateServerBothDown =>
-      'Neither server answered: the default is used for now. Probe again later, or pin one manually.';
+      'Neither server answered: the default server is in use for now. Probe again later, or pin one manually.';
 
   @override
   String get updateServerUnprobed => 'Not probed yet';
 
   @override
-  String get updateServerNoAnswer => 'No answer (network or DNS failure)';
+  String get updateServerNoAnswer => 'No response (network or DNS failure)';
 
   @override
   String updateServerHttpStatus(int code) {
@@ -5252,22 +5252,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String updateServerLatestLine(String version, String build) {
-    return 'Latest it reports: $version+$build';
+    return 'Latest version reported: $version+$build';
   }
 
   @override
   String updateServerCdnLine(String host) {
-    return 'Packages from $host';
+    return 'Package download host: $host';
   }
 
   @override
   String updateServerCdnMismatch(Object actual, Object expected) {
-    return 'Note: the installer comes from $actual, not the expected $expected for this region';
+    return 'Note: the installer actually comes from $actual, not the expected $expected for this region';
   }
 
   @override
   String get updateServerAnswerEmpty =>
-      'Reached it, but it reported no version info';
+      'Connected, but the server returned no version information';
 
   @override
   String get remoteExecSection => 'Remote execution';
