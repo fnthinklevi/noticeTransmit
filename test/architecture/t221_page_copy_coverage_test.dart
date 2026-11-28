@@ -38,7 +38,7 @@ void main() {
     'lib/pages/battery_page.dart': 'reviewed',
     'lib/pages/permission_settings_page.dart': 'reviewed',
     'lib/pages/temperature_page.dart': 'reviewed',
-    'lib/pages/rule_tester_page.dart': 'pending',
+    'lib/pages/rule_tester_page.dart': 'reviewed',
     'lib/pages/device_snapshot_page.dart': 'pending',
     'lib/pages/channel_status_page.dart': 'reviewed',
     'lib/pages/fnthink_endpoint_page.dart': 'reviewed',

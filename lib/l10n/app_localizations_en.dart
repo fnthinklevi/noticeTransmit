@@ -2472,7 +2472,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String testerDeviceStateLine(String charging, String network) {
-    return 'This device right now: charging $charging · network $network';
+    return 'Current device state: charging $charging · network $network';
   }
 
   @override
@@ -2495,7 +2495,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get testerSrcAppFilter =>
-      'Blocked by app filter (app not selected / selected, per current mode)';
+      'Blocked by app filter (app not in or in the current mode\'s selection)';
 
   @override
   String get testerSrcDefault => 'Default pass (no keyword or app-filter hit)';
@@ -2526,7 +2526,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get testerFilteredNote =>
-      'This notification is filtered out before the rule constraints';
+      'This notification is filtered out before rule constraints and push';
 
   @override
   String get engineConstraintEntry =>

@@ -1844,5 +1844,31 @@
       "zh": "本机无法读取该维度",
       "en": "this dimension cannot be read on this device"
     }
+  },
+  "lib/pages/rule_tester_page.dart": {
+    "testerDeviceStateUnavailable": {
+      "zh": "无法读取",
+      "en": "unavailable"
+    },
+    "testerDeviceStateLine": {
+      "zh": "本机当前状态：充电 {charging} · 网络 {network}",
+      "en": "Current device state: charging {charging} · network {network}"
+    },
+    "testerSrcAppFilter": {
+      "zh": "被应用过滤拦截（当前模式的应用选择列表未包含或已包含该应用）",
+      "en": "Blocked by app filter (app not in or in the current mode's selection)"
+    },
+    "testerSrcDefault": {
+      "zh": "默认放行（未命中黑白名单关键词，也未命中应用过滤）",
+      "en": "Default pass (no keyword or app-filter hit)"
+    },
+    "testerFilteredNote": {
+      "zh": "该通知将被过滤，不会进入规则约束判定与推送链路",
+      "en": "This notification is filtered out before rule constraints and push"
+    },
+    "testerRuleExcluded": {
+      "zh": "不适用（该应用已被排除）",
+      "en": "excluded (app excluded)"
+    }
   }
 }

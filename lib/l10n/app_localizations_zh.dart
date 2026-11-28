@@ -2371,11 +2371,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String testerDeviceStateLine(String charging, String network) {
-    return '本机此刻：充电 $charging · 网络 $network';
+    return '本机当前状态：充电 $charging · 网络 $network';
   }
 
   @override
-  String get testerDeviceStateUnavailable => '读不到';
+  String get testerDeviceStateUnavailable => '无法读取';
 
   @override
   String get testerStageFilter => '① 过滤链路';
@@ -2393,10 +2393,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get testerBlocked => '拦截';
 
   @override
-  String get testerSrcAppFilter => '应用过滤拦截（当前模式的应用选择列表未包含/已包含该应用）';
+  String get testerSrcAppFilter => '被应用过滤拦截（当前模式的应用选择列表未包含或已包含该应用）';
 
   @override
-  String get testerSrcDefault => '默认放行（未命中黑/白名单关键词与应用过滤）';
+  String get testerSrcDefault => '默认放行（未命中黑白名单关键词，也未命中应用过滤）';
 
   @override
   String get testerNoRules => '未命中任何规则 → 默认立即推送';
@@ -2411,7 +2411,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get testerRuleDisabled => '已禁用';
 
   @override
-  String get testerRuleExcluded => '不适用（该应用被排除）';
+  String get testerRuleExcluded => '不适用（该应用已被排除）';
 
   @override
   String get testerActionPush => '立即推送';
@@ -2423,7 +2423,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get testerActionRecord => '仅记录（不推送）';
 
   @override
-  String get testerFilteredNote => '该通知会被过滤掉，不会进入规则约束判定与推送链路';
+  String get testerFilteredNote => '该通知将被过滤，不会进入规则约束判定与推送链路';
 
   @override
   String get engineConstraintEntry => '设备状态告警同样受约束';

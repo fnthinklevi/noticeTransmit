@@ -1233,7 +1233,7 @@
   "testerPriorityHigh": "高",
   "testerPriorityMid": "中",
   "testerPriorityLow": "低",
-  "testerDeviceStateLine": "本机此刻：充电 {charging} · 网络 {network}",
+  "testerDeviceStateLine": "本机当前状态：充电 {charging} · 网络 {network}",
   "@testerDeviceStateLine": {
     "placeholders": {
       "charging": {
@@ -1244,23 +1244,23 @@
       }
     }
   },
-  "testerDeviceStateUnavailable": "读不到",
+  "testerDeviceStateUnavailable": "无法读取",
   "testerStageFilter": "① 过滤链路",
   "testerStageRules": "② 规则匹配",
   "testerStageAction": "③ 最终动作",
   "testerAllowed": "放行",
   "testerBlocked": "拦截",
-  "testerSrcAppFilter": "应用过滤拦截（当前模式的应用选择列表未包含/已包含该应用）",
-  "testerSrcDefault": "默认放行（未命中黑/白名单关键词与应用过滤）",
+  "testerSrcAppFilter": "被应用过滤拦截（当前模式的应用选择列表未包含或已包含该应用）",
+  "testerSrcDefault": "默认放行（未命中黑白名单关键词，也未命中应用过滤）",
   "testerNoRules": "未命中任何规则 → 默认立即推送",
   "testerRuleHit": "命中",
   "testerRuleMissed": "未命中",
   "testerRuleDisabled": "已禁用",
-  "testerRuleExcluded": "不适用（该应用被排除）",
+  "testerRuleExcluded": "不适用（该应用已被排除）",
   "testerActionPush": "立即推送",
   "testerActionSilent": "静默忽略",
   "testerActionRecord": "仅记录（不推送）",
-  "testerFilteredNote": "该通知会被过滤掉，不会进入规则约束判定与推送链路",
+  "testerFilteredNote": "该通知将被过滤，不会进入规则约束判定与推送链路",
   "engineConstraintEntry": "设备状态告警同样受约束",
   "engineConstraintTitle": "设备状态告警受哪些约束，以及被拦截后的处理",
   "engineConstraintShort": "开启后，电量/温度告警在推送前同样经过关键词黑白名单过滤。",

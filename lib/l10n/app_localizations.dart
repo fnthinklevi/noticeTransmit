@@ -4450,13 +4450,13 @@ abstract class AppLocalizations {
   /// No description provided for @testerDeviceStateLine.
   ///
   /// In zh, this message translates to:
-  /// **'本机此刻：充电 {charging} · 网络 {network}'**
+  /// **'本机当前状态：充电 {charging} · 网络 {network}'**
   String testerDeviceStateLine(String charging, String network);
 
   /// No description provided for @testerDeviceStateUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'读不到'**
+  /// **'无法读取'**
   String get testerDeviceStateUnavailable;
 
   /// No description provided for @testerStageFilter.
@@ -4492,13 +4492,13 @@ abstract class AppLocalizations {
   /// No description provided for @testerSrcAppFilter.
   ///
   /// In zh, this message translates to:
-  /// **'应用过滤拦截（当前模式的应用选择列表未包含/已包含该应用）'**
+  /// **'被应用过滤拦截（当前模式的应用选择列表未包含或已包含该应用）'**
   String get testerSrcAppFilter;
 
   /// No description provided for @testerSrcDefault.
   ///
   /// In zh, this message translates to:
-  /// **'默认放行（未命中黑/白名单关键词与应用过滤）'**
+  /// **'默认放行（未命中黑白名单关键词，也未命中应用过滤）'**
   String get testerSrcDefault;
 
   /// No description provided for @testerNoRules.
@@ -4528,7 +4528,7 @@ abstract class AppLocalizations {
   /// No description provided for @testerRuleExcluded.
   ///
   /// In zh, this message translates to:
-  /// **'不适用（该应用被排除）'**
+  /// **'不适用（该应用已被排除）'**
   String get testerRuleExcluded;
 
   /// No description provided for @testerActionPush.
@@ -4552,7 +4552,7 @@ abstract class AppLocalizations {
   /// No description provided for @testerFilteredNote.
   ///
   /// In zh, this message translates to:
-  /// **'该通知会被过滤掉，不会进入规则约束判定与推送链路'**
+  /// **'该通知将被过滤，不会进入规则约束判定与推送链路'**
   String get testerFilteredNote;
 
   /// No description provided for @engineConstraintEntry.

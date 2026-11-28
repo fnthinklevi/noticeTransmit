@@ -1233,7 +1233,7 @@
   "testerPriorityHigh": "High",
   "testerPriorityMid": "Medium",
   "testerPriorityLow": "Low",
-  "testerDeviceStateLine": "This device right now: charging {charging} · network {network}",
+  "testerDeviceStateLine": "Current device state: charging {charging} · network {network}",
   "@testerDeviceStateLine": {
     "placeholders": {
       "charging": {
@@ -1250,7 +1250,7 @@
   "testerStageAction": "③ Final action",
   "testerAllowed": "Allowed",
   "testerBlocked": "Blocked",
-  "testerSrcAppFilter": "Blocked by app filter (app not selected / selected, per current mode)",
+  "testerSrcAppFilter": "Blocked by app filter (app not in or in the current mode's selection)",
   "testerSrcDefault": "Default pass (no keyword or app-filter hit)",
   "testerNoRules": "No rule matched → push immediately by default",
   "testerRuleHit": "hit",
@@ -1260,7 +1260,7 @@
   "testerActionPush": "Push immediately",
   "testerActionSilent": "Silently ignore",
   "testerActionRecord": "Record only (no push)",
-  "testerFilteredNote": "This notification is filtered out before the rule constraints",
+  "testerFilteredNote": "This notification is filtered out before rule constraints and push",
   "engineConstraintEntry": "Apply keyword constraints to device alerts",
   "engineConstraintTitle": "Which constraints apply to device-state alerts, and what happens when one is blocked",
   "engineConstraintShort": "When on, battery and temperature alerts also pass the keyword allow/block lists before being pushed.",
