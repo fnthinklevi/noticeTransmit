@@ -61,7 +61,10 @@ class NotificationProcessorFallbackTest {
             source.indexOf("if (title.isEmpty() && content.isEmpty())"),
             source.indexOf("if (isOngoing)"),
         )
-        assertTrue("无可用文本的诊断被删掉了", body.contains("无可用文本，按空内容跳过"))
+        assertTrue(
+            "无可用文本的诊断被删掉了",
+            body.contains("No usable text; skipping empty content"),
+        )
         // 诊断只报包名与来源在场情况，不许把正文/标题写进日志。
         assertFalse("诊断里出现了正文", body.contains("content="))
         assertFalse("诊断里出现了标题", body.contains("title="))

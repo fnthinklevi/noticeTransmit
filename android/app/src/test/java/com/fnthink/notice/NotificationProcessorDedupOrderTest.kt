@@ -23,15 +23,17 @@ class NotificationProcessorDedupOrderTest {
 
     @Test
     fun `空内容丢弃的判断在去重键写入之前`() {
-        val emptyAt = source.indexOf(
-            "if (title.isEmpty() && content.isEmpty()) return null",
-        )
+        // 判空已经长成一个带诊断的块（P2-3），所以不能再找 "… return null" 这一行的字面量；
+        // 找条件本身 + 它后面的第一个 return null，再看去重键是否在它之后。
+        val emptyAt = source.indexOf("title.isEmpty() && content.isEmpty()")
+        val returnAt = source.indexOf("return null", emptyAt)
         val addAt = source.indexOf("notifiedKeys.add(dedupKey)")
         assertTrue("空内容判断消失", emptyAt >= 0)
+        assertTrue("空内容分支没有 return null", returnAt > emptyAt)
         assertTrue("去重键写入消失", addAt >= 0)
         assertTrue(
             "先写 key 再判空 ⇒ 首条空内容会把 key 锁死，后续更新全被当重复",
-            addAt > emptyAt,
+            addAt > returnAt,
         )
     }
 

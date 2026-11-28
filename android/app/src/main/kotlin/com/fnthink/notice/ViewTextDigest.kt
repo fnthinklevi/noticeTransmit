@@ -35,7 +35,7 @@ object ViewTextDigest {
      * @param maxChars 上限；超长时保留开头并补一枚省略号（长度仍不超过上限）。
      */
     fun format(lines: List<String>, maxChars: Int = DEFAULT_MAX_CHARS): String {
-        require(maxChars > 0) { "maxChars 必须为正数（0 会让每一条都被截成省略号）" }
+        require(maxChars > 0) { "maxChars must be positive (0 truncates every entry to an ellipsis)" }
         val kept = ArrayList<String>()
         for (raw in lines) {
             val text = raw.trim()

@@ -1115,15 +1115,15 @@ class NotificationMonitorService : NotificationListenerService() {
     private fun dispatchDegradedFallback(sbn: StatusBarNotification) {
         val info = buildDegradedInfo(sbn)
         if (info == null) {
-            Log.w(TAG, "降级分发：原文不可读，仅留占位历史")
+            Log.w(TAG, "Degraded dispatch: original text unreadable; placeholder history only")
             recordFailurePlaceholder(sbn, I18n.processDegradedNoContent())
             return
         }
         try {
             dispatchToChannels(info)
-            Log.d(TAG, "降级分发：已按原文转发（包名 ${sbn.packageName}）")
+            Log.d(TAG, "Degraded dispatch: forwarded original text (package ${sbn.packageName})")
         } catch (e: Exception) {
-            Log.e(TAG, "降级分发失败", e)
+            Log.e(TAG, "Degraded dispatch failed", e)
             recordFailurePlaceholder(sbn, I18n.processFailedBody())
         }
     }

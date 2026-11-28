@@ -51,7 +51,10 @@ class NotificationProcessorSourceClassifyTest {
         )
         assertTrue("没有 return true 的成功分支", source.contains("return true"))
         assertTrue("内容不足时没有 return false", source.contains("if (sender.isEmpty() || body.isEmpty()) return false"))
-        assertTrue("回落没有留日志", source.contains("短信通知内容不足，回落到普通通知路径"))
+        assertTrue(
+            "回落没有留日志",
+            source.contains("SMS content insufficient; falling back to normal notification path"),
+        )
         // 分类结果 SMS 时必须判返回值，不能像旧版那样调完就 return null。
         val block = source.substring(
             source.indexOf("NotificationSourceClassifier.Kind.SMS ->"),

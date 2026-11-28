@@ -45,7 +45,7 @@ object MessagingDigest {
         maxChars: Int = DEFAULT_MAX_CHARS,
         omittedNote: (Int) -> String = { "…" },
     ): String {
-        require(maxChars > 0) { "maxChars 必须为正数（0 会让每一条都被截成省略号）" }
+        require(maxChars > 0) { "maxChars must be positive (0 truncates every entry to an ellipsis)" }
         val lines = ArrayList<String>()
         for (entry in entries) {
             val text = entry.text.trim()

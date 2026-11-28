@@ -63,7 +63,7 @@ class NotificationProcessor(private val context: Context) {
                 if (dispatchSmsFromNotification(sbn)) return null
                 // P2-4：内容不足（无发送者/无正文/锁屏掩码）时**不再静默丢弃**，
                 // 落到普通通知路径：至少留下历史与诊断，用户能看到"有一条短信来了"。
-                Log.d(TAG, "短信通知内容不足，回落到普通通知路径：$packageName")
+                Log.d(TAG, "SMS content insufficient; falling back to normal notification path: $packageName")
             }
             NotificationSourceClassifier.Kind.OTHER -> Unit
         }
@@ -123,7 +123,7 @@ class NotificationProcessor(private val context: Context) {
             // 没有任何地方能回答"它到底有没有内容、卡在哪一步"。
             Log.d(
                 TAG,
-                "无可用文本，按空内容跳过：$packageName " +
+                "No usable text; skipping empty content: $packageName " +
                     "(summary=${summaryText.isNotEmpty()}, " +
                     "lines=${textLines.isNotEmpty()}, " +
                     "views=${hasRemoteViews(notification)})",
@@ -254,7 +254,7 @@ class NotificationProcessor(private val context: Context) {
             }
             if (sender.isEmpty() || body.isEmpty()) return false
             if (isMaskedContent(body)) {
-                Log.d(TAG, "短信通知正文为锁屏掩码，回落到普通通知路径: $sender")
+                Log.d(TAG, "SMS body is masked; falling back to normal notification path: $sender")
                 return false
             }
             val postTime = sbn.postTime
@@ -413,7 +413,7 @@ class NotificationProcessor(private val context: Context) {
                 if (text.isNotEmpty()) return text
             } catch (e: Exception) {
                 // 只报异常类型，不报布局内容（与日志脱敏同规）。
-                Log.d(TAG, "RemoteViews 文本提取失败（按无文本继续）：${e.javaClass.simpleName}")
+                Log.d(TAG, "RemoteViews text extraction failed (continuing with no text): ${e.javaClass.simpleName}")
             }
         }
         return ""
@@ -509,7 +509,7 @@ class NotificationProcessor(private val context: Context) {
         return try {
             android.provider.Telephony.Sms.getDefaultSmsPackage(context).orEmpty()
         } catch (e: Exception) {
-            Log.d(TAG, "读默认短信应用失败（按未设置处理）：${e.javaClass.simpleName}")
+            Log.d(TAG, "Failed to read default SMS package (treating as unset): ${e.javaClass.simpleName}")
             ""
         }
     }
@@ -520,7 +520,7 @@ class NotificationProcessor(private val context: Context) {
             val telecom = context.getSystemService(Context.TELECOM_SERVICE) as? android.telecom.TelecomManager
             telecom?.defaultDialerPackage.orEmpty()
         } catch (e: Exception) {
-            Log.d(TAG, "读默认拨号器失败（按未设置处理）：${e.javaClass.simpleName}")
+            Log.d(TAG, "Failed to read default dialer (treating as unset): ${e.javaClass.simpleName}")
             ""
         }
     }
