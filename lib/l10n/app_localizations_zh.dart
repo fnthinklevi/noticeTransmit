@@ -2256,29 +2256,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backupSectionTitle => '备份配置';
 
   @override
-  String get backupSectionShort => '把你的所有设置打包成一个文件，换手机或重装后一键恢复。';
+  String get backupSectionShort => '将全部设置打包为一个文件，换机或重装后可一键恢复。';
 
   @override
   String get backupSectionDesc =>
-      '把你的所有设置打包成一个文件，换手机或重装后可以一键恢复。\n\n包含：Webhook 和邮件通道（含密钥）、通知规则、短信监听开关、应用筛选和黑白名单关键词。\n不含：已经推送过的通知历史。\n\n文件有密码保护，恢复时需要输入同一个密码，请务必记住。';
+      '将全部设置打包为一个文件，换机或重装后可一键恢复。\n\n包含：Webhook 与邮件通道（含密钥）、通知规则、短信监听开关、应用筛选与黑白名单关键词。\n不含：已推送的通知历史。\n\n文件受密码保护，恢复时需输入同一密码，请务必牢记。';
 
   @override
   String get restoreSectionTitle => '恢复配置';
 
   @override
-  String get restoreSectionDesc => '选择备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。';
+  String get restoreSectionDesc => '选择备份文件并输入口令以恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。';
 
   @override
   String get backupCreate => '生成备份文件';
 
   @override
-  String get restorePick => '选择备份文件恢复';
+  String get restorePick => '选择备份文件以恢复';
 
   @override
   String get backupPasswordTitle => '设置备份口令';
 
   @override
-  String get backupPasswordHint => '口令（至少 8 位；忘记将无法恢复）';
+  String get backupPasswordHint => '口令（至少 8 位；遗失后将无法恢复）';
 
   @override
   String get restorePasswordTitle => '输入备份口令';
@@ -2302,7 +2302,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restoreConfirmTitle => '检测到现有配置';
 
   @override
-  String get restoreConflictMsg => '当前已有部分配置。覆盖将替换对应类别的全部内容；仅导入空缺项则保留现有配置不动。';
+  String get restoreConflictMsg => '当前已存在部分配置。覆盖将替换对应类别的全部内容；仅导入空缺项则保留现有配置不变。';
 
   @override
   String get restoreOverwriteAll => '覆盖全部';
@@ -2311,7 +2311,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restoreFillGaps => '仅导入空缺项';
 
   @override
-  String get restoreDoneReTest => '恢复完成。含凭据的通道（Webhook/邮件）请重新「测试」验证。';
+  String get restoreDoneReTest => '恢复完成。含凭据的通道（Webhook/邮件）请重新执行「测试」以验证。';
 
   @override
   String get restoreFailed => '恢复失败：';
@@ -2322,7 +2322,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get restorePartialFailed => '部分配置未恢复成功，请逐项检查设置页';
+  String get restorePartialFailed => '部分配置未能恢复，请逐项检查设置页';
 
   @override
   String get backupRestoreSubtitle => '加密备份通道、规则与设置，并支持换机恢复';

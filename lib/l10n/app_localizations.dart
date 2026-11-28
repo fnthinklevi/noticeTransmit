@@ -4228,13 +4228,13 @@ abstract class AppLocalizations {
   /// No description provided for @backupSectionShort.
   ///
   /// In zh, this message translates to:
-  /// **'把你的所有设置打包成一个文件，换手机或重装后一键恢复。'**
+  /// **'将全部设置打包为一个文件，换机或重装后可一键恢复。'**
   String get backupSectionShort;
 
   /// No description provided for @backupSectionDesc.
   ///
   /// In zh, this message translates to:
-  /// **'把你的所有设置打包成一个文件，换手机或重装后可以一键恢复。\n\n包含：Webhook 和邮件通道（含密钥）、通知规则、短信监听开关、应用筛选和黑白名单关键词。\n不含：已经推送过的通知历史。\n\n文件有密码保护，恢复时需要输入同一个密码，请务必记住。'**
+  /// **'将全部设置打包为一个文件，换机或重装后可一键恢复。\n\n包含：Webhook 与邮件通道（含密钥）、通知规则、短信监听开关、应用筛选与黑白名单关键词。\n不含：已推送的通知历史。\n\n文件受密码保护，恢复时需输入同一密码，请务必牢记。'**
   String get backupSectionDesc;
 
   /// No description provided for @restoreSectionTitle.
@@ -4246,7 +4246,7 @@ abstract class AppLocalizations {
   /// No description provided for @restoreSectionDesc.
   ///
   /// In zh, this message translates to:
-  /// **'选择备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。'**
+  /// **'选择备份文件并输入口令以恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。'**
   String get restoreSectionDesc;
 
   /// No description provided for @backupCreate.
@@ -4258,7 +4258,7 @@ abstract class AppLocalizations {
   /// No description provided for @restorePick.
   ///
   /// In zh, this message translates to:
-  /// **'选择备份文件恢复'**
+  /// **'选择备份文件以恢复'**
   String get restorePick;
 
   /// No description provided for @backupPasswordTitle.
@@ -4270,7 +4270,7 @@ abstract class AppLocalizations {
   /// No description provided for @backupPasswordHint.
   ///
   /// In zh, this message translates to:
-  /// **'口令（至少 8 位；忘记将无法恢复）'**
+  /// **'口令（至少 8 位；遗失后将无法恢复）'**
   String get backupPasswordHint;
 
   /// No description provided for @restorePasswordTitle.
@@ -4318,7 +4318,7 @@ abstract class AppLocalizations {
   /// No description provided for @restoreConflictMsg.
   ///
   /// In zh, this message translates to:
-  /// **'当前已有部分配置。覆盖将替换对应类别的全部内容；仅导入空缺项则保留现有配置不动。'**
+  /// **'当前已存在部分配置。覆盖将替换对应类别的全部内容；仅导入空缺项则保留现有配置不变。'**
   String get restoreConflictMsg;
 
   /// No description provided for @restoreOverwriteAll.
@@ -4336,7 +4336,7 @@ abstract class AppLocalizations {
   /// No description provided for @restoreDoneReTest.
   ///
   /// In zh, this message translates to:
-  /// **'恢复完成。含凭据的通道（Webhook/邮件）请重新「测试」验证。'**
+  /// **'恢复完成。含凭据的通道（Webhook/邮件）请重新执行「测试」以验证。'**
   String get restoreDoneReTest;
 
   /// No description provided for @restoreFailed.
@@ -4354,7 +4354,7 @@ abstract class AppLocalizations {
   /// No description provided for @restorePartialFailed.
   ///
   /// In zh, this message translates to:
-  /// **'部分配置未恢复成功，请逐项检查设置页'**
+  /// **'部分配置未能恢复，请逐项检查设置页'**
   String get restorePartialFailed;
 
   /// No description provided for @backupRestoreSubtitle.

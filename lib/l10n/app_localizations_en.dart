@@ -2348,31 +2348,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupSectionShort =>
-      'Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.';
+      'Pack all settings into a single file so they can be restored in one step after switching phones or reinstalling.';
 
   @override
   String get backupSectionDesc =>
-      'Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.\n\nIncludes: Webhook and email channels (with credentials), notification rules, SMS monitoring toggle, app filter and keyword lists.\nExcludes: notification history that has already been pushed.\n\nThe file is password-protected — you will need the same password to restore, so keep it safe.';
+      'Pack all settings into a single file so they can be restored in one step after switching phones or reinstalling.\n\nIncludes: Webhook and email channels (with credentials), notification rules, the SMS monitoring switch, app filters and keyword lists.\nExcludes: notification history that has already been pushed.\n\nThe file is password-protected; the same password is required to restore, so keep it safe.';
 
   @override
   String get restoreSectionTitle => 'Restore Configuration';
 
   @override
   String get restoreSectionDesc =>
-      'Pick a backup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.';
+      'Choose a backup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.';
 
   @override
   String get backupCreate => 'Create Backup File';
 
   @override
-  String get restorePick => 'Choose Backup File';
+  String get restorePick => 'Choose a Backup File to Restore';
 
   @override
   String get backupPasswordTitle => 'Set Backup Password';
 
   @override
   String get backupPasswordHint =>
-      'Password (min 8 chars; unrecoverable if lost)';
+      'Password (at least 8 characters; unrecoverable if lost)';
 
   @override
   String get restorePasswordTitle => 'Enter Backup Password';
@@ -2397,7 +2397,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get restoreConflictMsg =>
-      'Some configuration already exists. Overwrite replaces everything in the matching categories; Fill gaps keeps existing configuration untouched.';
+      'Some configuration already exists. Overwrite replaces all content in the matching categories; Fill gaps leaves existing configuration unchanged.';
 
   @override
   String get restoreOverwriteAll => 'Overwrite All';
@@ -2407,7 +2407,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get restoreDoneReTest =>
-      'Restore completed. Please re-test channels with credentials (Webhook/email).';
+      'Restore completed. Re-run Test for channels with credentials (Webhook/email) to verify them.';
 
   @override
   String get restoreFailed => 'Restore failed: ';
@@ -2419,7 +2419,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get restorePartialFailed =>
-      'Some settings were not restored — please check each settings page';
+      'Some settings could not be restored; check each settings page';
 
   @override
   String get backupRestoreSubtitle =>

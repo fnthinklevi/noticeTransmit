@@ -73,7 +73,7 @@ void main() {
     'lib/pages/widget_guide_page.dart': 'reviewed',
     'lib/pages/fnthink_peer_detail_page.dart': 'reviewed',
     'lib/pages/update_server_page.dart': 'reviewed',
-    'lib/pages/backup_restore_page.dart': 'pending',
+    'lib/pages/backup_restore_page.dart': 'reviewed',
     'lib/pages/main_page_actions.dart': 'pending',
     'lib/pages/main_page_update.dart': 'pending',
     'lib/pages/stats_page.dart': 'pending',
