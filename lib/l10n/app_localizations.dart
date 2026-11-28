@@ -2440,7 +2440,7 @@ abstract class AppLocalizations {
   /// No description provided for @notifToggleDesc.
   ///
   /// In zh, this message translates to:
-  /// **'开启后以下提醒才会生效'**
+  /// **'开启后，以下提醒方可生效'**
   String get notifToggleDesc;
 
   /// No description provided for @notifRules.
@@ -2464,37 +2464,37 @@ abstract class AppLocalizations {
   /// No description provided for @batteryNotes3.
   ///
   /// In zh, this message translates to:
-  /// **'电量通知随通知监听服务一起运行'**
+  /// **'电量通知随通知监听服务一同运行'**
   String get batteryNotes3;
 
   /// No description provided for @batteryNotes4.
   ///
   /// In zh, this message translates to:
-  /// **'点击规则可编辑，左滑或长按可删除'**
+  /// **'点击规则可编辑；左滑或长按可删除'**
   String get batteryNotes4;
 
   /// No description provided for @closeBatteryOpt.
   ///
   /// In zh, this message translates to:
-  /// **'关闭电池优化'**
+  /// **'关闭电池优化限制'**
   String get closeBatteryOpt;
 
   /// No description provided for @batteryOptDesc.
   ///
   /// In zh, this message translates to:
-  /// **'息屏后系统会限制后台运行，可能导致通知监听服务停止'**
+  /// **'息屏后系统会限制后台运行，可能导致通知监听服务中断'**
   String get batteryOptDesc;
 
   /// No description provided for @ruleStartCharging.
   ///
   /// In zh, this message translates to:
-  /// **'手机接入充电器时推送'**
+  /// **'设备接入充电器时推送'**
   String get ruleStartCharging;
 
   /// No description provided for @ruleStopCharging.
   ///
   /// In zh, this message translates to:
-  /// **'手机断开充电器时推送'**
+  /// **'设备断开充电器时推送'**
   String get ruleStopCharging;
 
   /// No description provided for @ruleAboveThreshold.
@@ -2590,7 +2590,7 @@ abstract class AppLocalizations {
   /// No description provided for @customTitleHint.
   ///
   /// In zh, this message translates to:
-  /// **'留空则使用默认标题'**
+  /// **'留空时使用默认标题'**
   String get customTitleHint;
 
   /// No description provided for @batteryReminder.

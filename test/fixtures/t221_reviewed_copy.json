@@ -1722,5 +1722,39 @@
       "zh": "未找到应用",
       "en": "No apps found"
     }
+  },
+  "lib/pages/battery_page.dart": {
+    "notifToggleDesc": {
+      "zh": "开启后，以下提醒方可生效",
+      "en": "Reminders below only work when this is enabled"
+    },
+    "batteryNotes3": {
+      "zh": "电量通知随通知监听服务一同运行",
+      "en": "Battery notifications run together with the notification listener service"
+    },
+    "batteryNotes4": {
+      "zh": "点击规则可编辑；左滑或长按可删除",
+      "en": "Tap a rule to edit it; swipe or long-press to delete"
+    },
+    "closeBatteryOpt": {
+      "zh": "关闭电池优化限制",
+      "en": "Disable Battery Optimization"
+    },
+    "batteryOptDesc": {
+      "zh": "息屏后系统会限制后台运行，可能导致通知监听服务中断",
+      "en": "After the screen turns off, the system may restrict background activity and interrupt the notification listener service"
+    },
+    "ruleStartCharging": {
+      "zh": "设备接入充电器时推送",
+      "en": "Push when the charger is connected"
+    },
+    "ruleStopCharging": {
+      "zh": "设备断开充电器时推送",
+      "en": "Push when the charger is disconnected"
+    },
+    "customTitleHint": {
+      "zh": "留空时使用默认标题",
+      "en": "Leave empty to use the default title"
+    }
   }
 }

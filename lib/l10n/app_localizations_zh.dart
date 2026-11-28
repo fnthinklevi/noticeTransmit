@@ -1275,7 +1275,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get batteryNotifToggle => '电量通知总开关';
 
   @override
-  String get notifToggleDesc => '开启后以下提醒才会生效';
+  String get notifToggleDesc => '开启后，以下提醒方可生效';
 
   @override
   String get notifRules => '通知规则';
@@ -1287,22 +1287,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get batteryNotes2 => '电量回升到阈值以上才会重置提醒状态';
 
   @override
-  String get batteryNotes3 => '电量通知随通知监听服务一起运行';
+  String get batteryNotes3 => '电量通知随通知监听服务一同运行';
 
   @override
-  String get batteryNotes4 => '点击规则可编辑，左滑或长按可删除';
+  String get batteryNotes4 => '点击规则可编辑；左滑或长按可删除';
 
   @override
-  String get closeBatteryOpt => '关闭电池优化';
+  String get closeBatteryOpt => '关闭电池优化限制';
 
   @override
-  String get batteryOptDesc => '息屏后系统会限制后台运行，可能导致通知监听服务停止';
+  String get batteryOptDesc => '息屏后系统会限制后台运行，可能导致通知监听服务中断';
 
   @override
-  String get ruleStartCharging => '手机接入充电器时推送';
+  String get ruleStartCharging => '设备接入充电器时推送';
 
   @override
-  String get ruleStopCharging => '手机断开充电器时推送';
+  String get ruleStopCharging => '设备断开充电器时推送';
 
   @override
   String ruleAboveThreshold(int n) {
@@ -1358,7 +1358,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get customTitle => '自定义标题（可选）';
 
   @override
-  String get customTitleHint => '留空则使用默认标题';
+  String get customTitleHint => '留空时使用默认标题';
 
   @override
   String get batteryReminder => '电量提醒';

@@ -1335,7 +1335,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get batteryNotifToggle => 'Battery Notification Master Switch';
 
   @override
-  String get notifToggleDesc => 'Reminders below only work when enabled';
+  String get notifToggleDesc =>
+      'Reminders below only work when this is enabled';
 
   @override
   String get notifRules => 'Notification Rules';
@@ -1349,23 +1350,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get batteryNotes3 =>
-      'Battery notification runs with the notification listener service';
+      'Battery notifications run together with the notification listener service';
 
   @override
-  String get batteryNotes4 => 'Tap to edit, swipe or long-press to delete';
+  String get batteryNotes4 =>
+      'Tap a rule to edit it; swipe or long-press to delete';
 
   @override
-  String get closeBatteryOpt => 'Close Battery Optimization';
+  String get closeBatteryOpt => 'Disable Battery Optimization';
 
   @override
   String get batteryOptDesc =>
-      'System may restrict background running when screen off';
+      'After the screen turns off, the system may restrict background activity and interrupt the notification listener service';
 
   @override
-  String get ruleStartCharging => 'Push when charger connected';
+  String get ruleStartCharging => 'Push when the charger is connected';
 
   @override
-  String get ruleStopCharging => 'Push when charger disconnected';
+  String get ruleStopCharging => 'Push when the charger is disconnected';
 
   @override
   String ruleAboveThreshold(int n) {
@@ -1421,7 +1423,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customTitle => 'Custom Title (optional)';
 
   @override
-  String get customTitleHint => 'Leave empty for default title';
+  String get customTitleHint => 'Leave empty to use the default title';
 
   @override
   String get batteryReminder => 'Battery Reminder';
