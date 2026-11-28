@@ -18,6 +18,7 @@ import com.fnthink.notice.FnthinkPairLink
 import com.fnthink.notice.FnthinkPresenceAlarm
 import com.fnthink.notice.FnthinkPresenceWorker
 import com.fnthink.notice.FnthinkScreenLock
+import com.fnthink.notice.FnthinkServiceEngine
 import com.fnthink.notice.I18n
 import com.fnthink.notice.LocationFix
 import com.fnthink.notice.NotificationMonitorService
@@ -233,6 +234,14 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                 } else {
                     NotificationMonitorService.refreshForegroundFromPrefs()
                 }
+                result.success(true)
+            }
+            // 后台空闲降 CPU：UI 收货循环起/停时把"谁持有"直接告诉服务引擎。
+            // 不再靠 UI 每 10 秒写 prefs、服务每 10 秒读一次；60 秒心跳只剩兜底。
+            // 划掉任务时由 NotificationMonitorService.onTaskRemoved 置 false。
+            "setFnthinkUiReceiveActive" -> {
+                val active = call.argument<Boolean>("active") ?: false
+                FnthinkServiceEngine.setUiReceiveActive(active)
                 result.success(true)
             }
             // T181 B：常驻前台服务里的高频轮询档。Dart 侧每轮都会续一次，

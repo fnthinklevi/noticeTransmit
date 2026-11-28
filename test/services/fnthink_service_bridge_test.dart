@@ -14,12 +14,12 @@ void main() {
 
   test('窗口内新鲜，窗口边界外不新鲜', () {
     const at = 1000000;
-    const freshMs = 30 * 1000;
+    final freshMs = kFnthinkUiAliveFreshness.inMilliseconds;
     expect(fnthinkUiAlive(at, at + freshMs - 1), isTrue);
     expect(
       fnthinkUiAlive(at, at + freshMs),
       isFalse,
-      reason: '正好 30 秒边界按过期算：两条循环同时跑的代价高于多接管一轮',
+      reason: '正好窗口边界按过期算：两条循环同时跑的代价高于多接管一轮',
     );
     expect(fnthinkUiAlive(at, at + 1), isTrue);
   });

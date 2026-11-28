@@ -22,14 +22,18 @@ import io.flutter.view.FlutterCallbackInformation
  *  - 那两个是 WorkManager 起的**一轮引擎**，启动要等系统调度（实测通知到达后 5 秒才跑到，
  *    锁屏/Doze 下更久），而且是"起一次、跑完拆掉"；
  *  - 这一颗挂在 `NotificationMonitorService` 的进程里，**不退出**：收货循环由 Dart 侧
- *    按 UI 心跳决定要不要持有，待发队列则由原生直接 `fanoutNow` 叫它排空 ——
+ *    按"UI 是否在跑"的即时事件决定要不要持有，待发队列则由原生直接 `fanoutNow` 叫它排空 ——
  *    不再每一条通知起一次引擎，也不再等 60 秒闹钟。
  *
  * 三条必须由本类守住：
  *  1. **只在服务活着时存在**：`ensure` 由 service 周期调用，`stop` 在 `onDestroy`；
- *  2. **僵尸自愈**：Dart 每 10 秒报一次 `alive`，90 秒没报就拆掉重建；
+ *  2. **僵尸自愈**：Dart 每 60 秒报一次 `alive`，180 秒没报就拆掉重建；
  *  3. **兜底不丢**：引擎没起来/调用失败 ⇒ 退回 `FnthinkFanoutWorker.schedule`，
  *     队列本身在 prefs 里，最坏也只是慢一轮。
+ *
+ * 谁持有收货循环：正常由 UI 通过 `setFnthinkUiReceiveActive` 事件交接（UI 循环起/停各一发，
+ * 划掉任务时原生置 false）；Dart 侧 60 秒一拍的心跳只做事件丢失时的兜底。原生在这里保存
+ * 最后一份状态，供服务引擎晚启动时用 `getUiReceiveActive` 读回。
  */
 object FnthinkServiceEngine {
     private const val TAG = "FnthinkServiceEngine"
@@ -40,8 +44,8 @@ object FnthinkServiceEngine {
     /** 与 Dart `publishFnthinkServiceHandle` 的键同形（原生读带 `flutter.` 前缀的那份）。 */
     const val KEY_HANDLE = "flutter.fnthink_service_handle"
 
-    /** Dart 报活超时：10 秒一次的心跳，给 9 次余量。 */
-    private const val ALIVE_TIMEOUT_MS = 90_000L
+    /** Dart 报活超时：60 秒一次的心跳，给两拍余量（3 分钟）。 */
+    private const val ALIVE_TIMEOUT_MS = 180_000L
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -53,6 +57,10 @@ object FnthinkServiceEngine {
 
     @Volatile
     private var lastAliveAt = 0L
+
+    /** UI 收货循环是否在跑。进程内的一份状态，进程被杀后默认 false（服务接管）。 */
+    @Volatile
+    private var uiReceiveActive = false
 
     @Volatile
     private var fanoutBusy = false
@@ -101,6 +109,29 @@ object FnthinkServiceEngine {
     fun isAlive(): Boolean {
         if (engine == null) return false
         return System.currentTimeMillis() - lastAliveAt <= ALIVE_TIMEOUT_MS
+    }
+
+    /**
+     * UI 循环起/停时由 `FnthinkChannelHandler` 调进来：
+     *  - 先更新进程内状态（服务引擎还没建时也要记住，建好后 `getUiReceiveActive` 会读回）；
+     *  - 引擎在跑就立刻推一发 `uiReceiveActive`，不用等 60 秒兜底心跳。
+     *
+     * 线程约束：`handle` 可能在主线程，也可能不在；统一 post 到 main 再碰引擎。
+     */
+    fun setUiReceiveActive(active: Boolean) {
+        uiReceiveActive = active
+        mainHandler.post {
+            val current = engine ?: return@post
+            runCatching {
+                MethodChannel(current.dartExecutor.binaryMessenger, SERVICE_CHANNEL).invokeMethod(
+                    "uiReceiveActive",
+                    active,
+                )
+            }.onFailure {
+                // 推事件失败不改变收货：Dart 的 60 秒兜底会按心跳纠偏。
+                Log.w(TAG, "ui-receive-active-push-failed: $active", it)
+            }
+        }
     }
 
     /**
@@ -199,6 +230,8 @@ object FnthinkServiceEngine {
                             if (call.method == "alive") {
                                 lastAliveAt = System.currentTimeMillis()
                                 result.success(true)
+                            } else if (call.method == "getUiReceiveActive") {
+                                result.success(uiReceiveActive)
                             } else {
                                 result.notImplemented()
                             }

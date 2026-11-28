@@ -138,6 +138,61 @@ class FnthinkServiceEngineContractTest {
     }
 
     @Test
+    fun `UI 收货归属走事件交接，不再靠 10 秒轮询`() {
+        val bridge = dart("lib/services/fnthink_service_bridge.dart")
+        ok(
+            "UI 循环起/停没有把归属推给原生 ⇒ 服务引擎只能等心跳过期才接管",
+            bridge.contains("publishFnthinkUiReceiveActive") &&
+                bridge.contains("'setFnthinkUiReceiveActive'"),
+        )
+        ok(
+            "UI 心跳仍是 10 秒周期 ⇒ 后台两条件链继续每 10 秒互相唤醒",
+            bridge.contains("kFnthinkUiHeartbeatInterval = Duration(seconds: 60)"),
+        )
+        val entry = dart("lib/services/fnthink_service_entrypoint.dart")
+        ok(
+            "服务引擎没有接 uiReceiveActive 事件 ⇒ 事件推了也没人停/起循环",
+            entry.contains("call.method == 'uiReceiveActive'") &&
+                entry.contains("_applyUiReceiveActive"),
+        )
+        ok(
+            "服务引擎启动时没有读回归属 ⇒ 晚启动会先抢跑一轮",
+            entry.contains("getUiReceiveActive"),
+        )
+        ok(
+            "服务引擎的兜底同步仍是 10 秒周期 ⇒ 本项省下的唤醒又还回去了",
+            entry.contains("Duration(seconds: 60)") && !entry.contains("Duration(seconds: 10)"),
+        )
+
+        val native = kt("FnthinkServiceEngine.kt")
+        ok(
+            "原生没有保存 UI 归属状态 ⇒ 服务引擎晚启动读不到",
+            native.contains("setUiReceiveActive") &&
+                native.contains("getUiReceiveActive") &&
+                native.contains("uiReceiveActive"),
+        )
+        ok(
+            "报活超时没有跟着 60 秒心跳放宽 ⇒ 正常两拍之间就会被判僵尸、反复重建",
+            native.contains("ALIVE_TIMEOUT_MS = 180_000L"),
+        )
+        val handler = kt("channels/FnthinkChannelHandler.kt")
+        ok(
+            "通知通道没有 setFnthinkUiReceiveActive 分支 ⇒ Dart 那一发会 MissingPluginException",
+            handler.contains("\"setFnthinkUiReceiveActive\""),
+        )
+        val taskRemoved = kt("NotificationMonitorService.kt")
+            .substringAfter("override fun onTaskRemoved")
+        ok(
+            "划掉任务没有把归属置 false ⇒ UI 已经没了，服务还在等心跳过期",
+            taskRemoved.contains("FnthinkServiceEngine.setUiReceiveActive(false)"),
+        )
+        ok(
+            "划掉任务没有立刻 ensure ⇒ 接管要等下一轮 30 秒循环",
+            taskRemoved.contains("FnthinkServiceEngine.ensure("),
+        )
+    }
+
+    @Test
     fun `交班只停循环，不动闹钟`() {
         val coordinator = dart("lib/services/fnthink_receive_coordinator.dart")
         val stopOnly = coordinator.substringAfter("void stopLoopOnly() {")

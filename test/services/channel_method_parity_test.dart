@@ -138,7 +138,9 @@ void main() {
     // `com.fnthink.notice/service` 上，由 `FnthinkServiceEngine` 自己注册 handler。
     // 130 → 131（T253）：`restartApp` —— 启动页卡死（库被后台残留连接占住）的一键重启，
     // 挂在 DeviceChannelHandler 上；杀进程是唯一能清掉进程内残留连接的动作。
-    test('原生方法总数 == 149（防止分支被静默删除/新增未登记）', () {
+    // 149 → 151（后台空闲降 CPU 第 2 项）：`setFnthinkUiReceiveActive` 让 UI 循环起/停
+    // 立刻交接给服务引擎；服务通道加 `getUiReceiveActive`，引擎晚启动时读回当前归属。
+    test('原生方法总数 == 151（防止分支被静默删除/新增未登记）', () {
       // 131 → 148（2026-11-21）：T198 锁屏三项厂商跳转骨架在 Permission 域 +15；
       // T189 回复通知在 RemoteExec 域 +2（listReplyableNotifications / fnthinkReplyNotification）。
       // 两批都是**有意**改动，不是分支被删。
@@ -146,7 +148,7 @@ void main() {
       // 重算前台身份（收件与通知监听共用同一条常驻通知，只开收件时也要有前台身份）。
       expect(
         native.length,
-        149,
+        151,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -180,7 +182,8 @@ void main() {
         // T181 B 起 20：常驻轮询档两发（`startFnthinkLive` / `stopFnthinkLive`）。
         // T197 片2 起 21：`refreshFnthinkScreenLock`（开关翻完立刻对锁）。
         // 2026-11-21 起 22：`refreshFnthinkForeground`（收件开关翻完重算前台身份）。
-        'FnthinkChannelHandler': 22,
+        // 后台空闲降 CPU 第 2 项起 23：`setFnthinkUiReceiveActive`（UI 循环起/停即时交接）。
+        'FnthinkChannelHandler': 23,
         // 远程执行（片3c-5）：状态栏通知的显示/清理 + "被原生记下撤销"的读口。
         // ⚠ 前四发是**撤销入口其二**那条路径的唯一通道 —— 用户在通知栏按下的那一下
         //   落在原生（Dart 当时不一定在跑），到点动手前由 Dart 回来问一句。
@@ -199,7 +202,8 @@ void main() {
         'FnthinkFanoutWorker': 1,
         // T197 片3：服务里的常驻引擎。`alive` 是 Dart 主动报活（原生据此判僵尸）；
         // 它不走 ChannelDispatcher，和上面两个 worker 同一类独立 handler。
-        'FnthinkServiceEngine': 1,
+        // 后台空闲降 CPU 第 2 项起 2：`getUiReceiveActive` 让晚启动的服务引擎读回归属。
+        'FnthinkServiceEngine': 2,
       });
     });
 

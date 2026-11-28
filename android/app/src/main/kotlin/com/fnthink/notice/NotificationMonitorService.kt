@@ -1322,6 +1322,13 @@ class NotificationMonitorService : NotificationListenerService() {
         // 主动排程 1 秒后拉起，减小「监听 + 前台服务」的空窗期（漏通知窗口）。
         // T185 第三步：与 onDestroy 共用同一条自愈链（新请求码 3202、API 26+ 走前台服务）。
         try {
+            // 划掉任务 = UI isolate 已经交班：先让服务引擎立刻拿到收货权，
+            // 再走自愈链。旧实现要等 UI 心跳过期（最多 30 秒）才接管。
+            FnthinkServiceEngine.setUiReceiveActive(false)
+            val wanted =
+                configManager.getFnthinkChannelConfigs().isNotEmpty() ||
+                    FnthinkPresenceAlarm(this).receiveEnabled()
+            FnthinkServiceEngine.ensure(applicationContext, wanted)
             scheduleSelfRestart()
             // 划掉任务：先按"已停止"落盘并重绘小部件，让用户立刻看到真实状态；
             // 若 1s 后服务真的被拉起，onCreate 会把它翻回「推送中」—— 反馈跟着事实走，不粉饰。

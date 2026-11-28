@@ -27,10 +27,11 @@ Future<bool> publishFnthinkServiceHandle() async {
   return true;
 }
 
-/// 常驻服务引擎入口（T197 片3）：服务进程里一直活着，只在 UI 心跳过期时接管收货。
+/// 常驻服务引擎入口（T197 片3）：服务进程里一直活着，只在 UI 不再持有收货循环时接管。
 ///
 /// 与 [fnthinkPresenceEntrypoint] 的区别：那一颗只跑一轮就退出（WorkManager 的兜底），
-/// 这一颗**不退出**——它用 10 秒一次的心跳检查决定"现在该不该持有收货循环"，
+/// 这一颗**不退出**——正常交接靠原生转来的 `uiReceiveActive` 事件（UI 循环起/停各一发，
+/// 划掉任务时原生直接置 false）；60 秒一次的同步只做兜底心跳、报活与事件丢失后的纠偏，
 /// 同时在同一颗 isolate 里接住原生转来的 `fanoutNow`（发送端秒级的那一半）。
 ///
 /// ⚠ 必须 `@pragma('vm:entry-point')`：只有原生按 handle 进，没有 Dart 调用点。
@@ -49,6 +50,7 @@ Future<void> fnthinkServiceEntrypoint() async {
   DatabaseHelper.allowDestructiveOpen = false;
 
   if (!getIt.isRegistered<FnthinkReceiveCoordinator>()) setupLocator();
+  final coordinator = getIt<FnthinkReceiveCoordinator>();
 
   // handle 由 UI 主 isolate 写（`PluginUtilities.getCallbackHandle` 的根 isolate 语义）：
   // 后台 isolate 不重写这三枚，避免把 UI 写好的值覆盖成 null/旧值。
@@ -58,8 +60,12 @@ Future<void> fnthinkServiceEntrypoint() async {
       await drainPendingFanout();
       return true;
     }
+    if (call.method == 'uiReceiveActive') {
+      await _applyUiReceiveActive(coordinator, call.arguments == true);
+      return true;
+    }
     if (call.method == 'stop') {
-      getIt<FnthinkReceiveCoordinator>().stopLoopOnly();
+      coordinator.stopLoopOnly();
       return true;
     }
     if (call.method == 'closeDb') {
@@ -71,22 +77,54 @@ Future<void> fnthinkServiceEntrypoint() async {
     return null;
   });
 
-  final coordinator = getIt<FnthinkReceiveCoordinator>();
+  // 原生那一份静态状态在进程内保留：UI 循环起/停时已经写过，服务引擎晚启动也能
+  // 读到当前值（进程被杀后默认 false ⇒ 服务接管，不会抱着旧心跳让位）。
+  final uiActive =
+      await channel.invokeMethod<bool>('getUiReceiveActive') ?? false;
+  await _applyUiReceiveActive(coordinator, uiActive);
+
+  // 兜底一拍：事件通道丢了、或者 UI 被系统冻住时，60 秒后按心跳纠偏并给原生报活。
   Timer.periodic(
-    const Duration(seconds: 10),
+    const Duration(seconds: 60),
     (_) => unawaited(_syncReceiveOwnership(coordinator, channel)),
   );
-  await _syncReceiveOwnership(coordinator, channel);
+  await _reportAlive(channel);
 }
 
-/// 起链失败后的重试间隔。10 秒的心跳检查照跑，但**不拿它当重试节奏**：
-/// 签名不可用/注册被限流时每 10 秒重来一次既费流量也刷日志。
+/// 起链失败后的重试间隔。60 秒的兜底同步照跑，但**不拿它当重试节奏**：
+/// 签名不可用/注册被限流时每 60 秒重来一次既费流量也刷日志。
 const Duration kFnthinkServiceStartRetry = Duration(seconds: 60);
 
 int _nextStartAttemptAt = 0;
 
-/// 心跳检查：新鲜 ⇒ UI 在，服务只停自己的循环（**不动闹钟**，那颗归 UI）；
-/// 过期 ⇒ UI 被收走，服务接管收货。
+/// 事件驱动交接：`active=true` ⇒ UI 收货循环在跑，服务停自己的循环（**不动闹钟**，
+/// 那颗归 UI）；`active=false` ⇒ UI 已交班，服务按当前设置决定要不要接管。
+Future<void> _applyUiReceiveActive(
+  FnthinkReceiveCoordinator coordinator,
+  bool active,
+) async {
+  if (active) {
+    _nextStartAttemptAt = 0;
+    if (coordinator.isRunning) coordinator.stopLoopOnly();
+    return;
+  }
+  if (coordinator.isRunning) return;
+
+  final now = DateTime.now().millisecondsSinceEpoch;
+  if (now < _nextStartAttemptAt) return;
+  final result = await coordinator.startIfEnabled();
+  if (result.started) {
+    _nextStartAttemptAt = 0;
+  } else {
+    _nextStartAttemptAt = now + kFnthinkServiceStartRetry.inMilliseconds;
+    if (result.reason != 'disabled') {
+      debugPrint('[fnthink] 服务引擎收货没起来：${result.reason}');
+    }
+  }
+}
+
+/// 兜底检查（60 秒一拍）：新鲜 ⇒ UI 在，服务只停自己的循环；过期 ⇒ UI 已被收走，
+/// 服务接管收货。事件通道正常时这里通常只是在重复确认"谁持有"。
 Future<void> _syncReceiveOwnership(
   FnthinkReceiveCoordinator coordinator,
   MethodChannel channel,
@@ -99,21 +137,21 @@ Future<void> _syncReceiveOwnership(
     if (fresh) {
       if (coordinator.isRunning) coordinator.stopLoopOnly();
     } else if (!coordinator.isRunning && now >= _nextStartAttemptAt) {
-      final result = await coordinator.startIfEnabled();
-      if (result.started) {
-        _nextStartAttemptAt = 0;
-      } else {
-        _nextStartAttemptAt = now + kFnthinkServiceStartRetry.inMilliseconds;
-        if (result.reason != 'disabled') {
-          debugPrint('[fnthink] 服务引擎收货没起来：${result.reason}');
-        }
-      }
+      await _applyUiReceiveActive(coordinator, false);
     }
-    // 给原生报活：引擎僵尸时服务侧按 90 秒超时重建。
-    await channel.invokeMethod<void>('alive');
+    await _reportAlive(channel);
   } catch (e) {
     // 这条链上的失败不许把 Timer 打死；下一轮继续。
     debugPrint('[fnthink] 服务引擎同步失败：$e');
+  }
+}
+
+Future<void> _reportAlive(MethodChannel channel) async {
+  try {
+    // 给原生报活：引擎僵尸时服务侧按 180 秒超时重建。
+    await channel.invokeMethod<void>('alive');
+  } catch (e) {
+    debugPrint('[fnthink] 服务引擎报活失败：$e');
   }
 }
 

@@ -416,6 +416,9 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        // 用户真正结束任务时 UI isolate 即将消失：把收货权交给服务引擎。
+        // 只认 isFinishing，配置变更（旋转/分屏重建）不算交班 —— 新 Activity 会重新起 UI 循环。
+        if (isFinishing) FnthinkServiceEngine.setUiReceiveActive(false)
         try { unregisterReceiver(notificationReceiver) } catch (_: Exception) {}
         try { unregisterReceiver(deliveryReceiver) } catch (_: Exception) {}
         try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
