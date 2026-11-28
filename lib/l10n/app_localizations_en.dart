@@ -5331,7 +5331,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteTriggerAllowModeInfo =>
-      'Mode: Allow — only selected apps\' notification content can trigger remote commands';
+      'Mode: Allow; only the notification content of selected apps can trigger remote commands on this device';
 
   @override
   String remoteTriggerAllowModeSelected(int n) {
@@ -5340,7 +5340,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteTriggerBlockModeInfo =>
-      'Mode: Block — except selected apps, all other apps\' notifications can trigger';
+      'Mode: Block; except for selected apps, notifications from other apps can trigger';
 
   @override
   String remoteTriggerBlockModeSelected(int n) {

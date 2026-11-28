@@ -9080,7 +9080,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteTriggerAllowModeInfo.
   ///
   /// In zh, this message translates to:
-  /// **'当前模式：允许触发 — 只有选中的应用，其通知正文才能触发本机远程指令'**
+  /// **'当前模式：允许触发；仅已选应用的通知正文可触发本机远程指令'**
   String get remoteTriggerAllowModeInfo;
 
   /// No description provided for @remoteTriggerAllowModeSelected.
@@ -9092,7 +9092,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteTriggerBlockModeInfo.
   ///
   /// In zh, this message translates to:
-  /// **'当前模式：禁止触发 — 选中的应用除外，其余应用的通知都能触发'**
+  /// **'当前模式：禁止触发；除已选应用外，其余应用的通知均可触发'**
   String get remoteTriggerBlockModeInfo;
 
   /// No description provided for @remoteTriggerBlockModeSelected.

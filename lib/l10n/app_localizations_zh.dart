@@ -5045,8 +5045,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteTriggerBlock => '禁止触发';
 
   @override
-  String get remoteTriggerAllowModeInfo =>
-      '当前模式：允许触发 — 只有选中的应用，其通知正文才能触发本机远程指令';
+  String get remoteTriggerAllowModeInfo => '当前模式：允许触发；仅已选应用的通知正文可触发本机远程指令';
 
   @override
   String remoteTriggerAllowModeSelected(int n) {
@@ -5054,7 +5053,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get remoteTriggerBlockModeInfo => '当前模式：禁止触发 — 选中的应用除外，其余应用的通知都能触发';
+  String get remoteTriggerBlockModeInfo => '当前模式：禁止触发；除已选应用外，其余应用的通知均可触发';
 
   @override
   String remoteTriggerBlockModeSelected(int n) {
