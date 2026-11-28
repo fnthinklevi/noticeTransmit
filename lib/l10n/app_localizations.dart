@@ -7293,7 +7293,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelDesc.
   ///
   /// In zh, this message translates to:
-  /// **'这台设备作为发送方的那些转发目标：收到通知就按这里转出去。'**
+  /// **'本机作为发送方时的转发目标：收到的通知将按此处配置转发。'**
   String get fnthinkChannelDesc;
 
   /// No description provided for @fnthinkPushChannel.
@@ -7305,7 +7305,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelNote.
   ///
   /// In zh, this message translates to:
-  /// **'徽标那一句记的是最近一次「仅探测／探测并保存」的结果，不是自动探测：幻念通道没有不打扰对端就能问出通不通的办法。'**
+  /// **'徽标记录的是最近一次「仅探测/探测并保存」的结果，并非自动探测：幻念通道无法在不打扰对端的情况下判断连通性。'**
   String get fnthinkChannelNote;
 
   /// No description provided for @fnthinkHubChannelsDesc.
@@ -7317,25 +7317,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'还没有幻念通道。新建一条，它就会把这台收到的通知转给指定的目标。'**
+  /// **'尚无幻念通道。新建通道后，本机收到的通知将转发至指定目标。'**
   String get fnthinkChannelEmpty;
 
   /// No description provided for @fnthinkChannelDeleteAskTitle.
   ///
   /// In zh, this message translates to:
-  /// **'删掉这条通道？'**
+  /// **'删除此通道？'**
   String get fnthinkChannelDeleteAskTitle;
 
   /// No description provided for @fnthinkChannelDeleteAskMsg.
   ///
   /// In zh, this message translates to:
-  /// **'删掉之后，这台设备就不再往「{name}」转发了。'**
+  /// **'删除后，本机将不再向「{name}」转发。'**
   String fnthinkChannelDeleteAskMsg(Object name);
 
   /// No description provided for @fnthinkChannelDeleted.
   ///
   /// In zh, this message translates to:
-  /// **'已删掉那条通道'**
+  /// **'通道已删除'**
   String get fnthinkChannelDeleted;
 
   /// No description provided for @fnthinkChannelName.
@@ -7365,13 +7365,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelTargetKindDevice.
   ///
   /// In zh, this message translates to:
-  /// **'一台勾选过的设备'**
+  /// **'一台已勾选的设备'**
   String get fnthinkChannelTargetKindDevice;
 
   /// No description provided for @fnthinkChannelTargetKindWebhook.
   ///
   /// In zh, this message translates to:
-  /// **'一个 webhook 地址'**
+  /// **'一个 Webhook 地址'**
   String get fnthinkChannelTargetKindWebhook;
 
   /// No description provided for @fnthinkChannelTarget.

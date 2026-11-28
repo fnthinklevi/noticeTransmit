@@ -4184,7 +4184,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkChannelNote =>
-      'The badge line records the last time this channel was tested, not an automatic probe: a Fnthink channel has no way to ask \"is it reachable\" without disturbing the other end.';
+      'The badge records the last \"probe only\" or \"probe and save\" result, not an automatic probe: a Fnthink channel cannot check reachability without disturbing the other end.';
 
   @override
   String get fnthinkHubChannelsDesc =>
@@ -4199,7 +4199,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkChannelDeleteAskMsg(Object name) {
-    return 'After deleting it, this device stops forwarding to “$name”.';
+    return 'After deletion, this device will no longer forward to \"$name\".';
   }
 
   @override

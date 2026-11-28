@@ -3980,31 +3980,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkChannelTitle => '幻念通道';
 
   @override
-  String get fnthinkChannelDesc => '这台设备作为发送方的那些转发目标：收到通知就按这里转出去。';
+  String get fnthinkChannelDesc => '本机作为发送方时的转发目标：收到的通知将按此处配置转发。';
 
   @override
   String get fnthinkPushChannel => '幻念推送通道';
 
   @override
   String get fnthinkChannelNote =>
-      '徽标那一句记的是最近一次「仅探测／探测并保存」的结果，不是自动探测：幻念通道没有不打扰对端就能问出通不通的办法。';
+      '徽标记录的是最近一次「仅探测/探测并保存」的结果，并非自动探测：幻念通道无法在不打扰对端的情况下判断连通性。';
 
   @override
   String get fnthinkHubChannelsDesc => '这台设备作为发送方的那些转发目标。';
 
   @override
-  String get fnthinkChannelEmpty => '还没有幻念通道。新建一条，它就会把这台收到的通知转给指定的目标。';
+  String get fnthinkChannelEmpty => '尚无幻念通道。新建通道后，本机收到的通知将转发至指定目标。';
 
   @override
-  String get fnthinkChannelDeleteAskTitle => '删掉这条通道？';
+  String get fnthinkChannelDeleteAskTitle => '删除此通道？';
 
   @override
   String fnthinkChannelDeleteAskMsg(Object name) {
-    return '删掉之后，这台设备就不再往「$name」转发了。';
+    return '删除后，本机将不再向「$name」转发。';
   }
 
   @override
-  String get fnthinkChannelDeleted => '已删掉那条通道';
+  String get fnthinkChannelDeleted => '通道已删除';
 
   @override
   String get fnthinkChannelName => '名称';
@@ -4019,10 +4019,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkChannelTargetKind => '转到哪儿';
 
   @override
-  String get fnthinkChannelTargetKindDevice => '一台勾选过的设备';
+  String get fnthinkChannelTargetKindDevice => '一台已勾选的设备';
 
   @override
-  String get fnthinkChannelTargetKindWebhook => '一个 webhook 地址';
+  String get fnthinkChannelTargetKindWebhook => '一个 Webhook 地址';
 
   @override
   String get fnthinkChannelTarget => '目标';

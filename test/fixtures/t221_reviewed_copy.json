@@ -1362,5 +1362,39 @@
       "zh": "最后更新：2026年11月28日",
       "en": "Last updated: November 28, 2026"
     }
+  },
+  "lib/pages/fnthink_channel_list_page.dart": {
+    "fnthinkChannelDeleteAskTitle": {
+      "zh": "删除此通道？",
+      "en": "Delete this channel?"
+    },
+    "fnthinkChannelDeleteAskMsg": {
+      "zh": "删除后，本机将不再向「{name}」转发。",
+      "en": "After deletion, this device will no longer forward to \"{name}\"."
+    },
+    "fnthinkChannelDeleted": {
+      "zh": "通道已删除",
+      "en": "Channel deleted"
+    },
+    "fnthinkChannelTargetKindWebhook": {
+      "zh": "一个 Webhook 地址",
+      "en": "A webhook URL"
+    },
+    "fnthinkChannelTargetKindDevice": {
+      "zh": "一台已勾选的设备",
+      "en": "A checked device"
+    },
+    "fnthinkChannelEmpty": {
+      "zh": "尚无幻念通道。新建通道后，本机收到的通知将转发至指定目标。",
+      "en": "No Fnthink channel yet. Add one and this device will forward the notifications it receives."
+    },
+    "fnthinkChannelDesc": {
+      "zh": "本机作为发送方时的转发目标：收到的通知将按此处配置转发。",
+      "en": "Where this device forwards to as a sender: notifications it receives go out through these."
+    },
+    "fnthinkChannelNote": {
+      "zh": "徽标记录的是最近一次「仅探测/探测并保存」的结果，并非自动探测：幻念通道无法在不打扰对端的情况下判断连通性。",
+      "en": "The badge records the last \"probe only\" or \"probe and save\" result, not an automatic probe: a Fnthink channel cannot check reachability without disturbing the other end."
+    }
   }
 }
