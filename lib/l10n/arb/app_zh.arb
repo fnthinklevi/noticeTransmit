@@ -264,7 +264,7 @@
       }
     }
   },
-  "appFilterAll": "全部应用都推送",
+  "appFilterAll": "全部应用均推送",
   "keywordFilter": "关键词过滤",
   "keywordWhitelistBlacklist": "白名单 {n} 条 · 黑名单 {m} 条",
   "@keywordWhitelistBlacklist": {
@@ -286,7 +286,7 @@
       }
     }
   },
-  "ruleEmpty": "点击添加规则",
+  "ruleEmpty": "点击以添加规则",
   "device": "设备",
   "deviceName": "设备名称",
   "widgetGuide": "推送开关",
@@ -321,14 +321,14 @@
   "aboutUpdate": "关于与更新",
   "checkUpdate": "检查更新",
   "checking": "正在检查...",
-  "clickToCheck": "点击检查新版本",
+  "clickToCheck": "点击以检查新版本",
   "privacyPolicyTitle": "隐私政策",
   "privacyPolicyDesc": "数据采集与隐私保护说明",
   "crashReport": "崩溃上报",
   "crashReportDesc": "默认关闭；开启后崩溃日志将上传至腾讯 Bugly 用于问题分析",
   "crashReportOffHint": "已关闭，下次启动后完全生效",
   "aboutTitle": "关于",
-  "aboutDesc": "版本信息、作者介绍",
+  "aboutDesc": "版本信息与作者介绍",
   "followSystem": "跟随系统",
   "lightMode": "浅色模式",
   "darkMode": "深色模式",
@@ -1218,7 +1218,7 @@
     }
   },
   "restorePartialFailed": "部分配置未恢复成功，请逐项检查设置页",
-  "backupRestoreSubtitle": "加密备份通道、规则与设置，支持换机恢复",
+  "backupRestoreSubtitle": "加密备份通道、规则与设置，并支持换机恢复",
   "developerDiagEnabled": "开发者诊断已开启（logcat 输出规则/聚合链路日志）",
   "developerDiagDisabled": "开发者诊断已关闭",
   "ruleTesterTitle": "规则测试器",
@@ -1332,7 +1332,7 @@
       }
     }
   },
-  "deviceStatusBriefNoReading": "{model} · 电量读数还没到",
+  "deviceStatusBriefNoReading": "{model} · 尚未获取电量读数",
   "@deviceStatusBriefNoReading": {
     "placeholders": {
       "model": {
@@ -2938,7 +2938,7 @@
   "updateSizeUnknown": "未知",
   "updateNotificationTitle": "通知推送助手更新",
   "updateServerTitle": "更新服务器",
-  "updateServerEntryDesc": "选择检查更新走哪一台（大陆／海外）",
+  "updateServerEntryDesc": "选择检查更新所使用的服务器（大陆或海外）",
   "updateServerShort": "检查更新与下载安装包走哪一台由这一页决定，不影响幻念推送的服务地址。",
   "updateServerHelpTitle": "两档各是什么，怎么挑",
   "updateServerHelpBody": "软件在两台服务器上发布更新：大陆这台是 notice.fnthink.com，海外这台是 notice.fnthink.top，两台的链接除域名后缀与 CDN 主机名外逐字一致。第一次进入时按你网络的实测时延挑一台，之后每打开这一页就两台各探一次；也可以切到手动钉住某一台——钉住之后谁都不会再替你改。「自动」的含义是跟着最近一次实测走：一直不来这一页，用的就还是上次测出来的那台。安装包的实际下载地址由所选那台自己下发，两台的版本信息是各自维护的两份数据，可能短暂不一致；这种情况下这一页把两台各自报的最新版摆出来，让你自己看出该换哪台。",

@@ -402,7 +402,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get appFilterAll => '全部应用都推送';
+  String get appFilterAll => '全部应用均推送';
 
   @override
   String get keywordFilter => '关键词过滤';
@@ -421,7 +421,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get ruleEmpty => '点击添加规则';
+  String get ruleEmpty => '点击以添加规则';
 
   @override
   String get device => '设备';
@@ -527,7 +527,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get checking => '正在检查...';
 
   @override
-  String get clickToCheck => '点击检查新版本';
+  String get clickToCheck => '点击以检查新版本';
 
   @override
   String get privacyPolicyTitle => '隐私政策';
@@ -548,7 +548,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutTitle => '关于';
 
   @override
-  String get aboutDesc => '版本信息、作者介绍';
+  String get aboutDesc => '版本信息与作者介绍';
 
   @override
   String get followSystem => '跟随系统';
@@ -2325,7 +2325,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restorePartialFailed => '部分配置未恢复成功，请逐项检查设置页';
 
   @override
-  String get backupRestoreSubtitle => '加密备份通道、规则与设置，支持换机恢复';
+  String get backupRestoreSubtitle => '加密备份通道、规则与设置，并支持换机恢复';
 
   @override
   String get developerDiagEnabled => '开发者诊断已开启（logcat 输出规则/聚合链路日志）';
@@ -2556,7 +2556,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String deviceStatusBriefNoReading(String model) {
-    return '$model · 电量读数还没到';
+    return '$model · 尚未获取电量读数';
   }
 
   @override
@@ -4917,7 +4917,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get updateServerTitle => '更新服务器';
 
   @override
-  String get updateServerEntryDesc => '选择检查更新走哪一台（大陆／海外）';
+  String get updateServerEntryDesc => '选择检查更新所使用的服务器（大陆或海外）';
 
   @override
   String get updateServerShort => '检查更新与下载安装包走哪一台由这一页决定，不影响幻念推送的服务地址。';

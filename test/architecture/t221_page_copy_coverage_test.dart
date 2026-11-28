@@ -50,7 +50,7 @@ void main() {
     'lib/pages/app_filter_page.dart': 'reviewed',
     'lib/pages/fnthink_channel_list_page.dart': 'reviewed',
     'lib/pages/fnthink_settings_page.dart': 'reviewed',
-    'lib/pages/more_page.dart': 'pending',
+    'lib/pages/more_page.dart': 'reviewed',
     'lib/pages/remote_trigger_filter_page.dart': 'pending',
     'lib/pages/email_settings_page.dart': 'reviewed',
     'lib/pages/main_page.dart': 'reviewed',

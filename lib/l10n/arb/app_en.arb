@@ -286,7 +286,7 @@
       }
     }
   },
-  "ruleEmpty": "Tap to add rule",
+  "ruleEmpty": "Tap to add a rule",
   "device": "Device",
   "deviceName": "Device Name",
   "widgetGuide": "Push Toggle",
@@ -328,7 +328,7 @@
   "crashReportDesc": "Off by default; when enabled, crash logs are uploaded to Tencent Bugly for diagnostics",
   "crashReportOffHint": "Disabled; takes full effect after next launch",
   "aboutTitle": "About",
-  "aboutDesc": "Version info and author",
+  "aboutDesc": "Version information and author",
   "followSystem": "Follow System",
   "lightMode": "Light Mode",
   "darkMode": "Dark Mode",
@@ -2917,7 +2917,7 @@
   "updateSizeUnknown": "Unknown",
   "updateNotificationTitle": "Notification Forwarder Update",
   "updateServerTitle": "Update server",
-  "updateServerEntryDesc": "Choose which server update checks use (mainland / overseas)",
+  "updateServerEntryDesc": "Choose which server update checks use (mainland or overseas)",
   "updateServerShort": "This page decides which server checks and downloads updates. It does not change the Fnthink Push service address.",
   "updateServerHelpTitle": "What the two options are, and how the pick works",
   "updateServerHelpBody": "Updates are published on two servers: notice.fnthink.com for mainland China and notice.fnthink.top for everywhere else. Apart from the domain suffix and the CDN host, the links are identical. On first launch one is picked by measured latency; every time you open this page both are probed again. You can also pin one manually - once pinned, nothing changes it for you. 'Automatic' means following the most recent measurement: if you never open this page, the last measured choice is still what is used. Each server hands out its own download host, and the two version files are maintained separately, so they can briefly disagree; this page shows what each one reports so you can decide which to use.",

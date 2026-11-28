@@ -1966,5 +1966,35 @@
       "zh": "未选择 {n}",
       "en": "Unselected {n}"
     }
+  },
+  "lib/pages/more_page.dart": {
+    "updateServerEntryDesc": {
+      "zh": "选择检查更新所使用的服务器（大陆或海外）",
+      "en": "Choose which server update checks use (mainland or overseas)"
+    },
+    "backupRestoreSubtitle": {
+      "zh": "加密备份通道、规则与设置，并支持换机恢复",
+      "en": "Encrypted backup of channels, rules and settings, restorable on a new device"
+    },
+    "clickToCheck": {
+      "zh": "点击以检查新版本",
+      "en": "Tap to check for updates"
+    },
+    "aboutDesc": {
+      "zh": "版本信息与作者介绍",
+      "en": "Version information and author"
+    },
+    "ruleEmpty": {
+      "zh": "点击以添加规则",
+      "en": "Tap to add a rule"
+    },
+    "appFilterAll": {
+      "zh": "全部应用均推送",
+      "en": "All apps push"
+    },
+    "deviceStatusBriefNoReading": {
+      "zh": "{model} · 尚未获取电量读数",
+      "en": "{model} · no battery reading yet"
+    }
   }
 }

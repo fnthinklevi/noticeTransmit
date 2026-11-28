@@ -111,8 +111,8 @@ void main() {
       expect(find.text('温度告警'), findsOneWidget);
       // T24：亮度/网络第三行必须在同一张卡里（二分口径：都是"设备自己到了某个状态"）
       expect(find.text('设备状态告警'), findsOneWidget);
-      // 温度与设备状态两族初始都没有规则：各自提示"点击添加规则"，而不是硬凑一个"0 条规则"
-      expect(find.text('点击添加规则'), findsNWidgets(2));
+      // 温度与设备状态两族初始都没有规则：各自提示"点击以添加规则"，而不是硬凑一个"0 条规则"
+      expect(find.text('点击以添加规则'), findsNWidgets(2));
       expect(find.textContaining('0 条规则'), findsNothing);
     });
 

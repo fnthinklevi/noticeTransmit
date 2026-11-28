@@ -766,7 +766,7 @@ abstract class AppLocalizations {
   /// No description provided for @appFilterAll.
   ///
   /// In zh, this message translates to:
-  /// **'全部应用都推送'**
+  /// **'全部应用均推送'**
   String get appFilterAll;
 
   /// No description provided for @keywordFilter.
@@ -796,7 +796,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'点击添加规则'**
+  /// **'点击以添加规则'**
   String get ruleEmpty;
 
   /// No description provided for @device.
@@ -1006,7 +1006,7 @@ abstract class AppLocalizations {
   /// No description provided for @clickToCheck.
   ///
   /// In zh, this message translates to:
-  /// **'点击检查新版本'**
+  /// **'点击以检查新版本'**
   String get clickToCheck;
 
   /// No description provided for @privacyPolicyTitle.
@@ -1048,7 +1048,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutDesc.
   ///
   /// In zh, this message translates to:
-  /// **'版本信息、作者介绍'**
+  /// **'版本信息与作者介绍'**
   String get aboutDesc;
 
   /// No description provided for @followSystem.
@@ -4360,7 +4360,7 @@ abstract class AppLocalizations {
   /// No description provided for @backupRestoreSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'加密备份通道、规则与设置，支持换机恢复'**
+  /// **'加密备份通道、规则与设置，并支持换机恢复'**
   String get backupRestoreSubtitle;
 
   /// No description provided for @developerDiagEnabled.
@@ -4792,7 +4792,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceStatusBriefNoReading.
   ///
   /// In zh, this message translates to:
-  /// **'{model} · 电量读数还没到'**
+  /// **'{model} · 尚未获取电量读数'**
   String deviceStatusBriefNoReading(String model);
 
   /// No description provided for @deviceStatusShort.
@@ -8846,7 +8846,7 @@ abstract class AppLocalizations {
   /// No description provided for @updateServerEntryDesc.
   ///
   /// In zh, this message translates to:
-  /// **'选择检查更新走哪一台（大陆／海外）'**
+  /// **'选择检查更新所使用的服务器（大陆或海外）'**
   String get updateServerEntryDesc;
 
   /// No description provided for @updateServerShort.

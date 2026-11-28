@@ -437,7 +437,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get ruleEmpty => 'Tap to add rule';
+  String get ruleEmpty => 'Tap to add a rule';
 
   @override
   String get device => 'Device';
@@ -584,7 +584,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutTitle => 'About';
 
   @override
-  String get aboutDesc => 'Version info and author';
+  String get aboutDesc => 'Version information and author';
 
   @override
   String get followSystem => 'Follow System';
@@ -5190,7 +5190,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateServerEntryDesc =>
-      'Choose which server update checks use (mainland / overseas)';
+      'Choose which server update checks use (mainland or overseas)';
 
   @override
   String get updateServerShort =>
