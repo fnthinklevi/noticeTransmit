@@ -340,7 +340,7 @@ void main() {
       expect(find.text('注意事项'), findsOneWidget);
       // 注意事项含 HTTPS/证书警示（自定义地址场景的高频坑）
       expect(find.textContaining('自定义 API 地址须使用 HTTPS'), findsOneWidget);
-      expect(find.text('知道了'), findsOneWidget);
+      expect(find.text('了解'), findsOneWidget);
     });
 
     testWidgets('飞书类型卡片「?」打开飞书接入引导', (tester) async {
@@ -553,7 +553,7 @@ void main() {
         matching: find.byType(Text),
       );
       final message = tester.widget<Text>(toast.first).data ?? '';
-      expect(message, contains('必填项未填写'));
+      expect(message, contains('必填字段未填写'));
       // agentid 有默认值 0、touser 非必填：都不该出现在报错里，只有 corpid 缺
       expect(
         message,

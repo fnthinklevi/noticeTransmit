@@ -3085,10 +3085,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noAppChannels => '暂无自建应用通道';
 
   @override
-  String get appChannelPageTitle => '自建应用通道怎么把消息发出去';
+  String get appChannelPageTitle => '自建应用通道的消息发送流程';
 
   @override
-  String get appChannelPageShort => '企业微信／飞书的自建应用：先用凭据换 token，再往消息端点发；密钥加密存储。';
+  String get appChannelPageShort =>
+      '企业微信／飞书的自建应用：先以凭据换取 token，再向消息端点发送；密钥加密存储。';
 
   @override
   String get appChannelPageDesc =>
@@ -3127,7 +3128,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appChannelReceiveIdLabel => '接收人 ID receive_id';
 
   @override
-  String get appChannelDeleteHint => '删除后需点右上角保存生效。';
+  String get appChannelDeleteHint => '删除后需点击右上角保存方可生效。';
 
   @override
   String get appChannelTestFailed => '测试失败：';
@@ -3143,7 +3144,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String appChannelErrFieldsRequired(String fields) {
-    return '保存失败：必填项未填写（$fields）';
+    return '保存失败：必填字段未填写（$fields）';
   }
 
   @override
@@ -3266,7 +3267,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelTypeFeishuApp => '飞书自建应用';
 
   @override
-  String get appChannelGuideEntry => '首次接入？点卡片右上角「?」查看参数获取步骤';
+  String get appChannelGuideEntry => '首次接入？请点击卡片右上角的「?」查看参数获取步骤';
 
   @override
   String get appChannelGuideOpen => '查看接入步骤';
@@ -3290,7 +3291,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appChannelGuideWecomS1Desc =>
-      '管理后台 work.weixin.qq.com →「我的企业」→「企业信息」→ 拉到底部复制「企业 ID」。';
+      '管理后台 work.weixin.qq.com →「我的企业」→「企业信息」→ 滚动至底部复制「企业 ID」。';
 
   @override
   String get appChannelGuideWecomS2 => '创建自建应用';
@@ -3304,14 +3305,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appChannelGuideWecomS3Desc =>
-      '进入刚创建的应用：顶部显示「AgentId」（纯数字，对应本软件的 agentid）；点「Secret」旁的「查看」，按提示发送到企业微信后复制该密钥（corpsecret，对应本软件的密钥字段）。';
+      '进入刚创建的应用：顶部显示「AgentId」（纯数字，对应本软件的 agentid）；点击「Secret」旁的「查看」，按提示发送至企业微信后复制该密钥（corpsecret，对应本软件的密钥字段）。';
 
   @override
   String get appChannelGuideWecomS4 => '设置可见范围（接收人）';
 
   @override
   String get appChannelGuideWecomS4Desc =>
-      '应用详情 →「可见范围」添加需要接收推送的成员/部门。软件中「接收人」留空即推送给全部可见成员（@all），也可填成员账号（多个用 | 分隔）。';
+      '应用详情 →「可见范围」添加需要接收推送的成员/部门。本应用中「接收人」留空即推送至全部可见成员（@all），也可填成员账号（多个用 | 分隔）。';
 
   @override
   String get appChannelGuideWecomS5 => '（可选）配置企业可信 IP';
@@ -3325,7 +3326,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appChannelGuideWecomS6Desc =>
-      '在企业 ID / agentid / 密钥 三处填入上述值，点卡片内「测试」按钮确认可收到消息后保存。';
+      '在企业 ID / agentid / 密钥 三处填入上述值，点击卡片内「测试」按钮确认可收到消息后保存。';
 
   @override
   String get appChannelGuideFeishuS1 => '创建企业自建应用';
@@ -3360,14 +3361,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appChannelGuideFeishuS5Desc =>
-      'receive_id_type 选 chat_id（群）或 open_id（用户）。群 ID 可用「API 调试台」调 im/v1/chats 获取；用户 open_id 可在通讯录成员详情或通过调试台获取。';
+      'receive_id_type 选择 chat_id（群）或 open_id（用户）。群 ID 可用「API 调试台」调用 im/v1/chats 获取；用户 open_id 可在通讯录成员详情或通过调试台获取。';
 
   @override
   String get appChannelGuideFeishuS6 => '填入软件并测试';
 
   @override
   String get appChannelGuideFeishuS6Desc =>
-      '填入 App ID / App Secret / 接收人类型 / 接收人 ID，点卡片内「测试」按钮确认可收到消息后保存。';
+      '填入 App ID / App Secret / 接收人类型 / 接收人 ID，点击卡片内「测试」按钮确认可收到消息后保存。';
 
   @override
   String get appChannelGuideNoteTitle => '注意事项';
@@ -3387,7 +3388,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '自建应用通道与 Webhook 通道互不影响，可同时启用；推送结果与失败重试与 Webhook 一致。';
 
   @override
-  String get appChannelGuideClose => '知道了';
+  String get appChannelGuideClose => '了解';
 
   @override
   String get appChannelGuideNote5 =>

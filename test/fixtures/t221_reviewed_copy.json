@@ -1138,5 +1138,55 @@
       "zh": "例如：QQ 邮箱",
       "en": "e.g. QQ Mail"
     }
+  },
+  "lib/pages/app_channel_settings_page.dart": {
+    "appChannelPageShort": {
+      "zh": "企业微信／飞书的自建应用：先以凭据换取 token，再向消息端点发送；密钥加密存储。",
+      "en": "WeCom and Feishu custom apps: exchange credentials for a token, then send to the message endpoint. Secrets are stored encrypted."
+    },
+    "appChannelPageTitle": {
+      "zh": "自建应用通道的消息发送流程",
+      "en": "How a custom-app channel sends messages"
+    },
+    "appChannelGuideEntry": {
+      "zh": "首次接入？请点击卡片右上角的「?」查看参数获取步骤",
+      "en": "First time? Click the \"?\" at the top-right of a card to view the parameter setup steps"
+    },
+    "appChannelDeleteHint": {
+      "zh": "删除后需点击右上角保存方可生效。",
+      "en": "Deletions take effect after clicking Save in the top-right."
+    },
+    "appChannelGuideWecomS1Desc": {
+      "zh": "管理后台 work.weixin.qq.com →「我的企业」→「企业信息」→ 滚动至底部复制「企业 ID」。",
+      "en": "Admin console (work.weixin.qq.com) → \"My Enterprise\" → \"Enterprise Info\" → scroll to the bottom and copy the Enterprise ID."
+    },
+    "appChannelGuideWecomS3Desc": {
+      "zh": "进入刚创建的应用：顶部显示「AgentId」（纯数字，对应本软件的 agentid）；点击「Secret」旁的「查看」，按提示发送至企业微信后复制该密钥（corpsecret，对应本软件的密钥字段）。",
+      "en": "Open the app you just created: the AgentId (digits only) is shown at the top; click \"View\" next to Secret, send the prompt to WeCom, then copy the secret (this is the corpsecret / Secret field in this app)."
+    },
+    "appChannelGuideWecomS4Desc": {
+      "zh": "应用详情 →「可见范围」添加需要接收推送的成员/部门。本应用中「接收人」留空即推送至全部可见成员（@all），也可填成员账号（多个用 | 分隔）。",
+      "en": "App details → \"Visible Range\": add the members/departments that should receive pushes. Leave the Recipient field empty in this app to push to all visible members (@all); multiple user IDs can be separated by |."
+    },
+    "appChannelGuideWecomS6Desc": {
+      "zh": "在企业 ID / agentid / 密钥 三处填入上述值，点击卡片内「测试」按钮确认可收到消息后保存。",
+      "en": "Enter the Corp ID / AgentId / Secret, click the card's \"Test\" button to confirm delivery, then save."
+    },
+    "appChannelGuideFeishuS5Desc": {
+      "zh": "receive_id_type 选择 chat_id（群）或 open_id（用户）。群 ID 可用「API 调试台」调用 im/v1/chats 获取；用户 open_id 可在通讯录成员详情或通过调试台获取。",
+      "en": "Set receive_id_type to chat_id (group) or open_id (user). Use the API Explorer with im/v1/chats to get a chat_id; open_id can be found in contact details or via the explorer."
+    },
+    "appChannelGuideFeishuS6Desc": {
+      "zh": "填入 App ID / App Secret / 接收人类型 / 接收人 ID，点击卡片内「测试」按钮确认可收到消息后保存。",
+      "en": "Enter App ID / App Secret / recipient type / recipient ID, click the card's \"Test\" button to confirm delivery, then save."
+    },
+    "appChannelGuideClose": {
+      "zh": "了解",
+      "en": "Understood"
+    },
+    "appChannelErrFieldsRequired": {
+      "zh": "保存失败：必填字段未填写（{fields}）",
+      "en": "Save failed: required fields are not filled in ({fields})"
+    }
   }
 }

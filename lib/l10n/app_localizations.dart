@@ -5710,13 +5710,13 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelPageTitle.
   ///
   /// In zh, this message translates to:
-  /// **'自建应用通道怎么把消息发出去'**
+  /// **'自建应用通道的消息发送流程'**
   String get appChannelPageTitle;
 
   /// No description provided for @appChannelPageShort.
   ///
   /// In zh, this message translates to:
-  /// **'企业微信／飞书的自建应用：先用凭据换 token，再往消息端点发；密钥加密存储。'**
+  /// **'企业微信／飞书的自建应用：先以凭据换取 token，再向消息端点发送；密钥加密存储。'**
   String get appChannelPageShort;
 
   /// No description provided for @appChannelPageDesc.
@@ -5788,7 +5788,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelDeleteHint.
   ///
   /// In zh, this message translates to:
-  /// **'删除后需点右上角保存生效。'**
+  /// **'删除后需点击右上角保存方可生效。'**
   String get appChannelDeleteHint;
 
   /// No description provided for @appChannelTestFailed.
@@ -5818,7 +5818,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelErrFieldsRequired.
   ///
   /// In zh, this message translates to:
-  /// **'保存失败：必填项未填写（{fields}）'**
+  /// **'保存失败：必填字段未填写（{fields}）'**
   String appChannelErrFieldsRequired(String fields);
 
   /// No description provided for @priorityBadgeHigh.
@@ -6052,7 +6052,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelGuideEntry.
   ///
   /// In zh, this message translates to:
-  /// **'首次接入？点卡片右上角「?」查看参数获取步骤'**
+  /// **'首次接入？请点击卡片右上角的「?」查看参数获取步骤'**
   String get appChannelGuideEntry;
 
   /// No description provided for @appChannelGuideOpen.
@@ -6094,7 +6094,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelGuideWecomS1Desc.
   ///
   /// In zh, this message translates to:
-  /// **'管理后台 work.weixin.qq.com →「我的企业」→「企业信息」→ 拉到底部复制「企业 ID」。'**
+  /// **'管理后台 work.weixin.qq.com →「我的企业」→「企业信息」→ 滚动至底部复制「企业 ID」。'**
   String get appChannelGuideWecomS1Desc;
 
   /// No description provided for @appChannelGuideWecomS2.
@@ -6118,7 +6118,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelGuideWecomS3Desc.
   ///
   /// In zh, this message translates to:
-  /// **'进入刚创建的应用：顶部显示「AgentId」（纯数字，对应本软件的 agentid）；点「Secret」旁的「查看」，按提示发送到企业微信后复制该密钥（corpsecret，对应本软件的密钥字段）。'**
+  /// **'进入刚创建的应用：顶部显示「AgentId」（纯数字，对应本软件的 agentid）；点击「Secret」旁的「查看」，按提示发送至企业微信后复制该密钥（corpsecret，对应本软件的密钥字段）。'**
   String get appChannelGuideWecomS3Desc;
 
   /// No description provided for @appChannelGuideWecomS4.
@@ -6130,7 +6130,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelGuideWecomS4Desc.
   ///
   /// In zh, this message translates to:
-  /// **'应用详情 →「可见范围」添加需要接收推送的成员/部门。软件中「接收人」留空即推送给全部可见成员（@all），也可填成员账号（多个用 | 分隔）。'**
+  /// **'应用详情 →「可见范围」添加需要接收推送的成员/部门。本应用中「接收人」留空即推送至全部可见成员（@all），也可填成员账号（多个用 | 分隔）。'**
   String get appChannelGuideWecomS4Desc;
 
   /// No description provided for @appChannelGuideWecomS5.
@@ -6154,7 +6154,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelGuideWecomS6Desc.
   ///
   /// In zh, this message translates to:
-  /// **'在企业 ID / agentid / 密钥 三处填入上述值，点卡片内「测试」按钮确认可收到消息后保存。'**
+  /// **'在企业 ID / agentid / 密钥 三处填入上述值，点击卡片内「测试」按钮确认可收到消息后保存。'**
   String get appChannelGuideWecomS6Desc;
 
   /// No description provided for @appChannelGuideFeishuS1.
@@ -6214,7 +6214,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelGuideFeishuS5Desc.
   ///
   /// In zh, this message translates to:
-  /// **'receive_id_type 选 chat_id（群）或 open_id（用户）。群 ID 可用「API 调试台」调 im/v1/chats 获取；用户 open_id 可在通讯录成员详情或通过调试台获取。'**
+  /// **'receive_id_type 选择 chat_id（群）或 open_id（用户）。群 ID 可用「API 调试台」调用 im/v1/chats 获取；用户 open_id 可在通讯录成员详情或通过调试台获取。'**
   String get appChannelGuideFeishuS5Desc;
 
   /// No description provided for @appChannelGuideFeishuS6.
@@ -6226,7 +6226,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelGuideFeishuS6Desc.
   ///
   /// In zh, this message translates to:
-  /// **'填入 App ID / App Secret / 接收人类型 / 接收人 ID，点卡片内「测试」按钮确认可收到消息后保存。'**
+  /// **'填入 App ID / App Secret / 接收人类型 / 接收人 ID，点击卡片内「测试」按钮确认可收到消息后保存。'**
   String get appChannelGuideFeishuS6Desc;
 
   /// No description provided for @appChannelGuideNoteTitle.
@@ -6262,7 +6262,7 @@ abstract class AppLocalizations {
   /// No description provided for @appChannelGuideClose.
   ///
   /// In zh, this message translates to:
-  /// **'知道了'**
+  /// **'了解'**
   String get appChannelGuideClose;
 
   /// No description provided for @appChannelGuideNote5.

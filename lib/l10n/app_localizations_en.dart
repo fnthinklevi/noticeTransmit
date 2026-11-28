@@ -3215,12 +3215,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noAppChannels => 'No app channels yet';
 
   @override
-  String get appChannelPageTitle =>
-      'How a custom-app channel actually gets a message out';
+  String get appChannelPageTitle => 'How a custom-app channel sends messages';
 
   @override
   String get appChannelPageShort =>
-      'WeCom and Feishu custom apps: trade credentials for a token, then post to the message endpoint. Secrets are stored encrypted.';
+      'WeCom and Feishu custom apps: exchange credentials for a token, then send to the message endpoint. Secrets are stored encrypted.';
 
   @override
   String get appChannelPageDesc =>
@@ -3263,7 +3262,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appChannelDeleteHint =>
-      'Deletions take effect after tapping Save.';
+      'Deletions take effect after clicking Save in the top-right.';
 
   @override
   String get appChannelTestFailed => 'Test failed: ';
@@ -3281,7 +3280,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String appChannelErrFieldsRequired(String fields) {
-    return 'Save failed: required fields are empty ($fields)';
+    return 'Save failed: required fields are not filled in ($fields)';
   }
 
   @override
@@ -3411,7 +3410,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appChannelGuideEntry =>
-      'First time? Tap the \"?\" at the top-right of a card to see how to get each parameter';
+      'First time? Click the \"?\" at the top-right of a card to view the parameter setup steps';
 
   @override
   String get appChannelGuideOpen => 'Setup steps';
@@ -3457,7 +3456,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appChannelGuideWecomS4Desc =>
-      'App details → \"Visible Range\": add the members/departments that should receive pushes. Leave the Recipient field empty to push to all visible members (@all); multiple user IDs can be separated by |.';
+      'App details → \"Visible Range\": add the members/departments that should receive pushes. Leave the Recipient field empty in this app to push to all visible members (@all); multiple user IDs can be separated by |.';
 
   @override
   String get appChannelGuideWecomS5 => '(Optional) Configure trusted IP';
@@ -3471,7 +3470,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appChannelGuideWecomS6Desc =>
-      'Enter the Corp ID / AgentId / Secret, tap the card\'s \"Test\" button to confirm delivery, then save.';
+      'Enter the Corp ID / AgentId / Secret, click the card\'s \"Test\" button to confirm delivery, then save.';
 
   @override
   String get appChannelGuideFeishuS1 => 'Create an enterprise self-built app';
@@ -3513,7 +3512,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appChannelGuideFeishuS6Desc =>
-      'Enter App ID / App Secret / recipient type / recipient ID, tap the card\'s \"Test\" button to confirm delivery, then save.';
+      'Enter App ID / App Secret / recipient type / recipient ID, click the card\'s \"Test\" button to confirm delivery, then save.';
 
   @override
   String get appChannelGuideNoteTitle => 'Notes';
@@ -3535,7 +3534,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'App channels and Webhook channels are independent and can be enabled together; delivery results and retries behave the same as Webhook channels.';
 
   @override
-  String get appChannelGuideClose => 'Got it';
+  String get appChannelGuideClose => 'Understood';
 
   @override
   String get appChannelGuideNote5 =>

@@ -43,7 +43,7 @@ void main() {
     'lib/pages/channel_status_page.dart': 'reviewed',
     'lib/pages/fnthink_endpoint_page.dart': 'reviewed',
     'lib/pages/rule_list_page.dart': 'pending',
-    'lib/pages/app_channel_settings_page.dart': 'pending',
+    'lib/pages/app_channel_settings_page.dart': 'reviewed',
     'lib/pages/device_state_page.dart': 'pending',
     'lib/pages/fnthink_channel_settings_page.dart': 'pending',
     'lib/pages/fnthink_read_caps_page.dart': 'pending',
