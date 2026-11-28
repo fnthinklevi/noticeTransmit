@@ -2216,5 +2216,15 @@
       "zh": "当前已存在部分配置。覆盖将替换对应类别的全部内容；仅导入空缺项则保留现有配置不变。",
       "en": "Some configuration already exists. Overwrite replaces all content in the matching categories; Fill gaps leaves existing configuration unchanged."
     }
+  },
+  "lib/pages/stats_page.dart": {
+    "statsTrend": {
+      "zh": "近 7 天推送趋势",
+      "en": "Last 7 Days Trend"
+    },
+    "statsFailureTop": {
+      "zh": "失败原因排行",
+      "en": "Top Failure Reasons"
+    }
   }
 }

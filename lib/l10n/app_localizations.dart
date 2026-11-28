@@ -3892,7 +3892,7 @@ abstract class AppLocalizations {
   /// No description provided for @statsTrend.
   ///
   /// In zh, this message translates to:
-  /// **'近7天推送趋势'**
+  /// **'近 7 天推送趋势'**
   String get statsTrend;
 
   /// No description provided for @statsNoData.
@@ -5626,7 +5626,7 @@ abstract class AppLocalizations {
   /// No description provided for @statsFailureTop.
   ///
   /// In zh, this message translates to:
-  /// **'失败原因 TOP'**
+  /// **'失败原因排行'**
   String get statsFailureTop;
 
   /// No description provided for @statsHourly.

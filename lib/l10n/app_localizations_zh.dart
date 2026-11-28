@@ -2066,7 +2066,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get statsApps => '应用数';
 
   @override
-  String get statsTrend => '近7天推送趋势';
+  String get statsTrend => '近 7 天推送趋势';
 
   @override
   String get statsNoData => '暂无数据';
@@ -3037,7 +3037,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get statsChannelSuccess => '通道成功率';
 
   @override
-  String get statsFailureTop => '失败原因 TOP';
+  String get statsFailureTop => '失败原因排行';
 
   @override
   String get statsHourly => '高峰时段分布';
