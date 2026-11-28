@@ -1036,7 +1036,7 @@
   "iconSwitchFailed": "切换失败",
   "done": "完成",
   "refreshAppList": "刷新应用列表",
-  "appFilterBlockModeInfo": "当前模式：不通知应用 — 未选择时全部应用都推送通知",
+  "appFilterBlockModeInfo": "当前模式：不通知应用；未选择任何应用时，全部应用的通知均会推送",
   "appFilterBlockModeSelected": "已选择 {n} 个应用，这些应用的通知不会被推送",
   "@appFilterBlockModeSelected": {
     "placeholders": {
@@ -1045,7 +1045,7 @@
       }
     }
   },
-  "appFilterAllowModeInfo": "当前模式：通知应用 — 未选择时全部应用都推送通知（默认）",
+  "appFilterAllowModeInfo": "当前模式：通知应用；未选择任何应用时，全部应用的通知均会推送（默认）",
   "appFilterAllowModeSelected": "已选择 {n} 个应用，仅这些应用的通知会被推送",
   "@appFilterAllowModeSelected": {
     "placeholders": {
@@ -1069,7 +1069,7 @@
       }
     }
   },
-  "unselectedCount": "未选 {n}",
+  "unselectedCount": "未选择 {n}",
   "@unselectedCount": {
     "placeholders": {
       "n": {

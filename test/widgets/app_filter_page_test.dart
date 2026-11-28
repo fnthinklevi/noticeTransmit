@@ -67,8 +67,8 @@ void main() {
       expect(find.text('Beta'), findsOneWidget);
       expect(find.text('Gamma'), findsOneWidget);
       // 无任何分组头（注意：模式提示横幅文案里含"未选"，必须用精确匹配）
-      expect(find.text('未选 0'), findsNothing);
-      expect(find.text('未选 3'), findsNothing);
+      expect(find.text('未选择 0'), findsNothing);
+      expect(find.text('未选择 3'), findsNothing);
       expect(find.text('已选择 3'), findsNothing);
     });
 
@@ -84,9 +84,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 分组头：已选择 2 / 未选 1（工具栏计数也是"已选择 2"，共 2 处）
+      // 分组头：已选择 2 / 未选择 1（工具栏计数也是"已选择 2"，共 2 处）
       expect(find.text('已选择 2'), findsNWidgets(2));
-      expect(find.text('未选 1'), findsOneWidget);
+      expect(find.text('未选择 1'), findsOneWidget);
 
       // 三个应用都在列表中
       expect(find.text('Alpha'), findsOneWidget);
@@ -118,7 +118,7 @@ void main() {
       await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
 
-      expect(find.text('未选 3'), findsNothing); // 无分组头
+      expect(find.text('未选择 3'), findsNothing); // 无分组头
       expect(find.text('已选择 1'), findsNothing);
       expect(find.text('已选择 0'), findsOneWidget); // 工具栏计数归零
     });
@@ -400,9 +400,9 @@ void main() {
       // 阻止模式下选中集 = 被阻止的；点「邮箱」应加进去（1 条），而不是把别的反选掉。
       expect(find.text('已选择 1'), findsWidgets);
       expect(
-        find.text('未选 2'),
+        find.text('未选择 2'),
         findsOneWidget,
-        reason: '另外两条仍是"未选"——反选的形状会变成"未选 2"以外的东西',
+        reason: '另外两条仍是"未选"——反选的形状会变成"未选择 2"以外的东西',
       );
     });
   });

@@ -2035,7 +2035,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appFilterBlockModeInfo =>
-      'Mode: Block — when none selected, all app notifications are pushed';
+      'Mode: Block; with none selected, all app notifications are pushed';
 
   @override
   String appFilterBlockModeSelected(int n) {
@@ -2044,7 +2044,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appFilterAllowModeInfo =>
-      'Mode: Allow — when none selected, all app notifications are pushed (default)';
+      'Mode: Allow; with none selected, all app notifications are pushed (default)';
 
   @override
   String appFilterAllowModeSelected(int n) {

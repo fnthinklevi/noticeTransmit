@@ -1036,7 +1036,7 @@
   "iconSwitchFailed": "Switch failed",
   "done": "Done",
   "refreshAppList": "Refresh App List",
-  "appFilterBlockModeInfo": "Mode: Block — when none selected, all app notifications are pushed",
+  "appFilterBlockModeInfo": "Mode: Block; with none selected, all app notifications are pushed",
   "appFilterBlockModeSelected": "{n} app(s) selected — notifications from these apps will NOT be pushed",
   "@appFilterBlockModeSelected": {
     "placeholders": {
@@ -1045,7 +1045,7 @@
       }
     }
   },
-  "appFilterAllowModeInfo": "Mode: Allow — when none selected, all app notifications are pushed (default)",
+  "appFilterAllowModeInfo": "Mode: Allow; with none selected, all app notifications are pushed (default)",
   "appFilterAllowModeSelected": "{n} app(s) selected — only notifications from these apps will be pushed",
   "@appFilterAllowModeSelected": {
     "placeholders": {

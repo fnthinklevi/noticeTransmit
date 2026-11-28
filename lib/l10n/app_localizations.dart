@@ -3688,7 +3688,7 @@ abstract class AppLocalizations {
   /// No description provided for @appFilterBlockModeInfo.
   ///
   /// In zh, this message translates to:
-  /// **'当前模式：不通知应用 — 未选择时全部应用都推送通知'**
+  /// **'当前模式：不通知应用；未选择任何应用时，全部应用的通知均会推送'**
   String get appFilterBlockModeInfo;
 
   /// No description provided for @appFilterBlockModeSelected.
@@ -3700,7 +3700,7 @@ abstract class AppLocalizations {
   /// No description provided for @appFilterAllowModeInfo.
   ///
   /// In zh, this message translates to:
-  /// **'当前模式：通知应用 — 未选择时全部应用都推送通知（默认）'**
+  /// **'当前模式：通知应用；未选择任何应用时，全部应用的通知均会推送（默认）'**
   String get appFilterAllowModeInfo;
 
   /// No description provided for @appFilterAllowModeSelected.
@@ -3760,7 +3760,7 @@ abstract class AppLocalizations {
   /// No description provided for @unselectedCount.
   ///
   /// In zh, this message translates to:
-  /// **'未选 {n}'**
+  /// **'未选择 {n}'**
   String unselectedCount(int n);
 
   /// No description provided for @noAppsFound.

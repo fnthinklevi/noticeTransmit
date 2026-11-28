@@ -1952,5 +1952,19 @@
       "zh": "网络触发无需阈值",
       "en": "Network triggers need no threshold"
     }
+  },
+  "lib/pages/app_filter_page.dart": {
+    "appFilterBlockModeInfo": {
+      "zh": "当前模式：不通知应用；未选择任何应用时，全部应用的通知均会推送",
+      "en": "Mode: Block; with none selected, all app notifications are pushed"
+    },
+    "appFilterAllowModeInfo": {
+      "zh": "当前模式：通知应用；未选择任何应用时，全部应用的通知均会推送（默认）",
+      "en": "Mode: Allow; with none selected, all app notifications are pushed (default)"
+    },
+    "unselectedCount": {
+      "zh": "未选择 {n}",
+      "en": "Unselected {n}"
+    }
   }
 }

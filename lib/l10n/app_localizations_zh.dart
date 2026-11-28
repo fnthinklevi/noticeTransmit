@@ -1952,7 +1952,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refreshAppList => '刷新应用列表';
 
   @override
-  String get appFilterBlockModeInfo => '当前模式：不通知应用 — 未选择时全部应用都推送通知';
+  String get appFilterBlockModeInfo => '当前模式：不通知应用；未选择任何应用时，全部应用的通知均会推送';
 
   @override
   String appFilterBlockModeSelected(int n) {
@@ -1960,7 +1960,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get appFilterAllowModeInfo => '当前模式：通知应用 — 未选择时全部应用都推送通知（默认）';
+  String get appFilterAllowModeInfo => '当前模式：通知应用；未选择任何应用时，全部应用的通知均会推送（默认）';
 
   @override
   String appFilterAllowModeSelected(int n) {
@@ -1995,7 +1995,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String unselectedCount(int n) {
-    return '未选 $n';
+    return '未选择 $n';
   }
 
   @override
