@@ -497,7 +497,7 @@
       "en": "Target"
     },
     "remotePeersReadFailedShort": {
-      "zh": "无法读取名单，并不表示尚未配对",
+      "zh": "无法读取名单，并不表示尚未配对设备",
       "en": "The peer list could not be read; this does not mean no devices are paired"
     },
     "remotePeersReadFailed": {
@@ -1453,6 +1453,56 @@
     "fnthinkChannelProbeUnavailable": {
       "zh": "Webhook 目标无法从本页测试（发送实现在原生侧），因此仅保存、不探测。",
       "en": "A webhook target cannot be probed from this page (its sender lives on the native side), so this only saves."
+    }
+  },
+  "lib/pages/fnthink_shortcuts_page.dart": {
+    "fnthinkShortcutsNameInvalid": {
+      "zh": "名称须为 1–32 个字符，且不得包含控制字符。",
+      "en": "The name must be 1-32 characters with no control characters."
+    },
+    "fnthinkShortcutsTargetInvalid": {
+      "zh": "目标须为带 scheme 的链接，或「包名/类名」。",
+      "en": "The target must be a link with a scheme, or \"package/class\"."
+    },
+    "fnthinkShortcutsDuplicate": {
+      "zh": "该名称已登记。",
+      "en": "That name is already registered."
+    },
+    "fnthinkShortcutsAdd": {
+      "zh": "新增一条",
+      "en": "Add one"
+    },
+    "fnthinkShortcutsNameLabel": {
+      "zh": "名称（对端按此名称调用）",
+      "en": "Name (the other side calls it by this)"
+    },
+    "fnthinkShortcutsTargetLabel": {
+      "zh": "目标（链接或包名/类名）",
+      "en": "Target (a link, or package/class)"
+    },
+    "fnthinkShortcutsDeleteAsk": {
+      "zh": "删除「{name}」后，对端再次按此名称调用将无法打开。是否继续？",
+      "en": "After deleting \"{name}\", the other side can no longer open it by that name. Continue?"
+    },
+    "fnthinkShortcutsWhyShort": {
+      "zh": "对端仅可打开您在此登记的入口",
+      "en": "The other side can only open entries you registered here"
+    },
+    "fnthinkShortcutsWhy": {
+      "zh": "对端仅可打开您在此登记的入口：填写名称，再填写用于打开它的目标——该应用自身公开的链接，或本机的「包名/类名」。",
+      "en": "The other side can only open entries you register here: give a name, then the target that opens it - a link the app itself publishes, or this device's \"package/class\"."
+    },
+    "fnthinkShortcutsEmpty": {
+      "zh": "尚未登记任何入口：缺少入口时，对端的「打开某个入口」操作将无法匹配名称，不会执行任何动作。",
+      "en": "No entries registered yet - without one, the other side's \"open an entry\" action has no name to match and does nothing."
+    },
+    "fnthinkShortcutsEmptyShort": {
+      "zh": "尚未登记任何入口",
+      "en": "No entries registered yet"
+    },
+    "remotePeersReadFailedShort": {
+      "zh": "无法读取名单，并不表示尚未配对设备",
+      "en": "The peer list could not be read; this does not mean no devices are paired"
     }
   }
 }

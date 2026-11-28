@@ -3165,15 +3165,15 @@
   "remoteSendCallsKeywordWhy": "仅回传命中的记录（时间／方向／对方／时长）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。",
   "remoteSendNeedsCallsKeyword": "关键词长度须为 {min}–{max} 个字符，且不得包含控制字符。",
   "fnthinkShortcutsTitle": "可被远程打开的入口",
-  "fnthinkShortcutsWhy": "对面只能打开你在这里登记过的入口：填一个名字，再填打开它的目标 —— 那枚 App 自己公开的链接，或本机的「包名/类名」。",
-  "fnthinkShortcutsEmpty": "还没有登记任何入口 —— 没有它，对面那一档「打开某个入口」对不上名字、什么都不会做。",
-  "fnthinkShortcutsAdd": "加一条",
-  "fnthinkShortcutsNameLabel": "名字（对面按它点名）",
-  "fnthinkShortcutsTargetLabel": "目标（链接或 包名/类名）",
-  "fnthinkShortcutsNameInvalid": "名字要 1–32 个字，且不能带控制字符。",
-  "fnthinkShortcutsTargetInvalid": "目标要是一条带 scheme 的链接，或「包名/类名」。",
-  "fnthinkShortcutsDuplicate": "这个名字已经登记过了。",
-  "fnthinkShortcutsDeleteAsk": "删掉「{name}」之后，对面再点名这个名字就打不开了。要继续吗？",
+  "fnthinkShortcutsWhy": "对端仅可打开您在此登记的入口：填写名称，再填写用于打开它的目标——该应用自身公开的链接，或本机的「包名/类名」。",
+  "fnthinkShortcutsEmpty": "尚未登记任何入口：缺少入口时，对端的「打开某个入口」操作将无法匹配名称，不会执行任何动作。",
+  "fnthinkShortcutsAdd": "新增一条",
+  "fnthinkShortcutsNameLabel": "名称（对端按此名称调用）",
+  "fnthinkShortcutsTargetLabel": "目标（链接或包名/类名）",
+  "fnthinkShortcutsNameInvalid": "名称须为 1–32 个字符，且不得包含控制字符。",
+  "fnthinkShortcutsTargetInvalid": "目标须为带 scheme 的链接，或「包名/类名」。",
+  "fnthinkShortcutsDuplicate": "该名称已登记。",
+  "fnthinkShortcutsDeleteAsk": "删除「{name}」后，对端再次按此名称调用将无法打开。是否继续？",
   "@fnthinkShortcutsDeleteAsk": {
     "placeholders": {
       "name": {
@@ -3582,9 +3582,9 @@
       }
     }
   },
-  "fnthinkShortcutsWhyShort": "对面只能打开你在这里登记过的入口",
-  "fnthinkShortcutsEmptyShort": "还没有登记任何入口",
-  "remotePeersReadFailedShort": "无法读取名单，并不表示尚未配对",
+  "fnthinkShortcutsWhyShort": "对端仅可打开您在此登记的入口",
+  "fnthinkShortcutsEmptyShort": "尚未登记任何入口",
+  "remotePeersReadFailedShort": "无法读取名单，并不表示尚未配对设备",
   "remoteCredKeyOnceShort": "此密钥串仅显示一次，请立即保存",
   "remoteCredTotpOnceShort": "此验证码种子仅显示一次，请立即录入对端验证器",
   "fnthinkChannelDisclosureShort": "是否响铃、振动或显示横幅，由系统侧的通知渠道决定",

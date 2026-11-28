@@ -5647,11 +5647,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkShortcutsWhy =>
-      'The other side can only open entries you register here: give a name, then the target that opens it - a link the app itself publishes, or this device’s \"package/class\".';
+      'The other side can only open entries you register here: give a name, then the target that opens it - a link the app itself publishes, or this device\'s \"package/class\".';
 
   @override
   String get fnthinkShortcutsEmpty =>
-      'No entries registered yet - without one, the other side’s \"open an entry\" action has no name to match and does nothing.';
+      'No entries registered yet - without one, the other side\'s \"open an entry\" action has no name to match and does nothing.';
 
   @override
   String get fnthinkShortcutsAdd => 'Add one';

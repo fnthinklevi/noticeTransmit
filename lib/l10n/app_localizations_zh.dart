@@ -5340,33 +5340,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkShortcutsWhy =>
-      '对面只能打开你在这里登记过的入口：填一个名字，再填打开它的目标 —— 那枚 App 自己公开的链接，或本机的「包名/类名」。';
+      '对端仅可打开您在此登记的入口：填写名称，再填写用于打开它的目标——该应用自身公开的链接，或本机的「包名/类名」。';
 
   @override
   String get fnthinkShortcutsEmpty =>
-      '还没有登记任何入口 —— 没有它，对面那一档「打开某个入口」对不上名字、什么都不会做。';
+      '尚未登记任何入口：缺少入口时，对端的「打开某个入口」操作将无法匹配名称，不会执行任何动作。';
 
   @override
-  String get fnthinkShortcutsAdd => '加一条';
+  String get fnthinkShortcutsAdd => '新增一条';
 
   @override
-  String get fnthinkShortcutsNameLabel => '名字（对面按它点名）';
+  String get fnthinkShortcutsNameLabel => '名称（对端按此名称调用）';
 
   @override
-  String get fnthinkShortcutsTargetLabel => '目标（链接或 包名/类名）';
+  String get fnthinkShortcutsTargetLabel => '目标（链接或包名/类名）';
 
   @override
-  String get fnthinkShortcutsNameInvalid => '名字要 1–32 个字，且不能带控制字符。';
+  String get fnthinkShortcutsNameInvalid => '名称须为 1–32 个字符，且不得包含控制字符。';
 
   @override
-  String get fnthinkShortcutsTargetInvalid => '目标要是一条带 scheme 的链接，或「包名/类名」。';
+  String get fnthinkShortcutsTargetInvalid => '目标须为带 scheme 的链接，或「包名/类名」。';
 
   @override
-  String get fnthinkShortcutsDuplicate => '这个名字已经登记过了。';
+  String get fnthinkShortcutsDuplicate => '该名称已登记。';
 
   @override
   String fnthinkShortcutsDeleteAsk(String name) {
-    return '删掉「$name」之后，对面再点名这个名字就打不开了。要继续吗？';
+    return '删除「$name」后，对端再次按此名称调用将无法打开。是否继续？';
   }
 
   @override
@@ -5849,13 +5849,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkShortcutsWhyShort => '对面只能打开你在这里登记过的入口';
+  String get fnthinkShortcutsWhyShort => '对端仅可打开您在此登记的入口';
 
   @override
-  String get fnthinkShortcutsEmptyShort => '还没有登记任何入口';
+  String get fnthinkShortcutsEmptyShort => '尚未登记任何入口';
 
   @override
-  String get remotePeersReadFailedShort => '无法读取名单，并不表示尚未配对';
+  String get remotePeersReadFailedShort => '无法读取名单，并不表示尚未配对设备';
 
   @override
   String get remoteCredKeyOnceShort => '此密钥串仅显示一次，请立即保存';
