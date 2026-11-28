@@ -263,19 +263,19 @@ abstract class AppLocalizations {
   /// No description provided for @serviceRunning.
   ///
   /// In zh, this message translates to:
-  /// **'通知监听服务正在运行，点击可停止'**
+  /// **'通知监听服务正在运行，点击可停止服务'**
   String get serviceRunning;
 
   /// No description provided for @serviceStopped.
   ///
   /// In zh, this message translates to:
-  /// **'通知监听服务未启动，点击可启动'**
+  /// **'通知监听服务未启动，点击可启动服务'**
   String get serviceStopped;
 
   /// No description provided for @serviceStoppedCallSmsOnly.
   ///
   /// In zh, this message translates to:
-  /// **'通知转发已停止，仅电话与短信在转发'**
+  /// **'通知转发已停止，仅转发电话与短信'**
   String get serviceStoppedCallSmsOnly;
 
   /// No description provided for @callSmsForwarding.
@@ -287,7 +287,7 @@ abstract class AppLocalizations {
   /// No description provided for @callSmsForwardingDesc.
   ///
   /// In zh, this message translates to:
-  /// **'监听关闭时仍转发来电与短信'**
+  /// **'通知监听关闭时仍转发来电与短信'**
   String get callSmsForwardingDesc;
 
   /// No description provided for @callSmsOnlyShort.
@@ -305,7 +305,7 @@ abstract class AppLocalizations {
   /// No description provided for @servicePausedWhileListening.
   ///
   /// In zh, this message translates to:
-  /// **'当前继续读取设备通知，但暂停推送；点击可恢复'**
+  /// **'当前仍读取设备通知，但推送已暂停；点击可恢复推送'**
   String get servicePausedWhileListening;
 
   /// No description provided for @running.
@@ -3790,7 +3790,7 @@ abstract class AppLocalizations {
   /// No description provided for @smsMonitorDesc.
   ///
   /// In zh, this message translates to:
-  /// **'控制是否监听收到的短信并推送'**
+  /// **'控制是否监听并推送收到的短信'**
   String get smsMonitorDesc;
 
   /// No description provided for @smsMonitorSettings.

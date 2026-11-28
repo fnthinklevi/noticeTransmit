@@ -95,19 +95,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get engineTemperatureEntry => '温度告警';
 
   @override
-  String get serviceRunning => '通知监听服务正在运行，点击可停止';
+  String get serviceRunning => '通知监听服务正在运行，点击可停止服务';
 
   @override
-  String get serviceStopped => '通知监听服务未启动，点击可启动';
+  String get serviceStopped => '通知监听服务未启动，点击可启动服务';
 
   @override
-  String get serviceStoppedCallSmsOnly => '通知转发已停止，仅电话与短信在转发';
+  String get serviceStoppedCallSmsOnly => '通知转发已停止，仅转发电话与短信';
 
   @override
   String get callSmsForwarding => '仅转发电话与短信';
 
   @override
-  String get callSmsForwardingDesc => '监听关闭时仍转发来电与短信';
+  String get callSmsForwardingDesc => '通知监听关闭时仍转发来电与短信';
 
   @override
   String get callSmsOnlyShort => '仅电话短信';
@@ -116,7 +116,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pushPausedShort => '已暂停';
 
   @override
-  String get servicePausedWhileListening => '当前继续读取设备通知，但暂停推送；点击可恢复';
+  String get servicePausedWhileListening => '当前仍读取设备通知，但推送已暂停；点击可恢复推送';
 
   @override
   String get running => '运行中';
@@ -2014,7 +2014,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get smsMonitor => '短信监听';
 
   @override
-  String get smsMonitorDesc => '控制是否监听收到的短信并推送';
+  String get smsMonitorDesc => '控制是否监听并推送收到的短信';
 
   @override
   String get smsMonitorSettings => '短信监听设置';

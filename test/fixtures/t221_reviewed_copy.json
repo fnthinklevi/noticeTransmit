@@ -1538,5 +1538,31 @@
       "zh": "加密数据库无法打开；原文件已保留，历史记录未被清空。请点击「重试」再次打开。",
       "en": "The encrypted database could not be opened. Your data was kept; tap Retry to try again."
     }
+  },
+  "lib/pages/notification_page.dart": {
+    "serviceRunning": {
+      "zh": "通知监听服务正在运行，点击可停止服务",
+      "en": "Notification service is running; tap to stop it"
+    },
+    "servicePausedWhileListening": {
+      "zh": "当前仍读取设备通知，但推送已暂停；点击可恢复推送",
+      "en": "Still reading this device's notifications, but pushing is paused. Tap to resume."
+    },
+    "serviceStoppedCallSmsOnly": {
+      "zh": "通知转发已停止，仅转发电话与短信",
+      "en": "Notifications are off; only calls and SMS are forwarded"
+    },
+    "serviceStopped": {
+      "zh": "通知监听服务未启动，点击可启动服务",
+      "en": "Notification service is stopped; tap to start it"
+    },
+    "callSmsForwardingDesc": {
+      "zh": "通知监听关闭时仍转发来电与短信",
+      "en": "Keep forwarding calls and SMS while listening is off"
+    },
+    "smsMonitorDesc": {
+      "zh": "控制是否监听并推送收到的短信",
+      "en": "Control whether received SMS are monitored and pushed"
+    }
   }
 }

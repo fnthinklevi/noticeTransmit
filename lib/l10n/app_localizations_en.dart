@@ -96,10 +96,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get engineTemperatureEntry => 'Temperature Alerts';
 
   @override
-  String get serviceRunning => 'Notification service is running, tap to stop';
+  String get serviceRunning =>
+      'Notification service is running; tap to stop it';
 
   @override
-  String get serviceStopped => 'Notification service is stopped, tap to start';
+  String get serviceStopped =>
+      'Notification service is stopped; tap to start it';
 
   @override
   String get serviceStoppedCallSmsOnly =>
