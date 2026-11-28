@@ -38,18 +38,34 @@ class NotificationProcessor(private val context: Context) {
 
         if (packageName == context.packageName) return null
 
-        // 电话应用由 PhoneCallReceiver 独占处理（携带 SIM 卡信息），通知栏监听跳过，
-        // 避免同一事件产生两条记录（一条有 SIM、一条无 SIM）。
-        if (isCallPackage(packageName)) return null
-
-        // 短信应用通知：第三兜底链路（source=notification）。
-        // 系统「验证码安全保护」（MIUI/HyperOS 等默认开启）会拦截 SMS_RECEIVED 广播、
-        // 并对第三方应用隐藏短信库内容，使 SmsReceiver / SmsObserver 双链路同时失效；
-        // 通知栏不受影响（输入法读验证码同款方案）。统一走 SmsDispatcher 指纹去重：
-        // 双链路已处理则丢弃，未处理（保护开启）则补推，不产生重复记录。
-        if (isSmsPackage(packageName)) {
-            dispatchSmsFromNotification(sbn)
-            return null
+        // P2-4：识别短信/电话应用不再按"包名里含 sms/dialer"猜（那会把
+        // com.example.smsbackup / com.acme.dialer 这类普通应用整包吞掉）。
+        // 判据只在 [NotificationSourceClassifier] 一处：系统默认短信/拨号器 + 已知
+        // 系统组件前缀，并要求通知类别与用途一致（短信包发的"备份完成"照常转发）。
+        val category = notification.category
+        when (
+            NotificationSourceClassifier.classify(
+                packageName = packageName,
+                category = category,
+                defaultSmsPackage = platformDefaultSmsPackage(),
+                defaultDialerPackage = platformDefaultDialerPackage(),
+            )
+        ) {
+            // 电话应用由 PhoneCallReceiver 独占处理（携带 SIM 卡信息），通知栏监听跳过，
+            // 避免同一事件产生两条记录（一条有 SIM、一条无 SIM）。
+            NotificationSourceClassifier.Kind.CALL -> return null
+            NotificationSourceClassifier.Kind.SMS -> {
+                // 短信应用通知：第三兜底链路（source=notification）。
+                // 系统「验证码安全保护」（MIUI/HyperOS 等默认开启）会拦截 SMS_RECEIVED 广播、
+                // 并对第三方应用隐藏短信库内容，使 SmsReceiver / SmsObserver 双链路同时失效；
+                // 通知栏不受影响（输入法读验证码同款方案）。统一走 SmsDispatcher 指纹去重：
+                // 双链路已处理则丢弃，未处理（保护开启）则补推，不产生重复记录。
+                if (dispatchSmsFromNotification(sbn)) return null
+                // P2-4：内容不足（无发送者/无正文/锁屏掩码）时**不再静默丢弃**，
+                // 落到普通通知路径：至少留下历史与诊断，用户能看到"有一条短信来了"。
+                Log.d(TAG, "短信通知内容不足，回落到普通通知路径：$packageName")
+            }
+            NotificationSourceClassifier.Kind.OTHER -> Unit
         }
 
         val isOngoing = (notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
@@ -216,10 +232,14 @@ class NotificationProcessor(private val context: Context) {
      *
      * 注意：本链路无 SIM 卡信息（simInfo=null），记录 id 基于通知 postTime，
      * 与广播链路的 SMSC 时间戳不同源——跨链路去重依赖 SmsDispatcher 的正文指纹。
+     *
+     * @return true＝已交给 SmsDispatcher（2 秒后入队去重）；false＝内容不足或掩码，
+     *   调用方应回落到普通通知路径（P2-4：此前这里是静默 return，短信包里那条
+     *   无正文的通知既不入历史也不转发）。
      */
-    private fun dispatchSmsFromNotification(sbn: StatusBarNotification) {
+    private fun dispatchSmsFromNotification(sbn: StatusBarNotification): Boolean {
         try {
-            val extras = sbn.notification?.extras ?: return
+            val extras = sbn.notification?.extras ?: return false
             val sender = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)
                 ?.toString()?.trim().orEmpty()
             val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)
@@ -232,10 +252,10 @@ class NotificationProcessor(private val context: Context) {
                 messaging.isNotEmpty() -> messaging
                 else -> text
             }
-            if (sender.isEmpty() || body.isEmpty()) return
+            if (sender.isEmpty() || body.isEmpty()) return false
             if (isMaskedContent(body)) {
-                Log.d(TAG, "短信通知正文为锁屏掩码，跳过通知栏兜底: $sender")
-                return
+                Log.d(TAG, "短信通知正文为锁屏掩码，回落到普通通知路径: $sender")
+                return false
             }
             val postTime = sbn.postTime
             smsFallbackScope.launch {
@@ -249,8 +269,10 @@ class NotificationProcessor(private val context: Context) {
                     source = "notification"
                 )
             }
+            return true
         } catch (e: Exception) {
             Log.w(TAG, "短信通知栏兜底分发失败: ${e.message}")
+            return false
         }
     }
 
@@ -475,31 +497,32 @@ class NotificationProcessor(private val context: Context) {
         }
     }
 
-    private fun isSmsPackage(packageName: String): Boolean {
-        val pkg = packageName.lowercase()
-        return pkg.startsWith("com.android.mms") ||
-            pkg.startsWith("com.google.android.apps.messaging") ||
-            pkg.startsWith("com.samsung.android.messaging") || // 三星短信
-            pkg.startsWith("com.huawei.mms") || // 华为短信
-            pkg.startsWith("com.huawei.android.mms") ||
-            pkg.startsWith("com.vivo.mms") || // vivo 短信
-            pkg.contains("sms") ||
-            pkg.contains(".mms") // 兜底：各厂商短信应用
+    /**
+     * 系统当前默认短信应用（P2-4 的**首选信号**）。
+     *
+     * 每次现读而不是缓存：用户随时可能在系统设置里换默认短信应用，而本服务是常驻的；
+     * 一次 binder 查询对通知到达频率来说可以忽略。读不到就回空串 —— 此时只有
+     * [NotificationSourceClassifier] 的已知组件前缀还能认人，不会退回"包名含 sms"
+     * 的旧启发式（那会把普通应用整包吞掉）。
+     */
+    private fun platformDefaultSmsPackage(): String {
+        return try {
+            android.provider.Telephony.Sms.getDefaultSmsPackage(context).orEmpty()
+        } catch (e: Exception) {
+            Log.d(TAG, "读默认短信应用失败（按未设置处理）：${e.javaClass.simpleName}")
+            ""
+        }
     }
 
-    private fun isCallPackage(packageName: String): Boolean {
-        val pkg = packageName.lowercase()
-        return pkg.startsWith("com.android.dialer") ||
-            pkg.startsWith("com.android.incallui") ||
-            pkg.startsWith("com.android.phone") ||
-            pkg.startsWith("com.google.android.dialer") || // Google 拨号器
-            pkg.startsWith("com.samsung.android.dialer") || // 三星拨号器
-            pkg.startsWith("com.samsung.android.incallui") || // 三星来电
-            pkg.startsWith("com.huawei.contacts") || // 华为拨号/联系人
-            pkg.startsWith("com.oplus.incallui") || pkg.startsWith("com.coloros.incallui") ||
-            pkg.startsWith("com.bbk.incallui") || pkg.startsWith("com.vivo.incallui") ||
-            pkg.contains("incallui") || // 兜底：各厂商来电界面
-            pkg.contains("dialer") // 兜底：各厂商拨号器
+    /** 系统当前默认拨号器（P2-4）；读不到回空串，理由同上。 */
+    private fun platformDefaultDialerPackage(): String {
+        return try {
+            val telecom = context.getSystemService(Context.TELECOM_SERVICE) as? android.telecom.TelecomManager
+            telecom?.defaultDialerPackage.orEmpty()
+        } catch (e: Exception) {
+            Log.d(TAG, "读默认拨号器失败（按未设置处理）：${e.javaClass.simpleName}")
+            ""
+        }
     }
 
     private fun isVendorPushService(packageName: String): Boolean {
