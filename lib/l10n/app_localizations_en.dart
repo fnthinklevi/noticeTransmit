@@ -2545,16 +2545,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'When on, battery/temperature alerts also pass the keyword allow/block lists before sending; app filtering does not apply (these alerts originate on this device). Suppressed alerts are recorded in push history with the reason.';
 
   @override
-  String get tempTestEntry => 'Test once';
+  String get tempTestEntry => 'Test run';
 
   @override
-  String get tempTestTitle => 'Temperature alert preview';
+  String get tempTestTitle => 'Temperature alert test run';
 
   @override
   String get tempTestReadings => 'Current readings: ';
 
   @override
-  String get tempTestSteps => 'Walk: ';
+  String get tempTestSteps => 'Walkthrough: ';
 
   @override
   String get tempTestFired => 'Would fire: ';
@@ -2564,11 +2564,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tempTestFailed =>
-      'Preview failed (not measured — does not mean it would not fire)';
+      'Test run failed (not measured, which does not mean it would not fire)';
 
   @override
   String get tempTestNoDims =>
-      'No temperature dimension is readable on this device';
+      'No temperature dimension can be read on this device';
 
   @override
   String get tempOutcomeFire => 'fire';
@@ -2578,7 +2578,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tempSilenceNoReading =>
-      'this dimension has no reading on this device';
+      'this dimension cannot be read on this device';
 
   @override
   String get tempSilenceNotTriggered => 'threshold not reached';
@@ -2615,7 +2615,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get temperatureNotes1 =>
-      'Thresholds run 30-90C: only the moment a threshold is crossed counts, so staying above it does not re-alert.';
+      'Thresholds run 30-90C: only the moment a threshold is crossed counts as an event; staying above it does not re-alert.';
 
   @override
   String get temperatureNotes2 =>
@@ -2623,7 +2623,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get temperatureNotes3 =>
-      'Battery / device / screen temperature are judged independently; a dimension this device cannot read is stated plainly in \"Try once\".';
+      'Battery, device and screen temperature are judged independently; a dimension this device cannot read is stated explicitly in the test run.';
 
   @override
   String get deviceStateNotes2 =>

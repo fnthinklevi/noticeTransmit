@@ -4582,13 +4582,13 @@ abstract class AppLocalizations {
   /// No description provided for @tempTestEntry.
   ///
   /// In zh, this message translates to:
-  /// **'试一次'**
+  /// **'试运行'**
   String get tempTestEntry;
 
   /// No description provided for @tempTestTitle.
   ///
   /// In zh, this message translates to:
-  /// **'温度告警试跑'**
+  /// **'温度告警试运行'**
   String get tempTestTitle;
 
   /// No description provided for @tempTestReadings.
@@ -4600,7 +4600,7 @@ abstract class AppLocalizations {
   /// No description provided for @tempTestSteps.
   ///
   /// In zh, this message translates to:
-  /// **'走查：'**
+  /// **'检查步骤：'**
   String get tempTestSteps;
 
   /// No description provided for @tempTestFired.
@@ -4618,13 +4618,13 @@ abstract class AppLocalizations {
   /// No description provided for @tempTestFailed.
   ///
   /// In zh, this message translates to:
-  /// **'试跑失败（没测成，不代表不会触发）'**
+  /// **'试运行失败（未完成测量，不代表不会触发）'**
   String get tempTestFailed;
 
   /// No description provided for @tempTestNoDims.
   ///
   /// In zh, this message translates to:
-  /// **'这台设备一个温度维度都读不到'**
+  /// **'本机无法读取任何温度维度'**
   String get tempTestNoDims;
 
   /// No description provided for @tempOutcomeFire.
@@ -4642,7 +4642,7 @@ abstract class AppLocalizations {
   /// No description provided for @tempSilenceNoReading.
   ///
   /// In zh, this message translates to:
-  /// **'该维度本机读不到'**
+  /// **'本机无法读取该维度'**
   String get tempSilenceNoReading;
 
   /// No description provided for @tempSilenceNotTriggered.
@@ -4702,7 +4702,7 @@ abstract class AppLocalizations {
   /// No description provided for @temperatureNotes1.
   ///
   /// In zh, this message translates to:
-  /// **'阈值 30–90℃：只有「跨越」的那一刻算一次事件，已经在阈值之上不会反复提醒。'**
+  /// **'阈值范围 30–90℃：仅在「跨越」阈值的那一刻计为一次事件；已在阈值之上时不会重复提醒。'**
   String get temperatureNotes1;
 
   /// No description provided for @temperatureNotes2.
@@ -4714,7 +4714,7 @@ abstract class AppLocalizations {
   /// No description provided for @temperatureNotes3.
   ///
   /// In zh, this message translates to:
-  /// **'电池温度 / 设备温度 / 屏幕温度三个维度各自判定；本机读不到的维度会在「试一次」里明写。'**
+  /// **'电池温度、设备温度、屏幕温度三个维度分别判定；本机无法读取的维度会在「试运行」中明确说明。'**
   String get temperatureNotes3;
 
   /// No description provided for @deviceStateNotes2.
@@ -6346,7 +6346,7 @@ abstract class AppLocalizations {
   /// No description provided for @noRules.
   ///
   /// In zh, this message translates to:
-  /// **'暂无温度规则，点右上角 + 添加'**
+  /// **'暂无温度规则，点击右上角 + 添加'**
   String get noRules;
 
   /// No description provided for @disable.

@@ -2439,16 +2439,16 @@ class AppLocalizationsZh extends AppLocalizations {
       '开启后，电量/温度告警在推送前同样经过关键词黑白名单过滤；应用黑白名单不适用（此类告警由本机自身产生）。被拦截的告警将写入推送历史并标注原因。';
 
   @override
-  String get tempTestEntry => '试一次';
+  String get tempTestEntry => '试运行';
 
   @override
-  String get tempTestTitle => '温度告警试跑';
+  String get tempTestTitle => '温度告警试运行';
 
   @override
   String get tempTestReadings => '当前读数：';
 
   @override
-  String get tempTestSteps => '走查：';
+  String get tempTestSteps => '检查步骤：';
 
   @override
   String get tempTestFired => '会触发：';
@@ -2457,10 +2457,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tempTestSilent => '不会触发：';
 
   @override
-  String get tempTestFailed => '试跑失败（没测成，不代表不会触发）';
+  String get tempTestFailed => '试运行失败（未完成测量，不代表不会触发）';
 
   @override
-  String get tempTestNoDims => '这台设备一个温度维度都读不到';
+  String get tempTestNoDims => '本机无法读取任何温度维度';
 
   @override
   String get tempOutcomeFire => '触发';
@@ -2469,7 +2469,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tempSilenceNoRules => '没有启用中的温度规则';
 
   @override
-  String get tempSilenceNoReading => '该维度本机读不到';
+  String get tempSilenceNoReading => '本机无法读取该维度';
 
   @override
   String get tempSilenceNotTriggered => '未达到阈值';
@@ -2504,14 +2504,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get temperatureNotes1 => '阈值 30–90℃：只有「跨越」的那一刻算一次事件，已经在阈值之上不会反复提醒。';
+  String get temperatureNotes1 =>
+      '阈值范围 30–90℃：仅在「跨越」阈值的那一刻计为一次事件；已在阈值之上时不会重复提醒。';
 
   @override
   String get temperatureNotes2 => '触发后 30 分钟内同一维度不再重复提醒。';
 
   @override
   String get temperatureNotes3 =>
-      '电池温度 / 设备温度 / 屏幕温度三个维度各自判定；本机读不到的维度会在「试一次」里明写。';
+      '电池温度、设备温度、屏幕温度三个维度分别判定；本机无法读取的维度会在「试运行」中明确说明。';
 
   @override
   String get deviceStateNotes2 => '亮度按百分比判定；网络类触发只看「断网」与「联网」这两件事，不需要阈值。';
@@ -3438,7 +3439,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get temperatureTitle => '温度推送';
 
   @override
-  String get noRules => '暂无温度规则，点右上角 + 添加';
+  String get noRules => '暂无温度规则，点击右上角 + 添加';
 
   @override
   String get disable => '停用';

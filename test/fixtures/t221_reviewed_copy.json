@@ -1806,5 +1806,43 @@
       "zh": "部分系统会限制后台服务，可能导致无法接收通知。按以下步骤设置可提高稳定性：",
       "en": "Some systems restrict background services, which may prevent notifications from arriving. The following steps improve reliability:"
     }
+  },
+  "lib/pages/temperature_page.dart": {
+    "tempTestEntry": {
+      "zh": "试运行",
+      "en": "Test run"
+    },
+    "noRules": {
+      "zh": "暂无温度规则，点击右上角 + 添加",
+      "en": "No temperature rules yet. Tap + to add one"
+    },
+    "temperatureNotes1": {
+      "zh": "阈值范围 30–90℃：仅在「跨越」阈值的那一刻计为一次事件；已在阈值之上时不会重复提醒。",
+      "en": "Thresholds run 30-90C: only the moment a threshold is crossed counts as an event; staying above it does not re-alert."
+    },
+    "temperatureNotes3": {
+      "zh": "电池温度、设备温度、屏幕温度三个维度分别判定；本机无法读取的维度会在「试运行」中明确说明。",
+      "en": "Battery, device and screen temperature are judged independently; a dimension this device cannot read is stated explicitly in the test run."
+    },
+    "tempTestTitle": {
+      "zh": "温度告警试运行",
+      "en": "Temperature alert test run"
+    },
+    "tempTestFailed": {
+      "zh": "试运行失败（未完成测量，不代表不会触发）",
+      "en": "Test run failed (not measured, which does not mean it would not fire)"
+    },
+    "tempTestNoDims": {
+      "zh": "本机无法读取任何温度维度",
+      "en": "No temperature dimension can be read on this device"
+    },
+    "tempTestSteps": {
+      "zh": "检查步骤：",
+      "en": "Walkthrough: "
+    },
+    "tempSilenceNoReading": {
+      "zh": "本机无法读取该维度",
+      "en": "this dimension cannot be read on this device"
+    }
   }
 }

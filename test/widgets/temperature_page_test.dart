@@ -281,7 +281,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.science_outlined));
       await tester.pumpAndSettle();
 
-      expect(find.text('温度告警试跑'), findsOneWidget);
+      expect(find.text('温度告警试运行'), findsOneWidget);
       // 标题/正文来自原生那条渲染抄本，Dart 不参与拼判据。
       expect(find.textContaining('会触发：电池过热'), findsOneWidget);
       expect(find.textContaining('首轮只记录基准，不触发'), findsOneWidget);
@@ -305,7 +305,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.science_outlined));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('该维度本机读不到'), findsOneWidget);
+      expect(find.textContaining('本机无法读取该维度'), findsOneWidget);
       expect(
         find.textContaining('未达到阈值'),
         findsNothing,
@@ -321,7 +321,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.science_outlined));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('试跑失败'), findsOneWidget);
+      expect(find.textContaining('试运行失败'), findsOneWidget);
       expect(find.textContaining('不会触发：'), findsNothing);
     });
 
@@ -337,7 +337,7 @@ void main() {
 
       await tester.longPress(find.text('电池过热'));
       await tester.pumpAndSettle();
-      expect(find.text('试一次'), findsOneWidget);
+      expect(find.text('试运行'), findsOneWidget);
     });
   });
 
@@ -460,7 +460,7 @@ void main() {
     });
   });
 
-  // T90 片28：温度「试一次」的结果框 —— 换壳之前**这一枚在 test/ 与 integration_test/ 里
+  // T90 片28：温度「试运行」的结果框 —— 换壳之前**这一枚在 test/ 与 integration_test/ 里
   // 零页面级覆盖**（只有闸门 5.4 那一步点过，而闸门只断"正文非空"）。
   // 换壳那三个最容易丢的东西各钉一条：动作文案（「关闭」不是「好的」）、正文那个 key
   // （闸门与这两条用例都按它找）、以及点「关闭」真收得掉。
@@ -474,7 +474,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(CardActionSheet),
-          matching: find.text('试一次'),
+          matching: find.text('试运行'),
         ),
       );
       // 原生那一次往返要走平台通道：`.timeout(8s)` 之外还要把帧推完，
@@ -557,12 +557,12 @@ void main() {
       expect(text, contains('30.1℃'));
       expect(
         text,
-        contains('走查：触发 → 未达到阈值 → 首轮只记录基准，不触发'),
+        contains('检查步骤：触发 → 未达到阈值 → 首轮只记录基准，不触发'),
         reason: '走查三段要在同一行里按顺序出现（用户靠它判断卡在哪一步）',
       );
       expect(text, contains('不会触发：未达到阈值'));
       expect(
-        find.text('试跑失败（没测成，不代表不会触发）'),
+        find.text('试运行失败（没测成，不代表不会触发）'),
         findsNothing,
         reason: '原生明明回了一份成功载荷 ⇒ 这一句出现就是解析或判据出了问题',
       );
