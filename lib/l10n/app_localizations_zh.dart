@@ -3521,32 +3521,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkConsentGateThisStep => '这一步';
 
   @override
-  String get fnthinkSendTargetGoPair => '去配对';
+  String get fnthinkSendTargetGoPair => '前往配对';
 
   @override
-  String get fnthinkSendTargetTitle => '发给谁';
+  String get fnthinkSendTargetTitle => '发送目标';
 
   @override
   String get fnthinkSendTargetDevices => '已配对的设备';
 
   @override
   String get fnthinkSendTargetNoPeer =>
-      '这台还没配对过任何设备 —— 先去「设备配对」那一页配一台，或在下面选一条 Webhook 通道。';
+      '本机尚未配对任何设备，请先在「设备配对」页完成配对，或在下方选择一条 Webhook 通道。';
 
   @override
   String get fnthinkSendTargetWebhooks => 'Webhook 通道';
 
   @override
   String get fnthinkSendTargetWebhookEmpty =>
-      '还没有启用的 Webhook 通道 —— 去「幻念通道」那一页建一条（填接入端点的推送地址，并开着它）。';
+      '尚无已启用的 Webhook 通道，请在「幻念通道」页创建一条（填写接入端点的推送地址并保持启用）。';
 
   @override
   String get fnthinkSendTargetWebhookOnlyForNotice =>
-      '远程指令只能发给已配对的设备：Webhook 那条没有配对关系、也没有档位授权。要发到通道就切回「一条通知」。';
+      '远程指令只能发送至已配对设备；Webhook 通道没有配对关系，也没有档位授权。如需发送至通道，请切换回「一条通知」。';
 
   @override
   String get fnthinkSendNoticeVsCommand =>
-      '「一条通知」是让对面看到一段内容（那边不需要任何授权、也不执行动作）；「一条远程指令」是让对面做一件事（要配对关系与档位授权，最高那一档还要过延时确认）。';
+      '「一条通知」是让对端查看一段内容（无需任何授权，也不执行动作）；「一条远程指令」是让对端执行一个动作（需要配对关系与档位授权，最高档位还需通过延时确认）。';
 
   @override
   String get fnthinkHubSendDesc => '发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档';
@@ -3756,7 +3756,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkContractUnavailable(String reason) {
-    return '随包的协议契约读不到，这一页暂时什么都改不了：$reason';
+    return '无法读取随包协议契约，本页暂时无法修改任何设置：$reason';
   }
 
   @override
@@ -4318,7 +4318,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkSendSheetTitle(String peer) {
-    return '发给 $peer';
+    return '发送至 $peer';
   }
 
   @override
@@ -4328,7 +4328,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkSendBodyHint => '正文';
 
   @override
-  String get fnthinkSendTierLabel => '这一发送什么';
+  String get fnthinkSendTierLabel => '本次发送内容';
 
   @override
   String get fnthinkSendTierNotice => '一条通知';
@@ -4337,71 +4337,71 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkSendTierCommand => '一条远程指令';
 
   @override
-  String get fnthinkSendTierNote => '两档是同一条出站的两种载荷；能不能做由对面那台判。';
+  String get fnthinkSendTierNote => '两档为同一条出站请求的两种载荷；是否执行由对端判定。';
 
   @override
-  String get fnthinkSendNeedsPeer => '还没选中发给哪一台';
+  String get fnthinkSendNeedsPeer => '尚未选择目标设备';
 
   @override
-  String get fnthinkSendEnvelopeHelpTitle => '标题走的是正文信封';
+  String get fnthinkSendEnvelopeHelpTitle => '标题随正文信封传输';
 
   @override
   String get fnthinkSendEnvelopeNote =>
-      '设备这一路的标题走的是正文信封：签名的字节里没有独立的标题字段，端点那两种形态才有。收件人看到的标题来自这一段正文。';
+      '设备通道的标题随正文信封传输：签名数据中没有独立标题字段，仅端点两种形态具备该字段。收件人看到的标题来自这段正文。';
 
   @override
-  String get fnthinkSendEmptyBody => '正文空着不发——那边只会收到一句空话';
+  String get fnthinkSendEmptyBody => '正文为空时不发送，对端只会收到空内容';
 
   @override
   String get fnthinkSendSubmit => '发送';
 
   @override
   String fnthinkSendSent(String id) {
-    return '已交给服务端排队（$id）。送达以那一台的回执为准。';
+    return '已提交服务端排队（$id）。送达状态以该设备的回执为准。';
   }
 
   @override
   String fnthinkSendEvicted(int count) {
-    return '另外 $count 条因为每设备上限被挤掉了。';
+    return '另有 $count 条消息因超出每设备上限被移除。';
   }
 
   @override
-  String get fnthinkSendRejectedUnsigned => '签名不被认：这台设备的身份在服务端那侧对不上（可能要重新配对）';
+  String get fnthinkSendRejectedUnsigned => '签名无法识别：本机身份与服务端记录不一致（可能需要重新配对）';
 
   @override
-  String get fnthinkSendRejectedCapability => '对方没给这一档权限，或你们还没配对';
+  String get fnthinkSendRejectedCapability => '对端未授予本档权限，或双方尚未配对';
 
   @override
-  String get fnthinkSendReplayed => '命中去重窗口：请等待片刻后再发送，避免重复触发';
+  String get fnthinkSendReplayed => '触发去重窗口：请稍后重新发送，以免重复触发';
 
   @override
-  String get fnthinkSendNeedsCalibration => '时间没校上：先点一次「立即收取」再发';
+  String get fnthinkSendNeedsCalibration => '时间未校准：请先执行一次「立即收取」，再发送';
 
   @override
   String fnthinkSendRateLimited(int seconds) {
-    return '这一分钟发得太多，$seconds 秒后再试';
+    return '本分钟发送次数过多，请在 $seconds 秒后重试';
   }
 
   @override
-  String get fnthinkSendTransportError => '连不上服务端，这一条没发出去';
+  String get fnthinkSendTransportError => '无法连接服务端，本次消息未发送';
 
   @override
-  String get fnthinkSendSigningUnavailable => '本机签名不可用：去上面重置三件套，或重新配对';
+  String get fnthinkSendSigningUnavailable => '本机签名不可用：请在上方重置凭据三件套，或重新配对';
 
   @override
   String fnthinkSendPrecondition(String reason) {
-    return '本机还没就绪：$reason';
+    return '本机尚未就绪：$reason';
   }
 
   @override
-  String get fnthinkSendBadInput => '正文里有不能上屏的字符，这一条发不出去';
+  String get fnthinkSendBadInput => '正文包含无法发送的字符，本次消息未发送';
 
   @override
-  String get fnthinkSendUnparseable => '服务端收了但没给编号，这一条追不回来';
+  String get fnthinkSendUnparseable => '服务端已接收但未返回编号，无法追踪本次消息';
 
   @override
   String get fnthinkSendBoundary =>
-      '「发一条」走的是设备签名那一路，只能发给名单里那台；它不等等于送达——那台真显示出来并回了执，才算送到。';
+      '「发送一条」走设备签名通道，只能发送至名单中的设备；发送成功不等同于送达，仅当该设备实际显示并返回回执后，方可视为送达。';
 
   @override
   String get fnthinkRevokeAskTitle => '撤销这台设备的推送许可？';
@@ -5206,7 +5206,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get remotePeersReadFailed =>
-      '名单读不出来（库里这一张表没读到）。这不是「还没配对过设备」——先去设备绑定那一页看一眼。';
+      '无法读取名单（未能读取数据库中该表）。这不表示「尚未配对设备」，请先查看「设备配对」页。';
 
   @override
   String get remoteActionListenerStart => '让对面开始监听通知';
@@ -5324,15 +5324,15 @@ class AppLocalizationsZh extends AppLocalizations {
       '没拿到通话记录权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。';
 
   @override
-  String get remoteSendCallsKeywordLabel => '搜什么词或号码';
+  String get remoteSendCallsKeywordLabel => '搜索词或号码';
 
   @override
   String get remoteSendCallsKeywordWhy =>
-      '只回传命中的那几条（时间／方向／对方／时长）。对面那台「可被远程读取的内容」里这一项关着时，这一发不会执行。';
+      '仅回传命中的记录（时间／方向／对方／时长）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。';
 
   @override
   String remoteSendNeedsCallsKeyword(int min, int max) {
-    return '搜什么词要填 $min–$max 个字，且不能带控制字符。';
+    return '关键词长度须为 $min–$max 个字符，且不得包含控制字符。';
   }
 
   @override
@@ -5415,120 +5415,120 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteOutcomeSet => '那一档已经改成对面要的值';
 
   @override
-  String get remoteSendFamilyLabel => '哪一族';
+  String get remoteSendFamilyLabel => '通道族';
 
   @override
   String get remoteSendChannelIdWhy =>
-      '只有这一格要自己填：本机看不到对面那台配了哪些通道（要能列得动协议）。族与「设成开着／关掉」都在下面选，拼成对面认得的形状。';
+      '仅此项需手动填写：本机无法查看对端已配置的通道（需协议支持列表查询）。族与开关目标均在下方选择，并按对端可识别的格式拼接。';
 
   @override
-  String get remoteSendWantOn => '设成开着';
+  String get remoteSendWantOn => '设为开启';
 
   @override
-  String get remoteSendWantOff => '设成关掉';
+  String get remoteSendWantOff => '设为关闭';
 
   @override
-  String get remoteSendNeedsFamily => '还没选是哪一族。';
+  String get remoteSendNeedsFamily => '尚未选择通道族。';
 
   @override
-  String get remoteSendNeedsWant => '还没选要设成开着还是关掉 —— 只说「翻」不说要翻成哪一档，重投一次就回到原样。';
+  String get remoteSendNeedsWant => '尚未选择目标开关状态；仅指定「切换」而不指定目标状态时，重复投递会恢复原状。';
 
   @override
-  String get remoteSendLevel => '这一条按哪一档发';
+  String get remoteSendLevel => '选择发送档位';
 
   @override
   String get remoteSendLevelL1 => '低风险：可直接执行，也可由指定应用的通知触发';
 
   @override
-  String get remoteSendLevelL2 => '中风险：只允许幻念推送，凭据可不带';
+  String get remoteSendLevelL2 => '中风险：仅允许经幻念推送，凭据可选';
 
   @override
-  String get remoteSendLevelL3 => '高风险：必须幻念推送，且必须带密钥或二步验证码';
+  String get remoteSendLevelL3 => '高风险：必须经幻念推送，且必须携带密钥或二步验证码';
 
   @override
-  String get remoteSendAction => '要它做什么';
+  String get remoteSendAction => '选择动作';
 
   @override
   String get remoteSendArgument => '参数（目标通道标识）';
 
   @override
-  String get remoteSendKeyRequired => '高级密钥（这一档必填）';
+  String get remoteSendKeyRequired => '高级密钥（本档必填）';
 
   @override
-  String get remoteSendTotpRequired => '二步验证码（这一档必填）';
+  String get remoteSendTotpRequired => '二步验证码（本档必填）';
 
   @override
-  String get remoteSendSubmit => '发出去';
+  String get remoteSendSubmit => '发送';
 
   @override
-  String get remoteSendCancelNote => '取消 ⇒ 一个字节都不发。这一发带走了你刚填的凭据。';
+  String get remoteSendCancelNote => '取消后不会发送任何数据；本次输入中的凭据也不会带出。';
 
   @override
-  String get remoteSendNeedsCredential => '这一档必须带高级密钥或二步验证码之一——两个都空着发不出去。';
+  String get remoteSendNeedsCredential => '本档必须携带高级密钥或二步验证码之一；两项均为空时无法发送。';
 
   @override
-  String get remoteSendNeedsArgument => '这一项要一个参数（目标通道标识），空着发不出去。';
+  String get remoteSendNeedsArgument => '此项需要参数（目标通道标识），为空时无法发送。';
 
   @override
-  String get remoteSendReportCountLabel => '回传几条';
+  String get remoteSendReportCountLabel => '回传条数';
 
   @override
   String get remoteSendReportCountWhy =>
-      '只回传这段文字：时间、应用、标题与正文。对面拿到的是一条消息，不是一台设备的读取权。';
+      '仅回传以下文字：时间、应用、标题与正文。对端收到的是一条消息，而非设备的读取权限。';
 
   @override
   String remoteSendNeedsReportCount(int min, int max) {
-    return '回传条数只能是 $min–$max 之间的整数。';
+    return '回传条数必须为 $min–$max 之间的整数。';
   }
 
   @override
-  String get remoteSendSmsKeywordLabel => '搜什么词';
+  String get remoteSendSmsKeywordLabel => '搜索关键词';
 
   @override
   String get remoteSendSmsKeywordWhy =>
-      '只回传命中的那几条（时间／号码／正文）。对面那台的短信监听关着时这一发不会执行。';
+      '仅回传命中的消息（时间／号码／正文）。对端的短信监听关闭时，本次指令不会执行。';
 
   @override
   String remoteSendNeedsSmsKeyword(int min, int max) {
-    return '搜什么词要填 $min–$max 个字，且不能带控制字符。';
+    return '关键词长度须为 $min–$max 个字符，且不得包含控制字符。';
   }
 
   @override
-  String get remoteSendShortcutNameLabel => '打开哪一条';
+  String get remoteSendShortcutNameLabel => '打开哪一项';
 
   @override
   String get remoteSendShortcutNameWhy =>
-      '填对面在本机登记过的名字（本机看不到那份清单）。名字对不上时这一发不会执行。';
+      '填写对端在本机登记过的名称（本机无法查看该清单）。名称不匹配时，本次指令不会执行。';
 
   @override
   String remoteSendNeedsShortcutName(int min, int max) {
-    return '名字要填 $min–$max 个字，且不能带控制字符。';
+    return '名称长度须为 $min–$max 个字符，且不得包含控制字符。';
   }
 
   @override
-  String get remoteSendContactsKeywordLabel => '搜什么名字或号码';
+  String get remoteSendContactsKeywordLabel => '搜索姓名或号码';
 
   @override
   String get remoteSendContactsKeywordWhy =>
-      '只回传命中的那几条（姓名／号码）。对面那台「可被远程读取的内容」里这一项关着时，这一发不会执行。';
+      '仅回传命中的记录（姓名／号码）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。';
 
   @override
   String remoteSendNeedsContactsKeyword(int min, int max) {
-    return '要搜的名字或号码填 $min–$max 个字，且不能带控制字符。';
+    return '姓名或号码长度须为 $min–$max 个字符，且不得包含控制字符。';
   }
 
   @override
   String get remoteSendStartedNote =>
-      '已发出。等对面那台回「正在执行」与「执行完毕」两条回执——它们会出现在远程执行历史里。';
+      '已发出。请等待对端返回「正在执行」与「执行完毕」两条回执，它们将显示在远程执行历史中。';
 
   @override
   String remoteSendFailed(String reason) {
-    return '这一发没发出去：$reason';
+    return '本次发送未成功：$reason';
   }
 
   @override
   String remoteSendLevelUnknown(String level) {
-    return '这一档（$level）不在协议词表里，不发。';
+    return '档位（$level）不在协议词表中，无法发送。';
   }
 
   @override
@@ -5823,19 +5823,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairLinkRejectedShort => '本机无法使用此链接';
 
   @override
-  String get fnthinkSendNoticeVsCommandShort => '通知＝让对面看到内容；指令＝让对面做一件事';
+  String get fnthinkSendNoticeVsCommandShort => '通知：让对端查看内容；指令：让对端执行动作';
 
   @override
-  String get fnthinkSendTargetWebhookOnlyForNoticeShort => '指令只发给已配对的设备';
+  String get fnthinkSendTargetWebhookOnlyForNoticeShort => '指令仅发送至已配对设备';
 
   @override
-  String get fnthinkSendTargetWebhookEmptyShort => '还没有启用的 Webhook 通道';
+  String get fnthinkSendTargetWebhookEmptyShort => '尚无已启用的 Webhook 通道';
 
   @override
-  String get remoteSendReportCountWhyShort => '只回传这段文字，不是读取权';
+  String get remoteSendReportCountWhyShort => '仅回传这段文字，不涉及读取权限';
 
   @override
-  String get remoteSendChannelIdWhyShort => '这一格要自己填：本机看不到对面的通道';
+  String get remoteSendChannelIdWhyShort => '此项需手动填写：本机无法查看对端通道';
 
   @override
   String get fnthinkEndpointWhyShort => '接入端点：让第三方平台往这台设备推通知';
@@ -5855,7 +5855,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkShortcutsEmptyShort => '还没有登记任何入口';
 
   @override
-  String get remotePeersReadFailedShort => '名单读不出来 —— 这不等于「还没配对过」';
+  String get remotePeersReadFailedShort => '无法读取名单，并不表示尚未配对';
 
   @override
   String get remoteCredKeyOnceShort => '这一串只出现这一次，现在就得抄走';

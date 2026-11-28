@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
@@ -346,7 +346,7 @@ void main() {
       await tester.pumpAndSettle();
       await _confirmIfPresent(tester);
       expect(find.textContaining('已发出'), findsNothing);
-      expect(find.textContaining('没发出去'), findsWidgets);
+      expect(find.textContaining('本次发送未成功'), findsWidgets);
     });
   });
 
@@ -1747,10 +1747,9 @@ void main() {
 
 /// 二次确认弹层（`IosDialogActions.askConfirm`）：本组两处都要过它。
 /// ⚠ `askConfirm` **没有键名**（只有 `showInfo` / `IosFormDialog` 那些有），
-/// 所以这里按**文案**点 —— 而那一格那句是本组自己定的 ARB 词条，
-/// 改了文案这一处会找不到（届时改成按 `CupertinoDialogAction` 的序号点）。
+/// 所以这里按弹层动作件点，不再依赖那句会随文案改写而变的按钮字。
 Future<void> _confirmIfPresent(WidgetTester tester) async {
-  final confirm = find.text('发出去');
+  final confirm = find.byType(CupertinoDialogAction);
   if (confirm.evaluate().isNotEmpty) {
     await tester.tap(confirm.last);
   }

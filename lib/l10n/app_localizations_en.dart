@@ -3677,32 +3677,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkConsentGateThisStep => 'This step';
 
   @override
-  String get fnthinkSendTargetGoPair => 'Pair a device';
+  String get fnthinkSendTargetGoPair => 'Go to pairing';
 
   @override
-  String get fnthinkSendTargetTitle => 'Send to';
+  String get fnthinkSendTargetTitle => 'Target';
 
   @override
   String get fnthinkSendTargetDevices => 'Paired devices';
 
   @override
   String get fnthinkSendTargetNoPeer =>
-      'No device has been paired yet - pair one on the \"Device pairing\" page, or pick a Webhook channel below.';
+      'No device is paired yet. Pair one on the \"Device pairing\" page, or select a Webhook channel below.';
 
   @override
   String get fnthinkSendTargetWebhooks => 'Webhook channels';
 
   @override
   String get fnthinkSendTargetWebhookEmpty =>
-      'No enabled Webhook channel yet - create one on the \"Fnthink channels\" page (paste the endpoint push URL and keep it on).';
+      'No enabled Webhook channel. Create one on the \"Fnthink channels\" page (enter the endpoint push URL and keep it enabled).';
 
   @override
   String get fnthinkSendTargetWebhookOnlyForNotice =>
-      'Remote commands can only go to paired devices: a Webhook channel has no pairing and no level grant. Switch back to \"A notification\" to send to a channel.';
+      'Remote commands can only be sent to paired devices; a Webhook channel has no pairing relationship and no level grant. To send to a channel, switch back to \"A notice\".';
 
   @override
   String get fnthinkSendNoticeVsCommand =>
-      '\"A notification\" lets the other side see a piece of content (no grant needed, no action taken); \"A remote command\" asks it to do something (needs the pairing and a level grant, and the top level also passes the delayed-confirm window).';
+      '\"A notice\" lets the other device see some content (no grant is required and no action is performed); \"a remote command\" asks it to perform an action (it requires the pairing and a level grant, and the top level also passes the delayed-confirm window).';
 
   @override
   String get fnthinkHubSendDesc =>
@@ -3938,7 +3938,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkContractUnavailable(String reason) {
-    return 'The bundled protocol contract cannot be read, so nothing here can be changed yet: $reason';
+    return 'The bundled protocol contract cannot be read, so nothing on this page can be changed yet: $reason';
   }
 
   @override
@@ -4561,22 +4561,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkSendTierNote =>
-      'Both tiers ride the same outbound send; only the payload differs. Whether it runs is decided by the other device.';
+      'Both tiers are two payload forms of the same outbound request; whether it runs is decided by the other device.';
 
   @override
-  String get fnthinkSendNeedsPeer => 'Pick which device to send to first';
+  String get fnthinkSendNeedsPeer => 'No target device selected yet';
 
   @override
   String get fnthinkSendEnvelopeHelpTitle =>
-      'The title travels inside the body';
+      'The title travels inside the body envelope';
 
   @override
   String get fnthinkSendEnvelopeNote =>
-      'On the device path the title travels inside the message envelope: the signed bytes have no separate title field, only the endpoint forms do. What the recipient shows as a title comes from this body.';
+      'On the device path, the title travels inside the body envelope: the signed bytes have no separate title field, only the two endpoint forms do. The title the recipient sees comes from this body.';
 
   @override
   String get fnthinkSendEmptyBody =>
-      'Nothing to send — the other side would only get an empty line';
+      'No body, no send — the other device would only receive an empty message';
 
   @override
   String get fnthinkSendSubmit => 'Send';
@@ -4593,23 +4593,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkSendRejectedUnsigned =>
-      'Signature not recognised: this device\'s identity does not match on the server side (it may need re-pairing)';
+      'Signature not recognized: this device\'s identity does not match on the server (re-pairing may be required)';
 
   @override
   String get fnthinkSendRejectedCapability =>
-      'The other side did not grant this level, or you are not paired yet';
+      'The other device did not grant this level, or the two devices are not paired yet';
 
   @override
   String get fnthinkSendReplayed =>
-      'Hit the de-duplication window: please wait a moment before sending to avoid duplicate dispatch';
+      'De-duplication window hit: wait a moment before sending again to avoid duplicate dispatch';
 
   @override
   String get fnthinkSendNeedsCalibration =>
-      'Clock not calibrated: tap Receive now once, then send';
+      'Clock not calibrated: run Receive now once, then send';
 
   @override
   String fnthinkSendRateLimited(int seconds) {
-    return 'Too many this minute — try again in $seconds seconds';
+    return 'Too many sends this minute; try again in $seconds seconds';
   }
 
   @override
@@ -4627,15 +4627,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkSendBadInput =>
-      'The text contains a character that cannot be sent';
+      'The body contains a character that cannot be sent; this message was not sent';
 
   @override
   String get fnthinkSendUnparseable =>
-      'The server accepted it without an id, so this message cannot be tracked';
+      'The server accepted it but returned no id, so this message cannot be tracked';
 
   @override
   String get fnthinkSendBoundary =>
-      'Send uses the signed device path and only goes to a device on your list; it is not proof of delivery — only that device\'s ack is.';
+      'Send goes through the signed device path and can only go to a device on the list; a successful send is not proof of delivery — only when that device displays it and returns an ack is it delivered.';
 
   @override
   String get fnthinkRevokeAskTitle => 'Revoke this device\'s push permission?';
@@ -5493,7 +5493,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remotePeersReadFailed =>
-      'The peer list could not be read (that table didn\'t come back). This isn\'t \'no paired devices yet\' — check the device pairing page first.';
+      'The peer list could not be read (the table was not returned). This does not mean \"no paired devices\"; check the Device pairing page first.';
 
   @override
   String get remoteActionListenerStart =>
@@ -5629,15 +5629,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Call-log permission not granted — this stays off. Toggle again to retry, or grant it in system settings.';
 
   @override
-  String get remoteSendCallsKeywordLabel => 'Which word or number';
+  String get remoteSendCallsKeywordLabel => 'Keyword or number to search';
 
   @override
   String get remoteSendCallsKeywordWhy =>
-      'Only the matching entries travel back (time / direction / party / duration). If that device keeps this item off under \"Readable remotely\", nothing runs.';
+      'Only matching entries are returned (time / direction / party / duration). If that item is disabled under the other device\'s \"Readable remotely\", this command will not run.';
 
   @override
   String remoteSendNeedsCallsKeyword(int min, int max) {
-    return 'The keyword must be between $min and $max characters and carry no control characters.';
+    return 'The keyword must be $min–$max characters and contain no control characters.';
   }
 
   @override
@@ -5732,11 +5732,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'That setting now holds the value the peer asked for';
 
   @override
-  String get remoteSendFamilyLabel => 'Which family';
+  String get remoteSendFamilyLabel => 'Channel family';
 
   @override
   String get remoteSendChannelIdWhy =>
-      'This is the only field you type: this device cannot see which channels the other one has configured (listing them needs a protocol change). Family and on/off are picked below and assembled into the shape the other side understands.';
+      'This is the only field you enter manually: this device cannot see which channels the other device has configured (listing them requires protocol support). The family and on/off target are selected below and assembled into a format the other device recognizes.';
 
   @override
   String get remoteSendWantOn => 'Set to on';
@@ -5745,14 +5745,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteSendWantOff => 'Set to off';
 
   @override
-  String get remoteSendNeedsFamily => 'No channel family picked yet.';
+  String get remoteSendNeedsFamily => 'No channel family selected yet.';
 
   @override
   String get remoteSendNeedsWant =>
-      'No target value picked — saying only \'toggle\' without which state you want means one redelivery flips it back.';
+      'No target state selected. Specifying only \"toggle\" without the desired state means a redelivery will revert it.';
 
   @override
-  String get remoteSendLevel => 'Send at which level';
+  String get remoteSendLevel => 'Sending level';
 
   @override
   String get remoteSendLevelL1 =>
@@ -5760,14 +5760,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteSendLevelL2 =>
-      'Medium risk: only via push; a credential is optional';
+      'Medium risk: push only; a credential is optional';
 
   @override
   String get remoteSendLevelL3 =>
       'High risk: push only, and it must carry a key or a two-step code';
 
   @override
-  String get remoteSendAction => 'What it should do';
+  String get remoteSendAction => 'Action to run';
 
   @override
   String get remoteSendArgument => 'Argument (target channel id)';
@@ -5779,80 +5779,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteSendTotpRequired => 'Two-step code (required at this level)';
 
   @override
-  String get remoteSendSubmit => 'Send it';
+  String get remoteSendSubmit => 'Send';
 
   @override
   String get remoteSendCancelNote =>
-      'Cancel ⇒ not one byte is sent. The credential you just typed would ride along with it.';
+      'Cancel sends no data; the credential entered here will not leave this device.';
 
   @override
   String get remoteSendNeedsCredential =>
-      'This level needs an advanced key or a two-step code — with both empty there is nothing to send.';
+      'This level must carry either an advanced key or a two-step code; with both empty, nothing can be sent.';
 
   @override
   String get remoteSendNeedsArgument =>
-      'This one needs an argument (the target channel id); it cannot be sent empty.';
+      'This item requires an argument (the target channel id); it cannot be sent empty.';
 
   @override
-  String get remoteSendReportCountLabel => 'How many to send back';
+  String get remoteSendReportCountLabel => 'Number of items to return';
 
   @override
   String get remoteSendReportCountWhy =>
-      'Only this much text travels: time, app, title and body. What the other side gets is a message, not read access to a device.';
+      'Only this text is returned: time, app, title and body. The other device receives a message, not read access to a device.';
 
   @override
   String remoteSendNeedsReportCount(int min, int max) {
-    return 'How many to send back must be a whole number between $min and $max.';
+    return 'The number to return must be a whole number between $min and $max.';
   }
 
   @override
-  String get remoteSendSmsKeywordLabel => 'Which keyword';
+  String get remoteSendSmsKeywordLabel => 'Keyword to search';
 
   @override
   String get remoteSendSmsKeywordWhy =>
-      'Only the matching messages travel back (time / number / body). If the other device’s SMS monitoring is off, this will not run.';
+      'Only matching messages are returned (time / number / body). If SMS monitoring is disabled on the other device, this command will not run.';
 
   @override
   String remoteSendNeedsSmsKeyword(int min, int max) {
-    return 'The keyword must be between $min and $max characters and carry no control characters.';
+    return 'The keyword must be $min–$max characters and contain no control characters.';
   }
 
   @override
-  String get remoteSendShortcutNameLabel => 'Which entry';
+  String get remoteSendShortcutNameLabel => 'Which entry to open';
 
   @override
   String get remoteSendShortcutNameWhy =>
-      'Type a name the other device has registered (this device cannot see that list). If no name matches, nothing runs.';
+      'Enter a name registered on the other device (this device cannot see that list). If the name does not match, this command will not run.';
 
   @override
   String remoteSendNeedsShortcutName(int min, int max) {
-    return 'The name must be between $min and $max characters and carry no control characters.';
+    return 'The name must be $min–$max characters and contain no control characters.';
   }
 
   @override
-  String get remoteSendContactsKeywordLabel => 'Which name or number';
+  String get remoteSendContactsKeywordLabel => 'Name or number to search';
 
   @override
   String get remoteSendContactsKeywordWhy =>
-      'Only the matching entries travel back (name / number). If that device keeps this item off under \"Readable remotely\", nothing runs.';
+      'Only matching entries are returned (name / number). If that item is disabled under the other device\'s \"Readable remotely\", this command will not run.';
 
   @override
   String remoteSendNeedsContactsKeyword(int min, int max) {
-    return 'The name or number must be between $min and $max characters and carry no control characters.';
+    return 'The name or number must be $min–$max characters and contain no control characters.';
   }
 
   @override
   String get remoteSendStartedNote =>
-      'Sent. Wait for the other device to send back two receipts — “executing” and “execution_done” — they will show up in the remote execution history.';
+      'Sent. Wait for the other device to return two receipts, \"executing\" and \"execution_done\"; they will appear in the remote execution history.';
 
   @override
   String remoteSendFailed(String reason) {
-    return 'It did not go out: $reason';
+    return 'This send did not go out: $reason';
   }
 
   @override
   String remoteSendLevelUnknown(String level) {
-    return 'This level ($level) is not in the protocol vocabulary — nothing sent.';
+    return 'This level ($level) is not in the protocol vocabulary; nothing will be sent.';
   }
 
   @override
@@ -6169,23 +6169,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkSendNoticeVsCommandShort =>
-      'A notice shows content there; a command makes that device act';
+      'Notice: show content on the other device; command: make it perform an action';
 
   @override
   String get fnthinkSendTargetWebhookOnlyForNoticeShort =>
       'Commands go only to paired devices';
 
   @override
-  String get fnthinkSendTargetWebhookEmptyShort =>
-      'No enabled Webhook channel yet';
+  String get fnthinkSendTargetWebhookEmptyShort => 'No enabled Webhook channel';
 
   @override
   String get remoteSendReportCountWhyShort =>
-      'Only this text travels - not read access';
+      'Only this text is returned; no read access';
 
   @override
   String get remoteSendChannelIdWhyShort =>
-      'Type this one - this device cannot list the other side\'s channels';
+      'Enter this field manually: this device cannot list the other device\'s channels';
 
   @override
   String get fnthinkEndpointWhyShort =>
@@ -6209,7 +6208,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remotePeersReadFailedShort =>
-      'Could not read the peer list - that is not the same as having no peers';
+      'The peer list could not be read; this does not mean no devices are paired';
 
   @override
   String get remoteCredKeyOnceShort => 'Shown once - copy it now';

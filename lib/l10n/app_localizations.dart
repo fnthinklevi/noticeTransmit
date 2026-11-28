@@ -6502,13 +6502,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendTargetGoPair.
   ///
   /// In zh, this message translates to:
-  /// **'去配对'**
+  /// **'前往配对'**
   String get fnthinkSendTargetGoPair;
 
   /// No description provided for @fnthinkSendTargetTitle.
   ///
   /// In zh, this message translates to:
-  /// **'发给谁'**
+  /// **'发送目标'**
   String get fnthinkSendTargetTitle;
 
   /// No description provided for @fnthinkSendTargetDevices.
@@ -6520,7 +6520,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendTargetNoPeer.
   ///
   /// In zh, this message translates to:
-  /// **'这台还没配对过任何设备 —— 先去「设备配对」那一页配一台，或在下面选一条 Webhook 通道。'**
+  /// **'本机尚未配对任何设备，请先在「设备配对」页完成配对，或在下方选择一条 Webhook 通道。'**
   String get fnthinkSendTargetNoPeer;
 
   /// No description provided for @fnthinkSendTargetWebhooks.
@@ -6532,19 +6532,19 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendTargetWebhookEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'还没有启用的 Webhook 通道 —— 去「幻念通道」那一页建一条（填接入端点的推送地址，并开着它）。'**
+  /// **'尚无已启用的 Webhook 通道，请在「幻念通道」页创建一条（填写接入端点的推送地址并保持启用）。'**
   String get fnthinkSendTargetWebhookEmpty;
 
   /// No description provided for @fnthinkSendTargetWebhookOnlyForNotice.
   ///
   /// In zh, this message translates to:
-  /// **'远程指令只能发给已配对的设备：Webhook 那条没有配对关系、也没有档位授权。要发到通道就切回「一条通知」。'**
+  /// **'远程指令只能发送至已配对设备；Webhook 通道没有配对关系，也没有档位授权。如需发送至通道，请切换回「一条通知」。'**
   String get fnthinkSendTargetWebhookOnlyForNotice;
 
   /// No description provided for @fnthinkSendNoticeVsCommand.
   ///
   /// In zh, this message translates to:
-  /// **'「一条通知」是让对面看到一段内容（那边不需要任何授权、也不执行动作）；「一条远程指令」是让对面做一件事（要配对关系与档位授权，最高那一档还要过延时确认）。'**
+  /// **'「一条通知」是让对端查看一段内容（无需任何授权，也不执行动作）；「一条远程指令」是让对端执行一个动作（需要配对关系与档位授权，最高档位还需通过延时确认）。'**
   String get fnthinkSendNoticeVsCommand;
 
   /// No description provided for @fnthinkHubSendDesc.
@@ -6928,7 +6928,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkContractUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'随包的协议契约读不到，这一页暂时什么都改不了：{reason}'**
+  /// **'无法读取随包协议契约，本页暂时无法修改任何设置：{reason}'**
   String fnthinkContractUnavailable(String reason);
 
   /// No description provided for @fnthinkDirForwarded.
@@ -7875,7 +7875,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendSheetTitle.
   ///
   /// In zh, this message translates to:
-  /// **'发给 {peer}'**
+  /// **'发送至 {peer}'**
   String fnthinkSendSheetTitle(String peer);
 
   /// No description provided for @fnthinkSendTitleHint.
@@ -7893,7 +7893,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendTierLabel.
   ///
   /// In zh, this message translates to:
-  /// **'这一发送什么'**
+  /// **'本次发送内容'**
   String get fnthinkSendTierLabel;
 
   /// No description provided for @fnthinkSendTierNotice.
@@ -7911,31 +7911,31 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendTierNote.
   ///
   /// In zh, this message translates to:
-  /// **'两档是同一条出站的两种载荷；能不能做由对面那台判。'**
+  /// **'两档为同一条出站请求的两种载荷；是否执行由对端判定。'**
   String get fnthinkSendTierNote;
 
   /// No description provided for @fnthinkSendNeedsPeer.
   ///
   /// In zh, this message translates to:
-  /// **'还没选中发给哪一台'**
+  /// **'尚未选择目标设备'**
   String get fnthinkSendNeedsPeer;
 
   /// No description provided for @fnthinkSendEnvelopeHelpTitle.
   ///
   /// In zh, this message translates to:
-  /// **'标题走的是正文信封'**
+  /// **'标题随正文信封传输'**
   String get fnthinkSendEnvelopeHelpTitle;
 
   /// No description provided for @fnthinkSendEnvelopeNote.
   ///
   /// In zh, this message translates to:
-  /// **'设备这一路的标题走的是正文信封：签名的字节里没有独立的标题字段，端点那两种形态才有。收件人看到的标题来自这一段正文。'**
+  /// **'设备通道的标题随正文信封传输：签名数据中没有独立标题字段，仅端点两种形态具备该字段。收件人看到的标题来自这段正文。'**
   String get fnthinkSendEnvelopeNote;
 
   /// No description provided for @fnthinkSendEmptyBody.
   ///
   /// In zh, this message translates to:
-  /// **'正文空着不发——那边只会收到一句空话'**
+  /// **'正文为空时不发送，对端只会收到空内容'**
   String get fnthinkSendEmptyBody;
 
   /// No description provided for @fnthinkSendSubmit.
@@ -7947,79 +7947,79 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendSent.
   ///
   /// In zh, this message translates to:
-  /// **'已交给服务端排队（{id}）。送达以那一台的回执为准。'**
+  /// **'已提交服务端排队（{id}）。送达状态以该设备的回执为准。'**
   String fnthinkSendSent(String id);
 
   /// No description provided for @fnthinkSendEvicted.
   ///
   /// In zh, this message translates to:
-  /// **'另外 {count} 条因为每设备上限被挤掉了。'**
+  /// **'另有 {count} 条消息因超出每设备上限被移除。'**
   String fnthinkSendEvicted(int count);
 
   /// No description provided for @fnthinkSendRejectedUnsigned.
   ///
   /// In zh, this message translates to:
-  /// **'签名不被认：这台设备的身份在服务端那侧对不上（可能要重新配对）'**
+  /// **'签名无法识别：本机身份与服务端记录不一致（可能需要重新配对）'**
   String get fnthinkSendRejectedUnsigned;
 
   /// No description provided for @fnthinkSendRejectedCapability.
   ///
   /// In zh, this message translates to:
-  /// **'对方没给这一档权限，或你们还没配对'**
+  /// **'对端未授予本档权限，或双方尚未配对'**
   String get fnthinkSendRejectedCapability;
 
   /// No description provided for @fnthinkSendReplayed.
   ///
   /// In zh, this message translates to:
-  /// **'命中去重窗口：请等待片刻后再发送，避免重复触发'**
+  /// **'触发去重窗口：请稍后重新发送，以免重复触发'**
   String get fnthinkSendReplayed;
 
   /// No description provided for @fnthinkSendNeedsCalibration.
   ///
   /// In zh, this message translates to:
-  /// **'时间没校上：先点一次「立即收取」再发'**
+  /// **'时间未校准：请先执行一次「立即收取」，再发送'**
   String get fnthinkSendNeedsCalibration;
 
   /// No description provided for @fnthinkSendRateLimited.
   ///
   /// In zh, this message translates to:
-  /// **'这一分钟发得太多，{seconds} 秒后再试'**
+  /// **'本分钟发送次数过多，请在 {seconds} 秒后重试'**
   String fnthinkSendRateLimited(int seconds);
 
   /// No description provided for @fnthinkSendTransportError.
   ///
   /// In zh, this message translates to:
-  /// **'连不上服务端，这一条没发出去'**
+  /// **'无法连接服务端，本次消息未发送'**
   String get fnthinkSendTransportError;
 
   /// No description provided for @fnthinkSendSigningUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'本机签名不可用：去上面重置三件套，或重新配对'**
+  /// **'本机签名不可用：请在上方重置凭据三件套，或重新配对'**
   String get fnthinkSendSigningUnavailable;
 
   /// No description provided for @fnthinkSendPrecondition.
   ///
   /// In zh, this message translates to:
-  /// **'本机还没就绪：{reason}'**
+  /// **'本机尚未就绪：{reason}'**
   String fnthinkSendPrecondition(String reason);
 
   /// No description provided for @fnthinkSendBadInput.
   ///
   /// In zh, this message translates to:
-  /// **'正文里有不能上屏的字符，这一条发不出去'**
+  /// **'正文包含无法发送的字符，本次消息未发送'**
   String get fnthinkSendBadInput;
 
   /// No description provided for @fnthinkSendUnparseable.
   ///
   /// In zh, this message translates to:
-  /// **'服务端收了但没给编号，这一条追不回来'**
+  /// **'服务端已接收但未返回编号，无法追踪本次消息'**
   String get fnthinkSendUnparseable;
 
   /// No description provided for @fnthinkSendBoundary.
   ///
   /// In zh, this message translates to:
-  /// **'「发一条」走的是设备签名那一路，只能发给名单里那台；它不等等于送达——那台真显示出来并回了执，才算送到。'**
+  /// **'「发送一条」走设备签名通道，只能发送至名单中的设备；发送成功不等同于送达，仅当该设备实际显示并返回回执后，方可视为送达。'**
   String get fnthinkSendBoundary;
 
   /// No description provided for @fnthinkRevokeAskTitle.
@@ -9344,7 +9344,7 @@ abstract class AppLocalizations {
   /// No description provided for @remotePeersReadFailed.
   ///
   /// In zh, this message translates to:
-  /// **'名单读不出来（库里这一张表没读到）。这不是「还没配对过设备」——先去设备绑定那一页看一眼。'**
+  /// **'无法读取名单（未能读取数据库中该表）。这不表示「尚未配对设备」，请先查看「设备配对」页。'**
   String get remotePeersReadFailed;
 
   /// No description provided for @remoteActionListenerStart.
@@ -9566,19 +9566,19 @@ abstract class AppLocalizations {
   /// No description provided for @remoteSendCallsKeywordLabel.
   ///
   /// In zh, this message translates to:
-  /// **'搜什么词或号码'**
+  /// **'搜索词或号码'**
   String get remoteSendCallsKeywordLabel;
 
   /// No description provided for @remoteSendCallsKeywordWhy.
   ///
   /// In zh, this message translates to:
-  /// **'只回传命中的那几条（时间／方向／对方／时长）。对面那台「可被远程读取的内容」里这一项关着时，这一发不会执行。'**
+  /// **'仅回传命中的记录（时间／方向／对方／时长）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。'**
   String get remoteSendCallsKeywordWhy;
 
   /// No description provided for @remoteSendNeedsCallsKeyword.
   ///
   /// In zh, this message translates to:
-  /// **'搜什么词要填 {min}–{max} 个字，且不能带控制字符。'**
+  /// **'关键词长度须为 {min}–{max} 个字符，且不得包含控制字符。'**
   String remoteSendNeedsCallsKeyword(int min, int max);
 
   /// No description provided for @fnthinkShortcutsTitle.
@@ -9734,43 +9734,43 @@ abstract class AppLocalizations {
   /// No description provided for @remoteSendFamilyLabel.
   ///
   /// In zh, this message translates to:
-  /// **'哪一族'**
+  /// **'通道族'**
   String get remoteSendFamilyLabel;
 
   /// No description provided for @remoteSendChannelIdWhy.
   ///
   /// In zh, this message translates to:
-  /// **'只有这一格要自己填：本机看不到对面那台配了哪些通道（要能列得动协议）。族与「设成开着／关掉」都在下面选，拼成对面认得的形状。'**
+  /// **'仅此项需手动填写：本机无法查看对端已配置的通道（需协议支持列表查询）。族与开关目标均在下方选择，并按对端可识别的格式拼接。'**
   String get remoteSendChannelIdWhy;
 
   /// No description provided for @remoteSendWantOn.
   ///
   /// In zh, this message translates to:
-  /// **'设成开着'**
+  /// **'设为开启'**
   String get remoteSendWantOn;
 
   /// No description provided for @remoteSendWantOff.
   ///
   /// In zh, this message translates to:
-  /// **'设成关掉'**
+  /// **'设为关闭'**
   String get remoteSendWantOff;
 
   /// No description provided for @remoteSendNeedsFamily.
   ///
   /// In zh, this message translates to:
-  /// **'还没选是哪一族。'**
+  /// **'尚未选择通道族。'**
   String get remoteSendNeedsFamily;
 
   /// No description provided for @remoteSendNeedsWant.
   ///
   /// In zh, this message translates to:
-  /// **'还没选要设成开着还是关掉 —— 只说「翻」不说要翻成哪一档，重投一次就回到原样。'**
+  /// **'尚未选择目标开关状态；仅指定「切换」而不指定目标状态时，重复投递会恢复原状。'**
   String get remoteSendNeedsWant;
 
   /// No description provided for @remoteSendLevel.
   ///
   /// In zh, this message translates to:
-  /// **'这一条按哪一档发'**
+  /// **'选择发送档位'**
   String get remoteSendLevel;
 
   /// No description provided for @remoteSendLevelL1.
@@ -9782,19 +9782,19 @@ abstract class AppLocalizations {
   /// No description provided for @remoteSendLevelL2.
   ///
   /// In zh, this message translates to:
-  /// **'中风险：只允许幻念推送，凭据可不带'**
+  /// **'中风险：仅允许经幻念推送，凭据可选'**
   String get remoteSendLevelL2;
 
   /// No description provided for @remoteSendLevelL3.
   ///
   /// In zh, this message translates to:
-  /// **'高风险：必须幻念推送，且必须带密钥或二步验证码'**
+  /// **'高风险：必须经幻念推送，且必须携带密钥或二步验证码'**
   String get remoteSendLevelL3;
 
   /// No description provided for @remoteSendAction.
   ///
   /// In zh, this message translates to:
-  /// **'要它做什么'**
+  /// **'选择动作'**
   String get remoteSendAction;
 
   /// No description provided for @remoteSendArgument.
@@ -9806,127 +9806,127 @@ abstract class AppLocalizations {
   /// No description provided for @remoteSendKeyRequired.
   ///
   /// In zh, this message translates to:
-  /// **'高级密钥（这一档必填）'**
+  /// **'高级密钥（本档必填）'**
   String get remoteSendKeyRequired;
 
   /// No description provided for @remoteSendTotpRequired.
   ///
   /// In zh, this message translates to:
-  /// **'二步验证码（这一档必填）'**
+  /// **'二步验证码（本档必填）'**
   String get remoteSendTotpRequired;
 
   /// No description provided for @remoteSendSubmit.
   ///
   /// In zh, this message translates to:
-  /// **'发出去'**
+  /// **'发送'**
   String get remoteSendSubmit;
 
   /// No description provided for @remoteSendCancelNote.
   ///
   /// In zh, this message translates to:
-  /// **'取消 ⇒ 一个字节都不发。这一发带走了你刚填的凭据。'**
+  /// **'取消后不会发送任何数据；本次输入中的凭据也不会带出。'**
   String get remoteSendCancelNote;
 
   /// No description provided for @remoteSendNeedsCredential.
   ///
   /// In zh, this message translates to:
-  /// **'这一档必须带高级密钥或二步验证码之一——两个都空着发不出去。'**
+  /// **'本档必须携带高级密钥或二步验证码之一；两项均为空时无法发送。'**
   String get remoteSendNeedsCredential;
 
   /// No description provided for @remoteSendNeedsArgument.
   ///
   /// In zh, this message translates to:
-  /// **'这一项要一个参数（目标通道标识），空着发不出去。'**
+  /// **'此项需要参数（目标通道标识），为空时无法发送。'**
   String get remoteSendNeedsArgument;
 
   /// No description provided for @remoteSendReportCountLabel.
   ///
   /// In zh, this message translates to:
-  /// **'回传几条'**
+  /// **'回传条数'**
   String get remoteSendReportCountLabel;
 
   /// No description provided for @remoteSendReportCountWhy.
   ///
   /// In zh, this message translates to:
-  /// **'只回传这段文字：时间、应用、标题与正文。对面拿到的是一条消息，不是一台设备的读取权。'**
+  /// **'仅回传以下文字：时间、应用、标题与正文。对端收到的是一条消息，而非设备的读取权限。'**
   String get remoteSendReportCountWhy;
 
   /// No description provided for @remoteSendNeedsReportCount.
   ///
   /// In zh, this message translates to:
-  /// **'回传条数只能是 {min}–{max} 之间的整数。'**
+  /// **'回传条数必须为 {min}–{max} 之间的整数。'**
   String remoteSendNeedsReportCount(int min, int max);
 
   /// No description provided for @remoteSendSmsKeywordLabel.
   ///
   /// In zh, this message translates to:
-  /// **'搜什么词'**
+  /// **'搜索关键词'**
   String get remoteSendSmsKeywordLabel;
 
   /// No description provided for @remoteSendSmsKeywordWhy.
   ///
   /// In zh, this message translates to:
-  /// **'只回传命中的那几条（时间／号码／正文）。对面那台的短信监听关着时这一发不会执行。'**
+  /// **'仅回传命中的消息（时间／号码／正文）。对端的短信监听关闭时，本次指令不会执行。'**
   String get remoteSendSmsKeywordWhy;
 
   /// No description provided for @remoteSendNeedsSmsKeyword.
   ///
   /// In zh, this message translates to:
-  /// **'搜什么词要填 {min}–{max} 个字，且不能带控制字符。'**
+  /// **'关键词长度须为 {min}–{max} 个字符，且不得包含控制字符。'**
   String remoteSendNeedsSmsKeyword(int min, int max);
 
   /// No description provided for @remoteSendShortcutNameLabel.
   ///
   /// In zh, this message translates to:
-  /// **'打开哪一条'**
+  /// **'打开哪一项'**
   String get remoteSendShortcutNameLabel;
 
   /// No description provided for @remoteSendShortcutNameWhy.
   ///
   /// In zh, this message translates to:
-  /// **'填对面在本机登记过的名字（本机看不到那份清单）。名字对不上时这一发不会执行。'**
+  /// **'填写对端在本机登记过的名称（本机无法查看该清单）。名称不匹配时，本次指令不会执行。'**
   String get remoteSendShortcutNameWhy;
 
   /// No description provided for @remoteSendNeedsShortcutName.
   ///
   /// In zh, this message translates to:
-  /// **'名字要填 {min}–{max} 个字，且不能带控制字符。'**
+  /// **'名称长度须为 {min}–{max} 个字符，且不得包含控制字符。'**
   String remoteSendNeedsShortcutName(int min, int max);
 
   /// No description provided for @remoteSendContactsKeywordLabel.
   ///
   /// In zh, this message translates to:
-  /// **'搜什么名字或号码'**
+  /// **'搜索姓名或号码'**
   String get remoteSendContactsKeywordLabel;
 
   /// No description provided for @remoteSendContactsKeywordWhy.
   ///
   /// In zh, this message translates to:
-  /// **'只回传命中的那几条（姓名／号码）。对面那台「可被远程读取的内容」里这一项关着时，这一发不会执行。'**
+  /// **'仅回传命中的记录（姓名／号码）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。'**
   String get remoteSendContactsKeywordWhy;
 
   /// No description provided for @remoteSendNeedsContactsKeyword.
   ///
   /// In zh, this message translates to:
-  /// **'要搜的名字或号码填 {min}–{max} 个字，且不能带控制字符。'**
+  /// **'姓名或号码长度须为 {min}–{max} 个字符，且不得包含控制字符。'**
   String remoteSendNeedsContactsKeyword(int min, int max);
 
   /// No description provided for @remoteSendStartedNote.
   ///
   /// In zh, this message translates to:
-  /// **'已发出。等对面那台回「正在执行」与「执行完毕」两条回执——它们会出现在远程执行历史里。'**
+  /// **'已发出。请等待对端返回「正在执行」与「执行完毕」两条回执，它们将显示在远程执行历史中。'**
   String get remoteSendStartedNote;
 
   /// No description provided for @remoteSendFailed.
   ///
   /// In zh, this message translates to:
-  /// **'这一发没发出去：{reason}'**
+  /// **'本次发送未成功：{reason}'**
   String remoteSendFailed(String reason);
 
   /// No description provided for @remoteSendLevelUnknown.
   ///
   /// In zh, this message translates to:
-  /// **'这一档（{level}）不在协议词表里，不发。'**
+  /// **'档位（{level}）不在协议词表中，无法发送。'**
   String remoteSendLevelUnknown(String level);
 
   /// No description provided for @remoteHistoryIn.
@@ -10400,31 +10400,31 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkSendNoticeVsCommandShort.
   ///
   /// In zh, this message translates to:
-  /// **'通知＝让对面看到内容；指令＝让对面做一件事'**
+  /// **'通知：让对端查看内容；指令：让对端执行动作'**
   String get fnthinkSendNoticeVsCommandShort;
 
   /// No description provided for @fnthinkSendTargetWebhookOnlyForNoticeShort.
   ///
   /// In zh, this message translates to:
-  /// **'指令只发给已配对的设备'**
+  /// **'指令仅发送至已配对设备'**
   String get fnthinkSendTargetWebhookOnlyForNoticeShort;
 
   /// No description provided for @fnthinkSendTargetWebhookEmptyShort.
   ///
   /// In zh, this message translates to:
-  /// **'还没有启用的 Webhook 通道'**
+  /// **'尚无已启用的 Webhook 通道'**
   String get fnthinkSendTargetWebhookEmptyShort;
 
   /// No description provided for @remoteSendReportCountWhyShort.
   ///
   /// In zh, this message translates to:
-  /// **'只回传这段文字，不是读取权'**
+  /// **'仅回传这段文字，不涉及读取权限'**
   String get remoteSendReportCountWhyShort;
 
   /// No description provided for @remoteSendChannelIdWhyShort.
   ///
   /// In zh, this message translates to:
-  /// **'这一格要自己填：本机看不到对面的通道'**
+  /// **'此项需手动填写：本机无法查看对端通道'**
   String get remoteSendChannelIdWhyShort;
 
   /// No description provided for @fnthinkEndpointWhyShort.
@@ -10460,7 +10460,7 @@ abstract class AppLocalizations {
   /// No description provided for @remotePeersReadFailedShort.
   ///
   /// In zh, this message translates to:
-  /// **'名单读不出来 —— 这不等于「还没配对过」'**
+  /// **'无法读取名单，并不表示尚未配对'**
   String get remotePeersReadFailedShort;
 
   /// No description provided for @remoteCredKeyOnceShort.

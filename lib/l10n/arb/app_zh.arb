@@ -1893,14 +1893,14 @@
   "fnthinkConsentGateMsg": "「{action}」需先通过「内容经服务器中转」这一授权：幻念的收发、接入端点管理、配对关系与通道发送均经中转服务器处理，使用前请先同意。授权入口位于「幻念推送 → 接收推送」页（授权前可阅读完整说明）。授权后返回此处，再次点击即可继续",
   "fnthinkConsentGateGo": "去那一页同意",
   "fnthinkConsentGateThisStep": "这一步",
-  "fnthinkSendTargetGoPair": "去配对",
-  "fnthinkSendTargetTitle": "发给谁",
+  "fnthinkSendTargetGoPair": "前往配对",
+  "fnthinkSendTargetTitle": "发送目标",
   "fnthinkSendTargetDevices": "已配对的设备",
-  "fnthinkSendTargetNoPeer": "这台还没配对过任何设备 —— 先去「设备配对」那一页配一台，或在下面选一条 Webhook 通道。",
+  "fnthinkSendTargetNoPeer": "本机尚未配对任何设备，请先在「设备配对」页完成配对，或在下方选择一条 Webhook 通道。",
   "fnthinkSendTargetWebhooks": "Webhook 通道",
-  "fnthinkSendTargetWebhookEmpty": "还没有启用的 Webhook 通道 —— 去「幻念通道」那一页建一条（填接入端点的推送地址，并开着它）。",
-  "fnthinkSendTargetWebhookOnlyForNotice": "远程指令只能发给已配对的设备：Webhook 那条没有配对关系、也没有档位授权。要发到通道就切回「一条通知」。",
-  "fnthinkSendNoticeVsCommand": "「一条通知」是让对面看到一段内容（那边不需要任何授权、也不执行动作）；「一条远程指令」是让对面做一件事（要配对关系与档位授权，最高那一档还要过延时确认）。",
+  "fnthinkSendTargetWebhookEmpty": "尚无已启用的 Webhook 通道，请在「幻念通道」页创建一条（填写接入端点的推送地址并保持启用）。",
+  "fnthinkSendTargetWebhookOnlyForNotice": "远程指令只能发送至已配对设备；Webhook 通道没有配对关系，也没有档位授权。如需发送至通道，请切换回「一条通知」。",
+  "fnthinkSendNoticeVsCommand": "「一条通知」是让对端查看一段内容（无需任何授权，也不执行动作）；「一条远程指令」是让对端执行一个动作（需要配对关系与档位授权，最高档位还需通过延时确认）。",
   "fnthinkHubSendDesc": "发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档",
   "fnthinkHealthNever": "协议面未知：暂无协议请求读数",
   "fnthinkHealthReachable": "协议面就绪：最近一次幻念请求成功",
@@ -2023,7 +2023,7 @@
   "fnthinkContractVersionMismatch": "服务器上的协议是旧的那一份，部分消息会发不出去",
   "fnthinkContractVersionUnreadable": "读不出服务器那份协议是新的还是旧的",
   "fnthinkBoundary": "开着接收之后，通知内容会经过服务器中转：服务器那一侧看得见消息正文与元数据。",
-  "fnthinkContractUnavailable": "随包的协议契约读不到，这一页暂时什么都改不了：{reason}",
+  "fnthinkContractUnavailable": "无法读取随包协议契约，本页暂时无法修改任何设置：{reason}",
   "@fnthinkContractUnavailable": {
     "placeholders": {
       "reason": {
@@ -2417,7 +2417,7 @@
   },
   "fnthinkPairPeerPrefilled": "这两格是刚才那条链接里读出来的，不是你打的 —— 先确认那是你要配的那台",
   "fnthinkPairLinkRejected": "本机无法使用此链接：该链接不是幻念推送配对链接，或协议版本不匹配。请回到该设备重新生成配对口令后再试",
-  "fnthinkSendSheetTitle": "发给 {peer}",
+  "fnthinkSendSheetTitle": "发送至 {peer}",
   "@fnthinkSendSheetTitle": {
     "placeholders": {
       "peer": {
@@ -2427,16 +2427,16 @@
   },
   "fnthinkSendTitleHint": "标题（可留空）",
   "fnthinkSendBodyHint": "正文",
-  "fnthinkSendTierLabel": "这一发送什么",
+  "fnthinkSendTierLabel": "本次发送内容",
   "fnthinkSendTierNotice": "一条通知",
   "fnthinkSendTierCommand": "一条远程指令",
-  "fnthinkSendTierNote": "两档是同一条出站的两种载荷；能不能做由对面那台判。",
-  "fnthinkSendNeedsPeer": "还没选中发给哪一台",
-  "fnthinkSendEnvelopeHelpTitle": "标题走的是正文信封",
-  "fnthinkSendEnvelopeNote": "设备这一路的标题走的是正文信封：签名的字节里没有独立的标题字段，端点那两种形态才有。收件人看到的标题来自这一段正文。",
-  "fnthinkSendEmptyBody": "正文空着不发——那边只会收到一句空话",
+  "fnthinkSendTierNote": "两档为同一条出站请求的两种载荷；是否执行由对端判定。",
+  "fnthinkSendNeedsPeer": "尚未选择目标设备",
+  "fnthinkSendEnvelopeHelpTitle": "标题随正文信封传输",
+  "fnthinkSendEnvelopeNote": "设备通道的标题随正文信封传输：签名数据中没有独立标题字段，仅端点两种形态具备该字段。收件人看到的标题来自这段正文。",
+  "fnthinkSendEmptyBody": "正文为空时不发送，对端只会收到空内容",
   "fnthinkSendSubmit": "发送",
-  "fnthinkSendSent": "已交给服务端排队（{id}）。送达以那一台的回执为准。",
+  "fnthinkSendSent": "已提交服务端排队（{id}）。送达状态以该设备的回执为准。",
   "@fnthinkSendSent": {
     "placeholders": {
       "id": {
@@ -2444,7 +2444,7 @@
       }
     }
   },
-  "fnthinkSendEvicted": "另外 {count} 条因为每设备上限被挤掉了。",
+  "fnthinkSendEvicted": "另有 {count} 条消息因超出每设备上限被移除。",
   "@fnthinkSendEvicted": {
     "placeholders": {
       "count": {
@@ -2452,11 +2452,11 @@
       }
     }
   },
-  "fnthinkSendRejectedUnsigned": "签名不被认：这台设备的身份在服务端那侧对不上（可能要重新配对）",
-  "fnthinkSendRejectedCapability": "对方没给这一档权限，或你们还没配对",
-  "fnthinkSendReplayed": "命中去重窗口：请等待片刻后再发送，避免重复触发",
-  "fnthinkSendNeedsCalibration": "时间没校上：先点一次「立即收取」再发",
-  "fnthinkSendRateLimited": "这一分钟发得太多，{seconds} 秒后再试",
+  "fnthinkSendRejectedUnsigned": "签名无法识别：本机身份与服务端记录不一致（可能需要重新配对）",
+  "fnthinkSendRejectedCapability": "对端未授予本档权限，或双方尚未配对",
+  "fnthinkSendReplayed": "触发去重窗口：请稍后重新发送，以免重复触发",
+  "fnthinkSendNeedsCalibration": "时间未校准：请先执行一次「立即收取」，再发送",
+  "fnthinkSendRateLimited": "本分钟发送次数过多，请在 {seconds} 秒后重试",
   "@fnthinkSendRateLimited": {
     "placeholders": {
       "seconds": {
@@ -2464,9 +2464,9 @@
       }
     }
   },
-  "fnthinkSendTransportError": "连不上服务端，这一条没发出去",
-  "fnthinkSendSigningUnavailable": "本机签名不可用：去上面重置三件套，或重新配对",
-  "fnthinkSendPrecondition": "本机还没就绪：{reason}",
+  "fnthinkSendTransportError": "无法连接服务端，本次消息未发送",
+  "fnthinkSendSigningUnavailable": "本机签名不可用：请在上方重置凭据三件套，或重新配对",
+  "fnthinkSendPrecondition": "本机尚未就绪：{reason}",
   "@fnthinkSendPrecondition": {
     "placeholders": {
       "reason": {
@@ -2474,9 +2474,9 @@
       }
     }
   },
-  "fnthinkSendBadInput": "正文里有不能上屏的字符，这一条发不出去",
-  "fnthinkSendUnparseable": "服务端收了但没给编号，这一条追不回来",
-  "fnthinkSendBoundary": "「发一条」走的是设备签名那一路，只能发给名单里那台；它不等等于送达——那台真显示出来并回了执，才算送到。",
+  "fnthinkSendBadInput": "正文包含无法发送的字符，本次消息未发送",
+  "fnthinkSendUnparseable": "服务端已接收但未返回编号，无法追踪本次消息",
+  "fnthinkSendBoundary": "「发送一条」走设备签名通道，只能发送至名单中的设备；发送成功不等同于送达，仅当该设备实际显示并返回回执后，方可视为送达。",
   "fnthinkRevokeAskTitle": "撤销这台设备的推送许可？",
   "fnthinkRevokeAskMsg": "撤销后，{peer} 将无法再向本机推送；已收到的通知保留。此次仅终止该方向，本机授予对端的推送权限不受影响（需在对端自行撤销）。此操作需由服务器收回授权，离线时无法完成。",
   "@fnthinkRevokeAskMsg": {
@@ -3124,7 +3124,7 @@
   },
   "remoteCredResetAll": "全部重置",
   "remoteCredResetAllAsk": "全部重置之后，对面手里那把高级密钥与那枚验证码种子都当场作废。要继续远程执行就得重新生成并当面交给对方。",
-  "remotePeersReadFailed": "名单读不出来（库里这一张表没读到）。这不是「还没配对过设备」——先去设备绑定那一页看一眼。",
+  "remotePeersReadFailed": "无法读取名单（未能读取数据库中该表）。这不表示「尚未配对设备」，请先查看「设备配对」页。",
   "remoteActionListenerStart": "让对面开始监听通知",
   "remoteActionListenerStop": "让对面停止监听通知",
   "remoteActionChannelToggle": "启停对面某一条推送通道",
@@ -3161,9 +3161,9 @@
   "fnthinkReadCallsTitle": "通话记录",
   "fnthinkReadCallsSubtitle": "允许已配对的设备按关键词搜本机的通话记录（号码与姓名）",
   "fnthinkReadCallsDenied": "没拿到通话记录权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。",
-  "remoteSendCallsKeywordLabel": "搜什么词或号码",
-  "remoteSendCallsKeywordWhy": "只回传命中的那几条（时间／方向／对方／时长）。对面那台「可被远程读取的内容」里这一项关着时，这一发不会执行。",
-  "remoteSendNeedsCallsKeyword": "搜什么词要填 {min}–{max} 个字，且不能带控制字符。",
+  "remoteSendCallsKeywordLabel": "搜索词或号码",
+  "remoteSendCallsKeywordWhy": "仅回传命中的记录（时间／方向／对方／时长）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。",
+  "remoteSendNeedsCallsKeyword": "关键词长度须为 {min}–{max} 个字符，且不得包含控制字符。",
   "fnthinkShortcutsTitle": "可被远程打开的入口",
   "fnthinkShortcutsWhy": "对面只能打开你在这里登记过的入口：填一个名字，再填打开它的目标 —— 那枚 App 自己公开的链接，或本机的「包名/类名」。",
   "fnthinkShortcutsEmpty": "还没有登记任何入口 —— 没有它，对面那一档「打开某个入口」对不上名字、什么都不会做。",
@@ -3196,33 +3196,33 @@
   "remoteOutcomePerformed": "这一项本机做完了",
   "remoteOutcomeReported": "查到的东西已经送回发起的那一台",
   "remoteOutcomeSet": "那一档已经改成对面要的值",
-  "remoteSendFamilyLabel": "哪一族",
-  "remoteSendChannelIdWhy": "只有这一格要自己填：本机看不到对面那台配了哪些通道（要能列得动协议）。族与「设成开着／关掉」都在下面选，拼成对面认得的形状。",
-  "remoteSendWantOn": "设成开着",
-  "remoteSendWantOff": "设成关掉",
-  "remoteSendNeedsFamily": "还没选是哪一族。",
-  "remoteSendNeedsWant": "还没选要设成开着还是关掉 —— 只说「翻」不说要翻成哪一档，重投一次就回到原样。",
-  "remoteSendLevel": "这一条按哪一档发",
+  "remoteSendFamilyLabel": "通道族",
+  "remoteSendChannelIdWhy": "仅此项需手动填写：本机无法查看对端已配置的通道（需协议支持列表查询）。族与开关目标均在下方选择，并按对端可识别的格式拼接。",
+  "remoteSendWantOn": "设为开启",
+  "remoteSendWantOff": "设为关闭",
+  "remoteSendNeedsFamily": "尚未选择通道族。",
+  "remoteSendNeedsWant": "尚未选择目标开关状态；仅指定「切换」而不指定目标状态时，重复投递会恢复原状。",
+  "remoteSendLevel": "选择发送档位",
   "remoteSendLevelL1": "低风险：可直接执行，也可由指定应用的通知触发",
-  "remoteSendLevelL2": "中风险：只允许幻念推送，凭据可不带",
-  "remoteSendLevelL3": "高风险：必须幻念推送，且必须带密钥或二步验证码",
-  "remoteSendAction": "要它做什么",
+  "remoteSendLevelL2": "中风险：仅允许经幻念推送，凭据可选",
+  "remoteSendLevelL3": "高风险：必须经幻念推送，且必须携带密钥或二步验证码",
+  "remoteSendAction": "选择动作",
   "remoteSendArgument": "参数（目标通道标识）",
-  "remoteSendKeyRequired": "高级密钥（这一档必填）",
-  "remoteSendTotpRequired": "二步验证码（这一档必填）",
-  "remoteSendSubmit": "发出去",
-  "remoteSendCancelNote": "取消 ⇒ 一个字节都不发。这一发带走了你刚填的凭据。",
-  "remoteSendNeedsCredential": "这一档必须带高级密钥或二步验证码之一——两个都空着发不出去。",
-  "remoteSendNeedsArgument": "这一项要一个参数（目标通道标识），空着发不出去。",
-  "remoteSendReportCountLabel": "回传几条",
-  "remoteSendReportCountWhy": "只回传这段文字：时间、应用、标题与正文。对面拿到的是一条消息，不是一台设备的读取权。",
-  "remoteSendNeedsReportCount": "回传条数只能是 {min}–{max} 之间的整数。",
-  "remoteSendSmsKeywordLabel": "搜什么词",
-  "remoteSendSmsKeywordWhy": "只回传命中的那几条（时间／号码／正文）。对面那台的短信监听关着时这一发不会执行。",
-  "remoteSendNeedsSmsKeyword": "搜什么词要填 {min}–{max} 个字，且不能带控制字符。",
-  "remoteSendShortcutNameLabel": "打开哪一条",
-  "remoteSendShortcutNameWhy": "填对面在本机登记过的名字（本机看不到那份清单）。名字对不上时这一发不会执行。",
-  "remoteSendNeedsShortcutName": "名字要填 {min}–{max} 个字，且不能带控制字符。",
+  "remoteSendKeyRequired": "高级密钥（本档必填）",
+  "remoteSendTotpRequired": "二步验证码（本档必填）",
+  "remoteSendSubmit": "发送",
+  "remoteSendCancelNote": "取消后不会发送任何数据；本次输入中的凭据也不会带出。",
+  "remoteSendNeedsCredential": "本档必须携带高级密钥或二步验证码之一；两项均为空时无法发送。",
+  "remoteSendNeedsArgument": "此项需要参数（目标通道标识），为空时无法发送。",
+  "remoteSendReportCountLabel": "回传条数",
+  "remoteSendReportCountWhy": "仅回传以下文字：时间、应用、标题与正文。对端收到的是一条消息，而非设备的读取权限。",
+  "remoteSendNeedsReportCount": "回传条数必须为 {min}–{max} 之间的整数。",
+  "remoteSendSmsKeywordLabel": "搜索关键词",
+  "remoteSendSmsKeywordWhy": "仅回传命中的消息（时间／号码／正文）。对端的短信监听关闭时，本次指令不会执行。",
+  "remoteSendNeedsSmsKeyword": "关键词长度须为 {min}–{max} 个字符，且不得包含控制字符。",
+  "remoteSendShortcutNameLabel": "打开哪一项",
+  "remoteSendShortcutNameWhy": "填写对端在本机登记过的名称（本机无法查看该清单）。名称不匹配时，本次指令不会执行。",
+  "remoteSendNeedsShortcutName": "名称长度须为 {min}–{max} 个字符，且不得包含控制字符。",
   "@remoteSendNeedsShortcutName": {
     "placeholders": {
       "min": {
@@ -3263,9 +3263,9 @@
       }
     }
   },
-  "remoteSendContactsKeywordLabel": "搜什么名字或号码",
-  "remoteSendContactsKeywordWhy": "只回传命中的那几条（姓名／号码）。对面那台「可被远程读取的内容」里这一项关着时，这一发不会执行。",
-  "remoteSendNeedsContactsKeyword": "要搜的名字或号码填 {min}–{max} 个字，且不能带控制字符。",
+  "remoteSendContactsKeywordLabel": "搜索姓名或号码",
+  "remoteSendContactsKeywordWhy": "仅回传命中的记录（姓名／号码）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。",
+  "remoteSendNeedsContactsKeyword": "姓名或号码长度须为 {min}–{max} 个字符，且不得包含控制字符。",
   "@remoteSendNeedsContactsKeyword": {
     "placeholders": {
       "min": {
@@ -3276,8 +3276,8 @@
       }
     }
   },
-  "remoteSendStartedNote": "已发出。等对面那台回「正在执行」与「执行完毕」两条回执——它们会出现在远程执行历史里。",
-  "remoteSendFailed": "这一发没发出去：{reason}",
+  "remoteSendStartedNote": "已发出。请等待对端返回「正在执行」与「执行完毕」两条回执，它们将显示在远程执行历史中。",
+  "remoteSendFailed": "本次发送未成功：{reason}",
   "@remoteSendFailed": {
     "placeholders": {
       "reason": {
@@ -3285,7 +3285,7 @@
       }
     }
   },
-  "remoteSendLevelUnknown": "这一档（{level}）不在协议词表里，不发。",
+  "remoteSendLevelUnknown": "档位（{level}）不在协议词表中，无法发送。",
   "@remoteSendLevelUnknown": {
     "placeholders": {
       "level": {
@@ -3567,11 +3567,11 @@
   "fnthinkPairPeerPendingNoteShort": "提交后仅在对端新增一条待确认请求",
   "fnthinkPairApprovedOneWayShort": "双向发送已开通，逐项权限仍需对端自行勾选",
   "fnthinkPairLinkRejectedShort": "本机无法使用此链接",
-  "fnthinkSendNoticeVsCommandShort": "通知＝让对面看到内容；指令＝让对面做一件事",
-  "fnthinkSendTargetWebhookOnlyForNoticeShort": "指令只发给已配对的设备",
-  "fnthinkSendTargetWebhookEmptyShort": "还没有启用的 Webhook 通道",
-  "remoteSendReportCountWhyShort": "只回传这段文字，不是读取权",
-  "remoteSendChannelIdWhyShort": "这一格要自己填：本机看不到对面的通道",
+  "fnthinkSendNoticeVsCommandShort": "通知：让对端查看内容；指令：让对端执行动作",
+  "fnthinkSendTargetWebhookOnlyForNoticeShort": "指令仅发送至已配对设备",
+  "fnthinkSendTargetWebhookEmptyShort": "尚无已启用的 Webhook 通道",
+  "remoteSendReportCountWhyShort": "仅回传这段文字，不涉及读取权限",
+  "remoteSendChannelIdWhyShort": "此项需手动填写：本机无法查看对端通道",
   "fnthinkEndpointWhyShort": "接入端点：让第三方平台往这台设备推通知",
   "fnthinkEndpointListPendingShort": "还没读过这台设备名下有几把入口",
   "fnthinkEndpointListFailedShort": "这一次没读到（{reason}）",
@@ -3584,7 +3584,7 @@
   },
   "fnthinkShortcutsWhyShort": "对面只能打开你在这里登记过的入口",
   "fnthinkShortcutsEmptyShort": "还没有登记任何入口",
-  "remotePeersReadFailedShort": "名单读不出来 —— 这不等于「还没配对过」",
+  "remotePeersReadFailedShort": "无法读取名单，并不表示尚未配对",
   "remoteCredKeyOnceShort": "这一串只出现这一次，现在就得抄走",
   "remoteCredTotpOnceShort": "这一枚只出现一次，现在录进对面那台的验证器",
   "fnthinkChannelDisclosureShort": "是否响铃、振动或显示横幅，由系统侧的通知渠道决定",

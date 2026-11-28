@@ -1872,14 +1872,14 @@
   "fnthinkConsentGateMsg": "\"{action}\" requires the \"content relayed through the server\" consent first: fnthink messaging, endpoint management, pairing and channel delivery all route through the relay server. Please review and consent on the \"Fnthink → Receive Push\" page first (full text available before consent). Return here and tap again to continue",
   "fnthinkConsentGateGo": "Open that page",
   "fnthinkConsentGateThisStep": "This step",
-  "fnthinkSendTargetGoPair": "Pair a device",
-  "fnthinkSendTargetTitle": "Send to",
+  "fnthinkSendTargetGoPair": "Go to pairing",
+  "fnthinkSendTargetTitle": "Target",
   "fnthinkSendTargetDevices": "Paired devices",
-  "fnthinkSendTargetNoPeer": "No device has been paired yet - pair one on the \"Device pairing\" page, or pick a Webhook channel below.",
+  "fnthinkSendTargetNoPeer": "No device is paired yet. Pair one on the \"Device pairing\" page, or select a Webhook channel below.",
   "fnthinkSendTargetWebhooks": "Webhook channels",
-  "fnthinkSendTargetWebhookEmpty": "No enabled Webhook channel yet - create one on the \"Fnthink channels\" page (paste the endpoint push URL and keep it on).",
-  "fnthinkSendTargetWebhookOnlyForNotice": "Remote commands can only go to paired devices: a Webhook channel has no pairing and no level grant. Switch back to \"A notification\" to send to a channel.",
-  "fnthinkSendNoticeVsCommand": "\"A notification\" lets the other side see a piece of content (no grant needed, no action taken); \"A remote command\" asks it to do something (needs the pairing and a level grant, and the top level also passes the delayed-confirm window).",
+  "fnthinkSendTargetWebhookEmpty": "No enabled Webhook channel. Create one on the \"Fnthink channels\" page (enter the endpoint push URL and keep it enabled).",
+  "fnthinkSendTargetWebhookOnlyForNotice": "Remote commands can only be sent to paired devices; a Webhook channel has no pairing relationship and no level grant. To send to a channel, switch back to \"A notice\".",
+  "fnthinkSendNoticeVsCommand": "\"A notice\" lets the other device see some content (no grant is required and no action is performed); \"a remote command\" asks it to perform an action (it requires the pairing and a level grant, and the top level also passes the delayed-confirm window).",
   "fnthinkHubSendDesc": "Send to a paired device, or to a Webhook channel; not the same tier as a remote command",
   "fnthinkHealthNever": "Protocol plane unknown: no protocol request readings yet",
   "fnthinkHealthReachable": "Protocol plane ready: the last Fnthink request succeeded",
@@ -2002,7 +2002,7 @@
   "fnthinkContractVersionMismatch": "The server runs an older copy of the protocol — some messages won't go out",
   "fnthinkContractVersionUnreadable": "Can't tell whether the server's copy of the protocol is current",
   "fnthinkBoundary": "With receiving on, message content passes through the server, which can then read the body and metadata.",
-  "fnthinkContractUnavailable": "The bundled protocol contract cannot be read, so nothing here can be changed yet: {reason}",
+  "fnthinkContractUnavailable": "The bundled protocol contract cannot be read, so nothing on this page can be changed yet: {reason}",
   "@fnthinkContractUnavailable": {
     "placeholders": {
       "reason": {
@@ -2409,11 +2409,11 @@
   "fnthinkSendTierLabel": "What this send carries",
   "fnthinkSendTierNotice": "A notice",
   "fnthinkSendTierCommand": "A remote command",
-  "fnthinkSendTierNote": "Both tiers ride the same outbound send; only the payload differs. Whether it runs is decided by the other device.",
-  "fnthinkSendNeedsPeer": "Pick which device to send to first",
-  "fnthinkSendEnvelopeHelpTitle": "The title travels inside the body",
-  "fnthinkSendEnvelopeNote": "On the device path the title travels inside the message envelope: the signed bytes have no separate title field, only the endpoint forms do. What the recipient shows as a title comes from this body.",
-  "fnthinkSendEmptyBody": "Nothing to send — the other side would only get an empty line",
+  "fnthinkSendTierNote": "Both tiers are two payload forms of the same outbound request; whether it runs is decided by the other device.",
+  "fnthinkSendNeedsPeer": "No target device selected yet",
+  "fnthinkSendEnvelopeHelpTitle": "The title travels inside the body envelope",
+  "fnthinkSendEnvelopeNote": "On the device path, the title travels inside the body envelope: the signed bytes have no separate title field, only the two endpoint forms do. The title the recipient sees comes from this body.",
+  "fnthinkSendEmptyBody": "No body, no send — the other device would only receive an empty message",
   "fnthinkSendSubmit": "Send",
   "fnthinkSendSent": "Queued on the server ({id}). Delivery is proven only by that device's ack.",
   "@fnthinkSendSent": {
@@ -2431,11 +2431,11 @@
       }
     }
   },
-  "fnthinkSendRejectedUnsigned": "Signature not recognised: this device's identity does not match on the server side (it may need re-pairing)",
-  "fnthinkSendRejectedCapability": "The other side did not grant this level, or you are not paired yet",
-  "fnthinkSendReplayed": "Hit the de-duplication window: please wait a moment before sending to avoid duplicate dispatch",
-  "fnthinkSendNeedsCalibration": "Clock not calibrated: tap Receive now once, then send",
-  "fnthinkSendRateLimited": "Too many this minute — try again in {seconds} seconds",
+  "fnthinkSendRejectedUnsigned": "Signature not recognized: this device's identity does not match on the server (re-pairing may be required)",
+  "fnthinkSendRejectedCapability": "The other device did not grant this level, or the two devices are not paired yet",
+  "fnthinkSendReplayed": "De-duplication window hit: wait a moment before sending again to avoid duplicate dispatch",
+  "fnthinkSendNeedsCalibration": "Clock not calibrated: run Receive now once, then send",
+  "fnthinkSendRateLimited": "Too many sends this minute; try again in {seconds} seconds",
   "@fnthinkSendRateLimited": {
     "placeholders": {
       "seconds": {
@@ -2453,9 +2453,9 @@
       }
     }
   },
-  "fnthinkSendBadInput": "The text contains a character that cannot be sent",
-  "fnthinkSendUnparseable": "The server accepted it without an id, so this message cannot be tracked",
-  "fnthinkSendBoundary": "Send uses the signed device path and only goes to a device on your list; it is not proof of delivery — only that device's ack is.",
+  "fnthinkSendBadInput": "The body contains a character that cannot be sent; this message was not sent",
+  "fnthinkSendUnparseable": "The server accepted it but returned no id, so this message cannot be tracked",
+  "fnthinkSendBoundary": "Send goes through the signed device path and can only go to a device on the list; a successful send is not proof of delivery — only when that device displays it and returns an ack is it delivered.",
   "fnthinkRevokeAskTitle": "Revoke this device's push permission?",
   "fnthinkRevokeAskMsg": "After revoking, {peer} can no longer push to this device; notifications already received are kept. This only ends that direction; this device's grant to push to it is unaffected (it must be revoked on the other device). The server must withdraw the grant, so this cannot be completed offline.",
   "@fnthinkRevokeAskMsg": {
@@ -3070,7 +3070,7 @@
   },
   "fnthinkShortcutsWhyShort": "The other side can only open entries you registered here",
   "fnthinkShortcutsEmptyShort": "No entries registered yet",
-  "remotePeersReadFailedShort": "Could not read the peer list - that is not the same as having no peers",
+  "remotePeersReadFailedShort": "The peer list could not be read; this does not mean no devices are paired",
   "remoteCredKeyOnceShort": "Shown once - copy it now",
   "remoteCredTotpOnceShort": "Shown once too - enroll it in the other device authenticator now",
   "remoteCredKeySection": "Advanced key",
@@ -3118,7 +3118,7 @@
   },
   "remoteCredResetAll": "Reset everything",
   "remoteCredResetAllAsk": "After a full reset, both the advanced key and the code seed the other side holds stop working at once. To keep remote execution going you must generate new ones and hand them over in person.",
-  "remotePeersReadFailed": "The peer list could not be read (that table didn't come back). This isn't 'no paired devices yet' — check the device pairing page first.",
+  "remotePeersReadFailed": "The peer list could not be read (the table was not returned). This does not mean \"no paired devices\"; check the Device pairing page first.",
   "remoteActionListenerStart": "Make the other device start listening to notifications",
   "remoteActionListenerStop": "Make the other device stop listening to notifications",
   "remoteActionChannelToggle": "Enable or disable one push channel over there",
@@ -3155,9 +3155,9 @@
   "fnthinkReadCallsTitle": "Call log",
   "fnthinkReadCallsSubtitle": "Let paired devices search this device's call log by keyword (numbers and names)",
   "fnthinkReadCallsDenied": "Call-log permission not granted — this stays off. Toggle again to retry, or grant it in system settings.",
-  "remoteSendCallsKeywordLabel": "Which word or number",
-  "remoteSendCallsKeywordWhy": "Only the matching entries travel back (time / direction / party / duration). If that device keeps this item off under \"Readable remotely\", nothing runs.",
-  "remoteSendNeedsCallsKeyword": "The keyword must be between {min} and {max} characters and carry no control characters.",
+  "remoteSendCallsKeywordLabel": "Keyword or number to search",
+  "remoteSendCallsKeywordWhy": "Only matching entries are returned (time / direction / party / duration). If that item is disabled under the other device's \"Readable remotely\", this command will not run.",
+  "remoteSendNeedsCallsKeyword": "The keyword must be {min}–{max} characters and contain no control characters.",
   "fnthinkShortcutsTitle": "Entries openable from another device",
   "fnthinkShortcutsWhy": "The other side can only open entries you register here: give a name, then the target that opens it - a link the app itself publishes, or this device’s \"package/class\".",
   "fnthinkShortcutsEmpty": "No entries registered yet - without one, the other side’s \"open an entry\" action has no name to match and does nothing.",
@@ -3190,33 +3190,33 @@
   "remoteOutcomePerformed": "Done on this device",
   "remoteOutcomeReported": "What was found was sent back to the requester",
   "remoteOutcomeSet": "That setting now holds the value the peer asked for",
-  "remoteSendFamilyLabel": "Which family",
-  "remoteSendChannelIdWhy": "This is the only field you type: this device cannot see which channels the other one has configured (listing them needs a protocol change). Family and on/off are picked below and assembled into the shape the other side understands.",
+  "remoteSendFamilyLabel": "Channel family",
+  "remoteSendChannelIdWhy": "This is the only field you enter manually: this device cannot see which channels the other device has configured (listing them requires protocol support). The family and on/off target are selected below and assembled into a format the other device recognizes.",
   "remoteSendWantOn": "Set to on",
   "remoteSendWantOff": "Set to off",
-  "remoteSendNeedsFamily": "No channel family picked yet.",
-  "remoteSendNeedsWant": "No target value picked — saying only 'toggle' without which state you want means one redelivery flips it back.",
-  "remoteSendLevel": "Send at which level",
+  "remoteSendNeedsFamily": "No channel family selected yet.",
+  "remoteSendNeedsWant": "No target state selected. Specifying only \"toggle\" without the desired state means a redelivery will revert it.",
+  "remoteSendLevel": "Sending level",
   "remoteSendLevelL1": "Low risk: runs directly, or can be triggered by a chosen app's notification",
-  "remoteSendLevelL2": "Medium risk: only via push; a credential is optional",
+  "remoteSendLevelL2": "Medium risk: push only; a credential is optional",
   "remoteSendLevelL3": "High risk: push only, and it must carry a key or a two-step code",
-  "remoteSendAction": "What it should do",
+  "remoteSendAction": "Action to run",
   "remoteSendArgument": "Argument (target channel id)",
   "remoteSendKeyRequired": "Advanced key (required at this level)",
   "remoteSendTotpRequired": "Two-step code (required at this level)",
-  "remoteSendSubmit": "Send it",
-  "remoteSendCancelNote": "Cancel ⇒ not one byte is sent. The credential you just typed would ride along with it.",
-  "remoteSendNeedsCredential": "This level needs an advanced key or a two-step code — with both empty there is nothing to send.",
-  "remoteSendNeedsArgument": "This one needs an argument (the target channel id); it cannot be sent empty.",
-  "remoteSendReportCountLabel": "How many to send back",
-  "remoteSendReportCountWhy": "Only this much text travels: time, app, title and body. What the other side gets is a message, not read access to a device.",
-  "remoteSendNeedsReportCount": "How many to send back must be a whole number between {min} and {max}.",
-  "remoteSendSmsKeywordLabel": "Which keyword",
-  "remoteSendSmsKeywordWhy": "Only the matching messages travel back (time / number / body). If the other device’s SMS monitoring is off, this will not run.",
-  "remoteSendNeedsSmsKeyword": "The keyword must be between {min} and {max} characters and carry no control characters.",
-  "remoteSendShortcutNameLabel": "Which entry",
-  "remoteSendShortcutNameWhy": "Type a name the other device has registered (this device cannot see that list). If no name matches, nothing runs.",
-  "remoteSendNeedsShortcutName": "The name must be between {min} and {max} characters and carry no control characters.",
+  "remoteSendSubmit": "Send",
+  "remoteSendCancelNote": "Cancel sends no data; the credential entered here will not leave this device.",
+  "remoteSendNeedsCredential": "This level must carry either an advanced key or a two-step code; with both empty, nothing can be sent.",
+  "remoteSendNeedsArgument": "This item requires an argument (the target channel id); it cannot be sent empty.",
+  "remoteSendReportCountLabel": "Number of items to return",
+  "remoteSendReportCountWhy": "Only this text is returned: time, app, title and body. The other device receives a message, not read access to a device.",
+  "remoteSendNeedsReportCount": "The number to return must be a whole number between {min} and {max}.",
+  "remoteSendSmsKeywordLabel": "Keyword to search",
+  "remoteSendSmsKeywordWhy": "Only matching messages are returned (time / number / body). If SMS monitoring is disabled on the other device, this command will not run.",
+  "remoteSendNeedsSmsKeyword": "The keyword must be {min}–{max} characters and contain no control characters.",
+  "remoteSendShortcutNameLabel": "Which entry to open",
+  "remoteSendShortcutNameWhy": "Enter a name registered on the other device (this device cannot see that list). If the name does not match, this command will not run.",
+  "remoteSendNeedsShortcutName": "The name must be {min}–{max} characters and contain no control characters.",
   "@remoteSendNeedsShortcutName": {
     "placeholders": {
       "min": {
@@ -3257,9 +3257,9 @@
       }
     }
   },
-  "remoteSendContactsKeywordLabel": "Which name or number",
-  "remoteSendContactsKeywordWhy": "Only the matching entries travel back (name / number). If that device keeps this item off under \"Readable remotely\", nothing runs.",
-  "remoteSendNeedsContactsKeyword": "The name or number must be between {min} and {max} characters and carry no control characters.",
+  "remoteSendContactsKeywordLabel": "Name or number to search",
+  "remoteSendContactsKeywordWhy": "Only matching entries are returned (name / number). If that item is disabled under the other device's \"Readable remotely\", this command will not run.",
+  "remoteSendNeedsContactsKeyword": "The name or number must be {min}–{max} characters and contain no control characters.",
   "@remoteSendNeedsContactsKeyword": {
     "placeholders": {
       "min": {
@@ -3270,8 +3270,8 @@
       }
     }
   },
-  "remoteSendStartedNote": "Sent. Wait for the other device to send back two receipts — “executing” and “execution_done” — they will show up in the remote execution history.",
-  "remoteSendFailed": "It did not go out: {reason}",
+  "remoteSendStartedNote": "Sent. Wait for the other device to return two receipts, \"executing\" and \"execution_done\"; they will appear in the remote execution history.",
+  "remoteSendFailed": "This send did not go out: {reason}",
   "@remoteSendFailed": {
     "placeholders": {
       "reason": {
@@ -3279,7 +3279,7 @@
       }
     }
   },
-  "remoteSendLevelUnknown": "This level ({level}) is not in the protocol vocabulary — nothing sent.",
+  "remoteSendLevelUnknown": "This level ({level}) is not in the protocol vocabulary; nothing will be sent.",
   "@remoteSendLevelUnknown": {
     "placeholders": {
       "level": {
@@ -3561,11 +3561,11 @@
   "fnthinkPairPeerPendingNoteShort": "Submitting only adds a pending request on the other device",
   "fnthinkPairApprovedOneWayShort": "Both directions can send now; per-item permissions still require the other device to select them.",
   "fnthinkPairLinkRejectedShort": "This device cannot use this link",
-  "fnthinkSendNoticeVsCommandShort": "A notice shows content there; a command makes that device act",
+  "fnthinkSendNoticeVsCommandShort": "Notice: show content on the other device; command: make it perform an action",
   "fnthinkSendTargetWebhookOnlyForNoticeShort": "Commands go only to paired devices",
-  "fnthinkSendTargetWebhookEmptyShort": "No enabled Webhook channel yet",
-  "remoteSendReportCountWhyShort": "Only this text travels - not read access",
-  "remoteSendChannelIdWhyShort": "Type this one - this device cannot list the other side's channels",
+  "fnthinkSendTargetWebhookEmptyShort": "No enabled Webhook channel",
+  "remoteSendReportCountWhyShort": "Only this text is returned; no read access",
+  "remoteSendChannelIdWhyShort": "Enter this field manually: this device cannot list the other device's channels",
   "fnthinkChannelDisclosureShort": "Whether a push sounds, vibrates, or shows a banner is determined by the system-side notification channel.",
   "fnthinkRemoteTitle": "Remote control",
   "fnthinkRemoteNeedsReceive": "Please enable Receive first: the features on this page require the device to have fnthink receive enabled",

@@ -406,5 +406,279 @@
       "zh": "已撤销 {peer}：该设备此后无法向本机推送",
       "en": "Revoked {peer}: that device can no longer push to this device."
     }
+  },
+  "lib/pages/fnthink_send_page.dart": {
+    "fnthinkSendNeedsPeer": {
+      "zh": "尚未选择目标设备",
+      "en": "No target device selected yet"
+    },
+    "remoteSendLevelUnknown": {
+      "zh": "档位（{level}）不在协议词表中，无法发送。",
+      "en": "This level ({level}) is not in the protocol vocabulary; nothing will be sent."
+    },
+    "remoteSendAction": {
+      "zh": "选择动作",
+      "en": "Action to run"
+    },
+    "remoteSendNeedsReportCount": {
+      "zh": "回传条数必须为 {min}–{max} 之间的整数。",
+      "en": "The number to return must be a whole number between {min} and {max}."
+    },
+    "remoteSendNeedsShortcutName": {
+      "zh": "名称长度须为 {min}–{max} 个字符，且不得包含控制字符。",
+      "en": "The name must be {min}–{max} characters and contain no control characters."
+    },
+    "remoteSendNeedsCallsKeyword": {
+      "zh": "关键词长度须为 {min}–{max} 个字符，且不得包含控制字符。",
+      "en": "The keyword must be {min}–{max} characters and contain no control characters."
+    },
+    "remoteSendNeedsContactsKeyword": {
+      "zh": "姓名或号码长度须为 {min}–{max} 个字符，且不得包含控制字符。",
+      "en": "The name or number must be {min}–{max} characters and contain no control characters."
+    },
+    "remoteSendNeedsSmsKeyword": {
+      "zh": "关键词长度须为 {min}–{max} 个字符，且不得包含控制字符。",
+      "en": "The keyword must be {min}–{max} characters and contain no control characters."
+    },
+    "remoteSendNeedsFamily": {
+      "zh": "尚未选择通道族。",
+      "en": "No channel family selected yet."
+    },
+    "remoteSendNeedsArgument": {
+      "zh": "此项需要参数（目标通道标识），为空时无法发送。",
+      "en": "This item requires an argument (the target channel id); it cannot be sent empty."
+    },
+    "remoteSendNeedsWant": {
+      "zh": "尚未选择目标开关状态；仅指定「切换」而不指定目标状态时，重复投递会恢复原状。",
+      "en": "No target state selected. Specifying only \"toggle\" without the desired state means a redelivery will revert it."
+    },
+    "remoteSendNeedsCredential": {
+      "zh": "本档必须携带高级密钥或二步验证码之一；两项均为空时无法发送。",
+      "en": "This level must carry either an advanced key or a two-step code; with both empty, nothing can be sent."
+    },
+    "fnthinkSendTierLabel": {
+      "zh": "本次发送内容",
+      "en": "What this send carries"
+    },
+    "fnthinkSendTierNote": {
+      "zh": "两档为同一条出站请求的两种载荷；是否执行由对端判定。",
+      "en": "Both tiers are two payload forms of the same outbound request; whether it runs is decided by the other device."
+    },
+    "remoteSendSubmit": {
+      "zh": "发送",
+      "en": "Send"
+    },
+    "remoteSendCancelNote": {
+      "zh": "取消后不会发送任何数据；本次输入中的凭据也不会带出。",
+      "en": "Cancel sends no data; the credential entered here will not leave this device."
+    },
+    "remoteSendStartedNote": {
+      "zh": "已发出。请等待对端返回「正在执行」与「执行完毕」两条回执，它们将显示在远程执行历史中。",
+      "en": "Sent. Wait for the other device to return two receipts, \"executing\" and \"execution_done\"; they will appear in the remote execution history."
+    },
+    "remoteSendFailed": {
+      "zh": "本次发送未成功：{reason}",
+      "en": "This send did not go out: {reason}"
+    },
+    "fnthinkSendNoticeVsCommandShort": {
+      "zh": "通知：让对端查看内容；指令：让对端执行动作",
+      "en": "Notice: show content on the other device; command: make it perform an action"
+    },
+    "fnthinkSendNoticeVsCommand": {
+      "zh": "「一条通知」是让对端查看一段内容（无需任何授权，也不执行动作）；「一条远程指令」是让对端执行一个动作（需要配对关系与档位授权，最高档位还需通过延时确认）。",
+      "en": "\"A notice\" lets the other device see some content (no grant is required and no action is performed); \"a remote command\" asks it to perform an action (it requires the pairing and a level grant, and the top level also passes the delayed-confirm window)."
+    },
+    "fnthinkContractUnavailable": {
+      "zh": "无法读取随包协议契约，本页暂时无法修改任何设置：{reason}",
+      "en": "The bundled protocol contract cannot be read, so nothing on this page can be changed yet: {reason}"
+    },
+    "fnthinkSendTargetTitle": {
+      "zh": "发送目标",
+      "en": "Target"
+    },
+    "remotePeersReadFailedShort": {
+      "zh": "无法读取名单，并不表示尚未配对",
+      "en": "The peer list could not be read; this does not mean no devices are paired"
+    },
+    "remotePeersReadFailed": {
+      "zh": "无法读取名单（未能读取数据库中该表）。这不表示「尚未配对设备」，请先查看「设备配对」页。",
+      "en": "The peer list could not be read (the table was not returned). This does not mean \"no paired devices\"; check the Device pairing page first."
+    },
+    "fnthinkSendTargetNoPeer": {
+      "zh": "本机尚未配对任何设备，请先在「设备配对」页完成配对，或在下方选择一条 Webhook 通道。",
+      "en": "No device is paired yet. Pair one on the \"Device pairing\" page, or select a Webhook channel below."
+    },
+    "fnthinkSendTargetGoPair": {
+      "zh": "前往配对",
+      "en": "Go to pairing"
+    },
+    "fnthinkSendTargetWebhookOnlyForNoticeShort": {
+      "zh": "指令仅发送至已配对设备",
+      "en": "Commands go only to paired devices"
+    },
+    "fnthinkSendTargetWebhookOnlyForNotice": {
+      "zh": "远程指令只能发送至已配对设备；Webhook 通道没有配对关系，也没有档位授权。如需发送至通道，请切换回「一条通知」。",
+      "en": "Remote commands can only be sent to paired devices; a Webhook channel has no pairing relationship and no level grant. To send to a channel, switch back to \"A notice\"."
+    },
+    "fnthinkSendTargetWebhookEmptyShort": {
+      "zh": "尚无已启用的 Webhook 通道",
+      "en": "No enabled Webhook channel"
+    },
+    "fnthinkSendTargetWebhookEmpty": {
+      "zh": "尚无已启用的 Webhook 通道，请在「幻念通道」页创建一条（填写接入端点的推送地址并保持启用）。",
+      "en": "No enabled Webhook channel. Create one on the \"Fnthink channels\" page (enter the endpoint push URL and keep it enabled)."
+    },
+    "fnthinkSendSheetTitle": {
+      "zh": "发送至 {peer}",
+      "en": "Send to {peer}"
+    },
+    "fnthinkSendBoundary": {
+      "zh": "「发送一条」走设备签名通道，只能发送至名单中的设备；发送成功不等同于送达，仅当该设备实际显示并返回回执后，方可视为送达。",
+      "en": "Send goes through the signed device path and can only go to a device on the list; a successful send is not proof of delivery — only when that device displays it and returns an ack is it delivered."
+    },
+    "fnthinkSendEnvelopeHelpTitle": {
+      "zh": "标题随正文信封传输",
+      "en": "The title travels inside the body envelope"
+    },
+    "fnthinkSendEnvelopeNote": {
+      "zh": "设备通道的标题随正文信封传输：签名数据中没有独立标题字段，仅端点两种形态具备该字段。收件人看到的标题来自这段正文。",
+      "en": "On the device path, the title travels inside the body envelope: the signed bytes have no separate title field, only the two endpoint forms do. The title the recipient sees comes from this body."
+    },
+    "fnthinkSendEmptyBody": {
+      "zh": "正文为空时不发送，对端只会收到空内容",
+      "en": "No body, no send — the other device would only receive an empty message"
+    },
+    "remoteSendLevel": {
+      "zh": "选择发送档位",
+      "en": "Sending level"
+    },
+    "remoteSendLevelL2": {
+      "zh": "中风险：仅允许经幻念推送，凭据可选",
+      "en": "Medium risk: push only; a credential is optional"
+    },
+    "remoteSendLevelL3": {
+      "zh": "高风险：必须经幻念推送，且必须携带密钥或二步验证码",
+      "en": "High risk: push only, and it must carry a key or a two-step code"
+    },
+    "remoteSendKeyRequired": {
+      "zh": "高级密钥（本档必填）",
+      "en": "Advanced key (required at this level)"
+    },
+    "remoteSendTotpRequired": {
+      "zh": "二步验证码（本档必填）",
+      "en": "Two-step code (required at this level)"
+    },
+    "remoteSendReportCountLabel": {
+      "zh": "回传条数",
+      "en": "Number of items to return"
+    },
+    "remoteSendReportCountWhyShort": {
+      "zh": "仅回传这段文字，不涉及读取权限",
+      "en": "Only this text is returned; no read access"
+    },
+    "remoteSendReportCountWhy": {
+      "zh": "仅回传以下文字：时间、应用、标题与正文。对端收到的是一条消息，而非设备的读取权限。",
+      "en": "Only this text is returned: time, app, title and body. The other device receives a message, not read access to a device."
+    },
+    "remoteSendShortcutNameLabel": {
+      "zh": "打开哪一项",
+      "en": "Which entry to open"
+    },
+    "remoteSendCallsKeywordLabel": {
+      "zh": "搜索词或号码",
+      "en": "Keyword or number to search"
+    },
+    "remoteSendContactsKeywordLabel": {
+      "zh": "搜索姓名或号码",
+      "en": "Name or number to search"
+    },
+    "remoteSendSmsKeywordLabel": {
+      "zh": "搜索关键词",
+      "en": "Keyword to search"
+    },
+    "remoteSendShortcutNameWhy": {
+      "zh": "填写对端在本机登记过的名称（本机无法查看该清单）。名称不匹配时，本次指令不会执行。",
+      "en": "Enter a name registered on the other device (this device cannot see that list). If the name does not match, this command will not run."
+    },
+    "remoteSendCallsKeywordWhy": {
+      "zh": "仅回传命中的记录（时间／方向／对方／时长）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。",
+      "en": "Only matching entries are returned (time / direction / party / duration). If that item is disabled under the other device's \"Readable remotely\", this command will not run."
+    },
+    "remoteSendContactsKeywordWhy": {
+      "zh": "仅回传命中的记录（姓名／号码）。对端「可被远程读取的内容」中该项关闭时，本次指令不会执行。",
+      "en": "Only matching entries are returned (name / number). If that item is disabled under the other device's \"Readable remotely\", this command will not run."
+    },
+    "remoteSendSmsKeywordWhy": {
+      "zh": "仅回传命中的消息（时间／号码／正文）。对端的短信监听关闭时，本次指令不会执行。",
+      "en": "Only matching messages are returned (time / number / body). If SMS monitoring is disabled on the other device, this command will not run."
+    },
+    "remoteSendFamilyLabel": {
+      "zh": "通道族",
+      "en": "Channel family"
+    },
+    "remoteSendChannelIdWhyShort": {
+      "zh": "此项需手动填写：本机无法查看对端通道",
+      "en": "Enter this field manually: this device cannot list the other device's channels"
+    },
+    "remoteSendChannelIdWhy": {
+      "zh": "仅此项需手动填写：本机无法查看对端已配置的通道（需协议支持列表查询）。族与开关目标均在下方选择，并按对端可识别的格式拼接。",
+      "en": "This is the only field you enter manually: this device cannot see which channels the other device has configured (listing them requires protocol support). The family and on/off target are selected below and assembled into a format the other device recognizes."
+    },
+    "remoteSendWantOn": {
+      "zh": "设为开启",
+      "en": "Set to on"
+    },
+    "remoteSendWantOff": {
+      "zh": "设为关闭",
+      "en": "Set to off"
+    },
+    "fnthinkSendSent": {
+      "zh": "已提交服务端排队（{id}）。送达状态以该设备的回执为准。",
+      "en": "Queued on the server ({id}). Delivery is proven only by that device's ack."
+    },
+    "fnthinkSendRejectedUnsigned": {
+      "zh": "签名无法识别：本机身份与服务端记录不一致（可能需要重新配对）",
+      "en": "Signature not recognized: this device's identity does not match on the server (re-pairing may be required)"
+    },
+    "fnthinkSendRejectedCapability": {
+      "zh": "对端未授予本档权限，或双方尚未配对",
+      "en": "The other device did not grant this level, or the two devices are not paired yet"
+    },
+    "fnthinkSendReplayed": {
+      "zh": "触发去重窗口：请稍后重新发送，以免重复触发",
+      "en": "De-duplication window hit: wait a moment before sending again to avoid duplicate dispatch"
+    },
+    "fnthinkSendNeedsCalibration": {
+      "zh": "时间未校准：请先执行一次「立即收取」，再发送",
+      "en": "Clock not calibrated: run Receive now once, then send"
+    },
+    "fnthinkSendRateLimited": {
+      "zh": "本分钟发送次数过多，请在 {seconds} 秒后重试",
+      "en": "Too many sends this minute; try again in {seconds} seconds"
+    },
+    "fnthinkSendTransportError": {
+      "zh": "无法连接服务端，本次消息未发送",
+      "en": "The server could not be reached; this message was not sent"
+    },
+    "fnthinkSendSigningUnavailable": {
+      "zh": "本机签名不可用：请在上方重置凭据三件套，或重新配对",
+      "en": "This device cannot sign: reset the credential triple above, or pair again"
+    },
+    "fnthinkSendPrecondition": {
+      "zh": "本机尚未就绪：{reason}",
+      "en": "This device is not ready: {reason}"
+    },
+    "fnthinkSendBadInput": {
+      "zh": "正文包含无法发送的字符，本次消息未发送",
+      "en": "The body contains a character that cannot be sent; this message was not sent"
+    },
+    "fnthinkSendUnparseable": {
+      "zh": "服务端已接收但未返回编号，无法追踪本次消息",
+      "en": "The server accepted it but returned no id, so this message cannot be tracked"
+    },
+    "fnthinkSendEvicted": {
+      "zh": "另有 {count} 条消息因超出每设备上限被移除。",
+      "en": "{count} older message(s) were dropped to stay under the per-device cap."
+    }
   }
 }
