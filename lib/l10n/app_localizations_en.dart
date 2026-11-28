@@ -1006,7 +1006,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webhookErrSecretRequired =>
-      'Save failed: this platform requires a credential (signing secret or token) - requests would be rejected';
+      'Save failed: this platform requires a credential (signing secret or token); requests without it are rejected';
 
   @override
   String get addChannel => 'Add Channel';
@@ -6259,7 +6259,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String webhookTestTimeout(int seconds) {
-    return 'The native side did not return a test result within ${seconds}s';
+    return 'The native side did not return a test result within $seconds s';
   }
 
   @override

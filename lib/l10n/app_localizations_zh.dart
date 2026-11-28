@@ -944,7 +944,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookSettingsTitle => 'Webhook 推送通道';
 
   @override
-  String get webhookUrlRequired => '请先输入 Webhook URL';
+  String get webhookUrlRequired => '请先输入 Webhook 地址';
 
   @override
   String get webhookChannelNewTitle => '新增 Webhook 通道';
@@ -966,7 +966,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webhookErrSecretRequired =>
-      '保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺了会被服务端直接拒收';
+      '保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺失将被服务端直接拒收';
 
   @override
   String get addChannel => '添加通道';
@@ -2892,7 +2892,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelTypeRedetect => '重新识别';
 
   @override
-  String get channelTypeRedetectUnknown => '没认出这家端点，仍按通用 Webhook';
+  String get channelTypeRedetectUnknown => '未识别该端点，仍按通用 Webhook 处理';
 
   @override
   String get platformNtfyDesc => '向 ntfy topic 推送通知，支持官方与自建服务器（可选访问令牌）';
@@ -5894,7 +5894,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String webhookTestTimeout(int seconds) {
-    return '原生 $seconds 秒未回复测试结果';
+    return '原生端在 $seconds 秒内未返回测试结果';
   }
 
   @override

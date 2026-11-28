@@ -1792,7 +1792,7 @@ abstract class AppLocalizations {
   /// No description provided for @webhookUrlRequired.
   ///
   /// In zh, this message translates to:
-  /// **'请先输入 Webhook URL'**
+  /// **'请先输入 Webhook 地址'**
   String get webhookUrlRequired;
 
   /// No description provided for @webhookChannelNewTitle.
@@ -1834,7 +1834,7 @@ abstract class AppLocalizations {
   /// No description provided for @webhookErrSecretRequired.
   ///
   /// In zh, this message translates to:
-  /// **'保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺了会被服务端直接拒收'**
+  /// **'保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺失将被服务端直接拒收'**
   String get webhookErrSecretRequired;
 
   /// No description provided for @addChannel.
@@ -5362,7 +5362,7 @@ abstract class AppLocalizations {
   /// No description provided for @channelTypeRedetectUnknown.
   ///
   /// In zh, this message translates to:
-  /// **'没认出这家端点，仍按通用 Webhook'**
+  /// **'未识别该端点，仍按通用 Webhook 处理'**
   String get channelTypeRedetectUnknown;
 
   /// No description provided for @platformNtfyDesc.
@@ -10532,7 +10532,7 @@ abstract class AppLocalizations {
   /// No description provided for @webhookTestTimeout.
   ///
   /// In zh, this message translates to:
-  /// **'原生 {seconds} 秒未回复测试结果'**
+  /// **'原生端在 {seconds} 秒内未返回测试结果'**
   String webhookTestTimeout(int seconds);
 
   /// No description provided for @testerRuleHitSummary.

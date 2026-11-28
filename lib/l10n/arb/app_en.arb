@@ -539,7 +539,7 @@
   "saveFailedPrefix": "Save failed: ",
   "webhookErrUrlRequired": "Save failed: a Webhook URL is required",
   "webhookErrUrlInvalid": "Save failed: the Webhook URL must start with http(s)://",
-  "webhookErrSecretRequired": "Save failed: this platform requires a credential (signing secret or token) - requests would be rejected",
+  "webhookErrSecretRequired": "Save failed: this platform requires a credential (signing secret or token); requests without it are rejected",
   "addChannel": "Add Channel",
   "webhookDesc1": "Multiple Webhook channels can be configured at once, each with its own switch",
   "webhookDesc2": "Auto-detect WeCom, DingTalk, Feishu formats",
@@ -3596,7 +3596,7 @@
       }
     }
   },
-  "webhookTestTimeout": "The native side did not return a test result within {seconds}s",
+  "webhookTestTimeout": "The native side did not return a test result within {seconds} s",
   "@webhookTestTimeout": {
     "placeholders": {
       "seconds": {

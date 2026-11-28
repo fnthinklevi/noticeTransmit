@@ -79,7 +79,7 @@ void main() {
     'lib/pages/stats_page.dart': 'reviewed',
     'lib/pages/fnthink_consent_gate.dart': 'reviewed',
     'lib/pages/splash_page.dart': 'reviewed',
-    'lib/pages/webhook_settings_page.dart': 'pending',
+    'lib/pages/webhook_settings_page.dart': 'reviewed',
   };
 
   test('T221 覆盖台账 48 页齐全，状态与复核清单互相对得上', () {

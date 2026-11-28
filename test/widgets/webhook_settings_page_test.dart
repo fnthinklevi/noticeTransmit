@@ -848,7 +848,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(calls, isNot(contains('testWebhook')));
-      expect(find.textContaining('请先输入 Webhook URL'), findsOneWidget);
+      expect(find.textContaining('请先输入 Webhook 地址'), findsOneWidget);
     });
 
     testWidgets('「测试并保存」= 先落库再测这一条', (tester) async {

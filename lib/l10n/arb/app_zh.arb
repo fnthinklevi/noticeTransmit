@@ -532,14 +532,14 @@
     }
   },
   "webhookSettingsTitle": "Webhook 推送通道",
-  "webhookUrlRequired": "请先输入 Webhook URL",
+  "webhookUrlRequired": "请先输入 Webhook 地址",
   "webhookChannelNewTitle": "新增 Webhook 通道",
   "noWebhookChannels": "暂无 Webhook 通道",
   "channelUntitled": "未命名通道",
   "saveFailedPrefix": "保存失败：",
   "webhookErrUrlRequired": "保存失败：Webhook 地址不能为空",
   "webhookErrUrlInvalid": "保存失败：Webhook 地址必须以 http(s):// 开头",
-  "webhookErrSecretRequired": "保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺了会被服务端直接拒收",
+  "webhookErrSecretRequired": "保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺失将被服务端直接拒收",
   "addChannel": "添加通道",
   "webhookDesc1": "支持同时配置多个 Webhook 通道，每个通道均可独立开关",
   "webhookDesc2": "自动识别企业微信、钉钉、飞书等平台格式",
@@ -1598,7 +1598,7 @@
   "channelTypeDiscord": "Discord 通知",
   "channelTypeFnthink": "幻念推送",
   "channelTypeRedetect": "重新识别",
-  "channelTypeRedetectUnknown": "没认出这家端点，仍按通用 Webhook",
+  "channelTypeRedetectUnknown": "未识别该端点，仍按通用 Webhook 处理",
   "platformNtfyDesc": "向 ntfy topic 推送通知，支持官方与自建服务器（可选访问令牌）",
   "platformGotifyDesc": "向自建 Gotify 服务器推送，使用应用 Token 鉴权（填于密钥字段）",
   "platformSlackDesc": "通过 Slack Incoming Webhook 发送消息",
@@ -3617,7 +3617,7 @@
       }
     }
   },
-  "webhookTestTimeout": "原生 {seconds} 秒未回复测试结果",
+  "webhookTestTimeout": "原生端在 {seconds} 秒内未返回测试结果",
   "@webhookTestTimeout": {
     "placeholders": {
       "seconds": {

@@ -2270,5 +2270,23 @@
       "zh": "所有下载地址均下载失败",
       "en": "All download addresses failed."
     }
+  },
+  "lib/pages/webhook_settings_page.dart": {
+    "channelTypeRedetectUnknown": {
+      "zh": "未识别该端点，仍按通用 Webhook 处理",
+      "en": "Endpoint not recognized; kept as Generic Webhook"
+    },
+    "webhookErrSecretRequired": {
+      "zh": "保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺失将被服务端直接拒收",
+      "en": "Save failed: this platform requires a credential (signing secret or token); requests without it are rejected"
+    },
+    "webhookUrlRequired": {
+      "zh": "请先输入 Webhook 地址",
+      "en": "Please enter a Webhook URL first"
+    },
+    "webhookTestTimeout": {
+      "zh": "原生端在 {seconds} 秒内未返回测试结果",
+      "en": "The native side did not return a test result within {seconds} s"
+    }
   }
 }
