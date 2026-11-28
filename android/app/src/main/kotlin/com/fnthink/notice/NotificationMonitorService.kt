@@ -1030,7 +1030,17 @@ class NotificationMonitorService : NotificationListenerService() {
         // 全部下沉到 IO 协程（serviceScope 在 onDestroy 时 cancel，随服务销毁而停止）。
         serviceScope.launch {
             try {
-                val rawInfo = notificationProcessor.processNotification(sbn)
+                // P2-5：提取阶段（processNotification）异常**不再等于这条通知消失**。
+                // 这里只兜提取这一段：此时过滤/规则都还没跑，拿 sbn 原文降级分发是
+                // 安全的（没有绕过用户设置）。下游阶段抛异常仍走外层 catch 的占位历史
+                // —— 那时规则/过滤状态未知，宁可不推也不越过用户。
+                val rawInfo = try {
+                    notificationProcessor.processNotification(sbn)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error extracting notification", e)
+                    dispatchDegradedFallback(sbn)
+                    return@launch
+                }
                 if (rawInfo != null) {
                     val config = cachedConfig ?: ConfigSnapshot()
                     rawInfo.deviceName = config.deviceName
@@ -1087,36 +1097,115 @@ class NotificationMonitorService : NotificationListenerService() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing notification", e)
-                // 兜底降级历史：本 catch 此前只写 logcat，于是提取阶段（processNotification）
-                // 一旦抛异常，这条通知**既不入历史也不推送**，用户完全无从得知内容丢了。
-                // 这里只使用 sbn 直接可得的字段（不再调 PackageManager，避免二次抛错），
-                // 正文不含通知内容与异常细节（与日志脱敏同规）。
-                try {
-                    val now = System.currentTimeMillis()
-                    val timeStr = java.text.SimpleDateFormat(
-                        "yyyy-MM-dd HH:mm:ss",
-                        java.util.Locale.getDefault(),
-                    ).format(java.util.Date(sbn.postTime))
-                    webhookSender.sendBroadcast(
-                        NotificationInfo(
-                            id = "${sbn.packageName}:${sbn.tag}:${sbn.id}:$now",
-                            title = I18n.processFailedTitle(),
-                            content = I18n.processFailedBody(),
-                            subText = "",
-                            packageName = sbn.packageName ?: "",
-                            appName = sbn.packageName ?: "",
-                            postTime = sbn.postTime,
-                            time = timeStr,
-                            type = "notification",
-                            deviceName = PrefsHelper.deviceName,
-                        ),
-                    )
-                } catch (e2: Exception) {
-                    Log.e(TAG, "降级历史记录也失败", e2)
-                }
+                // 下游阶段（过滤/规则/分发）抛异常：规则/过滤状态未知，不拿原文重推
+                // （那等于绕过用户设置），只写一条明确的占位历史。
+                recordFailurePlaceholder(sbn, I18n.processFailedBody())
             }
         }
     }
+
+    /**
+     * 提取阶段异常的降级分发（P2-5）。
+     *
+     * 只从 `sbn` 直接可得的字段取原文（不再调 PackageManager / RuleEngine：
+     * 引发异常的可能正是它们）。拿到原文就以「【降级】+原标题 / 原正文」走正常
+     * 扇出 —— 过滤与规则**没跑过**是已知代价，用标题前缀说清楚；
+     * 连原文都读不到则写占位历史，并在送达原因里写"未取到原文正文"。
+     */
+    private fun dispatchDegradedFallback(sbn: StatusBarNotification) {
+        val info = buildDegradedInfo(sbn)
+        if (info == null) {
+            Log.w(TAG, "降级分发：原文不可读，仅留占位历史")
+            recordFailurePlaceholder(sbn, I18n.processDegradedNoContent())
+            return
+        }
+        try {
+            dispatchToChannels(info)
+            Log.d(TAG, "降级分发：已按原文转发（包名 ${sbn.packageName}）")
+        } catch (e: Exception) {
+            Log.e(TAG, "降级分发失败", e)
+            recordFailurePlaceholder(sbn, I18n.processFailedBody())
+        }
+    }
+
+    /** 从 sbn 的可读字段拼一条降级 NotificationInfo；标题与正文都没有则返回 null。 */
+    private fun buildDegradedInfo(sbn: StatusBarNotification): NotificationInfo? {
+        val notification = sbn.notification ?: return null
+        val extras = notification.extras
+        val rawTitle = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)
+            ?.toString()?.trim().orEmpty()
+        val textLines = extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES)
+            ?.joinToString("\n") { it.toString() }?.trim().orEmpty()
+        val rawBody = sequenceOf(
+            extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT),
+            extras.getCharSequence(android.app.Notification.EXTRA_TEXT),
+            textLines,
+            extras.getCharSequence(android.app.Notification.EXTRA_SUMMARY_TEXT),
+            notification.tickerText,
+            extras.getCharSequence(android.app.Notification.EXTRA_SUB_TEXT),
+        ).mapNotNull { it?.toString()?.trim() }
+            .firstOrNull { it.isNotEmpty() }
+            .orEmpty()
+        if (rawTitle.isEmpty() && rawBody.isEmpty()) return null
+
+        val now = System.currentTimeMillis()
+        return NotificationInfo(
+            id = "${sbn.packageName}:${sbn.tag}:${sbn.id}:$now",
+            // 前缀让"降级"在微信/邮件/历史三个面都可见；没有标题时用包名占位，
+            // 也不让正文单独出现而失去归属。
+            title = I18n.processDegradedPrefix() + rawTitle.ifEmpty { sbn.packageName },
+            content = rawBody.ifEmpty { I18n.processDegradedNoContent() },
+            subText = "",
+            packageName = sbn.packageName ?: "",
+            appName = sbn.packageName ?: "",
+            postTime = sbn.postTime,
+            time = formatNotificationTime(sbn.postTime),
+            type = "notification",
+            deviceName = PrefsHelper.deviceName,
+        )
+    }
+
+    /** 处理失败占位历史：不含通知内容、不含异常细节（与日志脱敏同规）。 */
+    private fun recordFailurePlaceholder(sbn: StatusBarNotification, reason: String) {
+        try {
+            val now = System.currentTimeMillis()
+            val info = NotificationInfo(
+                id = "${sbn.packageName}:${sbn.tag}:${sbn.id}:$now",
+                title = I18n.processFailedTitle(),
+                content = I18n.processFailedBody(),
+                subText = "",
+                packageName = sbn.packageName ?: "",
+                appName = sbn.packageName ?: "",
+                postTime = sbn.postTime,
+                time = formatNotificationTime(sbn.postTime),
+                type = "notification",
+                deviceName = PrefsHelper.deviceName,
+            )
+            webhookSender.sendBroadcast(info)
+            // 这条历史没有任何发送器会碰它；不打这一发就会永远停在「发送中」。
+            // 用拦截伪通道 + 原因，把"为什么没发出去/原文在不在"写进送达列。
+            DeliveryNotifier.notify(
+                this@NotificationMonitorService,
+                info.id,
+                "FILTER",
+                WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                    0,
+                    reason,
+                    false,
+                ),
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "降级历史记录也失败", e)
+        }
+    }
+
+    /** 历史里与处理器同格式的时间串（yyyy-MM-dd HH:mm:ss）。 */
+    private fun formatNotificationTime(postTime: Long): String =
+        java.text.SimpleDateFormat(
+            "yyyy-MM-dd HH:mm:ss",
+            java.util.Locale.getDefault(),
+        ).format(java.util.Date(postTime))
 
     /**
      * T186 片1：规则决策的**唯一执行体**。

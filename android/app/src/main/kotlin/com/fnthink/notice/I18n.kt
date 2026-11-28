@@ -470,6 +470,24 @@ object I18n {
             "这条通知处理失败，未推送。详细信息见应用日志。"
         }
 
+    /**
+     * 降级转发的标题前缀（P2-5）。
+     *
+     * 提取阶段抛异常时，我们不再只留一条"处理失败"占位：能从 `sbn` 直接读到的
+     * 标题/正文会照原样发出去，但必须先让用户看见"这条是降级来的" —— 过滤/规则
+     * 没跑过，可能与正常路径的结论不同。前缀放在标题最前面，微信/邮件/历史行
+     * 三个面都能看见（subText 只有邮件模板用，不够）。
+     */
+    fun processDegradedPrefix(): String = if (isEn) "[Degraded] " else "【降级】"
+
+    /** 降级转发时连正文都读不到：明确说"没有原文"，而不是让空正文冒充正常通知。 */
+    fun processDegradedNoContent(): String =
+        if (isEn) {
+            "(Parsing failed; the original body is unavailable)"
+        } else {
+            "（解析出错，未取到原文正文）"
+        }
+
     /** 前台通知聚合预览：摘要行 */
     fun mergePendingSummary(count: Int): String =
         if (isEn) "Merging $count notification(s)…" else "正在合并 $count 条通知…"
