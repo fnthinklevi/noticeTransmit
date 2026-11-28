@@ -5552,22 +5552,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkReadContactsSubtitle =>
-      'Let paired devices search this device’s contacts by name or number';
+      'Let paired devices search this device\'s contacts by name or number';
 
   @override
   String get fnthinkReadContactsDenied =>
-      'Contacts permission not granted — this stays off. Toggle again to retry, or grant it in system settings.';
+      'Contacts permission not granted; this remains off. Toggle again to retry, or grant it in system settings.';
 
   @override
   String get fnthinkReadSmsRetentionTitle => 'SMS retained on this device';
 
   @override
   String get fnthinkReadSmsRetentionSubtitle =>
-      'Let paired devices search the SMS this device already captured';
+      'Let paired devices search the SMS this device has already captured';
 
   @override
   String get fnthinkReadSmsRetentionDenied =>
-      'No system permission needed here - this searches the local store';
+      'No system permission is needed here; this searches the local store';
 
   @override
   String get fnthinkReadCameraTitle => 'Camera';
@@ -5578,7 +5578,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkReadCameraDenied =>
-      'Camera permission not granted — this stays off. Toggle again to retry, or grant it in system settings.';
+      'Camera permission not granted; this remains off. Toggle again to retry, or grant it in system settings.';
 
   @override
   String get fnthinkPhotoLabel => 'Photo';
@@ -5595,11 +5595,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkReadLocationSubtitle =>
-      'Let paired devices read this device’s last known location (read-only; it never starts a fix)';
+      'Let paired devices read this device\'s last known location (read-only; it never starts a fix)';
 
   @override
   String get fnthinkReadLocationDenied =>
-      'Location permission not granted — this stays off. Toggle again to retry, or grant it in system settings.';
+      'Location permission not granted; this remains off. Toggle again to retry, or grant it in system settings.';
 
   @override
   String get fnthinkReadPageTitle => 'Readable remotely';
@@ -5610,14 +5610,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkReadWhy =>
-      'Off by default: turn one on and your paired devices can read it remotely (turning it on asks the system for that permission).';
+      'Off by default: turn one on and paired devices can read it remotely (turning it on asks the system for that permission).';
 
   @override
   String get fnthinkReadWhyTitle => 'How remote reading is gated';
 
   @override
   String get fnthinkReadWhyBody =>
-      'Two switches must both be on: (1) the toggle on this page — the device owner\'s explicit decision, off by default, changeable anytime, takes effect immediately when turned off; (2) Android runtime permission — requested on first use, changeable anytime in system settings. Only paired devices initiating reads through the remote command surface are affected; the read content is returned as a regular message (with receipt, delivered to inbox), not as arbitrary device access';
+      'Two switches must both be on: (1) the toggle on this page — the device owner\'s explicit decision, off by default, changeable anytime, takes effect immediately when turned off; (2) Android runtime permission — requested on first use, changeable anytime in system settings. Only reads initiated by paired devices through the remote command surface take effect; the content is returned as a regular message (with receipt, delivered to the inbox), not as arbitrary device access.';
 
   @override
   String get fnthinkReadCallsTitle => 'Call log';
@@ -5628,7 +5628,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkReadCallsDenied =>
-      'Call-log permission not granted — this stays off. Toggle again to retry, or grant it in system settings.';
+      'Call-log permission not granted; this remains off. Toggle again to retry, or grant it in system settings.';
 
   @override
   String get remoteSendCallsKeywordLabel => 'Keyword or number to search';

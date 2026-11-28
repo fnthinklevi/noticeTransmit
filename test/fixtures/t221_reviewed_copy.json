@@ -1286,5 +1286,59 @@
       "zh": "前往该页授权",
       "en": "Open that page"
     }
+  },
+  "lib/pages/fnthink_read_caps_page.dart": {
+    "fnthinkReadCallsSubtitle": {
+      "zh": "允许已配对设备按关键词搜索本机通话记录（号码与姓名）",
+      "en": "Let paired devices search this device's call log by keyword (numbers and names)"
+    },
+    "fnthinkReadCallsDenied": {
+      "zh": "未获得通话记录权限，该项仍为关闭状态。请再次点击开关重试，或前往系统设置中开启。",
+      "en": "Call-log permission not granted; this remains off. Toggle again to retry, or grant it in system settings."
+    },
+    "fnthinkReadLocationSubtitle": {
+      "zh": "允许已配对设备读取本机最近一次定位（仅读取已有结果，不会主动启动 GPS 定位）",
+      "en": "Let paired devices read this device's last known location (read-only; it never starts a fix)"
+    },
+    "fnthinkReadLocationDenied": {
+      "zh": "未获得定位权限，该项仍为关闭状态。请再次点击开关重试，或前往系统设置中开启。",
+      "en": "Location permission not granted; this remains off. Toggle again to retry, or grant it in system settings."
+    },
+    "fnthinkReadCameraSubtitle": {
+      "zh": "允许已配对设备让本机拍摄一张照片（照片文件保存在本机，图像随回传消息经中转服务器发回至发起设备；本应用界面须处于开启状态）",
+      "en": "Let paired devices take a photo on this device (the photo file stays on this device and the image is sent back with the reply through the relay; the app must be open on screen)"
+    },
+    "fnthinkReadCameraDenied": {
+      "zh": "未获得相机权限，该项仍为关闭状态。请再次点击开关重试，或前往系统设置中开启。",
+      "en": "Camera permission not granted; this remains off. Toggle again to retry, or grant it in system settings."
+    },
+    "fnthinkReadSmsRetentionSubtitle": {
+      "zh": "允许已配对设备按关键词搜索本机已监听的短信",
+      "en": "Let paired devices search the SMS this device has already captured"
+    },
+    "fnthinkReadSmsRetentionDenied": {
+      "zh": "此项无需系统权限：检索的是本机数据库中的记录",
+      "en": "No system permission is needed here; this searches the local store"
+    },
+    "fnthinkReadContactsSubtitle": {
+      "zh": "允许已配对设备按姓名或号码搜索本机通讯录",
+      "en": "Let paired devices search this device's contacts by name or number"
+    },
+    "fnthinkReadContactsDenied": {
+      "zh": "未获得通讯录权限，该项仍为关闭状态。请再次点击开关重试，或前往系统设置中开启。",
+      "en": "Contacts permission not granted; this remains off. Toggle again to retry, or grant it in system settings."
+    },
+    "fnthinkReadWhy": {
+      "zh": "各项默认关闭：开启某项后，已配对设备方可远程读取（开启时会向系统申请相应权限）。",
+      "en": "Off by default: turn one on and paired devices can read it remotely (turning it on asks the system for that permission)."
+    },
+    "fnthinkReadWhyTitle": {
+      "zh": "「可被远程读取」的拦截机制",
+      "en": "How remote reading is gated"
+    },
+    "fnthinkReadWhyBody": {
+      "zh": "须同时启用两项开关：① 本页开关：本机持有者的显式决定，默认关闭，可随时变更，关闭后立即生效；② Android 运行时权限：首次使用时申请，可在系统设置中随时修改。仅已配对设备通过远程指令面发起的读取才会生效；读取内容以普通消息形式回传（带回执并进入收件箱），并不授予设备对本机的任意读取权。",
+      "en": "Two switches must both be on: (1) the toggle on this page — the device owner's explicit decision, off by default, changeable anytime, takes effect immediately when turned off; (2) Android runtime permission — requested on first use, changeable anytime in system settings. Only reads initiated by paired devices through the remote command surface take effect; the content is returned as a regular message (with receipt, delivered to the inbox), not as arbitrary device access."
+    }
   }
 }

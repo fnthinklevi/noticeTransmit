@@ -5251,31 +5251,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkReadContactsTitle => '通讯录';
 
   @override
-  String get fnthinkReadContactsSubtitle => '允许已配对的设备按姓名或号码搜本机通讯录';
+  String get fnthinkReadContactsSubtitle => '允许已配对设备按姓名或号码搜索本机通讯录';
 
   @override
   String get fnthinkReadContactsDenied =>
-      '没拿到通讯录权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。';
+      '未获得通讯录权限，该项仍为关闭状态。请再次点击开关重试，或前往系统设置中开启。';
 
   @override
   String get fnthinkReadSmsRetentionTitle => '已监听的短信留存';
 
   @override
-  String get fnthinkReadSmsRetentionSubtitle => '允许已配对的设备按关键词搜这台监听到的短信';
+  String get fnthinkReadSmsRetentionSubtitle => '允许已配对设备按关键词搜索本机已监听的短信';
 
   @override
-  String get fnthinkReadSmsRetentionDenied => '这一枚不需要系统权限 —— 搜的是本机库里那一格';
+  String get fnthinkReadSmsRetentionDenied => '此项无需系统权限：检索的是本机数据库中的记录';
 
   @override
   String get fnthinkReadCameraTitle => '拍照';
 
   @override
   String get fnthinkReadCameraSubtitle =>
-      '允许已配对的设备让这台拍一张（照片文件保存在本机，图像随回传消息经中转服务器发回给发起的那台；要求这台软件的界面正开着）';
+      '允许已配对设备让本机拍摄一张照片（照片文件保存在本机，图像随回传消息经中转服务器发回至发起设备；本应用界面须处于开启状态）';
 
   @override
   String get fnthinkReadCameraDenied =>
-      '没拿到相机权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。';
+      '未获得相机权限，该项仍为关闭状态。请再次点击开关重试，或前往系统设置中开启。';
 
   @override
   String get fnthinkPhotoLabel => '照片';
@@ -5291,11 +5291,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkReadLocationSubtitle =>
-      '允许已配对的设备读本机最近一次定位（只读已有的，不主动去点 GPS）';
+      '允许已配对设备读取本机最近一次定位（仅读取已有结果，不会主动启动 GPS 定位）';
 
   @override
   String get fnthinkReadLocationDenied =>
-      '没拿到定位权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。';
+      '未获得定位权限，该项仍为关闭状态。请再次点击开关重试，或前往系统设置中开启。';
 
   @override
   String get fnthinkReadPageTitle => '可被远程读取的内容';
@@ -5304,24 +5304,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkReadEntryShort => '对面能读这台什么；每一项默认关、单独开。';
 
   @override
-  String get fnthinkReadWhy => '每一项默认关：打开一项，已配对的设备才能远程读它（打开时会向系统申请对应权限）。';
+  String get fnthinkReadWhy => '各项默认关闭：开启某项后，已配对设备方可远程读取（开启时会向系统申请相应权限）。';
 
   @override
-  String get fnthinkReadWhyTitle => '「可被远程读取」是怎么被拦住的';
+  String get fnthinkReadWhyTitle => '「可被远程读取」的拦截机制';
 
   @override
   String get fnthinkReadWhyBody =>
-      '需同时启用两道开关：① 本页开关 —— 本机持有者的显式决定，默认关闭、可随时变更，关闭后立即生效；② Android 运行时权限 —— 首次使用时申请，可在系统设置中随时修改。只有已配对设备、通过远程指令面发起的读取才会生效；读取内容以普通消息形式回传（带回执、入收件箱），并非授予设备对本机的任意读取权';
+      '须同时启用两项开关：① 本页开关：本机持有者的显式决定，默认关闭，可随时变更，关闭后立即生效；② Android 运行时权限：首次使用时申请，可在系统设置中随时修改。仅已配对设备通过远程指令面发起的读取才会生效；读取内容以普通消息形式回传（带回执并进入收件箱），并不授予设备对本机的任意读取权。';
 
   @override
   String get fnthinkReadCallsTitle => '通话记录';
 
   @override
-  String get fnthinkReadCallsSubtitle => '允许已配对的设备按关键词搜本机的通话记录（号码与姓名）';
+  String get fnthinkReadCallsSubtitle => '允许已配对设备按关键词搜索本机通话记录（号码与姓名）';
 
   @override
   String get fnthinkReadCallsDenied =>
-      '没拿到通话记录权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。';
+      '未获得通话记录权限，该项仍为关闭状态。请再次点击开关重试，或前往系统设置中开启。';
 
   @override
   String get remoteSendCallsKeywordLabel => '搜索词或号码';
