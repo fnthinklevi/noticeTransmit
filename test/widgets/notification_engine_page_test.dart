@@ -344,7 +344,7 @@ void main() {
     testWidgets('页面上只有一枚，且默认是关的', (tester) async {
       await pumpHome(tester, const NotificationEnginePage());
 
-      expect(find.text('设备态告警也接受约束'), findsOneWidget);
+      expect(find.text('设备状态告警同样受约束'), findsOneWidget);
       // 一次作用于两族的开关只放一枚：两处各一枚迟早一个开一个关，
       // 而"设备态告警受不受约束"不可能同时有两个答案。
       expect(find.byType(CupertinoSwitch), findsOneWidget);

@@ -233,19 +233,19 @@ abstract class AppLocalizations {
   /// No description provided for @notificationEngineShort.
   ///
   /// In zh, this message translates to:
-  /// **'电量、温度这类设备自己的状态到了就提醒；要不要转发在「更多 → 筛选与规则」里配。'**
+  /// **'电量、温度等设备自身状态达到条件时提醒；是否转发在「更多 → 筛选与规则」中配置。'**
   String get notificationEngineShort;
 
   /// No description provided for @notificationEngineScopeTitle.
   ///
   /// In zh, this message translates to:
-  /// **'这一页管什么，不管什么'**
+  /// **'本页的职责范围'**
   String get notificationEngineScopeTitle;
 
   /// No description provided for @notificationEngineDesc.
   ///
   /// In zh, this message translates to:
-  /// **'设备自己到了某个状态就提醒：电量、温度。已到达的通知要不要转，在「更多 → 筛选与规则」里配。'**
+  /// **'设备自身状态达到条件时提醒：电量、温度。已到达的通知是否转发，在「更多 → 筛选与规则」中配置。'**
   String get notificationEngineDesc;
 
   /// No description provided for @engineBatteryEntry.
@@ -4558,25 +4558,25 @@ abstract class AppLocalizations {
   /// No description provided for @engineConstraintEntry.
   ///
   /// In zh, this message translates to:
-  /// **'设备态告警也接受约束'**
+  /// **'设备状态告警同样受约束'**
   String get engineConstraintEntry;
 
   /// No description provided for @engineConstraintTitle.
   ///
   /// In zh, this message translates to:
-  /// **'设备态告警受哪些约束、被拦下来会怎样'**
+  /// **'设备状态告警受哪些约束，以及被拦截后的处理'**
   String get engineConstraintTitle;
 
   /// No description provided for @engineConstraintShort.
   ///
   /// In zh, this message translates to:
-  /// **'开了之后，电量／温度告警在推送前也过一遍关键词黑白名单。'**
+  /// **'开启后，电量/温度告警在推送前同样经过关键词黑白名单过滤。'**
   String get engineConstraintShort;
 
   /// No description provided for @engineConstraintDesc.
   ///
   /// In zh, this message translates to:
-  /// **'开启后，电量/温度告警在推送前也要过一遍关键词黑白名单；应用黑白名单不适用（这类告警由本机自己产生）。被拦下的告警会写入推送历史并标注原因。'**
+  /// **'开启后，电量/温度告警在推送前同样经过关键词黑白名单过滤；应用黑白名单不适用（此类告警由本机自身产生）。被拦截的告警将写入推送历史并标注原因。'**
   String get engineConstraintDesc;
 
   /// No description provided for @tempTestEntry.
@@ -6550,7 +6550,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHubSendDesc.
   ///
   /// In zh, this message translates to:
-  /// **'发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档'**
+  /// **'发送至已配对设备，或发送至 Webhook 通道；与「远程指令」不属于同一层级'**
   String get fnthinkHubSendDesc;
 
   /// No description provided for @fnthinkHealthNever.
@@ -7113,13 +7113,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHubPeersWaiting.
   ///
   /// In zh, this message translates to:
-  /// **'有 {n} 条在等你答复'**
+  /// **'{n} 条待您答复'**
   String fnthinkHubPeersWaiting(int n);
 
   /// No description provided for @fnthinkHubPeersOutgoing.
   ///
   /// In zh, this message translates to:
-  /// **'还在等对方答复 {n} 条'**
+  /// **'{n} 条仍在等待对端答复'**
   String fnthinkHubPeersOutgoing(int n);
 
   /// No description provided for @fnthinkPairWillGrant.
@@ -7263,25 +7263,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHubDesc.
   ///
   /// In zh, this message translates to:
-  /// **'往哪儿发：设备绑定、发起推送与接收设置都在这一块。'**
+  /// **'发送去向：设备绑定、发起推送与接收设置均位于此区域。'**
   String get fnthinkHubDesc;
 
   /// No description provided for @fnthinkHubPeersDesc.
   ///
   /// In zh, this message translates to:
-  /// **'配对了几台设备、能给它们发一条，也能撤销那一台。'**
+  /// **'显示已配对设备数量，可向设备发送消息，也可撤销指定设备。'**
   String get fnthinkHubPeersDesc;
 
   /// No description provided for @fnthinkHubReceiveDesc.
   ///
   /// In zh, this message translates to:
-  /// **'收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。'**
+  /// **'接收消息、轮询间隔，以及对端可让本机执行的操作（远程执行），均在此处配置。'**
   String get fnthinkHubReceiveDesc;
 
   /// No description provided for @fnthinkHubSettingsDesc.
   ///
   /// In zh, this message translates to:
-  /// **'这台设备是谁（地址码、配对口令、身份密钥），以及它对着哪台服务器。'**
+  /// **'本机身份信息（地址码、配对口令、身份密钥），以及所连接的服务器。'**
   String get fnthinkHubSettingsDesc;
 
   /// No description provided for @fnthinkChannelTitle.
@@ -7311,7 +7311,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHubChannelsDesc.
   ///
   /// In zh, this message translates to:
-  /// **'这台设备作为发送方的那些转发目标。'**
+  /// **'本机作为发送方时的转发目标。'**
   String get fnthinkHubChannelsDesc;
 
   /// No description provided for @fnthinkChannelEmpty.
@@ -8079,7 +8079,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkEndpointEntryDesc.
   ///
   /// In zh, this message translates to:
-  /// **'给 NAS、脚本、监控这类外部服务开门用的长期口令。多数人不需动这里。'**
+  /// **'供 NAS、脚本、监控等外部服务接入的长期口令。多数用户无需修改此项。'**
   String get fnthinkEndpointEntryDesc;
 
   /// No description provided for @fnthinkEndpointCap.
@@ -10490,19 +10490,19 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkRemoteNeedsReceive.
   ///
   /// In zh, this message translates to:
-  /// **'请先启用接收：此页功能依赖本机开启幻念接收权限'**
+  /// **'请先启用接收：本页功能依赖本机开启幻念接收权限'**
   String get fnthinkRemoteNeedsReceive;
 
   /// No description provided for @fnthinkRemoteNeedsConsent.
   ///
   /// In zh, this message translates to:
-  /// **'还没过同意门 —— 去「接收」那一页读一次说明并同意'**
+  /// **'尚未通过同意确认：请前往「接收」页阅读说明并同意'**
   String get fnthinkRemoteNeedsConsent;
 
   /// No description provided for @fnthinkRemoteNeedsSwitch.
   ///
   /// In zh, this message translates to:
-  /// **'远程执行默认关 —— 进去把它打开'**
+  /// **'远程执行默认关闭：请进入并开启'**
   String get fnthinkRemoteNeedsSwitch;
 
   /// No description provided for @testerSampleAppName.

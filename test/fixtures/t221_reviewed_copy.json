@@ -1564,5 +1564,83 @@
       "zh": "控制是否监听并推送收到的短信",
       "en": "Control whether received SMS are monitored and pushed"
     }
+  },
+  "lib/pages/notification_engine_page.dart": {
+    "notificationEngineShort": {
+      "zh": "电量、温度等设备自身状态达到条件时提醒；是否转发在「更多 → 筛选与规则」中配置。",
+      "en": "Alerts when the device itself reaches a state: battery, temperature. Whether to forward a notification is set under More -> Filters & rules."
+    },
+    "notificationEngineScopeTitle": {
+      "zh": "本页的职责范围",
+      "en": "What this page covers, and what it does not"
+    },
+    "notificationEngineDesc": {
+      "zh": "设备自身状态达到条件时提醒：电量、温度。已到达的通知是否转发，在「更多 → 筛选与规则」中配置。",
+      "en": "Alerts the device raises about itself: battery and temperature. Whether an incoming notification gets forwarded is set under More → Filter & Rules."
+    },
+    "fnthinkHubDesc": {
+      "zh": "发送去向：设备绑定、发起推送与接收设置均位于此区域。",
+      "en": "Where to send: paired devices, sending a notice and receiving settings live here."
+    },
+    "fnthinkHubReceiveDesc": {
+      "zh": "接收消息、轮询间隔，以及对端可让本机执行的操作（远程执行），均在此处配置。",
+      "en": "Receiving, the polling interval, and what the sender may make this device do (remote execution) live here."
+    },
+    "fnthinkHubSendDesc": {
+      "zh": "发送至已配对设备，或发送至 Webhook 通道；与「远程指令」不属于同一层级",
+      "en": "Send to a paired device, or to a Webhook channel; not the same tier as a remote command"
+    },
+    "fnthinkHubChannelsDesc": {
+      "zh": "本机作为发送方时的转发目标。",
+      "en": "Where this device forwards to as a sender."
+    },
+    "fnthinkEndpointEntryDesc": {
+      "zh": "供 NAS、脚本、监控等外部服务接入的长期口令。多数用户无需修改此项。",
+      "en": "A long-lived token that lets external services — a NAS, scripts, monitoring — push in. Most people never need to touch this."
+    },
+    "fnthinkHubSettingsDesc": {
+      "zh": "本机身份信息（地址码、配对口令、身份密钥），以及所连接的服务器。",
+      "en": "Who this device is (address code, pairing passphrase, identity key) and which server it talks to."
+    },
+    "engineConstraintEntry": {
+      "zh": "设备状态告警同样受约束",
+      "en": "Apply keyword constraints to device alerts"
+    },
+    "engineConstraintShort": {
+      "zh": "开启后，电量/温度告警在推送前同样经过关键词黑白名单过滤。",
+      "en": "When on, battery and temperature alerts also pass the keyword allow/block lists before being pushed."
+    },
+    "engineConstraintTitle": {
+      "zh": "设备状态告警受哪些约束，以及被拦截后的处理",
+      "en": "Which constraints apply to device-state alerts, and what happens when one is blocked"
+    },
+    "engineConstraintDesc": {
+      "zh": "开启后，电量/温度告警在推送前同样经过关键词黑白名单过滤；应用黑白名单不适用（此类告警由本机自身产生）。被拦截的告警将写入推送历史并标注原因。",
+      "en": "When on, battery/temperature alerts also pass the keyword allow/block lists before sending; app filtering does not apply (these alerts originate on this device). Suppressed alerts are recorded in push history with the reason."
+    },
+    "fnthinkHubPeersDesc": {
+      "zh": "显示已配对设备数量，可向设备发送消息，也可撤销指定设备。",
+      "en": "Which devices are paired, send one to them, or revoke one of them."
+    },
+    "fnthinkHubPeersWaiting": {
+      "zh": "{n} 条待您答复",
+      "en": "{n} waiting for your answer"
+    },
+    "fnthinkHubPeersOutgoing": {
+      "zh": "{n} 条仍在等待对端答复",
+      "en": "{n} still waiting for the other device"
+    },
+    "fnthinkRemoteNeedsReceive": {
+      "zh": "请先启用接收：本页功能依赖本机开启幻念接收权限",
+      "en": "Please enable Receive first: the features on this page require the device to have fnthink receive enabled"
+    },
+    "fnthinkRemoteNeedsConsent": {
+      "zh": "尚未通过同意确认：请前往「接收」页阅读说明并同意",
+      "en": "Not consented yet - read the note on the Receive page and agree"
+    },
+    "fnthinkRemoteNeedsSwitch": {
+      "zh": "远程执行默认关闭：请进入并开启",
+      "en": "Remote execution is off by default - open it here"
+    }
   }
 }

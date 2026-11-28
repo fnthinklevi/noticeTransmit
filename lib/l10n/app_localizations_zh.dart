@@ -79,14 +79,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notificationEngineShort =>
-      '电量、温度这类设备自己的状态到了就提醒；要不要转发在「更多 → 筛选与规则」里配。';
+      '电量、温度等设备自身状态达到条件时提醒；是否转发在「更多 → 筛选与规则」中配置。';
 
   @override
-  String get notificationEngineScopeTitle => '这一页管什么，不管什么';
+  String get notificationEngineScopeTitle => '本页的职责范围';
 
   @override
   String get notificationEngineDesc =>
-      '设备自己到了某个状态就提醒：电量、温度。已到达的通知要不要转，在「更多 → 筛选与规则」里配。';
+      '设备自身状态达到条件时提醒：电量、温度。已到达的通知是否转发，在「更多 → 筛选与规则」中配置。';
 
   @override
   String get engineBatteryEntry => '电量告警';
@@ -2426,17 +2426,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get testerFilteredNote => '该通知会被过滤掉，不会进入规则约束判定与推送链路';
 
   @override
-  String get engineConstraintEntry => '设备态告警也接受约束';
+  String get engineConstraintEntry => '设备状态告警同样受约束';
 
   @override
-  String get engineConstraintTitle => '设备态告警受哪些约束、被拦下来会怎样';
+  String get engineConstraintTitle => '设备状态告警受哪些约束，以及被拦截后的处理';
 
   @override
-  String get engineConstraintShort => '开了之后，电量／温度告警在推送前也过一遍关键词黑白名单。';
+  String get engineConstraintShort => '开启后，电量/温度告警在推送前同样经过关键词黑白名单过滤。';
 
   @override
   String get engineConstraintDesc =>
-      '开启后，电量/温度告警在推送前也要过一遍关键词黑白名单；应用黑白名单不适用（这类告警由本机自己产生）。被拦下的告警会写入推送历史并标注原因。';
+      '开启后，电量/温度告警在推送前同样经过关键词黑白名单过滤；应用黑白名单不适用（此类告警由本机自身产生）。被拦截的告警将写入推送历史并标注原因。';
 
   @override
   String get tempTestEntry => '试一次';
@@ -3551,7 +3551,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '「一条通知」是让对端查看一段内容（无需任何授权，也不执行动作）；「一条远程指令」是让对端执行一个动作（需要配对关系与档位授权，最高档位还需通过延时确认）。';
 
   @override
-  String get fnthinkHubSendDesc => '发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档';
+  String get fnthinkHubSendDesc => '发送至已配对设备，或发送至 Webhook 通道；与「远程指令」不属于同一层级';
 
   @override
   String get fnthinkHealthNever => '协议面未知：暂无协议请求读数';
@@ -3872,12 +3872,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkHubPeersWaiting(int n) {
-    return '有 $n 条在等你答复';
+    return '$n 条待您答复';
   }
 
   @override
   String fnthinkHubPeersOutgoing(int n) {
-    return '还在等对方答复 $n 条';
+    return '$n 条仍在等待对端答复';
   }
 
   @override
@@ -3966,16 +3966,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHubTitle => '幻念推送';
 
   @override
-  String get fnthinkHubDesc => '往哪儿发：设备绑定、发起推送与接收设置都在这一块。';
+  String get fnthinkHubDesc => '发送去向：设备绑定、发起推送与接收设置均位于此区域。';
 
   @override
-  String get fnthinkHubPeersDesc => '配对了几台设备、能给它们发一条，也能撤销那一台。';
+  String get fnthinkHubPeersDesc => '显示已配对设备数量，可向设备发送消息，也可撤销指定设备。';
 
   @override
-  String get fnthinkHubReceiveDesc => '收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。';
+  String get fnthinkHubReceiveDesc => '接收消息、轮询间隔，以及对端可让本机执行的操作（远程执行），均在此处配置。';
 
   @override
-  String get fnthinkHubSettingsDesc => '这台设备是谁（地址码、配对口令、身份密钥），以及它对着哪台服务器。';
+  String get fnthinkHubSettingsDesc => '本机身份信息（地址码、配对口令、身份密钥），以及所连接的服务器。';
 
   @override
   String get fnthinkChannelTitle => '幻念通道';
@@ -3991,7 +3991,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '徽标记录的是最近一次「仅探测/探测并保存」的结果，并非自动探测：幻念通道无法在不打扰对端的情况下判断连通性。';
 
   @override
-  String get fnthinkHubChannelsDesc => '这台设备作为发送方的那些转发目标。';
+  String get fnthinkHubChannelsDesc => '本机作为发送方时的转发目标。';
 
   @override
   String get fnthinkChannelEmpty => '尚无幻念通道。新建通道后，本机收到的通知将转发至指定目标。';
@@ -4441,7 +4441,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '第三方平台向本机推送通知所用的长期口令。服务端仅保存摘要；下方口令仅在本次显示，离开页面后无法再次查看。';
 
   @override
-  String get fnthinkEndpointEntryDesc => '给 NAS、脚本、监控这类外部服务开门用的长期口令。多数人不需动这里。';
+  String get fnthinkEndpointEntryDesc => '供 NAS、脚本、监控等外部服务接入的长期口令。多数用户无需修改此项。';
 
   @override
   String fnthinkEndpointCap(int max) {
@@ -5871,13 +5871,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkRemoteTitle => '远程控制';
 
   @override
-  String get fnthinkRemoteNeedsReceive => '请先启用接收：此页功能依赖本机开启幻念接收权限';
+  String get fnthinkRemoteNeedsReceive => '请先启用接收：本页功能依赖本机开启幻念接收权限';
 
   @override
-  String get fnthinkRemoteNeedsConsent => '还没过同意门 —— 去「接收」那一页读一次说明并同意';
+  String get fnthinkRemoteNeedsConsent => '尚未通过同意确认：请前往「接收」页阅读说明并同意';
 
   @override
-  String get fnthinkRemoteNeedsSwitch => '远程执行默认关 —— 进去把它打开';
+  String get fnthinkRemoteNeedsSwitch => '远程执行默认关闭：请进入并开启';
 
   @override
   String get testerSampleAppName => '微信';

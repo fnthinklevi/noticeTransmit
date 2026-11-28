@@ -4168,7 +4168,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkHubReceiveDesc =>
-      'Receiving, how often to ask for messages, and what the sender may make this device do (remote execution) live here.';
+      'Receiving, the polling interval, and what the sender may make this device do (remote execution) live here.';
 
   @override
   String get fnthinkHubSettingsDesc =>
