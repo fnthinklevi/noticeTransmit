@@ -914,16 +914,16 @@
   "keywordBlacklistDesc": "黑名单：通知内容包含任一关键词时，即使应用被选中也不会推送",
   "keywordWhitelistEmpty": "暂无白名单关键词",
   "keywordBlacklistEmpty": "暂无黑名单关键词",
-  "initializing": "正在初始化...",
-  "loadWebhook": "加载 Webhook 配置...",
-  "loadBattery": "加载电池配置...",
-  "loadRecords": "加载通知记录...",
-  "loadFilter": "加载过滤配置...",
-  "initUpdate": "初始化更新服务...",
+  "initializing": "正在初始化…",
+  "loadWebhook": "正在加载 Webhook 配置…",
+  "loadBattery": "正在加载电池配置…",
+  "loadRecords": "正在加载通知记录…",
+  "loadFilter": "正在加载过滤配置…",
+  "initUpdate": "正在初始化更新服务…",
   "initComplete": "初始化完成",
   "initFailed": "应用启动失败",
   "initFailedMsg": "依赖注入初始化失败，请重启应用",
-  "initTimeout": "初始化超过 {seconds} 秒没有完成",
+  "initTimeout": "初始化在 {seconds} 秒内未完成",
   "@initTimeout": {
     "placeholders": {
       "seconds": {

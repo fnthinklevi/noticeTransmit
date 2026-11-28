@@ -1772,22 +1772,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get keywordBlacklistEmpty => '暂无黑名单关键词';
 
   @override
-  String get initializing => '正在初始化...';
+  String get initializing => '正在初始化…';
 
   @override
-  String get loadWebhook => '加载 Webhook 配置...';
+  String get loadWebhook => '正在加载 Webhook 配置…';
 
   @override
-  String get loadBattery => '加载电池配置...';
+  String get loadBattery => '正在加载电池配置…';
 
   @override
-  String get loadRecords => '加载通知记录...';
+  String get loadRecords => '正在加载通知记录…';
 
   @override
-  String get loadFilter => '加载过滤配置...';
+  String get loadFilter => '正在加载过滤配置…';
 
   @override
-  String get initUpdate => '初始化更新服务...';
+  String get initUpdate => '正在初始化更新服务…';
 
   @override
   String get initComplete => '初始化完成';
@@ -1800,7 +1800,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String initTimeout(int seconds) {
-    return '初始化超过 $seconds 秒没有完成';
+    return '初始化在 $seconds 秒内未完成';
   }
 
   @override

@@ -3370,37 +3370,37 @@ abstract class AppLocalizations {
   /// No description provided for @initializing.
   ///
   /// In zh, this message translates to:
-  /// **'正在初始化...'**
+  /// **'正在初始化…'**
   String get initializing;
 
   /// No description provided for @loadWebhook.
   ///
   /// In zh, this message translates to:
-  /// **'加载 Webhook 配置...'**
+  /// **'正在加载 Webhook 配置…'**
   String get loadWebhook;
 
   /// No description provided for @loadBattery.
   ///
   /// In zh, this message translates to:
-  /// **'加载电池配置...'**
+  /// **'正在加载电池配置…'**
   String get loadBattery;
 
   /// No description provided for @loadRecords.
   ///
   /// In zh, this message translates to:
-  /// **'加载通知记录...'**
+  /// **'正在加载通知记录…'**
   String get loadRecords;
 
   /// No description provided for @loadFilter.
   ///
   /// In zh, this message translates to:
-  /// **'加载过滤配置...'**
+  /// **'正在加载过滤配置…'**
   String get loadFilter;
 
   /// No description provided for @initUpdate.
   ///
   /// In zh, this message translates to:
-  /// **'初始化更新服务...'**
+  /// **'正在初始化更新服务…'**
   String get initUpdate;
 
   /// No description provided for @initComplete.
@@ -3424,7 +3424,7 @@ abstract class AppLocalizations {
   /// No description provided for @initTimeout.
   ///
   /// In zh, this message translates to:
-  /// **'初始化超过 {seconds} 秒没有完成'**
+  /// **'初始化在 {seconds} 秒内未完成'**
   String initTimeout(int seconds);
 
   /// No description provided for @retry.

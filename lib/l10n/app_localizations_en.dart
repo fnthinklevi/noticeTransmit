@@ -1846,22 +1846,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get keywordBlacklistEmpty => 'No blacklist keywords';
 
   @override
-  String get initializing => 'Initializing...';
+  String get initializing => 'Initializing…';
 
   @override
-  String get loadWebhook => 'Loading Webhook config...';
+  String get loadWebhook => 'Loading Webhook config…';
 
   @override
-  String get loadBattery => 'Loading battery config...';
+  String get loadBattery => 'Loading battery config…';
 
   @override
-  String get loadRecords => 'Loading notification records...';
+  String get loadRecords => 'Loading notification records…';
 
   @override
-  String get loadFilter => 'Loading filter config...';
+  String get loadFilter => 'Loading filter config…';
 
   @override
-  String get initUpdate => 'Initializing update service...';
+  String get initUpdate => 'Initializing update service…';
 
   @override
   String get initComplete => 'Initialization complete';

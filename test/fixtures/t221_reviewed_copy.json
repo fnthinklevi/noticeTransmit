@@ -1238,5 +1238,35 @@
       "zh": "若桌面找不到小部件，请先打开一次应用或重启桌面启动器",
       "en": "If the widget is not listed, open the app once or restart the launcher"
     }
+  },
+  "lib/pages/splash_page.dart": {
+    "initTimeout": {
+      "zh": "初始化在 {seconds} 秒内未完成",
+      "en": "Initialization did not complete within {seconds} seconds"
+    },
+    "loadWebhook": {
+      "zh": "正在加载 Webhook 配置…",
+      "en": "Loading Webhook config…"
+    },
+    "loadBattery": {
+      "zh": "正在加载电池配置…",
+      "en": "Loading battery config…"
+    },
+    "loadRecords": {
+      "zh": "正在加载通知记录…",
+      "en": "Loading notification records…"
+    },
+    "loadFilter": {
+      "zh": "正在加载过滤配置…",
+      "en": "Loading filter config…"
+    },
+    "initUpdate": {
+      "zh": "正在初始化更新服务…",
+      "en": "Initializing update service…"
+    },
+    "initializing": {
+      "zh": "正在初始化…",
+      "en": "Initializing…"
+    }
   }
 }
