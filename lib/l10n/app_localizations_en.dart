@@ -447,7 +447,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get widgetGuide => 'Push Toggle';
 
   @override
-  String get widgetGuideDesc => 'One-tap start/pause push from home screen';
+  String get widgetGuideDesc =>
+      'Start or pause push from the home screen with one tap';
 
   @override
   String get widgetGuideIntro =>
@@ -499,7 +500,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetTip2 =>
-      'While paused, monitoring continues but messages are not sent';
+      'While paused, monitoring continues; only push messages stop';
 
   @override
   String get widgetTip3 =>
@@ -524,7 +525,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetPinSuccess =>
-      'Request sent, place the widget on the home screen';
+      'Request sent; place the widget on the home screen';
 
   @override
   String get widgetPinUnsupported =>

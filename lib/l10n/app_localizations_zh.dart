@@ -433,7 +433,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get widgetGuide => '推送开关';
 
   @override
-  String get widgetGuideDesc => '桌面一键开启/暂停推送服务';
+  String get widgetGuideDesc => '在桌面一键开启或暂停推送服务';
 
   @override
   String get widgetGuideIntro => '将「推送开关」小部件添加到桌面后，无需打开应用即可一键开启或暂停推送。';
@@ -445,7 +445,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get widgetGuideStep2 => '2. 点击「小部件 / 插件 / Widgets」';
 
   @override
-  String get widgetGuideStep3 => '3. 找到「通知推送助手」，将「推送开关」拖到桌面';
+  String get widgetGuideStep3 => '3. 找到「通知推送助手」，将「推送开关」拖动至桌面';
 
   @override
   String get widgetGuideBrand => '各品牌添加路径';
@@ -476,13 +476,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get widgetTip1 => '点击小部件即可切换推送状态（推送中 ⇄ 已暂停）';
 
   @override
-  String get widgetTip2 => '暂停后监听继续，仅不发送推送消息';
+  String get widgetTip2 => '暂停后监听仍持续，仅停止发送推送消息';
 
   @override
   String get widgetTip3 => '部分品牌需允许应用自启动，小部件状态才能实时刷新';
 
   @override
-  String get widgetTip4 => '若桌面找不到小部件，请先打开一次应用或重启桌面';
+  String get widgetTip4 => '若桌面找不到小部件，请先打开一次应用或重启桌面启动器';
 
   @override
   String get widgetPinTitle => '一键添加（推荐）';
@@ -497,7 +497,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get widgetPinWideAction => '添加 4×2 横条小部件';
 
   @override
-  String get widgetPinSuccess => '已发起添加，请在桌面放置小部件';
+  String get widgetPinSuccess => '已发起添加请求，请在桌面上放置小部件';
 
   @override
   String get widgetPinUnsupported => '当前桌面不支持一键添加，请长按桌面空白处手动添加';

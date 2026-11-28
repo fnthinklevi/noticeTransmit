@@ -820,7 +820,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetGuideDesc.
   ///
   /// In zh, this message translates to:
-  /// **'桌面一键开启/暂停推送服务'**
+  /// **'在桌面一键开启或暂停推送服务'**
   String get widgetGuideDesc;
 
   /// No description provided for @widgetGuideIntro.
@@ -844,7 +844,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetGuideStep3.
   ///
   /// In zh, this message translates to:
-  /// **'3. 找到「通知推送助手」，将「推送开关」拖到桌面'**
+  /// **'3. 找到「通知推送助手」，将「推送开关」拖动至桌面'**
   String get widgetGuideStep3;
 
   /// No description provided for @widgetGuideBrand.
@@ -904,7 +904,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetTip2.
   ///
   /// In zh, this message translates to:
-  /// **'暂停后监听继续，仅不发送推送消息'**
+  /// **'暂停后监听仍持续，仅停止发送推送消息'**
   String get widgetTip2;
 
   /// No description provided for @widgetTip3.
@@ -916,7 +916,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetTip4.
   ///
   /// In zh, this message translates to:
-  /// **'若桌面找不到小部件，请先打开一次应用或重启桌面'**
+  /// **'若桌面找不到小部件，请先打开一次应用或重启桌面启动器'**
   String get widgetTip4;
 
   /// No description provided for @widgetPinTitle.
@@ -946,7 +946,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetPinSuccess.
   ///
   /// In zh, this message translates to:
-  /// **'已发起添加，请在桌面放置小部件'**
+  /// **'已发起添加请求，请在桌面上放置小部件'**
   String get widgetPinSuccess;
 
   /// No description provided for @widgetPinUnsupported.

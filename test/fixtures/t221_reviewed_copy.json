@@ -1216,5 +1216,27 @@
       "zh": "前往设置",
       "en": "Settings"
     }
+  },
+  "lib/pages/widget_guide_page.dart": {
+    "widgetPinSuccess": {
+      "zh": "已发起添加请求，请在桌面上放置小部件",
+      "en": "Request sent; place the widget on the home screen"
+    },
+    "widgetGuideStep3": {
+      "zh": "3. 找到「通知推送助手」，将「推送开关」拖动至桌面",
+      "en": "3. Find \"NoticeTransmit\" and drag \"Push Toggle\" to the home screen"
+    },
+    "widgetGuideDesc": {
+      "zh": "在桌面一键开启或暂停推送服务",
+      "en": "Start or pause push from the home screen with one tap"
+    },
+    "widgetTip2": {
+      "zh": "暂停后监听仍持续，仅停止发送推送消息",
+      "en": "While paused, monitoring continues; only push messages stop"
+    },
+    "widgetTip4": {
+      "zh": "若桌面找不到小部件，请先打开一次应用或重启桌面启动器",
+      "en": "If the widget is not listed, open the app once or restart the launcher"
+    }
   }
 }

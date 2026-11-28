@@ -68,7 +68,7 @@ void main() {
     'lib/pages/fnthink_remote_page.dart': 'pending',
     'lib/pages/keywords_page.dart': 'pending',
     'lib/pages/webhook_settings_item.dart': 'pending',
-    'lib/pages/widget_guide_page.dart': 'pending',
+    'lib/pages/widget_guide_page.dart': 'reviewed',
     'lib/pages/fnthink_peer_detail_page.dart': 'reviewed',
     'lib/pages/update_server_page.dart': 'pending',
     'lib/pages/backup_restore_page.dart': 'pending',
