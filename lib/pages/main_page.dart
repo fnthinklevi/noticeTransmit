@@ -588,6 +588,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
+      // 首页电量卡只在看得见的时候需要跟着变：后台停掉 30 秒一次的 `getBatteryStatus`，
+      // 回前台立刻补一次读数再恢复计时（否则会先显示后台前的旧值，最多 30 秒）。
+      _batteryService.startRefreshTimer();
+      unawaited(_batteryService.refreshStatus());
       // 监听状态与推送开关都存在**原生那一份**里，而这两处都不会往 Dart 推事件
       //（没有 EventChannel）。用户在通知栏或桌面小部件上按了暂停，回到软件必须重读一次 ——
       // 否则首页那一格还停在上一轮的绿色上，说的正是"一切照旧"那句假话。
@@ -631,6 +635,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         state == AppLifecycleState.hidden) {
       // 后台不留网络轮询：ROM 把它算成"耗电的常驻服务"。进程被杀之后的那一轮归 §4-9 那颗闹钟。
       _healthProbeTimer?.cancel();
+      // 首页电量卡也停：它每 30 秒发一次 `getBatteryStatus`，后台没人看这张卡。
+      // 回前台由 `resumed` 那一支补一次读数并重新起表。
+      _batteryService.stopRefreshTimer();
     }
   }
 
