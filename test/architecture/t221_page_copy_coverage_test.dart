@@ -10,7 +10,9 @@ import '../support/source_guards.dart';
 /// 这本台账是「哪些页已经复核过」的唯一清单：
 /// - 48 页缺一行、页文件不存在、状态写错，测试就红；
 /// - 标成 `reviewed` 的页必须在 `test/fixtures/t221_reviewed_copy.json`
-///   留下逐 key 的中英期望值，实际 ARB 与清单不一致也红。
+///   留下逐 key 的中英期望值，实际 ARB 与清单不一致也红；
+/// - 标成 `reviewed-noop` 的页是逐 key 复核后确认全部已是书面语的零改写页，
+///   不留值锁，但必须不在复核清单里（避免用空清单冒充改写）。
 ///
 /// 新增页面不在 T221 范围内；以后真的新增页面时，要同时补台账并说明。
 /// 词条数单独钉住：本任务只改值，不新增/删除 key。
@@ -55,7 +57,7 @@ void main() {
     'lib/pages/email_settings_page.dart': 'reviewed',
     'lib/pages/main_page.dart': 'reviewed',
     'lib/pages/notification_engine_page.dart': 'reviewed',
-    'lib/pages/app_channel_list_page.dart': 'pending',
+    'lib/pages/app_channel_list_page.dart': 'reviewed-noop',
     'lib/pages/fnthink_shortcuts_page.dart': 'reviewed',
     'lib/pages/notification_page.dart': 'reviewed',
     'lib/pages/remote_history_page.dart': 'pending',
@@ -90,9 +92,9 @@ void main() {
         reason: '台账里的页面不存在：${entry.key}',
       );
       expect(
-        const ['pending', 'reviewed'].contains(entry.value),
+        const ['pending', 'reviewed', 'reviewed-noop'].contains(entry.value),
         isTrue,
-        reason: '状态只许是 pending / reviewed：${entry.key}',
+        reason: '状态只许是 pending / reviewed / reviewed-noop：${entry.key}',
       );
     }
 
@@ -101,6 +103,13 @@ void main() {
       expect(coverage[page], 'reviewed', reason: '有复核清单却没在台账里标 reviewed：$page');
     }
     for (final entry in coverage.entries) {
+      if (entry.value == 'reviewed-noop') {
+        expect(
+          reviewedPages.contains(entry.key),
+          isFalse,
+          reason: '零改写页不该有复核清单：${entry.key}',
+        );
+      }
       if (entry.value != 'reviewed') continue;
       expect(
         reviewedPages.contains(entry.key),
