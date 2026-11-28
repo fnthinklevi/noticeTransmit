@@ -51,7 +51,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ok => '好的';
 
   @override
-  String get goSettings => '去设置';
+  String get goSettings => '前往设置';
 
   @override
   String get unknown => '未知';
@@ -2865,7 +2865,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notificationPermOffMsg =>
-      '通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。';
+      '通知读取权限未开启，应用无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限，再启动服务。';
 
   @override
   String get historyBlockAppWhitelistNote =>

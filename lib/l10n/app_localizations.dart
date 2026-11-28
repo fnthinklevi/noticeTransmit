@@ -179,7 +179,7 @@ abstract class AppLocalizations {
   /// No description provided for @goSettings.
   ///
   /// In zh, this message translates to:
-  /// **'去设置'**
+  /// **'前往设置'**
   String get goSettings;
 
   /// No description provided for @unknown.
@@ -5314,7 +5314,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationPermOffMsg.
   ///
   /// In zh, this message translates to:
-  /// **'通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。'**
+  /// **'通知读取权限未开启，应用无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限，再启动服务。'**
   String get notificationPermOffMsg;
 
   /// No description provided for @historyBlockAppWhitelistNote.

@@ -61,7 +61,7 @@ void main() {
     'lib/pages/remote_history_page.dart': 'pending',
     'lib/pages/rule_edit_widgets.dart': 'pending',
     'lib/pages/webhook_channel_list_page.dart': 'pending',
-    'lib/pages/main_page_dialogs.dart': 'pending',
+    'lib/pages/main_page_dialogs.dart': 'reviewed',
     'lib/pages/privacy_policy_page.dart': 'pending',
     'lib/pages/sms_monitor_settings_page.dart': 'pending',
     'lib/pages/fnthink_receive_page.dart': 'reviewed',
