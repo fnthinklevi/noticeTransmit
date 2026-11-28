@@ -1341,8 +1341,8 @@
     }
   },
   "deviceStatusShort": "Every line below comes from the same reading.",
-  "deviceStatusDesc": "Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here — it is not a value of 0.",
-  "deviceStatusSnapshotFailed": "No device snapshot (the native channel did not reply)",
+  "deviceStatusDesc": "Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here; it is not a value of 0.",
+  "deviceStatusSnapshotFailed": "No device snapshot (the native channel did not respond)",
   "deviceStatusRefresh": "Read again",
   "snapshotCapturedAt": "Read at {time}",
   "@snapshotCapturedAt": {
@@ -1453,8 +1453,8 @@
   "unreadableField": "Not readable on this device",
   "pushDeviceInfo": "Push device info",
   "pushDeviceInfoShort": "Sends this snapshot to your enabled channels as one notification.",
-  "pushDeviceInfoDesc": "Sends this snapshot to your enabled channels as one notification. It goes through the same delivery chain as alerts, so results show up in push history.",
-  "pushDeviceInfoSent": "Handed to your channels — see push history",
+  "pushDeviceInfoDesc": "Sends this snapshot to your enabled channels as one notification. It uses the same delivery chain as alerts, so delivery results appear in push history.",
+  "pushDeviceInfoSent": "Handed to your channels; see push history",
   "pushDeviceInfoBusy": "Pushing…",
   "testerSrcBlacklist": "Blacklist keyword hit: {kw}",
   "@testerSrcBlacklist": {

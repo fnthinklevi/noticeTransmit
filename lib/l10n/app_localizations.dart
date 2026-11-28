@@ -4798,19 +4798,19 @@ abstract class AppLocalizations {
   /// No description provided for @deviceStatusShort.
   ///
   /// In zh, this message translates to:
-  /// **'下面每一项都来自**同一次**读取。'**
+  /// **'以下每一项均来自**同一次**读取。'**
   String get deviceStatusShort;
 
   /// No description provided for @deviceStatusDesc.
   ///
   /// In zh, this message translates to:
-  /// **'下面每一项都来自**同一次**读取。显示「这台设备读不到」表示这个系统接口在本机不可用，不等于数值是 0。'**
+  /// **'以下每一项均来自**同一次**读取。显示「本机无法读取」表示该系统的接口在本机不可用，并不表示数值为 0。'**
   String get deviceStatusDesc;
 
   /// No description provided for @deviceStatusSnapshotFailed.
   ///
   /// In zh, this message translates to:
-  /// **'没读到设备快照（原生通道没有回话）'**
+  /// **'未读取到设备快照（原生通道无响应）'**
   String get deviceStatusSnapshotFailed;
 
   /// No description provided for @deviceStatusRefresh.
@@ -4996,7 +4996,7 @@ abstract class AppLocalizations {
   /// No description provided for @unreadableField.
   ///
   /// In zh, this message translates to:
-  /// **'这台设备读不到'**
+  /// **'本机无法读取'**
   String get unreadableField;
 
   /// No description provided for @pushDeviceInfo.
@@ -5008,19 +5008,19 @@ abstract class AppLocalizations {
   /// No description provided for @pushDeviceInfoShort.
   ///
   /// In zh, this message translates to:
-  /// **'把上面这份快照作为一条通知推到你启用的通道。'**
+  /// **'将上述快照作为一条通知推送至已启用的通道。'**
   String get pushDeviceInfoShort;
 
   /// No description provided for @pushDeviceInfoDesc.
   ///
   /// In zh, this message translates to:
-  /// **'把上面这份快照作为一条通知推到你启用的通道；走的是与告警同一条推送链，送达结果在推送历史里看。'**
+  /// **'将上述快照作为一条通知推送至已启用的通道；该通知与告警使用同一条推送链，送达结果可在推送历史中查看。'**
   String get pushDeviceInfoDesc;
 
   /// No description provided for @pushDeviceInfoSent.
   ///
   /// In zh, this message translates to:
-  /// **'已交给通道推送，结果见推送历史'**
+  /// **'已交由通道推送，结果见推送历史'**
   String get pushDeviceInfoSent;
 
   /// No description provided for @pushDeviceInfoBusy.

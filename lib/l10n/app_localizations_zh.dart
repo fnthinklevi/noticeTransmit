@@ -2560,14 +2560,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get deviceStatusShort => '下面每一项都来自**同一次**读取。';
+  String get deviceStatusShort => '以下每一项均来自**同一次**读取。';
 
   @override
   String get deviceStatusDesc =>
-      '下面每一项都来自**同一次**读取。显示「这台设备读不到」表示这个系统接口在本机不可用，不等于数值是 0。';
+      '以下每一项均来自**同一次**读取。显示「本机无法读取」表示该系统的接口在本机不可用，并不表示数值为 0。';
 
   @override
-  String get deviceStatusSnapshotFailed => '没读到设备快照（原生通道没有回话）';
+  String get deviceStatusSnapshotFailed => '未读取到设备快照（原生通道无响应）';
 
   @override
   String get deviceStatusRefresh => '重新读取';
@@ -2676,20 +2676,20 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get unreadableField => '这台设备读不到';
+  String get unreadableField => '本机无法读取';
 
   @override
   String get pushDeviceInfo => '推送设备信息';
 
   @override
-  String get pushDeviceInfoShort => '把上面这份快照作为一条通知推到你启用的通道。';
+  String get pushDeviceInfoShort => '将上述快照作为一条通知推送至已启用的通道。';
 
   @override
   String get pushDeviceInfoDesc =>
-      '把上面这份快照作为一条通知推到你启用的通道；走的是与告警同一条推送链，送达结果在推送历史里看。';
+      '将上述快照作为一条通知推送至已启用的通道；该通知与告警使用同一条推送链，送达结果可在推送历史中查看。';
 
   @override
-  String get pushDeviceInfoSent => '已交给通道推送，结果见推送历史';
+  String get pushDeviceInfoSent => '已交由通道推送，结果见推送历史';
 
   @override
   String get pushDeviceInfoBusy => '正在推送…';

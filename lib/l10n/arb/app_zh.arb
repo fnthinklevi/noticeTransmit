@@ -1340,9 +1340,9 @@
       }
     }
   },
-  "deviceStatusShort": "下面每一项都来自**同一次**读取。",
-  "deviceStatusDesc": "下面每一项都来自**同一次**读取。显示「这台设备读不到」表示这个系统接口在本机不可用，不等于数值是 0。",
-  "deviceStatusSnapshotFailed": "没读到设备快照（原生通道没有回话）",
+  "deviceStatusShort": "以下每一项均来自**同一次**读取。",
+  "deviceStatusDesc": "以下每一项均来自**同一次**读取。显示「本机无法读取」表示该系统的接口在本机不可用，并不表示数值为 0。",
+  "deviceStatusSnapshotFailed": "未读取到设备快照（原生通道无响应）",
   "deviceStatusRefresh": "重新读取",
   "snapshotCapturedAt": "读取于 {time}",
   "@snapshotCapturedAt": {
@@ -1450,11 +1450,11 @@
       }
     }
   },
-  "unreadableField": "这台设备读不到",
+  "unreadableField": "本机无法读取",
   "pushDeviceInfo": "推送设备信息",
-  "pushDeviceInfoShort": "把上面这份快照作为一条通知推到你启用的通道。",
-  "pushDeviceInfoDesc": "把上面这份快照作为一条通知推到你启用的通道；走的是与告警同一条推送链，送达结果在推送历史里看。",
-  "pushDeviceInfoSent": "已交给通道推送，结果见推送历史",
+  "pushDeviceInfoShort": "将上述快照作为一条通知推送至已启用的通道。",
+  "pushDeviceInfoDesc": "将上述快照作为一条通知推送至已启用的通道；该通知与告警使用同一条推送链，送达结果可在推送历史中查看。",
+  "pushDeviceInfoSent": "已交由通道推送，结果见推送历史",
   "pushDeviceInfoBusy": "正在推送…",
   "testerSrcBlacklist": "黑名单关键词命中：{kw}",
   "@testerSrcBlacklist": {

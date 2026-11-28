@@ -19,7 +19,7 @@ import '../test_setup.dart';
 ///
 /// 锁四件事：
 /// 1. **读不到 ≠ 0** —— 原生把未知表达成"缺字段 + `unavailable` 名单"，界面必须照着
-///    显示「这台设备读不到」；兜成 0 会把"存储读不到"画成"已用满"；
+///    显示「本机无法读取」；兜成 0 会把"存储读不到"画成"已用满"；
 /// 2. 通道整次没回话（返回 null）要单独说清楚，且这时**不给**推送按钮 —— 没有快照就
 ///    推一条空正文是凭空发通知；
 /// 3. 「推送设备信息」= 先落一条历史记录、再交给原生补推，顺序反了送达结果就没有落点；
@@ -92,14 +92,14 @@ void main() {
     expect(find.text('1 天 1 小时 0 分'), findsOneWidget);
   });
 
-  testWidgets('原生报告读不到的项显示「这台设备读不到」，不兜成 0', (tester) async {
+  testWidgets('原生报告读不到的项显示「本机无法读取」，不兜成 0', (tester) async {
     snapshotProvider = () => _fullSnapshot.copyWith(
       unavailable: const ['batteryTemperatureC', 'memoryAvailableMb'],
       drop: const ['batteryTemperatureC', 'memoryAvailableMb'],
     );
     await pumpPage(tester);
 
-    expect(find.text('这台设备读不到'), findsNWidgets(2));
+    expect(find.text('本机无法读取'), findsNWidgets(2));
     expect(find.text('0.0℃'), findsNothing, reason: '把未知画成 0.0℃ 就是编造读数');
     expect(find.textContaining('0.0 GB / 共'), findsNothing);
   });
@@ -108,7 +108,7 @@ void main() {
     snapshotProvider = () => null;
     await pumpPage(tester);
 
-    expect(find.text('没读到设备快照（原生通道没有回话）'), findsOneWidget);
+    expect(find.text('未读取到设备快照（原生通道无响应）'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('device-status-push')),
       findsNothing,

@@ -2678,11 +2678,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceStatusDesc =>
-      'Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here — it is not a value of 0.';
+      'Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here; it is not a value of 0.';
 
   @override
   String get deviceStatusSnapshotFailed =>
-      'No device snapshot (the native channel did not reply)';
+      'No device snapshot (the native channel did not respond)';
 
   @override
   String get deviceStatusRefresh => 'Read again';
@@ -2802,10 +2802,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pushDeviceInfoDesc =>
-      'Sends this snapshot to your enabled channels as one notification. It goes through the same delivery chain as alerts, so results show up in push history.';
+      'Sends this snapshot to your enabled channels as one notification. It uses the same delivery chain as alerts, so delivery results appear in push history.';
 
   @override
-  String get pushDeviceInfoSent => 'Handed to your channels — see push history';
+  String get pushDeviceInfoSent => 'Handed to your channels; see push history';
 
   @override
   String get pushDeviceInfoBusy => 'Pushing…';

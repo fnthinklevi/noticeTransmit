@@ -66,7 +66,7 @@ void main() {
     service = TemperatureService(store: store);
     GetIt.instance.registerSingleton<TemperatureService>(service);
     // 顶部实时读数要读 T17 的快照：注册真的 DeviceInfoService 就够 —— 通道 mock 回 null，
-    // 页面必须显示「这台设备读不到」，而不是 0℃ / 0%（那一格本来就有的判据）。
+    // 页面必须显示「本机无法读取」，而不是 0℃ / 0%（那一格本来就有的判据）。
     GetIt.instance.registerSingleton<DeviceInfoService>(DeviceInfoService());
     await service.loadSettings();
   });
@@ -357,12 +357,12 @@ void main() {
       matching: find.byType(CupertinoSwitch),
     );
 
-    testWidgets('快照读不到 ⇒ 明写"这台设备读不到"，不许画 0℃', (tester) async {
+    testWidgets('快照读不到 ⇒ 明写"本机无法读取"，不许画 0℃', (tester) async {
       stubSnapshot(null);
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('这台设备读不到'), findsOneWidget);
+      expect(find.text('本机无法读取'), findsOneWidget);
       expect(find.text('电池温度'), findsOneWidget, reason: '要说清这个"读不到"是谁的读数');
       expect(find.textContaining('0.0℃'), findsNothing);
     });
@@ -373,7 +373,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('41.3℃'), findsOneWidget);
-      expect(find.text('这台设备读不到'), findsNothing);
+      expect(find.text('本机无法读取'), findsNothing);
     });
 
     testWidgets('下拉壳接的是本页真的重读，不是空函数（换壳之后手势的作者要在）', (tester) async {

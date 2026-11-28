@@ -52,7 +52,7 @@ void main() {
     service = DeviceStateService(store: store);
     GetIt.instance.registerSingleton<DeviceStateService>(service);
     // 顶部实时读数要读 T17 的快照：注册真的 DeviceInfoService 就够 —— 通道 mock 回 null，
-    // 页面必须显示「这台设备读不到」，而不是 0℃ / 0%（那一格本来就有的判据）。
+    // 页面必须显示「本机无法读取」，而不是 0℃ / 0%（那一格本来就有的判据）。
     GetIt.instance.registerSingleton<DeviceInfoService>(DeviceInfoService());
     await service.loadSettings();
   });
@@ -263,7 +263,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('这台设备读不到'), findsOneWidget);
+      expect(find.text('本机无法读取'), findsOneWidget);
       expect(find.text('屏幕亮度'), findsOneWidget);
       expect(find.text('0%'), findsNothing, reason: '0% 会被读成"屏幕真的全黑"');
     });

@@ -84,7 +84,7 @@ void main() {
       }
     });
 
-    test('读不到时显示「这台设备读不到」，不许拿 0 顶上', () {
+    test('读不到时显示「本机无法读取」，不许拿 0 顶上', () {
       for (final rel in readoutPages) {
         expect(
           code(rel).contains('l10n.unreadableField'),

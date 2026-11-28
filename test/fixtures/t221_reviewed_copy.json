@@ -1870,5 +1870,35 @@
       "zh": "不适用（该应用已被排除）",
       "en": "excluded (app excluded)"
     }
+  },
+  "lib/pages/device_snapshot_page.dart": {
+    "pushDeviceInfoSent": {
+      "zh": "已交由通道推送，结果见推送历史",
+      "en": "Handed to your channels; see push history"
+    },
+    "unreadableField": {
+      "zh": "本机无法读取",
+      "en": "Not readable on this device"
+    },
+    "deviceStatusShort": {
+      "zh": "以下每一项均来自**同一次**读取。",
+      "en": "Every line below comes from the same reading."
+    },
+    "deviceStatusDesc": {
+      "zh": "以下每一项均来自**同一次**读取。显示「本机无法读取」表示该系统的接口在本机不可用，并不表示数值为 0。",
+      "en": "Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here; it is not a value of 0."
+    },
+    "deviceStatusSnapshotFailed": {
+      "zh": "未读取到设备快照（原生通道无响应）",
+      "en": "No device snapshot (the native channel did not respond)"
+    },
+    "pushDeviceInfoShort": {
+      "zh": "将上述快照作为一条通知推送至已启用的通道。",
+      "en": "Sends this snapshot to your enabled channels as one notification."
+    },
+    "pushDeviceInfoDesc": {
+      "zh": "将上述快照作为一条通知推送至已启用的通道；该通知与告警使用同一条推送链，送达结果可在推送历史中查看。",
+      "en": "Sends this snapshot to your enabled channels as one notification. It uses the same delivery chain as alerts, so delivery results appear in push history."
+    }
   }
 }

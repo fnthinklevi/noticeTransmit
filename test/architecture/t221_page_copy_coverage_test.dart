@@ -39,7 +39,7 @@ void main() {
     'lib/pages/permission_settings_page.dart': 'reviewed',
     'lib/pages/temperature_page.dart': 'reviewed',
     'lib/pages/rule_tester_page.dart': 'reviewed',
-    'lib/pages/device_snapshot_page.dart': 'pending',
+    'lib/pages/device_snapshot_page.dart': 'reviewed',
     'lib/pages/channel_status_page.dart': 'reviewed',
     'lib/pages/fnthink_endpoint_page.dart': 'reviewed',
     'lib/pages/rule_list_page.dart': 'pending',
