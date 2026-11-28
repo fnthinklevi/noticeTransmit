@@ -7347,19 +7347,19 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelNameHint.
   ///
   /// In zh, this message translates to:
-  /// **'给这条通道起个名'**
+  /// **'为此通道命名'**
   String get fnthinkChannelNameHint;
 
   /// No description provided for @fnthinkChannelNameEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'名称不能空'**
+  /// **'名称不能为空'**
   String get fnthinkChannelNameEmpty;
 
   /// No description provided for @fnthinkChannelTargetKind.
   ///
   /// In zh, this message translates to:
-  /// **'转到哪儿'**
+  /// **'转发目标'**
   String get fnthinkChannelTargetKind;
 
   /// No description provided for @fnthinkChannelTargetKindDevice.
@@ -7383,31 +7383,31 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelTargetEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'目标不能空'**
+  /// **'目标不能为空'**
   String get fnthinkChannelTargetEmpty;
 
   /// No description provided for @fnthinkChannelTargetBadScheme.
   ///
   /// In zh, this message translates to:
-  /// **'webhook 目标必须以 https:// 开头'**
+  /// **'Webhook 目标必须以 https:// 开头'**
   String get fnthinkChannelTargetBadScheme;
 
   /// No description provided for @fnthinkChannelNoTargetPicked.
   ///
   /// In zh, this message translates to:
-  /// **'还没有勾选过任何设备，先到「设备配对」里勾一台。'**
+  /// **'尚未勾选任何设备，请先前往「设备配对」勾选一台。'**
   String get fnthinkChannelNoTargetPicked;
 
   /// No description provided for @fnthinkChannelTargetNotChecked.
   ///
   /// In zh, this message translates to:
-  /// **'这一台还没勾选为转发目标'**
+  /// **'此设备尚未勾选为转发目标'**
   String get fnthinkChannelTargetNotChecked;
 
   /// No description provided for @fnthinkChannelTargetPick.
   ///
   /// In zh, this message translates to:
-  /// **'从名单里挑一台'**
+  /// **'从名单中选择一台设备'**
   String get fnthinkChannelTargetPick;
 
   /// No description provided for @fnthinkChannelEnabled.
@@ -7437,13 +7437,13 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelProbeUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'webhook 那一支从这一页测不了（发送实现在原生那侧），所以只保存、不探测。'**
+  /// **'Webhook 目标无法从本页测试（发送实现在原生侧），因此仅保存、不探测。'**
   String get fnthinkChannelProbeUnavailable;
 
   /// No description provided for @fnthinkChannelProbeWhy.
   ///
   /// In zh, this message translates to:
-  /// **'会真的往它发一条（这一族没有不打扰对面的探针），对面会收到。'**
+  /// **'将实际向对端发送一条消息（此通道族无不打扰对端的探针），对端会收到该消息。'**
   String get fnthinkChannelProbeWhy;
 
   /// No description provided for @fnthinkChannelProbeTitle.
@@ -7455,25 +7455,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelProbeBody.
   ///
   /// In zh, this message translates to:
-  /// **'这是从对面那台设备的通道设置里发出的一条测试。'**
+  /// **'这是一条从对端设备通道设置中发出的测试消息。'**
   String get fnthinkChannelProbeBody;
 
   /// No description provided for @fnthinkChannelProbeOk.
   ///
   /// In zh, this message translates to:
-  /// **'已发出（{ms} 毫秒）—— 徽标记的就是这一次。'**
+  /// **'已发送（{ms} 毫秒），徽标记录的就是本次结果。'**
   String fnthinkChannelProbeOk(Object ms);
 
   /// No description provided for @fnthinkChannelProbeRejected.
   ///
   /// In zh, this message translates to:
-  /// **'对面没接下这一条（没报错，但状态不是 accepted）。'**
+  /// **'对端未接受此消息（无报错，但状态不是 accepted）。'**
   String get fnthinkChannelProbeRejected;
 
   /// No description provided for @fnthinkChannelProbeFail.
   ///
   /// In zh, this message translates to:
-  /// **'没发出去：{reason}'**
+  /// **'未发送：{reason}'**
   String fnthinkChannelProbeFail(Object reason);
 
   /// No description provided for @fnthinkChannelSave.

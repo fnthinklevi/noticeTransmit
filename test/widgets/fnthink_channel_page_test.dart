@@ -352,7 +352,7 @@ void main() {
     final store = _MemoryStore(targets: const []);
     await pump(tester, FnthinkChannelSettingsPage(service: store));
 
-    expect(find.text('还没有勾选过任何设备，先到「设备配对」里勾一台。'), findsOneWidget);
+    expect(find.text('尚未勾选任何设备，请先前往「设备配对」勾选一台。'), findsOneWidget);
     final target = tester.widget<CupertinoButton>(
       find.byKey(const ValueKey('fnthink-channel-target')),
     );

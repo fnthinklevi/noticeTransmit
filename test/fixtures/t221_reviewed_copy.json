@@ -1396,5 +1396,63 @@
       "zh": "徽标记录的是最近一次「仅探测/探测并保存」的结果，并非自动探测：幻念通道无法在不打扰对端的情况下判断连通性。",
       "en": "The badge records the last \"probe only\" or \"probe and save\" result, not an automatic probe: a Fnthink channel cannot check reachability without disturbing the other end."
     }
+  },
+  "lib/pages/fnthink_channel_settings_page.dart": {
+    "fnthinkChannelNameEmpty": {
+      "zh": "名称不能为空",
+      "en": "The name cannot be empty"
+    },
+    "fnthinkChannelTargetEmpty": {
+      "zh": "目标不能为空",
+      "en": "The target cannot be empty"
+    },
+    "fnthinkChannelTargetKind": {
+      "zh": "转发目标",
+      "en": "Forwarding target"
+    },
+    "fnthinkChannelProbeBody": {
+      "zh": "这是一条从对端设备通道设置中发出的测试消息。",
+      "en": "A test message sent from the channel settings on the other device."
+    },
+    "fnthinkChannelProbeFail": {
+      "zh": "未发送：{reason}",
+      "en": "Not sent: {reason}"
+    },
+    "fnthinkChannelProbeOk": {
+      "zh": "已发送（{ms} 毫秒），徽标记录的就是本次结果。",
+      "en": "Sent ({ms} ms); this is what the badge records."
+    },
+    "fnthinkChannelProbeRejected": {
+      "zh": "对端未接受此消息（无报错，但状态不是 accepted）。",
+      "en": "The other side did not accept it (no error, but the status is not accepted)."
+    },
+    "fnthinkChannelTargetNotChecked": {
+      "zh": "此设备尚未勾选为转发目标",
+      "en": "This device is not checked as a forwarding target"
+    },
+    "fnthinkChannelTargetBadScheme": {
+      "zh": "Webhook 目标必须以 https:// 开头",
+      "en": "A webhook target must start with https://"
+    },
+    "fnthinkChannelNameHint": {
+      "zh": "为此通道命名",
+      "en": "Name this channel"
+    },
+    "fnthinkChannelTargetPick": {
+      "zh": "从名单中选择一台设备",
+      "en": "Pick a device from the list"
+    },
+    "fnthinkChannelNoTargetPicked": {
+      "zh": "尚未勾选任何设备，请先前往「设备配对」勾选一台。",
+      "en": "No device is checked yet; check one under Device pairing first."
+    },
+    "fnthinkChannelProbeWhy": {
+      "zh": "将实际向对端发送一条消息（此通道族无不打扰对端的探针），对端会收到该消息。",
+      "en": "This really sends one to it (the family has no non-intrusive probe); the other side will receive it."
+    },
+    "fnthinkChannelProbeUnavailable": {
+      "zh": "Webhook 目标无法从本页测试（发送实现在原生侧），因此仅保存、不探测。",
+      "en": "A webhook target cannot be probed from this page (its sender lives on the native side), so this only saves."
+    }
   }
 }

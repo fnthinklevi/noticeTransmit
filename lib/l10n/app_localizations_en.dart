@@ -4215,7 +4215,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkChannelNameEmpty => 'The name cannot be empty';
 
   @override
-  String get fnthinkChannelTargetKind => 'Where to';
+  String get fnthinkChannelTargetKind => 'Forwarding target';
 
   @override
   String get fnthinkChannelTargetKindDevice => 'A checked device';
@@ -4235,7 +4235,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkChannelNoTargetPicked =>
-      'No device is checked yet — check one under Device pairing first.';
+      'No device is checked yet; check one under Device pairing first.';
 
   @override
   String get fnthinkChannelTargetNotChecked =>
@@ -4258,7 +4258,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkChannelProbeUnavailable =>
-      'A webhook target can not be probed from this page (its sender lives on the native side), so this only saves.';
+      'A webhook target cannot be probed from this page (its sender lives on the native side), so this only saves.';
 
   @override
   String get fnthinkChannelProbeWhy =>
@@ -4269,11 +4269,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkChannelProbeBody =>
-      'A test sent from the channel settings on the other device.';
+      'A test message sent from the channel settings on the other device.';
 
   @override
   String fnthinkChannelProbeOk(Object ms) {
-    return 'Sent ($ms ms) - this is what the badge records.';
+    return 'Sent ($ms ms); this is what the badge records.';
   }
 
   @override

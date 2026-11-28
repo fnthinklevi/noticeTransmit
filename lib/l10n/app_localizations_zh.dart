@@ -4010,13 +4010,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkChannelName => '名称';
 
   @override
-  String get fnthinkChannelNameHint => '给这条通道起个名';
+  String get fnthinkChannelNameHint => '为此通道命名';
 
   @override
-  String get fnthinkChannelNameEmpty => '名称不能空';
+  String get fnthinkChannelNameEmpty => '名称不能为空';
 
   @override
-  String get fnthinkChannelTargetKind => '转到哪儿';
+  String get fnthinkChannelTargetKind => '转发目标';
 
   @override
   String get fnthinkChannelTargetKindDevice => '一台已勾选的设备';
@@ -4028,19 +4028,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkChannelTarget => '目标';
 
   @override
-  String get fnthinkChannelTargetEmpty => '目标不能空';
+  String get fnthinkChannelTargetEmpty => '目标不能为空';
 
   @override
-  String get fnthinkChannelTargetBadScheme => 'webhook 目标必须以 https:// 开头';
+  String get fnthinkChannelTargetBadScheme => 'Webhook 目标必须以 https:// 开头';
 
   @override
-  String get fnthinkChannelNoTargetPicked => '还没有勾选过任何设备，先到「设备配对」里勾一台。';
+  String get fnthinkChannelNoTargetPicked => '尚未勾选任何设备，请先前往「设备配对」勾选一台。';
 
   @override
-  String get fnthinkChannelTargetNotChecked => '这一台还没勾选为转发目标';
+  String get fnthinkChannelTargetNotChecked => '此设备尚未勾选为转发目标';
 
   @override
-  String get fnthinkChannelTargetPick => '从名单里挑一台';
+  String get fnthinkChannelTargetPick => '从名单中选择一台设备';
 
   @override
   String get fnthinkChannelEnabled => '启用这条通道';
@@ -4056,28 +4056,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkChannelProbeUnavailable =>
-      'webhook 那一支从这一页测不了（发送实现在原生那侧），所以只保存、不探测。';
+      'Webhook 目标无法从本页测试（发送实现在原生侧），因此仅保存、不探测。';
 
   @override
-  String get fnthinkChannelProbeWhy => '会真的往它发一条（这一族没有不打扰对面的探针），对面会收到。';
+  String get fnthinkChannelProbeWhy => '将实际向对端发送一条消息（此通道族无不打扰对端的探针），对端会收到该消息。';
 
   @override
   String get fnthinkChannelProbeTitle => '通道测试';
 
   @override
-  String get fnthinkChannelProbeBody => '这是从对面那台设备的通道设置里发出的一条测试。';
+  String get fnthinkChannelProbeBody => '这是一条从对端设备通道设置中发出的测试消息。';
 
   @override
   String fnthinkChannelProbeOk(Object ms) {
-    return '已发出（$ms 毫秒）—— 徽标记的就是这一次。';
+    return '已发送（$ms 毫秒），徽标记录的就是本次结果。';
   }
 
   @override
-  String get fnthinkChannelProbeRejected => '对面没接下这一条（没报错，但状态不是 accepted）。';
+  String get fnthinkChannelProbeRejected => '对端未接受此消息（无报错，但状态不是 accepted）。';
 
   @override
   String fnthinkChannelProbeFail(Object reason) {
-    return '没发出去：$reason';
+    return '未发送：$reason';
   }
 
   @override
