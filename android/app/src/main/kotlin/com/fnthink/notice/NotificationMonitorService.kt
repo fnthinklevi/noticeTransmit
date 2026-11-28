@@ -1402,7 +1402,7 @@ class NotificationMonitorService : NotificationListenerService() {
             if (batteryChangedReceiver == null) {
                 startBatteryMonitoring()
             }
-            batteryMonitor.startPolling()
+            batteryMonitor.syncPolling()
             writeLiveness(running = true, sync = true)
             refreshWidgetsQuietly()
             Log.i(TAG, "Monitoring enabled")

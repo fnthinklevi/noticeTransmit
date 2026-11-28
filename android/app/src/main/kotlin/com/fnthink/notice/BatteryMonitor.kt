@@ -37,10 +37,12 @@ class BatteryMonitor(private val context: Context) {
 
     fun setTemperatureEnabled(enabled: Boolean) {
         temperatureEnabled = enabled
+        syncPolling()
     }
 
     fun setDeviceStateEnabled(enabled: Boolean) {
         deviceStateEnabled = enabled
+        syncPolling()
     }
 
     /**
@@ -63,8 +65,14 @@ class BatteryMonitor(private val context: Context) {
     )
 
     private val handler = Handler(Looper.getMainLooper())
+
+    /** 只有规则真的存在时才让这枚闹钟在队列里；否则每分钟醒一次纯属白烧。 */
+    @Volatile
+    private var polling = false
+
     private val pollingRunnable = object : Runnable {
         override fun run() {
+            if (!polling) return
             if (hasRules()) {
                 val batteryInfo = checkBatteryAndNotify()
                 if (batteryInfo != null) {
@@ -72,7 +80,7 @@ class BatteryMonitor(private val context: Context) {
                     Log.d(TAG, "Battery notification via polling: ${batteryInfo.title}")
                 }
             }
-            handler.postDelayed(this, POLLING_INTERVAL_MS)
+            if (polling) handler.postDelayed(this, POLLING_INTERVAL_MS)
         }
     }
 
@@ -82,6 +90,7 @@ class BatteryMonitor(private val context: Context) {
 
     fun setEnabled(enabled: Boolean) {
         _enabled = enabled
+        syncPolling()
     }
 
     fun setNotificationCallback(callback: (NotificationInfo) -> Unit) {
@@ -97,15 +106,29 @@ class BatteryMonitor(private val context: Context) {
             Log.e(TAG, "Failed to parse battery rules", e)
             batteryRules = emptyList()
         }
+        syncPolling()
+    }
+
+    /**
+     * 规则 / 总开关每变一次就重算一次"要不要轮询"。
+     *
+     * 温度没有系统广播，只能靠轮询；但**一条规则都没有**时轮询没有意义：
+     * 旧实现即使零规则也每 60 秒醒一次、进一次 `hasRules()` 再排下一次。这里把
+     * "有没有活干"变成轮询的准入条件，规则恢复时由各个 update/set 入口重新拉起。
+     */
+    fun syncPolling() {
+        if (_enabled && hasRules()) startPolling() else stopPolling()
     }
 
     fun startPolling() {
-        stopPolling()
+        if (polling) return
+        polling = true
         handler.post(pollingRunnable)
         Log.d(TAG, "Battery polling started (60s interval)")
     }
 
     fun stopPolling() {
+        polling = false
         handler.removeCallbacks(pollingRunnable)
         Log.d(TAG, "Battery polling stopped")
     }
@@ -276,13 +299,15 @@ class BatteryMonitor(private val context: Context) {
     }
 
     /** v1.59：更新温度规则列表（独立于电量规则，由 TemperatureService 写 prefs 镜像同步） */
-    fun updateTemperatureRules(rulesJson: String) { try {
-        val jsonArray = org.json.JSONArray(rulesJson)
-        temperatureRules = parseBatteryRules(jsonArray)
-        Log.d(TAG, "Temperature rules updated: ${temperatureRules.size} rules")
-    } catch (e: Exception) {
-        Log.e(TAG, "Failed to parse temperature rules", e)
-    }
+    fun updateTemperatureRules(rulesJson: String) {
+        try {
+            val jsonArray = org.json.JSONArray(rulesJson)
+            temperatureRules = parseBatteryRules(jsonArray)
+            Log.d(TAG, "Temperature rules updated: ${temperatureRules.size} rules")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse temperature rules", e)
+        }
+        syncPolling()
     }
 
     /**
@@ -299,6 +324,7 @@ class BatteryMonitor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse device-state rules", e)
         }
+        syncPolling()
     }
 
     /**
