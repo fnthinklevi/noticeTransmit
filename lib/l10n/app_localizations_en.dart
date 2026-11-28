@@ -5872,7 +5872,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteHistoryAll => 'All';
 
   @override
-  String get remoteHistoryEmpty => 'No remote execution yet.';
+  String get remoteHistoryEmpty => 'No remote execution records yet.';
 
   @override
   String get fnthinkRemoteCommandRowTitle => 'A remote command';
@@ -6145,15 +6145,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteHistoryCancelNote =>
-      'Cancelling only works before execution starts; one already running is past that window.';
+      'Cancelling only applies before execution starts; a record already running is past this window.';
 
   @override
   String get remoteHistoryRemoved =>
-      'This entry is now gone from this device\'s history.';
+      'This entry has been removed from this device\'s history.';
 
   @override
   String get remoteHistoryBoundary =>
-      'This history is this device\'s own record: both received and sent. Credentials and command text never enter it — they ride inside that message\'s encrypted body, while receipts and audit rows each keep their own copy.';
+      'This history records only this device\'s own copy: both received and sent commands. Credentials and command text never enter this layer; they travel inside that message\'s encrypted body, while receipts and audit rows each keep their own copy.';
 
   @override
   String get remoteHistoryBoundaryShort =>

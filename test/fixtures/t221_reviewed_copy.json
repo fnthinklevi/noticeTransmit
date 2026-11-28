@@ -2006,5 +2006,39 @@
       "zh": "当前模式：允许触发；仅已选应用的通知正文可触发本机远程指令",
       "en": "Mode: Allow; only the notification content of selected apps can trigger remote commands on this device"
     }
+  },
+  "lib/pages/remote_history_page.dart": {
+    "remoteHistoryCancel": {
+      "zh": "取消此条",
+      "en": "Cancel this one"
+    },
+    "remoteHistoryCancelNote": {
+      "zh": "取消仅对尚未开始执行的记录有效；已开始执行的记录不受此窗口影响。",
+      "en": "Cancelling only applies before execution starts; a record already running is past this window."
+    },
+    "remoteHistoryRemoved": {
+      "zh": "此条已从本机历史中删除。",
+      "en": "This entry has been removed from this device's history."
+    },
+    "remoteHistoryEmpty": {
+      "zh": "暂无远程执行记录。",
+      "en": "No remote execution records yet."
+    },
+    "remoteHistoryBoundaryShort": {
+      "zh": "本页仅记录本机这一份",
+      "en": "This page records only this device's own copy"
+    },
+    "remoteHistoryBoundary": {
+      "zh": "远程执行历史仅记录本机这一份：收到的与发出的指令均予记录。凭据与指令正文不进入本层，而是随该消息的密文正文传递；回执与留痕各自保存。",
+      "en": "This history records only this device's own copy: both received and sent commands. Credentials and command text never enter this layer; they travel inside that message's encrypted body, while receipts and audit rows each keep their own copy."
+    },
+    "remoteHistoryLocalTrigger": {
+      "zh": "由本机应用通知触发（无远端发送方）",
+      "en": "Triggered by this device's own app notification (no remote sender)"
+    },
+    "remoteReasonHelpTitle": {
+      "zh": "此条报错说明",
+      "en": "About this error"
+    }
   }
 }

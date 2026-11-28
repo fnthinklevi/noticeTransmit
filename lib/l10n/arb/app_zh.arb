@@ -3296,7 +3296,7 @@
   "remoteHistoryIn": "收到的指令",
   "remoteHistoryOut": "发出的指令",
   "remoteHistoryAll": "全部",
-  "remoteHistoryEmpty": "还没有任何远程执行记录。",
+  "remoteHistoryEmpty": "暂无远程执行记录。",
   "fnthinkRemoteCommandRowTitle": "一条远程指令",
   "fnthinkRetentionLabel": "收件保留",
   "fnthinkRetentionDaysUnit": "天",
@@ -3356,7 +3356,7 @@
       }
     }
   },
-  "remoteHistoryLocalTrigger": "本机应用的通知触发的（没有远端发送方）",
+  "remoteHistoryLocalTrigger": "由本机应用通知触发（无远端发送方）",
   "remoteReasonSwitchOff": "远程执行总开关关着",
   "remoteReasonLocalTriggerOff": "本机通知触发那颗开关关着",
   "remoteReasonAppNotAllowed": "这条通知来自没被允许触发的那类应用",
@@ -3558,11 +3558,11 @@
       }
     }
   },
-  "remoteHistoryCancel": "取消这一条",
-  "remoteHistoryCancelNote": "取消只对还没开始执行的那一条有用；已经开始执行的不受这条窗口影响。",
-  "remoteHistoryRemoved": "这一条已从本机历史里删掉。",
-  "remoteHistoryBoundary": "远程执行历史只记本机这一份：收到的与发出的都记。凭据与指令正文不进这一层——它们随那条消息的密文正文走，回执与留痕各存自己的那一份。",
-  "remoteHistoryBoundaryShort": "这一页只记本机这一份",
+  "remoteHistoryCancel": "取消此条",
+  "remoteHistoryCancelNote": "取消仅对尚未开始执行的记录有效；已开始执行的记录不受此窗口影响。",
+  "remoteHistoryRemoved": "此条已从本机历史中删除。",
+  "remoteHistoryBoundary": "远程执行历史仅记录本机这一份：收到的与发出的指令均予记录。凭据与指令正文不进入本层，而是随该消息的密文正文传递；回执与留痕各自保存。",
+  "remoteHistoryBoundaryShort": "本页仅记录本机这一份",
   "fnthinkPeersBoundaryShort": "此处记录本机已同意的设备",
   "fnthinkPairPeerPendingNoteShort": "提交后仅在对端新增一条待确认请求",
   "fnthinkPairApprovedOneWayShort": "双向发送已开通，逐项权限仍需对端自行勾选",
@@ -3746,7 +3746,7 @@
       }
     }
   },
-  "remoteReasonHelpTitle": "这条报错说明",
+  "remoteReasonHelpTitle": "此条报错说明",
   "remoteReasonHelpShort": "报错说明与常见原因",
   "remoteReasonHelpIntro": "下面这些码会出现在「理由」那一格；没有列出的码属于本机还没写过说明的那一类，它会连同原文一起显示，不会变成一句猜出来的原因。",
   "remoteReasonHelpFamilyNote": "形如「族：细节」的码：族说明原因，细节原样带出（本机不替它改写）。",

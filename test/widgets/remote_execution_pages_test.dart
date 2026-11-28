@@ -1181,7 +1181,7 @@ void main() {
       expect(find.textContaining('已开启'), findsOneWidget);
     });
 
-    testWidgets('本机触发的���一行没有对端 ⇒ 说清"没有远端发送方"', (tester) async {
+    testWidgets('本机触发的���一行没有对端 ⇒ 说清"无远端发送方"', (tester) async {
       await pumpHistory(
         tester,
         loadRecords: (_) async => [
@@ -1193,7 +1193,7 @@ void main() {
           ),
         ],
       );
-      expect(find.textContaining('没有远端发送方'), findsWidgets);
+      expect(find.textContaining('无远端发送方'), findsWidgets);
     });
   });
 

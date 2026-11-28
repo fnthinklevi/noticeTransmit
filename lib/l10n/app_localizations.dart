@@ -9950,7 +9950,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteHistoryEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'还没有任何远程执行记录。'**
+  /// **'暂无远程执行记录。'**
   String get remoteHistoryEmpty;
 
   /// No description provided for @fnthinkRemoteCommandRowTitle.
@@ -10058,7 +10058,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteHistoryLocalTrigger.
   ///
   /// In zh, this message translates to:
-  /// **'本机应用的通知触发的（没有远端发送方）'**
+  /// **'由本机应用通知触发（无远端发送方）'**
   String get remoteHistoryLocalTrigger;
 
   /// No description provided for @remoteReasonSwitchOff.
@@ -10346,31 +10346,31 @@ abstract class AppLocalizations {
   /// No description provided for @remoteHistoryCancel.
   ///
   /// In zh, this message translates to:
-  /// **'取消这一条'**
+  /// **'取消此条'**
   String get remoteHistoryCancel;
 
   /// No description provided for @remoteHistoryCancelNote.
   ///
   /// In zh, this message translates to:
-  /// **'取消只对还没开始执行的那一条有用；已经开始执行的不受这条窗口影响。'**
+  /// **'取消仅对尚未开始执行的记录有效；已开始执行的记录不受此窗口影响。'**
   String get remoteHistoryCancelNote;
 
   /// No description provided for @remoteHistoryRemoved.
   ///
   /// In zh, this message translates to:
-  /// **'这一条已从本机历史里删掉。'**
+  /// **'此条已从本机历史中删除。'**
   String get remoteHistoryRemoved;
 
   /// No description provided for @remoteHistoryBoundary.
   ///
   /// In zh, this message translates to:
-  /// **'远程执行历史只记本机这一份：收到的与发出的都记。凭据与指令正文不进这一层——它们随那条消息的密文正文走，回执与留痕各存自己的那一份。'**
+  /// **'远程执行历史仅记录本机这一份：收到的与发出的指令均予记录。凭据与指令正文不进入本层，而是随该消息的密文正文传递；回执与留痕各自保存。'**
   String get remoteHistoryBoundary;
 
   /// No description provided for @remoteHistoryBoundaryShort.
   ///
   /// In zh, this message translates to:
-  /// **'这一页只记本机这一份'**
+  /// **'本页仅记录本机这一份'**
   String get remoteHistoryBoundaryShort;
 
   /// No description provided for @fnthinkPeersBoundaryShort.
@@ -10742,7 +10742,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteReasonHelpTitle.
   ///
   /// In zh, this message translates to:
-  /// **'这条报错说明'**
+  /// **'此条报错说明'**
   String get remoteReasonHelpTitle;
 
   /// No description provided for @remoteReasonHelpShort.
