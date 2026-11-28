@@ -1013,7 +1013,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webhookDesc1 =>
-      'Support multiple Webhook channels with independent switches';
+      'Multiple Webhook channels can be configured at once, each with its own switch';
 
   @override
   String get webhookDesc2 => 'Auto-detect WeCom, DingTalk, Feishu formats';

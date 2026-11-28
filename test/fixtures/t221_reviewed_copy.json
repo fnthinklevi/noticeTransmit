@@ -2054,5 +2054,15 @@
       "zh": "例如 22:00（当日到点推送）",
       "en": "e.g. 22:00 (push when due)"
     }
+  },
+  "lib/pages/webhook_channel_list_page.dart": {
+    "webhookDesc1": {
+      "zh": "支持同时配置多个 Webhook 通道，每个通道均可独立开关",
+      "en": "Multiple Webhook channels can be configured at once, each with its own switch"
+    },
+    "webhookDesc3": {
+      "zh": "新增通道默认启用",
+      "en": "Newly added channels are enabled by default"
+    }
   }
 }

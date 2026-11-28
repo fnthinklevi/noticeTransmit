@@ -972,13 +972,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addChannel => '添加通道';
 
   @override
-  String get webhookDesc1 => '支持同时配置多个 Webhook 通道，每个通道独立开关';
+  String get webhookDesc1 => '支持同时配置多个 Webhook 通道，每个通道均可独立开关';
 
   @override
   String get webhookDesc2 => '自动识别企业微信、钉钉、飞书等平台格式';
 
   @override
-  String get webhookDesc3 => '新添加的通道默认启用';
+  String get webhookDesc3 => '新增通道默认启用';
 
   @override
   String get webhookChannelNameHint => '可选，如 企业微信·通知';

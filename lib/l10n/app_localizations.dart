@@ -1846,7 +1846,7 @@ abstract class AppLocalizations {
   /// No description provided for @webhookDesc1.
   ///
   /// In zh, this message translates to:
-  /// **'支持同时配置多个 Webhook 通道，每个通道独立开关'**
+  /// **'支持同时配置多个 Webhook 通道，每个通道均可独立开关'**
   String get webhookDesc1;
 
   /// No description provided for @webhookDesc2.
@@ -1858,7 +1858,7 @@ abstract class AppLocalizations {
   /// No description provided for @webhookDesc3.
   ///
   /// In zh, this message translates to:
-  /// **'新添加的通道默认启用'**
+  /// **'新增通道默认启用'**
   String get webhookDesc3;
 
   /// No description provided for @webhookChannelNameHint.

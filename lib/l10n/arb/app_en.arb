@@ -541,7 +541,7 @@
   "webhookErrUrlInvalid": "Save failed: the Webhook URL must start with http(s)://",
   "webhookErrSecretRequired": "Save failed: this platform requires a credential (signing secret or token) - requests would be rejected",
   "addChannel": "Add Channel",
-  "webhookDesc1": "Support multiple Webhook channels with independent switches",
+  "webhookDesc1": "Multiple Webhook channels can be configured at once, each with its own switch",
   "webhookDesc2": "Auto-detect WeCom, DingTalk, Feishu formats",
   "webhookDesc3": "Newly added channels are enabled by default",
   "webhookChannelNameHint": "Optional, e.g. WeCom · Notifications",
