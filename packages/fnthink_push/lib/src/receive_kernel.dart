@@ -316,6 +316,8 @@ class FnthinkReceiveKernel {
       if (one != null) receipts.add(one);
     }
     final pending = (reply.body['pending'] as num?)?.toInt() ?? 0;
+    // T219：手上还没 ack 的条数（服务端侧是 delivering）。旧服务端不返回它 ⇒ 0。
+    final inflight = (reply.body['inflight'] as num?)?.toInt() ?? 0;
     // T129：这一轮的"我发起过的请求"先解析出来 —— 它既要塞进结果里，也要参与**提频判据**。
     final sentNow = FnthinkSentPairRequest.parseList(
       contract,
@@ -346,6 +348,7 @@ class FnthinkReceiveKernel {
       messages: messages,
       receipts: receipts,
       pending: pending,
+      inflight: inflight,
       nextDelay: currentDelay,
       pairRequests: FnthinkPairRequest.parseList(
         contract,
@@ -2011,6 +2014,7 @@ class FnthinkPollResult {
     this.messages = const [],
     this.receipts = const [],
     this.pending = 0,
+    this.inflight = 0,
     this.pairRequests = const [],
     this.sentPairRequests = const [],
     required this.nextDelay,
@@ -2024,6 +2028,14 @@ class FnthinkPollResult {
   final List<FnthinkDelivered> messages;
   final List<FnthinkReceipt> receipts;
   final int pending;
+
+  /// T219：**已经交到这台设备手上、还没等到 ack** 的条数（服务端侧就是停在 `delivering` 的那几条）。
+  ///
+  /// 与 [pending] 刻意分开：`pending` 只数"还能再投"的（`delivery.pollableStates`），
+  /// 一条刚写进响应、等 ack 的消息**不在里面**。少了这一格，客户端会在
+  /// "队列空、手上还有一条没确认"时把兜底轮询睡满整个 `safetyPollSeconds` ——
+  /// 丢一次门铃就放大成整个兜底间隔。旧服务端不返回它 ⇒ 0（退回"只看 pending"的老口径）。
+  final int inflight;
 
   /// 等着本机答复的配对请求。**解析不出来的那几条被丢掉**（见 [FnthinkPairRequest.tryFrom]）：
   /// 宁可少显示一条，也不把一条键不对的请求画成"某人请求配对你"再让人去同意。

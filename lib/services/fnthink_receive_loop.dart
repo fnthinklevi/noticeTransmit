@@ -158,6 +158,17 @@ class FnthinkReceiveLoop {
   bool _wantRunning = false;
   bool _inRound = false;
 
+  /// 门铃落在**在途那一轮**上时留的一笔（T219）。
+  ///
+  /// 病根：服务端的 `wakeDevice` 是双路唤醒 —— 先 resolve 正在 hold 的长轮询，再给 SSE 写 `event: wake`
+  /// （旧实现两路都发）。SSE 的字节先到客户端，`onWake` → [wakeNow] → `runOnce(manual: true)` 见 `_inRound`
+  /// 就 `cancelPoll()` 把那一发**正在回货的**长轮询 abort 掉。而服务端那边这条连接已经
+  /// `writableFinished`（`requeueOnAbortedResponse` 不退回），那条消息只能等满
+  /// `delivery.ackDeadlineSeconds`（180 秒）才被扫回队列 —— 2026-11-28 那条 184 秒正是这个形状。
+  ///
+  /// 所以门铃在途时不再叫停，只记一笔；那一轮收尾后立刻补一轮（见 [runOnce] 的 finally）。
+  bool _wakePending = false;
+
   /// 排期代际：每次 `_tick` 递增。旧一轮（尤其被门铃叫停的那一轮）收尾时
   /// 发现代际已变，就不许再排一个定时器 —— 否则会冒出两个 `_tick` 抢同一个循环。
   int _tickToken = 0;
@@ -166,6 +177,10 @@ class FnthinkReceiveLoop {
   Completer<void>? _roundDone;
 
   bool get isRunning => _wantRunning;
+
+  /// 现在有没有一轮真的在途（T219）。门铃与降级探针据此决定「叫醒」还是「叫停」：
+  /// 在途时一律只记 [_wakePending]，绝不去 abort 那一发正在回货的长轮询。
+  bool get inRound => _inRound;
 
   /// 开始循环：立刻跑一轮，之后每轮按内核给的间隔排下一轮。重复调用不会叠出第二个循环。
   void start() {
@@ -180,6 +195,7 @@ class FnthinkReceiveLoop {
   /// 停止：不再排下一轮，**已在途的那一轮跑完为止**（强行中断等于把 ack 停在半路）。
   void stop() {
     _wantRunning = false;
+    _wakePending = false;
     _timer?.cancel();
     _timer = null;
     onStop?.call();
@@ -194,6 +210,17 @@ class FnthinkReceiveLoop {
   ///   正是这个形状。叫醒这一轮哪怕只排回常态节奏（20s），也能把丢唤醒的代价从 5 分钟压到 20 秒。
   void wakeNow() {
     if (!_wantRunning) return;
+    if (_inRound) {
+      // T219：**不许叫停**在途那一轮。服务端双路唤醒里，长轮询那一路正带着同一条消息回来；
+      // abort 它 = 服务端已 `writableFinished` 不退回 = 那条消息等满 180 秒。
+      // 记一笔，让那一轮收尾后立刻补一轮（见 [_tick] 的 `.then` 里那一格）。
+      // 顺手把可能还挂着的那颗定时器撤掉（`reschedule` 可能在轮中途种过一颗）：
+      // 这一笔兑现时会立刻补轮，再让旧定时器到点起一轮就是两个循环抢同一队列。
+      _wakePending = true;
+      _timer?.cancel();
+      _timer = null;
+      return;
+    }
     _timer?.cancel();
     _timer = null;
     _tick(manual: true);
@@ -257,6 +284,16 @@ class FnthinkReceiveLoop {
                 !serverBackoff &&
                 next > _wakeFollowUpCap) {
               next = _wakeFollowUpCap;
+            }
+            // T219：这一轮在途时来过门铃（见 [wakeNow]）⇒ 收尾立刻补一轮，不再等常态间隔。
+            // 只在这一轮**正常结束**时压缩排期；失败/限流仍按各自的退避走（那条路本来就会
+            // 在几秒内重试，再压到零等于对着一个坏连接狂敲）。排期者仍然只有这一个
+            // `_timer = schedule(...)`（代际没变，不存在第二个 `_tick`）。
+            if (_wakePending) {
+              _wakePending = false;
+              if (report.status == FnthinkPollStatus.ok && !report.skipped && !serverBackoff) {
+                next = Duration.zero;
+              }
             }
             _timer = schedule(next, _tick);
             onRound?.call(report);

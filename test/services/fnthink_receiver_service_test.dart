@@ -1074,6 +1074,23 @@ void main() {
         isNot(Duration(seconds: contract.streamSpec!.safetyPollSeconds)),
       );
     });
+
+    test('T219：队列空但手上还有没 ack 的（inflight>0）⇒ 不许睡满兜底档', () async {
+      // pending 只数"还能再投"的（queued/waiting_online），一条刚交到手上、等 ack 的
+      // 消息（服务端侧 delivering）不在里面。只看 pending 的话，这一轮会被判成空闲，
+      // 直接睡满 safetyPollSeconds —— 丢一次门铃就放大成整个兜底间隔。
+      final rec = _Recorder(
+        scripts: ['{"messages":[],"receipts":[],"pending":0,"inflight":1}'],
+      );
+      final service = build(contract, rec, _Signer())..streamHealthy = true;
+      final outcome = await service.pollOnce(hold: false);
+      expect(outcome.inflight, 1);
+      expect(
+        outcome.nextDelay,
+        isNot(Duration(seconds: contract.streamSpec!.safetyPollSeconds)),
+        reason: '手上还有货没确认，睡满兜底档 = 那一条的送达时间被拖到兜底间隔',
+      );
+    });
   });
 }
 

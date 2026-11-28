@@ -396,7 +396,8 @@ class FnthinkReceiverService {
         safety != null &&
         result.messages.isEmpty &&
         result.receipts.isEmpty &&
-        result.pending == 0) {
+        result.pending == 0 &&
+        result.inflight == 0) {
       nextDelay = Duration(seconds: safety);
     }
     return FnthinkReceiveOutcome(
@@ -404,6 +405,7 @@ class FnthinkReceiverService {
       messages: result.messages,
       receipts: result.receipts,
       pending: result.pending,
+      inflight: result.inflight,
       pairRequests: result.pairRequests,
       sentPairRequests: result.sentPairRequests,
       nextDelay: nextDelay,
@@ -815,6 +817,7 @@ class FnthinkReceiveOutcome {
     this.messages = const [],
     this.receipts = const [],
     this.pending = 0,
+    this.inflight = 0,
     this.pairRequests = const [],
     this.sentPairRequests = const [],
     required this.nextDelay,
@@ -826,6 +829,12 @@ class FnthinkReceiveOutcome {
   final List<FnthinkDelivered> messages;
   final List<FnthinkReceipt> receipts;
   final int pending;
+
+  /// T219：已经交到手上、还没 ack 的条数（服务端那边正停在 `delivering`）。
+  ///
+  /// 判「能不能把兜底轮询睡满 `safetyPollSeconds`」要 `pending` 与它**都为 0**：
+  /// 只看 pending 的话，"队列空、手上还有一条没确认"会被当成空闲，睡满整个兜底间隔。
+  final int inflight;
 
   /// 这一轮 poll 带回来的**等本机答复的配对请求**（`pairRequest.pollKey` 那一项）。
   /// 类型是内核解析过的那一种，不是 `Object?`：留成 `Object?` 的话，"少一个键"这件事

@@ -318,6 +318,13 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
             }
           },
           probeOnStale: () async {
+            // T219：**在途的长轮询本身就是"poll 这条路可达"的证明** —— 别 abort 它去探。
+            // 那一发可能正带着一条消息回来；abort 之后服务端已 `writableFinished` 不退回，
+            // 那条要等满 180 秒（2026-11-28 那条 184 秒的另一半来源）。记一笔叫醒即可。
+            if (loop.inRound) {
+              loop.wakeNow();
+              return true;
+            }
             final report = await loop.runOnce(manual: true);
             return fnthinkStreamProbeSucceeded(report);
           },

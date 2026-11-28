@@ -497,10 +497,11 @@ void main() {
       loop.stop();
     });
 
-    test('叫醒轮接管后，被叫停的旧轮不再排第二个定时器', () async {
+    test('门铃落在在途那一轮上：不叫停它，这一轮收尾后立刻补一轮（只排一个定时器）', () async {
       final h = _Harness();
       final scheduled = <Duration>[];
       final held = Completer<FnthinkReceiveOutcome>();
+      var cancelCalls = 0;
       final loop = FnthinkReceiveLoop(
         poll: () => held.future,
         pollNow: () async => _ok(const []),
@@ -508,6 +509,7 @@ void main() {
         persist: h.persist,
         nowMs: () => 1700000000000,
         cancelPoll: () async {
+          cancelCalls++;
           if (!held.isCompleted) held.complete(_ok(const []));
         },
         schedule: (delay, callback) {
@@ -521,11 +523,27 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       loop.wakeNow();
       await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
+      // T219：这一发长轮询正带着货回来（服务端先 resolve waiter、再发 SSE），
+      // 叫停它 = 服务端已 writableFinished 不退回 = 那条消息等满 180 秒（2026-11-28 的 184 秒）。
+      expect(
+        cancelCalls,
+        0,
+        reason: '门铃复用了「立即收取」的入口，把在途那一发 abort 掉：货已经写进响应，服务端不退回',
+      );
       expect(
         scheduled,
-        hasLength(1),
-        reason: '两个 _tick 同时排期 = 两个循环抢同一队列（重复 ack、未读数上下跳）',
+        isEmpty,
+        reason: '这一轮还没收尾，不许长出第二个排期者（两个 _tick = 重复 ack、未读数上下跳）',
+      );
+
+      held.complete(_ok(const []));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(cancelCalls, 0);
+      expect(
+        scheduled,
+        [Duration.zero],
+        reason: '门铃那一笔在收尾时兑现：立刻补一轮，而不是等常态间隔',
       );
       loop.stop();
     });
