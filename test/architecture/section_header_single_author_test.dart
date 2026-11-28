@@ -47,7 +47,12 @@ void main() {
     // 搬走的那三枚登记在下面的 `widgetUsage`，总数仍是 7。
     'pages/fnthink_settings_page.dart': 4,
     'pages/fnthink_peers_page.dart': 1,
-    'pages/fnthink_send_page.dart': 1,
+    // T204（2026-11-28）：发送页原来的"组标题"只有动作分栏那 1 枚；目标列表的两段
+    // （已配对设备／Webhook 通道）与指令档的档位、动作、凭据、参数等 8 个字段名原来
+    // 都借 `FnthinkNote`（12px 正文小字）当标题画 ⇒ 一页里出现两种层级。改法是逐枚
+    // 换成 `FnthinkRowLabel`（标题件唯一作者），不是新增标题：11 = 2 段目标 + 2 组指令
+    // （档位／动作）+ 6 个字段名 + 1 枚动作分栏（for 循环里那一枚）。
+    'pages/fnthink_send_page.dart': 11,
   };
 
   /// 共享件里画的组标题（T214：两页挂同一张身份卡，三行各一枚）。

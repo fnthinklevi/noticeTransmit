@@ -596,8 +596,8 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           if (_tier == FnthinkSendTier.notice)
             _noticeCard(context, l10n)
           else if (_contract != null) ...[
-            _levelCard(l10n),
-            const SizedBox(height: 12),
+            // T204 ②：档位与动作原来各占一张卡，可它们回答的是同一件事（"这档要做什么"）。
+            // 收进同一张卡的两个组（组标题走 `FnthinkRowLabel`），不再让两枚卡套着同一层主语。
             _actionCard(l10n),
             const SizedBox(height: 12),
             _commandSubmitCard(l10n),
@@ -688,9 +688,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     return FnthinkCard(
       title: l10n.fnthinkSendTargetTitle,
       children: [
-        FnthinkNote(
+        FnthinkRowLabel(
           keyName: 'fnthink-send-target-devices',
-          text: l10n.fnthinkSendTargetDevices,
+          label: l10n.fnthinkSendTargetDevices,
         ),
         if (rows == null)
           HelpNoteRow(
@@ -718,22 +718,46 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             ),
           ),
         ] else
+          // T204 ①：这一串原来是一排 chip（一行一枚地址码），与配对页／端点页那两枚
+          // 「图标块 · 是谁 · 读数 · 选中」的行不是同一种形状。换成 T152 立的公共行件：
+          // key 仍落在主文案那枚 `Text` 上（`remote-send-peer-<地址码>` 逐字搬），
+          // 排序（`_peers` 原序）与数据源（那一次读库）一个字没动。
+          // ⚠ 选中位仍是 `_peerAddress`／`_webhook` 互斥的那一枚，行件不另存状态。
           for (final peer in rows)
-            Align(
-              alignment: Alignment.centerLeft,
-              // T108 片②：这一排原来是裸文字（选中只有一点点字重差），
-              // 换成公共的选择件 ⇒ "选上没有"在屏上读得出来。key 一字节没动。
-              child: FnthinkChoiceChip(
-                keyName: 'remote-send-peer-${peer.peerAddress}',
-                label: peer.peerAddress,
-                selected: peer.peerAddress == _peerAddress,
-                onTap: _busy
-                    ? null
-                    : () => setState(() {
-                        _peerAddress = peer.peerAddress;
-                        _webhook = null;
-                      }),
-              ),
+            FnthinkPeerRow(
+              keyName: 'remote-send-peer-${peer.peerAddress}',
+              onTap: _busy
+                  ? null
+                  : () => setState(() {
+                      _peerAddress = peer.peerAddress;
+                      _webhook = null;
+                    }),
+              icon: Icons.phone_android,
+              iconColor: AppColors.blue,
+              // 地址码仍是主文案的第一段（别名在括号里）：能被对着对面那台核对的，
+              // 不能被一个本机编的名字替掉。
+              title: peer.whoLabel,
+              statusMark: peer.level.isEmpty
+                  ? null
+                  : FnthinkStatusMark(
+                      key: ValueKey(
+                        'remote-send-peer-${peer.peerAddress}-level',
+                      ),
+                      role: FnthinkMarkRole.tier,
+                      label: peer.level,
+                      color: AppColors.blue,
+                    ),
+              // 选中那一枚用行尾的对勾，不用 chevron：这一行点下去是"选它"，不是"进详情"。
+              trailing: peer.peerAddress == _peerAddress
+                  ? Icon(
+                      Icons.check_circle,
+                      key: ValueKey(
+                        'remote-send-peer-${peer.peerAddress}-selected',
+                      ),
+                      size: 18,
+                      color: AppColors.green,
+                    )
+                  : null,
             ),
         if (devicesOnly)
           HelpNoteRow(
@@ -746,9 +770,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           )
         else ...[
           const SizedBox(height: 10),
-          FnthinkNote(
+          FnthinkRowLabel(
             keyName: 'fnthink-send-target-webhooks',
-            text: l10n.fnthinkSendTargetWebhooks,
+            label: l10n.fnthinkSendTargetWebhooks,
           ),
           if (hooks == null)
             HelpNoteRow(
@@ -770,20 +794,31 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
               helpBody: l10n.fnthinkSendTargetWebhookEmpty,
             )
           else
+            // T204 ①：Webhook 那一组也换同一枚行件（图标块 · 是谁 · 选中对勾）。
+            // key 逐字搬：`fnthink-send-target-webhook-<通道 id>` 仍落在主文案那枚 `Text`。
+            // ⚠ 副文案留空是刻意的：这一页不该把那条接入地址（含口令那一段）摊在目标列表上。
             for (final hook in hooks)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FnthinkChoiceChip(
-                  keyName: 'fnthink-send-target-webhook-${hook.channelId}',
-                  label: hook.name,
-                  selected: hook.channelId == _webhook?.channelId,
-                  onTap: _busy
-                      ? null
-                      : () => setState(() {
-                          _webhook = hook;
-                          _peerAddress = null;
-                        }),
-                ),
+              FnthinkPeerRow(
+                keyName: 'fnthink-send-target-webhook-${hook.channelId}',
+                onTap: _busy
+                    ? null
+                    : () => setState(() {
+                        _webhook = hook;
+                        _peerAddress = null;
+                      }),
+                icon: Icons.link,
+                iconColor: AppColors.blue,
+                title: hook.name,
+                trailing: hook.channelId == _webhook?.channelId
+                    ? Icon(
+                        Icons.check_circle,
+                        key: ValueKey(
+                          'fnthink-send-target-webhook-${hook.channelId}-selected',
+                        ),
+                        size: 18,
+                        color: AppColors.green,
+                      )
+                    : null,
               ),
         ],
       ],
@@ -858,40 +893,43 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     required String body,
   }) => sendFnthinkWebhookMessage(target: target, title: title, body: body);
 
-  Widget _levelCard(AppLocalizations l10n) {
+  /// 档位那一组（T204 ②：收进「这一档要做什么」同一张卡，不再单开一张卡）。
+  ///
+  /// 换档时把那一档用不上的动作摘掉：留着上一个档的动作名，用户会发出一条对方那边
+  /// 压根没有的项。
+  List<Widget> _levelRows(AppLocalizations l10n) {
     final contract = _contract!;
-    return FnthinkCard(
-      title: l10n.remoteSendLevel,
-      children: [
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final level in contract.capabilityLevels)
-              FnthinkChoiceChip(
-                keyName: 'remote-send-level-$level',
-                label: level,
-                selected: _level == level,
-                // 换档时把那一档用不上的动作摘掉：留着上一个档的动作名，
-                // 用户会发出一条对方那边压根没有的项。
-                onTap: _busy
-                    ? null
-                    : () => setState(() {
-                        _level = level;
-                        _item = '';
-                      }),
-              ),
-          ],
-        ),
-        FnthinkNote(
-          keyName: 'remote-send-level-desc',
-          text: switch (_level) {
-            'L2' => l10n.remoteSendLevelL2,
-            'L3' => l10n.remoteSendLevelL3,
-            _ => l10n.remoteSendLevelL1,
-          },
-        ),
-      ],
-    );
+    return [
+      FnthinkRowLabel(
+        keyName: 'remote-send-level-label',
+        label: l10n.remoteSendLevel,
+      ),
+      Wrap(
+        spacing: 8,
+        children: [
+          for (final level in contract.capabilityLevels)
+            FnthinkChoiceChip(
+              keyName: 'remote-send-level-$level',
+              label: level,
+              selected: _level == level,
+              onTap: _busy
+                  ? null
+                  : () => setState(() {
+                      _level = level;
+                      _item = '';
+                    }),
+            ),
+        ],
+      ),
+      FnthinkNote(
+        keyName: 'remote-send-level-desc',
+        text: switch (_level) {
+          'L2' => l10n.remoteSendLevelL2,
+          'L3' => l10n.remoteSendLevelL3,
+          _ => l10n.remoteSendLevelL1,
+        },
+      ),
+    ];
   }
 
   Widget _actionCard(AppLocalizations l10n) {
@@ -900,8 +938,16 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     final needsArgument = _item.isNotEmpty && _needsArgument(contract, _level);
     final needsL3Target = _item.isNotEmpty && _needsL3Target(contract);
     return FnthinkCard(
-      title: l10n.remoteSendAction,
+      // 这张卡的主语是「这一档要做什么」：档位与动作是同一条出站指令的两段，
+      // 拆成两张卡会让"选哪档"与"选哪项"看起来像两件事。
+      title: l10n.fnthinkSendTierCommand,
       children: [
+        ..._levelRows(l10n),
+        const SizedBox(height: 12),
+        FnthinkRowLabel(
+          keyName: 'remote-send-action-label',
+          label: l10n.remoteSendAction,
+        ),
         if (actions.isEmpty)
           FnthinkNote(keyName: 'remote-send-actions-empty', text: l10n.unknown)
         else
@@ -959,9 +1005,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         // 凭据那两格**按契约说要不要**显示，不按档位写死（原来是"L1 不给、L2/L3 都给"）：
         // 契约若哪天说 L2 不必带凭据，画两格空输入框就是在暗示"这里要填点什么"。
         if (_needsCredential(contract)) ...[
-          FnthinkNote(
+          FnthinkRowLabel(
             keyName: 'remote-send-key-label',
-            text: l10n.remoteSendKeyRequired,
+            label: l10n.remoteSendKeyRequired,
           ),
           CupertinoTextField(
             key: const ValueKey('remote-send-key'),
@@ -971,9 +1017,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             decoration: appCupertinoInputDecoration(context),
           ),
           const SizedBox(height: 8),
-          FnthinkNote(
+          FnthinkRowLabel(
             keyName: 'remote-send-totp-label',
-            text: l10n.remoteSendTotpRequired,
+            label: l10n.remoteSendTotpRequired,
           ),
           CupertinoTextField(
             key: const ValueKey('remote-send-totp'),
@@ -1001,9 +1047,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     final max = contract.l2ReportMaxItems(_item) ?? min;
     return [
       const SizedBox(height: 10),
-      FnthinkNote(
+      FnthinkRowLabel(
         keyName: 'remote-send-report-count-label',
-        text: l10n.remoteSendReportCountLabel,
+        label: l10n.remoteSendReportCountLabel,
       ),
       CupertinoTextField(
         key: const ValueKey('remote-send-report-count'),
@@ -1054,7 +1100,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     };
     return [
       const SizedBox(height: 10),
-      FnthinkNote(keyName: 'remote-send-keyword-label', text: label),
+      FnthinkRowLabel(keyName: 'remote-send-keyword-label', label: label),
       CupertinoTextField(
         key: const ValueKey('remote-send-keyword'),
         controller: _keyword,
@@ -1074,9 +1120,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   ) {
     return [
       const SizedBox(height: 10),
-      FnthinkNote(
+      FnthinkRowLabel(
         keyName: 'remote-send-family-label',
-        text: l10n.remoteSendFamilyLabel,
+        label: l10n.remoteSendFamilyLabel,
       ),
       Wrap(
         spacing: 8,
@@ -1094,9 +1140,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         ],
       ),
       const SizedBox(height: 10),
-      FnthinkNote(
+      FnthinkRowLabel(
         keyName: 'remote-send-arg-label',
-        text: l10n.remoteSendArgument,
+        label: l10n.remoteSendArgument,
       ),
       CupertinoTextField(
         key: const ValueKey('remote-send-argument'),

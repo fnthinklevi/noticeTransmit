@@ -51,6 +51,13 @@ void main() {
     grantedAt: 1700000000000,
   );
 
+  // T122：目标二选一 —— Webhook 那一类（T204 的行件用例也用这一枚）。
+  const hook = FnthinkWebhookTarget(
+    channelId: 'fc_hook_1',
+    name: 'NAS 的端点',
+    target: 'https://push.example.com/api/fnthink/p/ep_1/SECRET000000000000000',
+  );
+
   Future<AppLocalizations> pump(
     WidgetTester tester, {
     Future<List<FnthinkPeer>> Function()? loadPeers,
@@ -277,6 +284,77 @@ void main() {
     });
   });
 
+  // T204 ①：目标列表换公共行件 —— 形状与配对页／端点页同一枚，key 逐字搬。
+  testWidgets('目标列表走 FnthinkPeerRow：设备那一行带档位徽标，选中那台行尾亮对勾', (tester) async {
+    await pump(tester, preselectedPeer: peerAddress);
+    final row = find.ancestor(
+      of: find.byKey(const ValueKey('remote-send-peer-$peerAddress')),
+      matching: find.byType(FnthinkPeerRow),
+    );
+    expect(row, findsOneWidget, reason: '目标列表又退回页内自搭的 chip ⇒ 与配对页／端点页读成两种行');
+    // 主文案仍是那一枚 `Text`：key 与宿主都没搬（闸门按它定位）。
+    expect(
+      find.byKey(const ValueKey('remote-send-peer-$peerAddress')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('remote-send-peer-$peerAddress-level')),
+      findsOneWidget,
+      reason: '档位徽标是这一行的读数位；摘掉它，行里就只剩一个地址码',
+    );
+    expect(
+      find.byKey(const ValueKey('remote-send-peer-$peerAddress-selected')),
+      findsOneWidget,
+      reason: '带着对端进来却没画出选中 ⇒ 用户看不出这一发会打给谁',
+    );
+    // 标题那一段的组标题也换成了公共的 `FnthinkRowLabel`（12px 小字不再是组标题）。
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('fnthink-send-target-devices')),
+        matching: find.byType(FnthinkRowLabel),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Webhook 那一组也走 FnthinkPeerRow，选中后行尾亮对勾且清掉设备收件人', (tester) async {
+    await pump(tester, loadWebhooks: () async => const [hook]);
+    final row = find.ancestor(
+      of: find.byKey(const ValueKey('fnthink-send-target-webhook-fc_hook_1')),
+      matching: find.byType(FnthinkPeerRow),
+    );
+    expect(row, findsOneWidget, reason: 'Webhook 那一组又退回页内自搭的 chip');
+    await tester.tap(
+      find.byKey(const ValueKey('fnthink-send-target-webhook-fc_hook_1')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        const ValueKey('fnthink-send-target-webhook-fc_hook_1-selected'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('指令档：档位与动作收在同一张 FnthinkCard（T204 ②）', (tester) async {
+    await pump(tester, initialTier: FnthinkSendTier.command);
+    final card = find.ancestor(
+      of: find.byKey(const ValueKey('remote-send-level-L1')),
+      matching: find.byType(FnthinkCard),
+    );
+    expect(card, findsOneWidget);
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.byKey(
+          const ValueKey('remote-send-action-listener:start'),
+        ),
+      ),
+      findsOneWidget,
+      reason: '档位与动作各占一张卡 ⇒ "选哪档"与"选哪项"又被拆成两件事',
+    );
+  });
+
   testWidgets('预填：回复那一条标题带着走，正文空着 ⇒ 主操作是灰的', (tester) async {
     final l10n = await pump(
       tester,
@@ -384,12 +462,6 @@ void main() {
   });
 
   // T122：目标二选一 —— Webhook 那一类
-  const hook = FnthinkWebhookTarget(
-    channelId: 'fc_hook_1',
-    name: 'NAS 的端点',
-    target: 'https://push.example.com/api/fnthink/p/ep_1/SECRET000000000000000',
-  );
-
   testWidgets('通知档选一条 Webhook 通道 ⇒ 那一发把标题与正文交给 sendToWebhook（不再走设备那一发）', (
     tester,
   ) async {
