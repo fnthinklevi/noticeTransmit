@@ -1,0 +1,29 @@
+// 2026-11-28 analyze job「Android lint (debug)」实测：
+//   :flutter_secure_storage:generateDebugUnitTestLintModel 解析
+//   debugUnitTestRuntimeClasspath 时，Maven Central 对
+//   org.robolectric:nativeruntime-dist-compat:1.0.18 的 jar 返回 429 Too Many Requests，
+//   整条 lint 以 exit 1 结束（不是代码 lint 问题）。
+//
+//   该 jar 在 Google 的 Maven Central 只读镜像有同字节缓存：
+//     HEAD 200；.sha1 与 repo.maven.apache.org 完全一致
+//     （a966cdb1df961a0df69acec8f98bb10d3ebf5f66）。
+//
+//   仍用 exclusiveContent，而不是把镜像塞进全局仓库列表：
+//   影响面只锁这一个模块，镜像若出问题也不会把别的依赖解析一起拖红。
+//   放在 init.d 的原因同 kotlin_embeddable_mirror.init.gradle：要对所有 settings
+//   （包括 Flutter 引擎插件的 includeBuild）生效。
+gradle.beforeSettings { settings ->
+    settings.dependencyResolutionManagement.repositories {
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = 'googleCentralRobolectricNative'
+                    url = settings.uri('https://maven-central.storage-download.googleapis.com/maven2/')
+                }
+            }
+            filter {
+                includeModule('org.robolectric', 'nativeruntime-dist-compat')
+            }
+        }
+    }
+}
