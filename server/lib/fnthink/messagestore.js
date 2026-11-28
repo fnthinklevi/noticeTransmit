@@ -178,6 +178,22 @@ function pendingCountFor(contract, messages, device) {
     .length;
 }
 
+/// T219：**已经交到设备手上、还没等到 ack** 的条数（正常就是 `delivering`）。
+///
+/// 与 [pendingCountFor] 刻意分开：那个数是「还能再塞几条」的挤位判据（`pendingPerDeviceMax`），
+/// 只数可投状态；一旦把 delivering 也算进去，挤位会把"刚到设备手里"的那条当成积压，
+/// 于是新消息被挤成 `waiting_online`。这个数是**客户端该不该继续等**的判据：
+/// `pending=0` 但 `inflight>0` 意味着"这台设备手上还有货没确认"，那时睡满兜底档
+/// 等于把一次丢唤醒放大成整个兜底间隔。
+function inflightCountFor(contract, messages, device) {
+  return Object.values(messages).filter(
+    (m) =>
+      m.device === device &&
+      !isPollable(contract, m.state) &&
+      !delivery.isTerminal(contract, m.state),
+  ).length;
+}
+
 /// 落一条状态机推进的结果。**删正文这件事只在这里发生**，判据取自契约表（advance 带回来的）。
 function applyStep(contract, messages, message, step, now) {
   message.state = step.state;
@@ -470,10 +486,41 @@ function requeueDispatched(contract, messages, device, messageIds, now) {
   return requeued;
 }
 
-/// 响应已经完整写出（`res.writableFinished === true`）时**不退回**：
-/// 那个边界之后的丢失由 T217-B 的回收窗负责，不属于 A 片。
-function requeueOnAbortedResponse(contract, messages, device, messageIds, res, now) {
-  if (!res || res.writableFinished) return [];
+/// 「写完了、但连接在极短窗口里就断了」的快速退回窗口（T219）。见 [requeueOnAbortedResponse]。
+///
+/// 2 秒是量出来的：同城 4G / WiFi 下一条 poll 响应（几 KB）写进内核缓冲后，客户端真正收到
+/// 在几十毫秒内；真收到之后它会立刻发 ack（`delivering` → `delivered`），退回落空。
+/// 因此"写完 ≤2s 就 close 且这些消息还停在 delivering"几乎只有一种解释：**这批字节没落地**。
+const FAST_RETURN_WINDOW_MS = 2000;
+
+/// 响应已经完整写出（`res.writableFinished === true`）时的退回判据。
+///
+/// 历史（T217-A）：写完了就**不退回** —— 那个边界之后的丢失交给回收窗（180 秒）负责。
+/// 但 2026-11-28 的现场把这条的代价量出来了：服务端在 `writableFinished` 之后不退回，
+/// 而客户端可能根本没收到这批字节（连接被边缘节点/网络切换掐掉），于是那条消息要等满
+/// `delivery.ackDeadlineSeconds=180` 才会被 `requeueUnackedStale` 扫回队列 —— 用户看到的是 184 秒。
+///
+/// 现在多给一组证据位 `opts`（由路由侧从请求/响应上取）：
+///  - `respondedAt`：响应 `finish` 的时刻。只有「finish 之后 ≤ [FAST_RETURN_WINDOW_MS] 内就 close」
+///    才算"可能没落地"；不给 / 超窗 ⇒ 与历史完全一致（一个都不退）。
+///  - `connectionClose`：请求头声明了 `Connection: close`。那种客户端本来就说好"这一发完就关"，
+///    它随后的 close 是**干净收场**，不能当证据 —— 否则每一个"用完即关"的客户端都会让
+///    每条消息被重发一遍（supertest 那一批用例正是这种客户端）。
+///
+/// 退回走的是同一条咽喉 `advanceMessage(no_ack)`：仍停在 `delivering` 的才会动，
+/// 已经 ack 成 `delivered`、或已被别的路径退回 `queued` 的都会被 `ignored` 跳过。
+/// 重复投递的代价是有界的：客户端按 messageId 去重（`duplicate` 分支）并补一次 ack。
+function requeueOnAbortedResponse(contract, messages, device, messageIds, res, now, opts) {
+  if (!res) return [];
+  if (!res.writableFinished) {
+    return requeueDispatched(contract, messages, device, messageIds, now);
+  }
+  const evidence = opts || {};
+  if (evidence.connectionClose === true) return [];
+  const respondedAt = evidence.respondedAt;
+  if (typeof respondedAt !== 'number') return [];
+  const since = now - respondedAt;
+  if (!(since >= 0) || since > FAST_RETURN_WINDOW_MS) return [];
   return requeueDispatched(contract, messages, device, messageIds, now);
 }
 
@@ -535,6 +582,7 @@ module.exports = {
   expireDueMessages,
   loadMessages,
   pendingCountFor,
+  inflightCountFor,
   publicMessage,
   receiptsForSender,
   requeueDispatched,

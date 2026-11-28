@@ -67,15 +67,24 @@ function onWake(device, listener) {
 }
 
 /// 叫醒这台设备上所有正在等的请求与订阅者。返回被叫醒的个数（日志/测试用，不参与判据）。
+///
+/// ⚠ T219：**有正在 hold 的 poll 时不再写 SSE wake**。两台信使同时送同一条消息的后果不是更快，
+///   而是客户端那边的门铃先到、长轮询的响应后到 —— 客户端在叫醒回调里 abort 那条长轮询，
+///   把已经交付的响应丢掉；而这条连接在服务端已经 `writableFinished`，`requeueOnAbortedResponse`
+///   不退回，那条消息只能等满 `delivery.ackDeadlineSeconds`（180 秒）才被重新入队。
+///   而 hold 中的 poll 的响应本来就带着**全部**新东西（消息 / 回执 / 配对面），
+///   少敲一次门铃不会让任何一端少看到一条。SSE 只在「没人 hold」时才需要负责即时性。
 function wakeDevice(device) {
   const key = keyOf(device);
+  if (key === '') return 0;
   const set = waiters.get(key);
-  let count = 0;
-  if (set) {
-    count += set.size;
+  if (set && set.size > 0) {
+    const count = set.size;
     for (const finish of Array.from(set)) finish(true);
+    return count;
   }
   const subs = listeners.get(key);
+  let count = 0;
   if (subs) {
     count += subs.size;
     for (const fn of Array.from(subs)) {

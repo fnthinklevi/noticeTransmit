@@ -950,12 +950,14 @@
         "messages",
         "receipts",
         "pending",
+        "inflight",
         "serverTime",
         "pairRequests",
         "sentPairRequests"
       ],
       "_returnsWhy": "这份名单是**双向**的：路由那次响应的键集合必须与它逐字相等（用例 `fnthink-routes.test.js` 拿它当尺，不写死字面量）。只查一个方向的话，两种缺陷各剩一半藏在暗处 —— 「契约多列一项而路由没挂」＝设备按名单去读一个永远不存在的键，屏幕上那一格空着且没人报错；「路由多回一项而契约没列」＝设备侧按名单设计解析器，那一块永远解析不到，而它其实是这一面唯一的新数据。配对的两面各占一项（`pairRequest.pollKey` 与 `pairRequest.sentPollKey`）：接收方看「谁在请求配对你」，发起方看「我发起的那条走到了哪儿」，两边读的是同一张表但**主语相反**。",
-      "_serverTimeWhy": "响应必须带服务端时间：T29 的「ts 以服务端时间判定」要有承载处，设备自算偏移只能在拿到响应之后进行。"
+      "_serverTimeWhy": "响应必须带服务端时间：T29 的「ts 以服务端时间判定」要有承载处，设备自算偏移只能在拿到响应之后进行。",
+      "_inflightWhy": "T219：`pending` 只数**还能再投**的那几条（`delivery.pollableStates`），已经交到设备手上、等 ack 的 `delivering` 不在里面。少了这一格，客户端在「队列空、手上还有一条没确认」时会把兜底轮询睡满 `safetyPollSeconds`（60s）—— 丢一次门铃就放大成整整一个兜底间隔（2026-11-28 那条 184 秒的一半原因就在这里）。它与 pending **各有各的判据**：pending 是挤位用的（`pendingPerDeviceMax`，数大了才会把新消息挤成 waiting_online），inflight 是客户端「能不能安心睡」用的；合成一个数会让挤位把刚到手的消息当成积压。旧客户端忽略这个多出来的键，旧服务端不返回它时客户端按 0 容错（退回「只看 pending」的老口径）。"
     },
     "receipts": {
       "messageType": "receipts",

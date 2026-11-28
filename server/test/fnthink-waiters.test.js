@@ -5,7 +5,13 @@
 // 但每一轮 poll 都会多一个）。路由层的行为在 `fnthink-routes.test.js` 的长轮询那一段。
 'use strict';
 
-const { waitForDevice, wakeDevice, pendingWaiterCount } = require('../lib/fnthink/waiters');
+const {
+  waitForDevice,
+  wakeDevice,
+  onWake,
+  pendingWaiterCount,
+  subscriberCount,
+} = require('../lib/fnthink/waiters');
 
 describe('长轮询唤醒表（T185）', () => {
   test('叫醒在等的请求：返回 true，且表回到空', async () => {
@@ -36,5 +42,25 @@ describe('长轮询唤醒表（T185）', () => {
     expect(wakeDevice('DEV-NOBODY')).toBe(0);
     expect(wakeDevice('')).toBe(0);
     expect(pendingWaiterCount()).toBe(0);
+  });
+
+  test('T219：有 hold 中的请求就不敲门铃；没人 hold 时门铃照常响', async () => {
+    const rang = [];
+    const offD = onWake('DEV-D', () => rang.push('d'));
+    const waiting = waitForDevice('DEV-D', 5000);
+
+    // hold 那一发的响应里带着全部新东西（消息/回执/配对面）⇒ 不必再送一条 SSE。
+    // 双路信号会让客户端在门铃回调里 abort 那条正带着货的长轮询（180 秒真空）。
+    expect(wakeDevice('DEV-D')).toBe(1);
+    expect(rang).toEqual([]);
+    await expect(waiting).resolves.toBe(true);
+    offD();
+
+    // 没有 waiter 了 ⇒ 门铃是唯一的即时性来源，必须响。
+    const offE = onWake('DEV-E', () => rang.push('e'));
+    expect(wakeDevice('DEV-E')).toBe(1);
+    expect(rang).toEqual(['e']);
+    offE();
+    expect(subscriberCount()).toBe(0);
   });
 });

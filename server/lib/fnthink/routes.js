@@ -100,6 +100,7 @@ const {
   expireDueMessages,
   loadMessages,
   pendingCountFor,
+  inflightCountFor,
   receiptsForSender,
   requeueOnAbortedResponse,
   unmarkReceiptsOnAbortedResponse,
@@ -469,6 +470,9 @@ router.post(
     // `receiptsForSender` 在响应写出**之前**就把 `receiptSentAt` 落了盘，响应中途断掉时
     // 发送端一条都没收到而服务端认为"报过了" ⇒ 那条回执再也不会出现。
     let lastReceipts = [];
+    // T219：这一批字节真正写完的时刻（`res.on('finish')` 里赋值）。close 处理器用它判断
+    // 「写完了但连接在极短窗口里就断了」—— 那种情况客户端很可能根本没收到，不能当作交付成功。
+    let respondedAt = null;
     // 取一次货。长轮询会重复调用它，每次用**当下**的时刻（过期扫描与回执都按它算）：
     // 一次 hold 25 秒之后还拿请求到达那一刻判过期，会把刚过期的货再交出去。
     const collect = (at) => {
@@ -518,6 +522,9 @@ router.post(
         messages: out,
         receipts,
         pending: pendingCountFor(contract, messages, auth.sender),
+        // T219：手上还没 ack 的条数（正常就是 delivering）。与 pending 分开的理由见
+        // `inflightCountFor` 的注释：客户端靠它决定"能不能安心睡满兜底档"。
+        inflight: inflightCountFor(contract, messages, auth.sender),
         // 配对请求走的是另一张表（它不是消息：没有正文、不过 type 词表），
         // 但它的可见性与消息一样只有一条路 —— 设备来取。键名取自契约 pairRequest.pollKey，
         // 少这一行的表现是"请求躺在表里，A 屏幕上永远显示等待配对"。
@@ -556,6 +563,11 @@ router.post(
           lastTaken,
           res,
           Date.now(),
+          {
+            respondedAt,
+            // 客户端自己声明 `Connection: close` ⇒ 之后的断开是干净收场，不能当"字节丢了"。
+            connectionClose: String(req.headers.connection || '').toLowerCase() === 'close',
+          },
         );
         // P1-4：回执也退回「没报过」那一态。两件事共用同一个 close 边界，
         // 但各判各的（消息退回看状态机、回执退回只看 receiptSentAt）。
@@ -599,10 +611,16 @@ router.post(
     if (STREAM.enabled === true && STREAM.supportHeader) {
       res.set(String(STREAM.supportHeader), '1');
     }
+    // T219：`finish` 是「这一批字节全部交给内核」的时刻，close 处理器用它判断写完之后多久断的。
+    // 比在 json() 之后取时间准：json() 只是发起写，finish 才是写完。
+    res.on('finish', () => {
+      respondedAt = Date.now();
+    });
     res.status(200).json({
       messages: payload.messages,
       receipts: payload.receipts,
       pending: payload.pending,
+      inflight: payload.inflight,
       [PAIR_FACES.incoming]: payload.incoming,
       [PAIR_FACES.outgoing]: payload.outgoing,
       // T29 的「ts 以服务端时间判定」到这里才有承载处：设备用它算自己的时钟偏移，

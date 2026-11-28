@@ -471,6 +471,86 @@ describe('重试与 poll 取货', () => {
     expect(a.attempts).toBe(2);
   });
 
+  test('T219：写完就断的 ≤2s 窗口快速退回；超窗 / 声明 Connection: close / 没给证据都不退', () => {
+    const messages = fresh();
+    const a = put(messages, 'DEV-1', 1, T0 + 1).message;
+    store.dispatchForDevice(contract, messages, 'DEV-1', T0 + 5);
+
+    // finish 在 T0+500，close 在 T0+600（100ms 后）⇒ 客户端很可能没收到这批字节，立刻退回。
+    const fast = store.requeueOnAbortedResponse(
+      contract,
+      messages,
+      'DEV-1',
+      [a.messageId],
+      { writableFinished: true },
+      T0 + 600,
+      { respondedAt: T0 + 500 },
+    );
+    expect(fast.map((x) => x.messageId)).toEqual([a.messageId]);
+    expect(a.state).toBe(contract.delivery.initialState);
+
+    // 再退一次：它已经是 queued，`queued` 没有 no_ack 出边 ⇒ ignored，不会被重复计数。
+    expect(
+      store.requeueOnAbortedResponse(
+        contract,
+        messages,
+        'DEV-1',
+        [a.messageId],
+        { writableFinished: true },
+        T0 + 700,
+        { respondedAt: T0 + 600 },
+      ),
+    ).toEqual([]);
+
+    // close 在 finish 10 秒（10000ms）之后 ⇒ 照历史行为不退（那段时间足够客户端 ack 上来）。
+    const b = put(messages, 'DEV-1', 2, T0 + 8).message;
+    store.dispatchForDevice(contract, messages, 'DEV-1', T0 + 9);
+    expect(
+      store.requeueOnAbortedResponse(
+        contract,
+        messages,
+        'DEV-1',
+        [b.messageId],
+        { writableFinished: true },
+        T0 + 10009,
+        { respondedAt: T0 + 9 },
+      ),
+    ).toEqual([]);
+    expect(b.state).toBe('delivering');
+
+    // 老调用点（6 个参数、不给证据）⇒ 不退。
+    const c = put(messages, 'DEV-1', 3, T0 + 20).message;
+    store.dispatchForDevice(contract, messages, 'DEV-1', T0 + 21);
+    expect(
+      store.requeueOnAbortedResponse(
+        contract,
+        messages,
+        'DEV-1',
+        [c.messageId],
+        { writableFinished: true },
+        T0 + 22,
+      ),
+    ).toEqual([]);
+    expect(c.state).toBe('delivering');
+
+    // 客户端自己声明了 `Connection: close` ⇒ 之后的断开是干净收场，不许当"字节丢了"
+    // （supertest 与一批"用完即关"的客户端都这样：不挡掉的话每条消息都会被重发一遍）。
+    const d = put(messages, 'DEV-1', 4, T0 + 30).message;
+    store.dispatchForDevice(contract, messages, 'DEV-1', T0 + 31);
+    expect(
+      store.requeueOnAbortedResponse(
+        contract,
+        messages,
+        'DEV-1',
+        [d.messageId],
+        { writableFinished: true },
+        T0 + 32,
+        { respondedAt: T0 + 31, connectionClose: true },
+      ),
+    ).toEqual([]);
+    expect(d.state).toBe('delivering');
+  });
+
   test('按排队顺序取走（先进先出，不是按 id）', () => {
     const messages = fresh();
     const late = store.enqueue(
