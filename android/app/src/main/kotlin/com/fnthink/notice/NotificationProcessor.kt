@@ -264,12 +264,16 @@ class NotificationProcessor(private val context: Context) {
      * 提取会话类通知（MessagingStyle）的正文。
      *
      * 微信/QQ/Telegram 等聊天应用的通知正文可能只写在 MessagingStyle.messages 中，
-     * EXTRA_TEXT / EXTRA_BIG_TEXT 可能为空；这里优先取最新一条消息作为正文兜底。
+     * EXTRA_TEXT / EXTRA_BIG_TEXT 可能为空。**P2-2 起取全量而非只取最新一条**：
+     * 合并通知里前面几条同样是被用户看见的内容，只取最后一条等于把前面几条丢掉
+     * （审计 2026-11-27「内容级遗漏」）。拼接/去重/截断的唯一作者是 [MessagingDigest]。
+     *
      * 部分 ROM 对 MessagingStyle 的序列化不兼容，读取失败时静默忽略走其他兜底。
      */
     @Suppress("DEPRECATION")
     private fun extractMessagingContent(extras: android.os.Bundle): String {
         return try {
+            val entries = ArrayList<MessagingDigest.Entry>()
             val style = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 // EXTRA_MESSAGING_STYLE 为隐藏 API，编译期不可引用，用字符串常量
                 extras.getParcelable(
@@ -280,33 +284,62 @@ class NotificationProcessor(private val context: Context) {
                 extras.getParcelable("android.messagingStyle")
             }
             if (style != null) {
-                val messages = style.messages
-                if (messages.isNotEmpty()) {
-                    val last = messages[messages.size - 1]
-                    val lastText = last.text?.toString() ?: ""
-                    if (lastText.isNotEmpty()) return lastText
+                for (message in style.messages) {
+                    entries.add(
+                        MessagingDigest.Entry(
+                            sender = messagingSender(message),
+                            text = message.text?.toString().orEmpty(),
+                        ),
+                    )
                 }
             }
-            // 兜底：EXTRA_MESSAGES 数组（部分 ROM 只写该字段）
-            val messageList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                extras.getParcelableArrayList(
-                    android.app.Notification.EXTRA_MESSAGES,
-                    android.app.Notification.MessagingStyle.Message::class.java
-                )
-            } else {
-                extras.getParcelableArrayList<android.os.Parcelable>(
-                    android.app.Notification.EXTRA_MESSAGES
-                )
+            // 兜底：EXTRA_MESSAGES 数组（部分 ROM 只写该字段，或 style 里是空的）。
+            if (entries.none { it.text.isNotBlank() }) {
+                val messageList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    extras.getParcelableArrayList(
+                        android.app.Notification.EXTRA_MESSAGES,
+                        android.app.Notification.MessagingStyle.Message::class.java
+                    )
+                } else {
+                    extras.getParcelableArrayList<android.os.Parcelable>(
+                        android.app.Notification.EXTRA_MESSAGES
+                    )
+                }
+                entries.clear()
+                if (messageList != null) {
+                    for (item in messageList) {
+                        val msg = item as? android.app.Notification.MessagingStyle.Message
+                            ?: continue
+                        entries.add(
+                            MessagingDigest.Entry(
+                                sender = messagingSender(msg),
+                                text = msg.text?.toString().orEmpty(),
+                            ),
+                        )
+                    }
+                }
             }
-            if (messageList != null && messageList.isNotEmpty()) {
-                val last = messageList[messageList.size - 1]
-                val msg = last as? android.app.Notification.MessagingStyle.Message ?: return ""
-                return msg.text?.toString() ?: ""
+            if (entries.isEmpty()) return ""
+            MessagingDigest.format(entries) { count ->
+                I18n.msgf("notif.messagingOmitted", count)
             }
-            ""
         } catch (e: Exception) {
             ""
         }
+    }
+
+    /**
+     * MessagingStyle 消息的发送者名。API 28 起以 [Person] 形式保存（`senderPerson`），
+     * 旧的 `sender` 仍可读但已弃用；两个都读不到就留空串，由拼接侧只输出正文。
+     */
+    @Suppress("DEPRECATION")
+    private fun messagingSender(
+        message: android.app.Notification.MessagingStyle.Message
+    ): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            message.senderPerson?.name?.toString()?.let { if (it.isNotBlank()) return it }
+        }
+        return message.sender?.toString().orEmpty()
     }
 
     /** 带过滤原因版：返回 FilterResult，供服务端完成「拦截入历史 / 白名单标注」 */

@@ -615,6 +615,7 @@ object I18n {
         "notif.channelName" to "后台服务",
         "notif.channelDesc" to "通知监听与幻念收件的前台服务",
         "notif.noTitle" to "(无标题)",
+        "notif.messagingOmitted" to "（更早的 {0} 条消息未展开）",
         "merge.listSep" to "、",
         "merge.listMore" to "{0} 等",
         // 自建应用测试
@@ -738,6 +739,7 @@ object I18n {
         "notif.channelName" to "Background service",
         "notif.channelDesc" to "Foreground service for notification listening and Fnthink receiving",
         "notif.noTitle" to "(No title)",
+        "notif.messagingOmitted" to "({0} earlier message(s) not expanded)",
         "merge.listSep" to ", ",
         "merge.listMore" to "{0} and more",
         "test.appChannelMessage" to "This is a test message — the self-built app channel is configured correctly!",
