@@ -396,7 +396,7 @@ void main() {
       expect(find.text('添加邮件通道'), findsNothing);
       expect(find.text('编辑邮件通道'), findsNothing);
       expect(
-        find.textContaining('通道元数据未就绪'),
+        find.textContaining('通道元数据尚未就绪'),
         findsOneWidget,
         reason: '静默开一张空表单 = 用户点保存就把已存配置写空',
       );

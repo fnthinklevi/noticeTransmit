@@ -451,7 +451,7 @@
   "noTitle": "(No title)",
   "emailSettingsTitle": "Email Forwarding",
   "noEmailChannels": "No email channels",
-  "clickToAdd": "Tap the button below to add",
+  "clickToAdd": "Tap the button below to add a channel",
   "addEmailChannel": "Add Email Channel",
   "editEmailChannel": "Edit Email Channel",
   "testAndSave": "Test & Save",
@@ -459,7 +459,7 @@
   "turnOn": "Turn On",
   "turnOff": "Turn Off",
   "fieldRequired": "Required",
-  "fillRequiredFieldsNamed": "Save failed: please fill in {fields}",
+  "fillRequiredFieldsNamed": "Save failed: please fill in the following fields: {fields}",
   "@fillRequiredFieldsNamed": {
     "placeholders": {
       "fields": {
@@ -469,7 +469,7 @@
   },
   "channelName": "Channel Name",
   "confirmDelete": "Confirm delete",
-  "deleteChannelConfirm": "Delete channel \"{name}\"? Its credentials and health record are removed; records already pushed are unaffected.",
+  "deleteChannelConfirm": "Delete channel \"{name}\"? Its credentials and health record will be removed; records already pushed are unaffected.",
   "@deleteChannelConfirm": {
     "placeholders": {
       "name": {
@@ -503,7 +503,7 @@
       }
     }
   },
-  "testing": "Testing...",
+  "testing": "Testing…",
   "channelNameHint": "e.g. QQ Mail",
   "smtpHost": "SMTP Server",
   "smtpPort": "Port",
@@ -1775,7 +1775,7 @@
   "emailHintRecipients": "Separate multiple addresses with commas",
   "emailHintHostExample": "smtp.qq.com",
   "emailHintAddressExample": "your@email.com",
-  "emailMetaUnavailable": "Channel metadata is not ready yet, try again later (no configuration was changed)",
+  "emailMetaUnavailable": "Channel metadata is not ready yet; try again later (no configuration was changed)",
   "testUnknownResult": "Unknown result",
   "emailHintSubject": "Leave empty for the default subject (app name + title)",
   "emailHintBody": "Leave empty for the default body (app / title / content / package / time / device)",

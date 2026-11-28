@@ -796,7 +796,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noEmailChannels => '暂无邮件通道';
 
   @override
-  String get clickToAdd => '点击下方按钮添加';
+  String get clickToAdd => '点击下方按钮以添加通道';
 
   @override
   String get addEmailChannel => '添加邮件通道';
@@ -821,7 +821,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fillRequiredFieldsNamed(String fields) {
-    return '保存失败：请填写 $fields';
+    return '保存失败：请填写以下字段：$fields';
   }
 
   @override
@@ -832,7 +832,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String deleteChannelConfirm(String name) {
-    return '确定删除通道「$name」吗？它的凭据与健康记录会一起清除；已推送出去的历史记录不受影响。';
+    return '确定删除通道「$name」吗？其凭据与健康记录将一并清除；已推送的历史记录不受影响。';
   }
 
   @override
@@ -876,10 +876,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get testing => '测试中...';
+  String get testing => '正在测试…';
 
   @override
-  String get channelNameHint => '如：QQ邮箱';
+  String get channelNameHint => '例如：QQ 邮箱';
 
   @override
   String get smtpHost => 'SMTP 服务器';
@@ -3218,7 +3218,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emailHintAddressExample => 'your@email.com';
 
   @override
-  String get emailMetaUnavailable => '通道元数据未就绪，请稍后重试（本次操作没有改动任何配置）';
+  String get emailMetaUnavailable => '通道元数据尚未就绪，请稍后重试（本次操作未更改任何配置）';
 
   @override
   String get testUnknownResult => '未知结果';

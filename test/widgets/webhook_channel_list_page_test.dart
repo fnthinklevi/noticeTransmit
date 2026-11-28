@@ -159,7 +159,7 @@ void main() {
       await open(tester);
       expect(tester.takeException(), isNull);
       expect(find.text('暂无 Webhook 通道'), findsOneWidget);
-      expect(find.text('点击下方按钮添加'), findsOneWidget);
+      expect(find.text('点击下方按钮以添加通道'), findsOneWidget);
     });
 
     testWidgets('每行显示类型名 + 主机 + 自己的健康徽标（不是上一条的）', (tester) async {

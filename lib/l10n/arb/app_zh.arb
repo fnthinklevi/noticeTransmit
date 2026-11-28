@@ -451,7 +451,7 @@
   "noTitle": "（无标题）",
   "emailSettingsTitle": "邮件转发通道",
   "noEmailChannels": "暂无邮件通道",
-  "clickToAdd": "点击下方按钮添加",
+  "clickToAdd": "点击下方按钮以添加通道",
   "addEmailChannel": "添加邮件通道",
   "editEmailChannel": "编辑邮件通道",
   "testAndSave": "测试并保存",
@@ -459,7 +459,7 @@
   "turnOn": "开启",
   "turnOff": "停用",
   "fieldRequired": "必填",
-  "fillRequiredFieldsNamed": "保存失败：请填写 {fields}",
+  "fillRequiredFieldsNamed": "保存失败：请填写以下字段：{fields}",
   "@fillRequiredFieldsNamed": {
     "placeholders": {
       "fields": {
@@ -469,7 +469,7 @@
   },
   "channelName": "通道名称",
   "confirmDelete": "确认删除",
-  "deleteChannelConfirm": "确定删除通道「{name}」吗？它的凭据与健康记录会一起清除；已推送出去的历史记录不受影响。",
+  "deleteChannelConfirm": "确定删除通道「{name}」吗？其凭据与健康记录将一并清除；已推送的历史记录不受影响。",
   "@deleteChannelConfirm": {
     "placeholders": {
       "name": {
@@ -503,8 +503,8 @@
       }
     }
   },
-  "testing": "测试中...",
-  "channelNameHint": "如：QQ邮箱",
+  "testing": "正在测试…",
+  "channelNameHint": "例如：QQ 邮箱",
   "smtpHost": "SMTP 服务器",
   "smtpPort": "端口号",
   "smtpAccount": "SMTP 账号",
@@ -1775,7 +1775,7 @@
   "emailHintRecipients": "可多个，逗号分隔",
   "emailHintHostExample": "smtp.qq.com",
   "emailHintAddressExample": "your@email.com",
-  "emailMetaUnavailable": "通道元数据未就绪，请稍后重试（本次操作没有改动任何配置）",
+  "emailMetaUnavailable": "通道元数据尚未就绪，请稍后重试（本次操作未更改任何配置）",
   "testUnknownResult": "未知结果",
   "emailHintSubject": "留空则用默认主题（应用名 + 标题）",
   "emailHintBody": "留空则用默认正文（应用/标题/内容/包名/时间/设备）",

@@ -831,7 +831,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noEmailChannels => 'No email channels';
 
   @override
-  String get clickToAdd => 'Tap the button below to add';
+  String get clickToAdd => 'Tap the button below to add a channel';
 
   @override
   String get addEmailChannel => 'Add Email Channel';
@@ -856,7 +856,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fillRequiredFieldsNamed(String fields) {
-    return 'Save failed: please fill in $fields';
+    return 'Save failed: please fill in the following fields: $fields';
   }
 
   @override
@@ -867,7 +867,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String deleteChannelConfirm(String name) {
-    return 'Delete channel \"$name\"? Its credentials and health record are removed; records already pushed are unaffected.';
+    return 'Delete channel \"$name\"? Its credentials and health record will be removed; records already pushed are unaffected.';
   }
 
   @override
@@ -912,7 +912,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get testing => 'Testing...';
+  String get testing => 'Testing…';
 
   @override
   String get channelNameHint => 'e.g. QQ Mail';
@@ -3358,7 +3358,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emailMetaUnavailable =>
-      'Channel metadata is not ready yet, try again later (no configuration was changed)';
+      'Channel metadata is not ready yet; try again later (no configuration was changed)';
 
   @override
   String get testUnknownResult => 'Unknown result';

@@ -1516,7 +1516,7 @@ abstract class AppLocalizations {
   /// No description provided for @clickToAdd.
   ///
   /// In zh, this message translates to:
-  /// **'点击下方按钮添加'**
+  /// **'点击下方按钮以添加通道'**
   String get clickToAdd;
 
   /// No description provided for @addEmailChannel.
@@ -1564,7 +1564,7 @@ abstract class AppLocalizations {
   /// No description provided for @fillRequiredFieldsNamed.
   ///
   /// In zh, this message translates to:
-  /// **'保存失败：请填写 {fields}'**
+  /// **'保存失败：请填写以下字段：{fields}'**
   String fillRequiredFieldsNamed(String fields);
 
   /// No description provided for @channelName.
@@ -1582,7 +1582,7 @@ abstract class AppLocalizations {
   /// No description provided for @deleteChannelConfirm.
   ///
   /// In zh, this message translates to:
-  /// **'确定删除通道「{name}」吗？它的凭据与健康记录会一起清除；已推送出去的历史记录不受影响。'**
+  /// **'确定删除通道「{name}」吗？其凭据与健康记录将一并清除；已推送的历史记录不受影响。'**
   String deleteChannelConfirm(String name);
 
   /// No description provided for @deleteKeywordConfirm.
@@ -1660,13 +1660,13 @@ abstract class AppLocalizations {
   /// No description provided for @testing.
   ///
   /// In zh, this message translates to:
-  /// **'测试中...'**
+  /// **'正在测试…'**
   String get testing;
 
   /// No description provided for @channelNameHint.
   ///
   /// In zh, this message translates to:
-  /// **'如：QQ邮箱'**
+  /// **'例如：QQ 邮箱'**
   String get channelNameHint;
 
   /// No description provided for @smtpHost.
@@ -5962,7 +5962,7 @@ abstract class AppLocalizations {
   /// No description provided for @emailMetaUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'通道元数据未就绪，请稍后重试（本次操作没有改动任何配置）'**
+  /// **'通道元数据尚未就绪，请稍后重试（本次操作未更改任何配置）'**
   String get emailMetaUnavailable;
 
   /// No description provided for @testUnknownResult.

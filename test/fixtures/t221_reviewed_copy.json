@@ -1112,5 +1112,31 @@
       "zh": "该通道已不存在，本次设置未保存。",
       "en": "That channel no longer exists; the change was not saved."
     }
+  },
+  "lib/pages/email_settings_page.dart": {
+    "clickToAdd": {
+      "zh": "点击下方按钮以添加通道",
+      "en": "Tap the button below to add a channel"
+    },
+    "emailMetaUnavailable": {
+      "zh": "通道元数据尚未就绪，请稍后重试（本次操作未更改任何配置）",
+      "en": "Channel metadata is not ready yet; try again later (no configuration was changed)"
+    },
+    "testing": {
+      "zh": "正在测试…",
+      "en": "Testing…"
+    },
+    "deleteChannelConfirm": {
+      "zh": "确定删除通道「{name}」吗？其凭据与健康记录将一并清除；已推送的历史记录不受影响。",
+      "en": "Delete channel \"{name}\"? Its credentials and health record will be removed; records already pushed are unaffected."
+    },
+    "fillRequiredFieldsNamed": {
+      "zh": "保存失败：请填写以下字段：{fields}",
+      "en": "Save failed: please fill in the following fields: {fields}"
+    },
+    "channelNameHint": {
+      "zh": "例如：QQ 邮箱",
+      "en": "e.g. QQ Mail"
+    }
   }
 }
