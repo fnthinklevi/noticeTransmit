@@ -1504,5 +1504,39 @@
       "zh": "无法读取名单，并不表示尚未配对设备",
       "en": "The peer list could not be read; this does not mean no devices are paired"
     }
+  },
+  "lib/pages/main_page.dart": {
+    "databaseRecoveryTitle": {
+      "zh": "检测到旧数据库备份",
+      "en": "Old database backup found"
+    },
+    "databaseRecoveryBody": {
+      "zh": "重建前保留的旧数据库备份：{time}，{size}。恢复将使用此备份覆盖当前数据库；当前数据库会先另行保存，不会被直接删除。",
+      "en": "A backup from before the rebuild was found: {time}, {size}. Restoring replaces the current database with this backup; the current database is saved aside first, not deleted."
+    },
+    "databaseRecoveryDone": {
+      "zh": "已从旧数据库备份恢复，正在刷新页面数据。",
+      "en": "Restored from the old backup. Refreshing page data."
+    },
+    "databaseRecoveryFailed": {
+      "zh": "旧数据库备份未通过完整性校验，未进行任何覆盖：{reason}",
+      "en": "The old backup failed the integrity check; nothing was overwritten: {reason}"
+    },
+    "databaseMigrationBackupBody": {
+      "zh": "升级前已自动备份旧数据库：{time}，{size}。可恢复此备份（当前数据库会先另行保存），或重试本次升级。",
+      "en": "A pre-upgrade copy was saved automatically: {time}, {size}. You can restore it (the current database is saved aside first) or retry the upgrade."
+    },
+    "databaseUnavailableTitle": {
+      "zh": "数据库无法打开",
+      "en": "Database unavailable"
+    },
+    "secureStorageUnavailableBody": {
+      "zh": "加密数据库的密钥已失效（无法读取 Android Keystore 主密钥），「重试」无法恢复。请前往系统设置 → 应用 → 通知推送助手 → 存储 → 清除应用数据，然后重新打开；历史记录与配对信息将一并丢失，本应用不会代为执行此操作。",
+      "en": "The encryption key can no longer be decrypted (the Android Keystore master key failed), and Retry cannot fix it. Go to system settings → Apps → Notification Push Assistant → Storage → Clear data, then reopen. History and pairings will be erased; the app will not do that for you."
+    },
+    "databaseUnavailableBody": {
+      "zh": "加密数据库无法打开；原文件已保留，历史记录未被清空。请点击「重试」再次打开。",
+      "en": "The encrypted database could not be opened. Your data was kept; tap Retry to try again."
+    }
   }
 }

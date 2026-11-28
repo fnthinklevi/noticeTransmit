@@ -53,7 +53,7 @@ void main() {
     'lib/pages/more_page.dart': 'pending',
     'lib/pages/remote_trigger_filter_page.dart': 'pending',
     'lib/pages/email_settings_page.dart': 'reviewed',
-    'lib/pages/main_page.dart': 'pending',
+    'lib/pages/main_page.dart': 'reviewed',
     'lib/pages/notification_engine_page.dart': 'pending',
     'lib/pages/app_channel_list_page.dart': 'pending',
     'lib/pages/fnthink_shortcuts_page.dart': 'reviewed',

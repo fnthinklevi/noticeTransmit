@@ -1813,35 +1813,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restartApp => '重启应用';
 
   @override
-  String get databaseUnavailableTitle => '数据库打不开';
+  String get databaseUnavailableTitle => '数据库无法打开';
 
   @override
-  String get databaseUnavailableBody => '加密数据库无法打开；原文件已保留，没有清空历史。请点「重试」再打开一次。';
+  String get databaseUnavailableBody =>
+      '加密数据库无法打开；原文件已保留，历史记录未被清空。请点击「重试」再次打开。';
 
   @override
   String get secureStorageUnavailableTitle => '安全存储不可用';
 
   @override
   String get secureStorageUnavailableBody =>
-      '加密数据库的钥匙已经失效（Android Keystore 主密钥读不出来），「重试」救不回来。请到系统设置 → 应用 → 通知推送助手 → 存储 → 清除应用数据，然后重新打开；历史与配对会一起丢失，本机不会替你做这一步。';
+      '加密数据库的密钥已失效（无法读取 Android Keystore 主密钥），「重试」无法恢复。请前往系统设置 → 应用 → 通知推送助手 → 存储 → 清除应用数据，然后重新打开；历史记录与配对信息将一并丢失，本应用不会代为执行此操作。';
 
   @override
-  String get databaseRecoveryTitle => '发现旧库备份';
+  String get databaseRecoveryTitle => '检测到旧数据库备份';
 
   @override
   String databaseRecoveryBody(String time, String size) {
-    return '重建前留下的旧库备份：$time，$size。恢复会用这份备份覆盖当前库；当前库会先另存一份，不会直接删除。';
+    return '重建前保留的旧数据库备份：$time，$size。恢复将使用此备份覆盖当前数据库；当前数据库会先另行保存，不会被直接删除。';
   }
 
   @override
   String get databaseRecoveryConfirm => '恢复';
 
   @override
-  String get databaseRecoveryDone => '已从旧库备份恢复，正在刷新页面数据。';
+  String get databaseRecoveryDone => '已从旧数据库备份恢复，正在刷新页面数据。';
 
   @override
   String databaseRecoveryFailed(String reason) {
-    return '旧库备份没有通过完整性校验，未做任何覆盖：$reason';
+    return '旧数据库备份未通过完整性校验，未进行任何覆盖：$reason';
   }
 
   @override
@@ -1849,7 +1850,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String databaseMigrationBackupBody(String time, String size) {
-    return '升级前已自动备份旧库：$time，$size。可以恢复这份备份（当前库会先另存一份），或重试本次升级。';
+    return '升级前已自动备份旧数据库：$time，$size。可恢复此备份（当前数据库会先另行保存），或重试本次升级。';
   }
 
   @override
