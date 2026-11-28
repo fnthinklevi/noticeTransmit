@@ -148,6 +148,12 @@ extension _HistoryPageRows on _HistoryPageState {
     // 不编一句「还没执行」—— 存量行与刚落库未判定的那一瞬都是这个形状。
     final command = outgoing ? null : RemoteCommandEnvelope.decode(m.body);
     final record = command == null ? null : _commandRecords[m.messageId];
+    // P2-7：发出档此前不画状态（`statusMessage` 对 outgoing 恒 null），手动发出去的
+    // 一条在列表里永远看不出"到了没有"。词表只有 `fnthink_out_status.dart` 一份，
+    // 人话与点色复用 `delivery_display.dart`，不在这一行另写一套措辞。
+    final outStatus = outgoing
+        ? fnthinkOutgoingStatusWord(ackResult: m.ackResult, ackedAt: m.ackedAt)
+        : null;
     // T208：选项态现在所有幻念档都支持（收件、发件）
     const selectable = true;
     final tile = HistoryRowTile(
@@ -194,8 +200,12 @@ extension _HistoryPageRows on _HistoryPageState {
       // ⚠ 指令行不走这一格：它带的是判定层的状态词与理由（T141①），见上面那个 helper。
       statusMessage: command != null
           ? _remoteCommandStatusLine(l10n, record)
-          : (outgoing || m.ackResult.isEmpty ? null : m.ackResult),
-      statusColor: AppColors.secondaryLabel(context),
+          : outgoing
+          ? deliveryStatusText(l10n, outStatus!)
+          : (m.ackResult.isEmpty ? null : m.ackResult),
+      statusColor: outgoing
+          ? deliveryStatusColor(context, outStatus!)
+          : AppColors.secondaryLabel(context),
       corner: index == 0
           ? (index == total - 1
                 ? HistoryRowCorner.only

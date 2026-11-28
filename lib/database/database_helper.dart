@@ -2133,6 +2133,26 @@ class DatabaseHelper
     return affected > 0;
   }
 
+  /// 发出档里还有没有「交出去了、但对面还没回执」的行（P2-7）。
+  ///
+  /// 这是发件回执看守的**第二个判据**：手动发送 / 远程回传 / 远程回执都没有
+  /// `notifications` 那一行，看守此前只看通知历史时会判「本机没有在等的」⇒
+  /// 从不发 `/receipts` ⇒ 那一条永远停在「排队中」，而对面其实早已收下。
+  ///
+  /// [sentAfterMs] 是下限：超过契约 `retention.maxRetentionDays` 的消息在服务端
+  /// 已经过期，永远不会再有回执 —— 让看守为这种死行一直跑，等于把"在等"说成永恒。
+  Future<bool> hasFnthinkOutboxAwaitingAck({required int sentAfterMs}) async {
+    final db = await database;
+    final rows = await db.query(
+      FnthinkInboxMessage.table,
+      columns: ['message_id'],
+      where: 'direction = ? AND acked_at = 0 AND received_at >= ?',
+      whereArgs: [kFnthinkDirectionOut, sentAfterMs],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
   /// 保留与清理：先删掉早于 [olderThanDays] 天的，再把剩下的裁到 [maxRows] 条（删最旧）。
   ///
   /// 返回删掉的条数（`byAge` / `byCap` 分开）：**裁上限不是"删几行"，是一次要让人看见的事件**

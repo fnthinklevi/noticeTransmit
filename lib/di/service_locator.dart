@@ -123,8 +123,9 @@ void setupLocator() {
     () => FnthinkPresenceScheduler(contracts: getIt<FnthinkContractLoader>()),
   );
   // T194 A 档：发件回执看守。注册必须排在协调者之前（它的 sync/receiveRound 闭包在**被调用时**
-  // 才取协调者，所以这里只登记、不解析）。判据两条都读本机事实：
+  // 才取协调者，所以这里只登记、不解析）。判据三条都读本机事实：
   //  - 通知历史里幻念那一格仍 pending/queued ⇒ 有发件在等回执；
+  //  - `fnthink_messages` 的 out 档仍未 ack（P2-7：手动发送不写上面那一行）；
   //  - 远程执行表里 `direction=out` 仍未终态 ⇒ 等对面那一段回执（骑既有收货循环，不开第二轮询）。
   getIt.registerLazySingleton<FnthinkReceiptWatchdog>(
     () => FnthinkReceiptWatchdog(
@@ -141,6 +142,20 @@ void setupLocator() {
             )) {
               return true;
             }
+          }
+          // P2-7：手动发送/回传/回执不在 `notifications` 里（那一格永远不会是
+          // pending/queued），所以上面的循环看不见它们。少了这一发，看守会判
+          // "没有在等的" ⇒ 从不取 `/receipts` ⇒ 发出档永远停在「排队中」。
+          // 下限取契约保留期：超过它的消息在服务端已经过期，不会再有回执。
+          final contract = getIt<FnthinkContractLoader>().cached;
+          final retentionDays =
+              contract?.intOf(const ['retention', 'maxRetentionDays']) ?? 7;
+          final horizon =
+              DateTime.now().millisecondsSinceEpoch - retentionDays * 86400000;
+          if (await DatabaseHelper().hasFnthinkOutboxAwaitingAck(
+            sentAfterMs: horizon,
+          )) {
+            return true;
           }
         } catch (e) {
           debugPrint('[fnthink] 发件看守读未决送达失败（按没有在等的处理）：$e');

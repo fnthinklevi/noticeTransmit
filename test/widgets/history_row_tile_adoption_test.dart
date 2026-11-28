@@ -266,7 +266,7 @@ void main() {
     expect(find.text('delivered'), findsOneWidget);
   });
 
-  testWidgets('发出档：来源那一格说清是收件人，且不画未读点、不画回执', (tester) async {
+  testWidgets('发出档：来源那一格说清是收件人、不画未读点，状态格说「排队中」', (tester) async {
     await pumpInbox(tester, [
       inboxMessage('m-out', outgoing: true),
     ], direction: 'sent');
@@ -284,9 +284,15 @@ void main() {
       find.byKey(const ValueKey('fnthink-inbox-unread-m-out')),
       findsNothing,
     );
+    // P2-7：`accepted` 之后才写这一行、回执还没到 ⇒ 唯一为真的话是「排队中」，
+    // 不再是空白（空白在用户眼里等于"不知道发没发出去"）。
     expect(
-      find.byKey(const ValueKey('fnthink-inbox-status-message-m-out')),
-      findsNothing,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('fnthink-inbox-status-message-m-out')),
+          )
+          .data,
+      zh(tester).deliveryQueued,
     );
   });
 

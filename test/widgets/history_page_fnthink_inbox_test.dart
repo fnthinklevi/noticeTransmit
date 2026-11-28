@@ -503,6 +503,36 @@ void main() {
       );
     });
 
+    testWidgets('发出档：没回执说「排队中」，回执到了翻成已送达 / 已显示', (tester) async {
+      // P2-7：此前发出档的状态格对 outgoing 恒为空 —— 手动发出去的一条
+      // 在列表里永远看不出"到了没有"，只有点进详情才知道。
+      sentTable = [
+        row('m_wait', direction: kFnthinkDirectionOut),
+        row(
+          'm_delivered',
+          direction: kFnthinkDirectionOut,
+          ackResult: 'delivered',
+          ackedAt: 1780000001000,
+        ),
+        row(
+          'm_displayed',
+          direction: kFnthinkDirectionOut,
+          ackResult: 'displayed',
+          ackedAt: 1780000002000,
+        ),
+      ];
+      await pump(tester);
+      await toSent(tester);
+      String statusOf(String id) => tester
+          .widget<Text>(
+            find.byKey(ValueKey('fnthink-inbox-status-message-$id')),
+          )
+          .data!;
+      expect(statusOf('m_wait'), l10n(tester).deliveryQueued);
+      expect(statusOf('m_delivered'), l10n(tester).deliveryPeerDelivered);
+      expect(statusOf('m_displayed'), l10n(tester).deliveryPeerDisplayed);
+    });
+
     testWidgets('点开一条发出的：不标已读、也不重读收件表', (tester) async {
       sentTable = [row('m_out', direction: kFnthinkDirectionOut)];
       await pump(tester);

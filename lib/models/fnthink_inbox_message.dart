@@ -70,9 +70,11 @@ class FnthinkInboxMessage {
 
   final bool read;
 
-  /// 本机对这一条报过的结果（`delivered` / `displayed` / `rejected_*` / `failed_action`）。
-  /// 空串 = 还没报出去。记的是**我自己那一半**的事实，不是服务端状态机那一份 ——
-  /// 后者只有 poll 才拿得回来，两端各存一份"当前状态"迟早漂。
+  /// 这一条**另一端**报到服务端的结果 —— 含义随 [direction] 变：
+  /// in 方向＝本机报出去的那一发（`delivered` / `displayed` / `rejected_*` / `failed_action`）；
+  /// out 方向＝对端收下后服务端带回的**回执原话**（`delivered` / `displayed` / `expired` / `dropped`，
+  /// 见 `fnthink_out_status.dart` 的映射）。空串 = 还没报出去 / 还没收到回执。
+  /// 记的是**另一半的事实**，不是服务端状态机那一份 —— 后者只有 poll 才拿得回来。
   final String ackResult;
 
   /// 报出去的时刻（毫秒），0 = 没报过。
