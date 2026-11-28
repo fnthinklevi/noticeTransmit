@@ -6478,25 +6478,25 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkConsentGateTitle.
   ///
   /// In zh, this message translates to:
-  /// **'这一步要先把内容交给服务器'**
+  /// **'此操作需先将内容交由服务器中转'**
   String get fnthinkConsentGateTitle;
 
   /// No description provided for @fnthinkConsentGateMsg.
   ///
   /// In zh, this message translates to:
-  /// **'「{action}」需先通过「内容经服务器中转」这一授权：幻念的收发、接入端点管理、配对关系与通道发送均经中转服务器处理，使用前请先同意。授权入口位于「幻念推送 → 接收推送」页（授权前可阅读完整说明）。授权后返回此处，再次点击即可继续'**
+  /// **'「{action}」须先获得「内容经服务器中转」授权：幻念收发、接入端点管理、配对关系与通道发送均经中转服务器处理，使用前须先行同意。授权入口位于「幻念推送 → 接收推送」页（授权前可阅读完整说明）。完成授权后请返回此处，再次点击即可继续。'**
   String fnthinkConsentGateMsg(Object action);
 
   /// No description provided for @fnthinkConsentGateGo.
   ///
   /// In zh, this message translates to:
-  /// **'去那一页同意'**
+  /// **'前往该页授权'**
   String get fnthinkConsentGateGo;
 
   /// No description provided for @fnthinkConsentGateThisStep.
   ///
   /// In zh, this message translates to:
-  /// **'这一步'**
+  /// **'本操作'**
   String get fnthinkConsentGateThisStep;
 
   /// No description provided for @fnthinkSendTargetGoPair.

@@ -3663,18 +3663,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkConsentGateTitle =>
-      'This step routes content through the server';
+      'This operation requires routing content through the server first';
 
   @override
   String fnthinkConsentGateMsg(Object action) {
-    return '\"$action\" requires the \"content relayed through the server\" consent first: fnthink messaging, endpoint management, pairing and channel delivery all route through the relay server. Please review and consent on the \"Fnthink → Receive Push\" page first (full text available before consent). Return here and tap again to continue';
+    return '\"$action\" requires the \"content relayed through the server\" consent first: fnthink messaging, endpoint management, pairing and channel delivery all route through the relay server. Please review and consent on the \"Fnthink → Receive Push\" page first (full text is available before consent). Return here after consenting and tap again to continue.';
   }
 
   @override
   String get fnthinkConsentGateGo => 'Open that page';
 
   @override
-  String get fnthinkConsentGateThisStep => 'This step';
+  String get fnthinkConsentGateThisStep => 'This operation';
 
   @override
   String get fnthinkSendTargetGoPair => 'Go to pairing';

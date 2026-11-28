@@ -1268,5 +1268,23 @@
       "zh": "正在初始化…",
       "en": "Initializing…"
     }
+  },
+  "lib/pages/fnthink_consent_gate.dart": {
+    "fnthinkConsentGateTitle": {
+      "zh": "此操作需先将内容交由服务器中转",
+      "en": "This operation requires routing content through the server first"
+    },
+    "fnthinkConsentGateMsg": {
+      "zh": "「{action}」须先获得「内容经服务器中转」授权：幻念收发、接入端点管理、配对关系与通道发送均经中转服务器处理，使用前须先行同意。授权入口位于「幻念推送 → 接收推送」页（授权前可阅读完整说明）。完成授权后请返回此处，再次点击即可继续。",
+      "en": "\"{action}\" requires the \"content relayed through the server\" consent first: fnthink messaging, endpoint management, pairing and channel delivery all route through the relay server. Please review and consent on the \"Fnthink → Receive Push\" page first (full text is available before consent). Return here after consenting and tap again to continue."
+    },
+    "fnthinkConsentGateThisStep": {
+      "zh": "本操作",
+      "en": "This operation"
+    },
+    "fnthinkConsentGateGo": {
+      "zh": "前往该页授权",
+      "en": "Open that page"
+    }
   }
 }

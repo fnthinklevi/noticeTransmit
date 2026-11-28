@@ -3508,18 +3508,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkConsentRevokeDone => '已撤销：经服务器的收发与远程控制均不可用，配置与历史记录未删除。';
 
   @override
-  String get fnthinkConsentGateTitle => '这一步要先把内容交给服务器';
+  String get fnthinkConsentGateTitle => '此操作需先将内容交由服务器中转';
 
   @override
   String fnthinkConsentGateMsg(Object action) {
-    return '「$action」需先通过「内容经服务器中转」这一授权：幻念的收发、接入端点管理、配对关系与通道发送均经中转服务器处理，使用前请先同意。授权入口位于「幻念推送 → 接收推送」页（授权前可阅读完整说明）。授权后返回此处，再次点击即可继续';
+    return '「$action」须先获得「内容经服务器中转」授权：幻念收发、接入端点管理、配对关系与通道发送均经中转服务器处理，使用前须先行同意。授权入口位于「幻念推送 → 接收推送」页（授权前可阅读完整说明）。完成授权后请返回此处，再次点击即可继续。';
   }
 
   @override
-  String get fnthinkConsentGateGo => '去那一页同意';
+  String get fnthinkConsentGateGo => '前往该页授权';
 
   @override
-  String get fnthinkConsentGateThisStep => '这一步';
+  String get fnthinkConsentGateThisStep => '本操作';
 
   @override
   String get fnthinkSendTargetGoPair => '前往配对';
