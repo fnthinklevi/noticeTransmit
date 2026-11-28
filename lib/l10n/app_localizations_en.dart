@@ -1469,7 +1469,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ruleGuideAddDesc =>
-      'Tap \"+\" in the top bar or the FAB to create a new rule';
+      'Tap \"+\" in the top bar or the floating button to create a new rule';
 
   @override
   String get ruleGuideCondition => 'Set Conditions';

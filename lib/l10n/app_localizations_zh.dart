@@ -1402,19 +1402,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleGuideAdd => '添加规则';
 
   @override
-  String get ruleGuideAddDesc => '点击右上角「+」或右下角浮动按钮创建新规则';
+  String get ruleGuideAddDesc => '点击右上角「+」或右下角浮动按钮以创建新规则';
 
   @override
   String get ruleGuideCondition => '设置条件';
 
   @override
-  String get ruleGuideConditionDesc => '配置触发规则的条件（IF），如应用包名、关键词、时间等';
+  String get ruleGuideConditionDesc => '配置规则的触发条件（IF），例如应用包名、关键词、时间等';
 
   @override
   String get ruleGuideAction => '执行动作';
 
   @override
-  String get ruleGuideActionDesc => '设置满足条件后执行的动作（THEN），如推送通知、静默忽略等';
+  String get ruleGuideActionDesc => '设置条件满足后执行的动作（THEN），例如推送通知、静默忽略等';
 
   @override
   String get ruleGuideEnable => '启用规则';
@@ -1426,7 +1426,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleGuideTip => '提示：规则按优先级顺序执行，匹配第一条规则后即停止。可通过编辑规则调整优先级。';
 
   @override
-  String get ruleGuideGotIt => '知道了';
+  String get ruleGuideGotIt => '了解';
 
   @override
   String get ruleHelp => '使用帮助';
@@ -2996,11 +2996,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleTemplateMineEmpty => '暂无自定义模板；在规则卡片上点「存为模板」即可保存';
 
   @override
-  String get ruleTemplateSaveAs => '存为模板';
+  String get ruleTemplateSaveAs => '保存为模板';
 
   @override
   String ruleTemplateSavedToast(String app) {
-    return '已将「$app」存为模板';
+    return '已将「$app」保存为模板';
   }
 
   @override

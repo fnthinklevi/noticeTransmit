@@ -2674,7 +2674,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleGuideAddDesc.
   ///
   /// In zh, this message translates to:
-  /// **'点击右上角「+」或右下角浮动按钮创建新规则'**
+  /// **'点击右上角「+」或右下角浮动按钮以创建新规则'**
   String get ruleGuideAddDesc;
 
   /// No description provided for @ruleGuideCondition.
@@ -2686,7 +2686,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleGuideConditionDesc.
   ///
   /// In zh, this message translates to:
-  /// **'配置触发规则的条件（IF），如应用包名、关键词、时间等'**
+  /// **'配置规则的触发条件（IF），例如应用包名、关键词、时间等'**
   String get ruleGuideConditionDesc;
 
   /// No description provided for @ruleGuideAction.
@@ -2698,7 +2698,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleGuideActionDesc.
   ///
   /// In zh, this message translates to:
-  /// **'设置满足条件后执行的动作（THEN），如推送通知、静默忽略等'**
+  /// **'设置条件满足后执行的动作（THEN），例如推送通知、静默忽略等'**
   String get ruleGuideActionDesc;
 
   /// No description provided for @ruleGuideEnable.
@@ -2722,7 +2722,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleGuideGotIt.
   ///
   /// In zh, this message translates to:
-  /// **'知道了'**
+  /// **'了解'**
   String get ruleGuideGotIt;
 
   /// No description provided for @ruleHelp.
@@ -5548,13 +5548,13 @@ abstract class AppLocalizations {
   /// No description provided for @ruleTemplateSaveAs.
   ///
   /// In zh, this message translates to:
-  /// **'存为模板'**
+  /// **'保存为模板'**
   String get ruleTemplateSaveAs;
 
   /// No description provided for @ruleTemplateSavedToast.
   ///
   /// In zh, this message translates to:
-  /// **'已将「{app}」存为模板'**
+  /// **'已将「{app}」保存为模板'**
   String ruleTemplateSavedToast(String app);
 
   /// No description provided for @ruleTemplateImport.

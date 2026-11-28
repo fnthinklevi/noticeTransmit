@@ -1900,5 +1900,31 @@
       "zh": "将上述快照作为一条通知推送至已启用的通道；该通知与告警使用同一条推送链，送达结果可在推送历史中查看。",
       "en": "Sends this snapshot to your enabled channels as one notification. It uses the same delivery chain as alerts, so delivery results appear in push history."
     }
+  },
+  "lib/pages/rule_list_page.dart": {
+    "ruleGuideGotIt": {
+      "zh": "了解",
+      "en": "Got It"
+    },
+    "ruleGuideAddDesc": {
+      "zh": "点击右上角「+」或右下角浮动按钮以创建新规则",
+      "en": "Tap \"+\" in the top bar or the floating button to create a new rule"
+    },
+    "ruleGuideConditionDesc": {
+      "zh": "配置规则的触发条件（IF），例如应用包名、关键词、时间等",
+      "en": "Configure the IF conditions (app package, keyword, time, etc.)"
+    },
+    "ruleGuideActionDesc": {
+      "zh": "设置条件满足后执行的动作（THEN），例如推送通知、静默忽略等",
+      "en": "Configure the THEN actions (push notification, silent ignore, etc.)"
+    },
+    "ruleTemplateSaveAs": {
+      "zh": "保存为模板",
+      "en": "Save as Template"
+    },
+    "ruleTemplateSavedToast": {
+      "zh": "已将「{app}」保存为模板",
+      "en": "\"{app}\" saved as template"
+    }
   }
 }

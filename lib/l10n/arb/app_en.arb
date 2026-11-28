@@ -721,7 +721,7 @@
   },
   "ruleGuideTitle": "Rule Constraints Intro",
   "ruleGuideAdd": "Add Rule",
-  "ruleGuideAddDesc": "Tap \"+\" in the top bar or the FAB to create a new rule",
+  "ruleGuideAddDesc": "Tap \"+\" in the top bar or the floating button to create a new rule",
   "ruleGuideCondition": "Set Conditions",
   "ruleGuideConditionDesc": "Configure the IF conditions (app package, keyword, time, etc.)",
   "ruleGuideAction": "Add Actions",
