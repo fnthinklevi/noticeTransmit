@@ -2092,5 +2092,19 @@
       "zh": "对端可读取本机的哪些内容；每一项默认关闭，需单独开启。",
       "en": "What the other side can read from this device; each item is off by default and enabled separately."
     }
+  },
+  "lib/pages/keywords_page.dart": {
+    "deleteKeywordConfirm": {
+      "zh": "确定删除关键词「{keyword}」吗？删除后将不再参与过滤。",
+      "en": "Delete keyword \"{keyword}\"? It will stop taking part in filtering."
+    },
+    "keywordWhitelistDesc": {
+      "zh": "白名单：通知内容包含任一关键词时，即使应用未被选中也将推送（优先级最高）",
+      "en": "Whitelist: a notification containing any keyword is pushed even if the app is not selected (highest priority)"
+    },
+    "keywordBlacklistDesc": {
+      "zh": "黑名单：通知内容包含任一关键词时，即使应用已被选中，也将不予推送",
+      "en": "Blacklist: a notification containing any keyword will not be pushed even if the app is selected"
+    }
   }
 }

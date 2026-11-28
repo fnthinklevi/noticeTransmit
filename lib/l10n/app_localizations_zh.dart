@@ -837,7 +837,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String deleteKeywordConfirm(String keyword) {
-    return '确定删除关键词「$keyword」吗？它当前不再参与过滤。';
+    return '确定删除关键词「$keyword」吗？删除后将不再参与过滤。';
   }
 
   @override
@@ -1760,10 +1760,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get keywordBlacklistHint => '输入黑名单关键词';
 
   @override
-  String get keywordWhitelistDesc => '白名单：通知内容包含任一关键词时，即使应用未被选中也会推送（优先级最高）';
+  String get keywordWhitelistDesc => '白名单：通知内容包含任一关键词时，即使应用未被选中也将推送（优先级最高）';
 
   @override
-  String get keywordBlacklistDesc => '黑名单：通知内容包含任一关键词时，即使应用被选中也不会推送';
+  String get keywordBlacklistDesc => '黑名单：通知内容包含任一关键词时，即使应用已被选中，也将不予推送';
 
   @override
   String get keywordWhitelistEmpty => '暂无白名单关键词';

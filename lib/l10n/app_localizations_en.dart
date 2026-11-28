@@ -875,7 +875,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String deleteKeywordConfirm(String keyword) {
-    return 'Delete keyword \"$keyword\"? It stops taking part in filtering right away.';
+    return 'Delete keyword \"$keyword\"? It will stop taking part in filtering.';
   }
 
   @override
@@ -1838,11 +1838,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keywordWhitelistDesc =>
-      'Whitelist: notification containing any keyword is pushed even if the app is not selected (highest priority)';
+      'Whitelist: a notification containing any keyword is pushed even if the app is not selected (highest priority)';
 
   @override
   String get keywordBlacklistDesc =>
-      'Blacklist: notification containing any keyword won\'t be pushed even if the app is selected';
+      'Blacklist: a notification containing any keyword will not be pushed even if the app is selected';
 
   @override
   String get keywordWhitelistEmpty => 'No whitelist keywords';

@@ -1588,7 +1588,7 @@ abstract class AppLocalizations {
   /// No description provided for @deleteKeywordConfirm.
   ///
   /// In zh, this message translates to:
-  /// **'确定删除关键词「{keyword}」吗？它当前不再参与过滤。'**
+  /// **'确定删除关键词「{keyword}」吗？删除后将不再参与过滤。'**
   String deleteKeywordConfirm(String keyword);
 
   /// No description provided for @autoSavePath.
@@ -3346,13 +3346,13 @@ abstract class AppLocalizations {
   /// No description provided for @keywordWhitelistDesc.
   ///
   /// In zh, this message translates to:
-  /// **'白名单：通知内容包含任一关键词时，即使应用未被选中也会推送（优先级最高）'**
+  /// **'白名单：通知内容包含任一关键词时，即使应用未被选中也将推送（优先级最高）'**
   String get keywordWhitelistDesc;
 
   /// No description provided for @keywordBlacklistDesc.
   ///
   /// In zh, this message translates to:
-  /// **'黑名单：通知内容包含任一关键词时，即使应用被选中也不会推送'**
+  /// **'黑名单：通知内容包含任一关键词时，即使应用已被选中，也将不予推送'**
   String get keywordBlacklistDesc;
 
   /// No description provided for @keywordWhitelistEmpty.
