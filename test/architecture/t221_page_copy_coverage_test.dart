@@ -30,7 +30,7 @@ void main() {
       arb.keys.where((k) => !k.startsWith('@')).toSet();
 
   const coverage = <String, String>{
-    'lib/pages/history_page.dart': 'pending',
+    'lib/pages/history_page.dart': 'reviewed',
     'lib/pages/fnthink_send_page.dart': 'reviewed',
     'lib/pages/rule_edit_page.dart': 'pending',
     'lib/pages/fnthink_peers_page.dart': 'reviewed',

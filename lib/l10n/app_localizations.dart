@@ -1480,7 +1480,7 @@ abstract class AppLocalizations {
   /// No description provided for @noMatchRecords.
   ///
   /// In zh, this message translates to:
-  /// **'没有匹配的记录'**
+  /// **'无匹配记录'**
   String get noMatchRecords;
 
   /// No description provided for @notificationDetail.
@@ -5068,19 +5068,19 @@ abstract class AppLocalizations {
   /// No description provided for @batchSelectedCount.
   ///
   /// In zh, this message translates to:
-  /// **'已选 {n} 条'**
+  /// **'已选择 {n} 条'**
   String batchSelectedCount(int n);
 
   /// No description provided for @batchSelectAll.
   ///
   /// In zh, this message translates to:
-  /// **'全选可再发的'**
+  /// **'全选可重新发送的记录'**
   String get batchSelectAll;
 
   /// No description provided for @batchSelectNone.
   ///
   /// In zh, this message translates to:
-  /// **'全不选'**
+  /// **'取消全选'**
   String get batchSelectNone;
 
   /// No description provided for @batchPushAction.

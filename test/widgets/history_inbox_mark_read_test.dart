@@ -108,7 +108,7 @@ void main() {
     await pump(tester);
     await tester.longPress(find.byKey(const ValueKey('fnthink-inbox-row-m_a')));
     await tester.pumpAndSettle();
-    expect(find.text('已选 1 条'), findsOneWidget, reason: '长按没有进入选择态');
+    expect(find.text('已选择 1 条'), findsOneWidget, reason: '长按没有进入选择态');
     expect(
       find.byKey(const ValueKey('history-batch-mark-read')),
       findsOneWidget,
@@ -118,7 +118,7 @@ void main() {
     // 点第二行：只切勾选，不开详情（详情页会有 'fnthink-inbox-reply' 那一族动作）
     await tester.tap(find.byKey(const ValueKey('fnthink-inbox-row-m_b')));
     await tester.pumpAndSettle();
-    expect(find.text('已选 2 条'), findsOneWidget);
+    expect(find.text('已选择 2 条'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('fnthink-inbox-reply')),
       findsNothing,
@@ -139,7 +139,7 @@ void main() {
       greaterThanOrEqualTo(2),
       reason: '批量之后没有重新读表（未读点只能由"读"消失，不能由"减"消失）',
     );
-    expect(find.text('已选 1 条'), findsNothing, reason: '写完还停在选择态');
+    expect(find.text('已选择 1 条'), findsNothing, reason: '写完还停在选择态');
   });
 
   testWidgets('取消不写库', (tester) async {
@@ -149,7 +149,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.close));
     await tester.pumpAndSettle();
     expect(markManyCalls, isEmpty, reason: '取消之后仍然写了库');
-    expect(find.text('已选 1 条'), findsNothing);
+    expect(find.text('已选择 1 条'), findsNothing);
   });
 
   testWidgets('「一键已读」只在收件档出现，且要过一次确认', (tester) async {

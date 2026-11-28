@@ -778,7 +778,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noRecords => '暂无推送记录';
 
   @override
-  String get noMatchRecords => '没有匹配的记录';
+  String get noMatchRecords => '无匹配记录';
 
   @override
   String get notificationDetail => '通知详情';
@@ -2721,14 +2721,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String batchSelectedCount(int n) {
-    return '已选 $n 条';
+    return '已选择 $n 条';
   }
 
   @override
-  String get batchSelectAll => '全选可再发的';
+  String get batchSelectAll => '全选可重新发送的记录';
 
   @override
-  String get batchSelectNone => '全不选';
+  String get batchSelectNone => '取消全选';
 
   @override
   String batchPushAction(int n) {

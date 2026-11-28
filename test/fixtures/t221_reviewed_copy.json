@@ -1642,5 +1642,23 @@
       "zh": "远程执行默认关闭：请进入并开启",
       "en": "Remote execution is off by default - open it here"
     }
+  },
+  "lib/pages/history_page.dart": {
+    "batchSelectedCount": {
+      "zh": "已选择 {n} 条",
+      "en": "{n} selected"
+    },
+    "batchSelectAll": {
+      "zh": "全选可重新发送的记录",
+      "en": "Select all that can be sent again"
+    },
+    "batchSelectNone": {
+      "zh": "取消全选",
+      "en": "Clear selection"
+    },
+    "noMatchRecords": {
+      "zh": "无匹配记录",
+      "en": "No matching records"
+    }
   }
 }
