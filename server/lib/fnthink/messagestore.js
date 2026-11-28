@@ -277,6 +277,9 @@ function enqueue(contract, messages, input, now, envKey) {
         };
       }
       const { node, dropped } = pickStoredFields(contract, input);
+      // P2-6：覆盖＝整条正文换成后一条（不是追加）。同 dedupeId 在 queued 期间连发，
+      // 盘上只留最后一份，前一条既不留在盘上、也不会补发；要逐条保留必须自带唯一
+      // dedupeId。端点响应 action=refreshed 就是给调用方看的"前一条正文已被替换"。
       Object.assign(existing, node);
       existing.body = sealContent(contract, envKey, input.title, input.body, input.appName);
       existing.queuedAt = now;

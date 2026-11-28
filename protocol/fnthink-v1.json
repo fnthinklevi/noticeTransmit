@@ -1339,6 +1339,7 @@
     ],
     "messageLevelDedupe": "dedupe_id",
     "dedupeRefreshSemantics": "同 dedupe_id 覆盖而非新增",
+    "_dedupeOnlyLastBodyWhy": "「覆盖」覆盖的是**整条正文**：同 dedupe_id 在 queued 期间连发两次，盘上只保留后一条正文（标题与正文一起进密信封），前一条既不留在盘上、也不会补发；端点响应用 action=refreshed 告诉调用方「前一条正文已被替换，messageId 不变」。要保留每一条，调用方必须给每一条唯一 dedupe_id（或干脆不带）——这不是丢消息，是把「同一事件的最新状态」当成唯一事实。",
     "_dedupeRefreshWhileWhy": "「覆盖」只在消息**还没发出去**时成立（同一事件重复上报，换一份新正文而已）。已经在飞或已终态时再来一条同 dedupe_id 的，判 duplicate 而不是重发 —— 否则用户会为同一条通知被提醒两次，而 dedupe 存在的意义就是防这个。",
     "dedupeRefreshWhile": "queued"
   }
