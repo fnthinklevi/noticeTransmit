@@ -1,4 +1,4 @@
-﻿﻿name: Analyze & Test
+name: Analyze & Test
 ##author: fnthinklevi
 on:
   push:
