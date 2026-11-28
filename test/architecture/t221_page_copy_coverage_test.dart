@@ -34,7 +34,7 @@ void main() {
     'lib/pages/fnthink_send_page.dart': 'reviewed',
     'lib/pages/rule_edit_page.dart': 'pending',
     'lib/pages/fnthink_peers_page.dart': 'reviewed',
-    'lib/pages/remote_credential_settings_page.dart': 'pending',
+    'lib/pages/remote_credential_settings_page.dart': 'reviewed',
     'lib/pages/battery_page.dart': 'pending',
     'lib/pages/permission_settings_page.dart': 'pending',
     'lib/pages/temperature_page.dart': 'pending',

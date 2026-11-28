@@ -842,5 +842,155 @@
       "zh": "复制端点 ID",
       "en": "Copy endpoint ID"
     }
+  },
+  "lib/pages/remote_credential_settings_page.dart": {
+    "remoteCredKeyCustom": {
+      "zh": "自行设置密钥",
+      "en": "Set your own key"
+    },
+    "remoteCredKeyReset": {
+      "zh": "移除此密钥",
+      "en": "Remove this key"
+    },
+    "remoteCredKeyResetAsk": {
+      "zh": "移除后，对端持有的旧密钥将立即失效；须重新生成并当面交付。",
+      "en": "Once removed, the other side's copy stops working immediately; generate a new one and hand it over in person."
+    },
+    "remoteCredResetAllAsk": {
+      "zh": "全部重置后，对端持有的高级密钥与验证码种子将立即失效。如需继续远程执行，须重新生成并当面交付。",
+      "en": "After a full reset, both the advanced key and the code seed held by the other side stop working immediately. To continue remote execution, generate new ones and hand them over in person."
+    },
+    "remoteExecLocalTriggerShort": {
+      "zh": "使选中应用通知正文中的指令在本机执行",
+      "en": "Run commands contained in notifications from selected apps on this device"
+    },
+    "remoteExecLocalTriggerWhyTitle": {
+      "zh": "本机通知触发机制说明",
+      "en": "How the local notification trigger works"
+    },
+    "remoteExecLocalTriggerWhy": {
+      "zh": "此路径不携带凭据：它读取通知栏正文，因此任何能向自身通知写入文本的应用都可能成为指令来源。开启后，来自下方所选应用且命中白名单关键词的通知，若正文以指令信封开头，将在本机执行（仅限 L1）。默认关闭；关闭不影响已配对设备经幻念推送发来的指令。⚠ 此处「可触发的应用」与「需转发的应用」是两份独立清单：前者决定哪些应用的通知可操作本机，后者决定哪些应用的通知需要转发。",
+      "en": "This path carries no credential: it reads the body of a notification, so any app that can write text into its own notification is a potential command source. While enabled, a notification from one of the selected apps below that matches a whitelist keyword and starts with the command envelope will run on this device (L1 only). Off by default; disabling it does not affect commands from paired devices over Fnthink Push. Note that the trigger app list and the forwarding list are separate: one decides whose notifications may act on this device, the other decides whose notifications are forwarded."
+    },
+    "remoteExecLocalTriggerOn": {
+      "zh": "已开启：仍仅限所选应用且命中关键词的通知才可能触发",
+      "en": "On: only notifications from selected apps with a keyword hit can trigger"
+    },
+    "remoteExecLocalTriggerOff": {
+      "zh": "已关闭：任何通知正文均不会被执行",
+      "en": "Off: no notification body will be executed"
+    },
+    "remoteExecLocalTriggerBlockCount": {
+      "zh": "除 {count} 个应用外均可触发",
+      "en": "Every app except {count} can trigger"
+    },
+    "remoteExecLocalTriggerAllowNone": {
+      "zh": "允许 0 个应用，任何通知均不会触发",
+      "en": "0 apps allowed; no notification can trigger anything"
+    },
+    "remoteExecShort": {
+      "zh": "他方可让本机执行操作；默认关闭，升级不会自动开启。",
+      "en": "Others can make this device act. Off by default — an upgrade will not turn it on for you."
+    },
+    "remoteExecWhyTitle": {
+      "zh": "远程执行的安全边界由什么决定",
+      "en": "What decides the safety boundary of remote execution"
+    },
+    "remoteExecWhy": {
+      "zh": "他方可让本机执行操作。安全边界由两项决定：指令来自哪条渠道，以及是否携带凭据。开关默认关闭，升级不会替用户作出该决定。",
+      "en": "Others can make this device act. Safety depends on two things: the channel the command arrives on, and whether a credential comes with it. The switch is off by default — an upgrade never makes that decision for you."
+    },
+    "remoteExecNeedsCredential": {
+      "zh": "已开启但未设置任何凭据，高风险（L3）指令将无法进入。",
+      "en": "On but no credential is set; no high-risk (L3) command can get in."
+    },
+    "remoteExecDelayUsingDefault": {
+      "zh": "本条将在 {seconds} 秒后自动执行（协议默认值）",
+      "en": "This runs automatically {seconds}s later (the protocol default)"
+    },
+    "remoteExecDelayChosen": {
+      "zh": "本条将在 {seconds} 秒后自动执行（自定义值）",
+      "en": "This runs automatically {seconds}s later (custom value)"
+    },
+    "remoteExecDelayRange": {
+      "zh": "可设范围 {min}–{max} 秒，由协议规定，并非本机偏好",
+      "en": "Allowed range {min}–{max}s, set by the protocol, not a local preference"
+    },
+    "remoteExecDelayInvalid": {
+      "zh": "延时设置未生效：{reason}",
+      "en": "The delay setting is not in effect: {reason}"
+    },
+    "remoteExecDelayReset": {
+      "zh": "恢复协议默认值",
+      "en": "Restore protocol default"
+    },
+    "remoteCredShort": {
+      "zh": "此密钥用于授权他方让本机执行操作，与「证明本机身份」所用的密钥不同。",
+      "en": "This key authorizes others to make this device act; it is not the key that proves this device's identity."
+    },
+    "remoteCredWhyTitle": {
+      "zh": "凭据与设备身份为何是两把不同的密钥",
+      "en": "Why the credential and the device identity are two different keys"
+    },
+    "remoteCredWhy": {
+      "zh": "凭据用于授权某一条远程指令，与设备身份是两把不同的密钥：一把证明本机身份，另一把授权他方让本机执行操作。",
+      "en": "A credential authorizes a remote command and is different from the device identity key: one proves this device's identity, the other authorizes someone to make it act."
+    },
+    "remoteCredKeyNone": {
+      "zh": "尚未设置",
+      "en": "Not set yet"
+    },
+    "remoteCredKeySetNoFingerprint": {
+      "zh": "已设置（本机无其指纹，无法辨别具体密钥）",
+      "en": "Set (this device has no fingerprint for it and cannot identify which key it is)"
+    },
+    "remoteCredKeySet": {
+      "zh": "已设置，指纹 {fingerprint}",
+      "en": "Set, fingerprint {fingerprint}"
+    },
+    "remoteCredKeyOnceShort": {
+      "zh": "此密钥串仅显示一次，请立即保存",
+      "en": "Shown once only; save it now"
+    },
+    "remoteCredKeyOnce": {
+      "zh": "此密钥串仅显示一次：请立即保存至仅有你可访问的位置，或当面交付对端设备。关闭本页后，本机仅保留哈希，任何人（包括你本人）都无法再次读取该密钥串。",
+      "en": "This key string is shown only once: save it now somewhere only you can access, or hand it to the other device in person. After this page is closed, only the hash remains on this device; nobody, including you, can read the string again."
+    },
+    "remoteCredKeyGenerate": {
+      "zh": "生成密钥",
+      "en": "Generate key"
+    },
+    "remoteCredTotpSet": {
+      "zh": "已设置",
+      "en": "Set"
+    },
+    "remoteCredTotpNone": {
+      "zh": "尚未设置",
+      "en": "Not set yet"
+    },
+    "remoteCredTotpLink": {
+      "zh": "添加至验证器 App 的链接",
+      "en": "Link to add to the authenticator app"
+    },
+    "remoteCredTotpSecret": {
+      "zh": "密钥串（也可在验证器 App 中手动输入）",
+      "en": "Secret string (can also be entered manually in the authenticator app)"
+    },
+    "remoteCredTotpOnceShort": {
+      "zh": "此验证码种子仅显示一次，请立即录入对端验证器",
+      "en": "This code seed is shown only once; enroll it in the other device's authenticator now"
+    },
+    "remoteCredTotpOnce": {
+      "zh": "此验证码种子仅显示一次，且仅存在于接收端：请立即录入对端设备的验证器 App，或当面交付对方录入。此后由验证器保管，不经过任何服务器；本机关闭本页后仅保留该种子。",
+      "en": "This code seed is shown only once and exists only on the receiving device: enter it into the other device's authenticator app now, or hand it over in person to be entered there. Afterwards the authenticator holds it and no server sees it; once this page is closed, only the seed remains on this device."
+    },
+    "remoteCredTotpGenerate": {
+      "zh": "生成种子",
+      "en": "Generate seed"
+    },
+    "remoteCredTotpClear": {
+      "zh": "移除此种子",
+      "en": "Remove this seed"
+    }
   }
 }

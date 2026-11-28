@@ -4994,14 +4994,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteExecSection => '远程执行';
 
   @override
-  String get remoteExecWhyTitle => '远程执行的安全度由什么决定';
+  String get remoteExecWhyTitle => '远程执行的安全边界由什么决定';
 
   @override
-  String get remoteExecShort => '别人能让这台设备做事；默认关，升级不会替你打开。';
+  String get remoteExecShort => '他方可让本机执行操作；默认关闭，升级不会自动开启。';
 
   @override
   String get remoteExecWhy =>
-      '别人可以让这台设备做事。安全度由两件事决定：走哪条渠道，以及有没有带凭据。开关默认关——升级不会替你做这个决定。';
+      '他方可让本机执行操作。安全边界由两项决定：指令来自哪条渠道，以及是否携带凭据。开关默认关闭，升级不会替用户作出该决定。';
 
   @override
   String get remoteExecEnabledOn => '已开启';
@@ -5010,26 +5010,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteExecEnabledOff => '已关闭';
 
   @override
-  String get remoteExecNeedsCredential => '开了但一把凭据都没有 ⇒ 高风险（L3）那条一条都进不来。';
+  String get remoteExecNeedsCredential => '已开启但未设置任何凭据，高风险（L3）指令将无法进入。';
 
   @override
   String get remoteExecLocalTriggerSection => '本机通知触发';
 
   @override
-  String get remoteExecLocalTriggerShort => '让选中应用的通知正文里那条指令在本机执行';
+  String get remoteExecLocalTriggerShort => '使选中应用通知正文中的指令在本机执行';
 
   @override
-  String get remoteExecLocalTriggerWhyTitle => '本机通知触发这一路是什么';
+  String get remoteExecLocalTriggerWhyTitle => '本机通知触发机制说明';
 
   @override
   String get remoteExecLocalTriggerWhy =>
-      '这一路不带凭据：它读的是通知栏里那条正文，所以任何能把文字写进自己通知的应用都是潜在的指令源。开着它，来自下面选中的应用、且命中白名单关键词的那些通知，正文若以指令信封开头就会被执行（只到 L1）。默认关；关掉它不影响配对设备从幻念推送那一路发来的指令。⚠ 这里的「可触发的应用」与「要转发的应用」是两份清单：一份管谁的通知能动这台设备，一份管谁的通知要推出去。';
+      '此路径不携带凭据：它读取通知栏正文，因此任何能向自身通知写入文本的应用都可能成为指令来源。开启后，来自下方所选应用且命中白名单关键词的通知，若正文以指令信封开头，将在本机执行（仅限 L1）。默认关闭；关闭不影响已配对设备经幻念推送发来的指令。⚠ 此处「可触发的应用」与「需转发的应用」是两份独立清单：前者决定哪些应用的通知可操作本机，后者决定哪些应用的通知需要转发。';
 
   @override
-  String get remoteExecLocalTriggerOn => '已开启：仍只有选中的应用、且命中关键词的通知才可能触发';
+  String get remoteExecLocalTriggerOn => '已开启：仍仅限所选应用且命中关键词的通知才可能触发';
 
   @override
-  String get remoteExecLocalTriggerOff => '已关闭：任何通知正文都不会被执行';
+  String get remoteExecLocalTriggerOff => '已关闭：任何通知正文均不会被执行';
 
   @override
   String get remoteExecLocalTriggerApps => '可触发的应用';
@@ -5061,7 +5061,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get remoteExecLocalTriggerAllowNone => '允许 0 个应用 ⇒ 哪一条通知都不会触发';
+  String get remoteExecLocalTriggerAllowNone => '允许 0 个应用，任何通知均不会触发';
 
   @override
   String remoteExecLocalTriggerAllowCount(int count) {
@@ -5070,7 +5070,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String remoteExecLocalTriggerBlockCount(int count) {
-    return '除 $count 个应用之外都可触发';
+    return '除 $count 个应用外均可触发';
   }
 
   @override
@@ -5087,25 +5087,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String remoteExecDelayUsingDefault(int seconds) {
-    return '这一条会在 $seconds 秒后自动执行（协议默认那一档）';
+    return '本条将在 $seconds 秒后自动执行（协议默认值）';
   }
 
   @override
   String remoteExecDelayChosen(int seconds) {
-    return '这一条会在 $seconds 秒后自动执行（你选的）';
+    return '本条将在 $seconds 秒后自动执行（自定义值）';
   }
 
   @override
   String remoteExecDelayRange(int min, int max) {
-    return '可设范围 $min–$max 秒，由协议规定，不是本机偏好';
+    return '可设范围 $min–$max 秒，由协议规定，并非本机偏好';
   }
 
   @override
-  String get remoteExecDelayReset => '改用协议默认';
+  String get remoteExecDelayReset => '恢复协议默认值';
 
   @override
   String remoteExecDelayInvalid(String reason) {
-    return '延时这一档没有生效：$reason';
+    return '延时设置未生效：$reason';
   }
 
   @override
@@ -5123,27 +5123,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteExecCancelTooLate => '已经动手了，撤不回来（动作可能做完了一半）';
 
   @override
-  String get remoteCredWhyTitle => '凭据与设备身份为什么是两把钥匙';
+  String get remoteCredWhyTitle => '凭据与设备身份为何是两把不同的密钥';
 
   @override
-  String get remoteCredShort => '这是「授权别人让我做事」那把钥匙，与「证明我是这台设备」是两把。';
+  String get remoteCredShort => '此密钥用于授权他方让本机执行操作，与「证明本机身份」所用的密钥不同。';
 
   @override
   String get remoteCredWhy =>
-      '凭据是「授权这一条远程指令」用的，与设备身份是两把不同的钥匙：一把证明我是这台设备，一把授权别人让我做事。';
+      '凭据用于授权某一条远程指令，与设备身份是两把不同的密钥：一把证明本机身份，另一把授权他方让本机执行操作。';
 
   @override
   String get remoteCredKeySection => '高级密钥';
 
   @override
-  String get remoteCredKeyNone => '还没设';
+  String get remoteCredKeyNone => '尚未设置';
 
   @override
-  String get remoteCredKeySetNoFingerprint => '已设一把（本机没有它的指纹，看不出是哪一把）';
+  String get remoteCredKeySetNoFingerprint => '已设置（本机无其指纹，无法辨别具体密钥）';
 
   @override
   String remoteCredKeySet(String fingerprint) {
-    return '已设一把，指纹 $fingerprint';
+    return '已设置，指纹 $fingerprint';
   }
 
   @override
@@ -5152,45 +5152,45 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get remoteCredKeyGenerate => '生成一把';
+  String get remoteCredKeyGenerate => '生成密钥';
 
   @override
-  String get remoteCredKeyCustom => '我自己设一把';
+  String get remoteCredKeyCustom => '自行设置密钥';
 
   @override
   String get remoteCredKeyOnce =>
-      '这一串只出现这一次：请现在就抄到你自己单独保存的地方（或当面交给对面那台）。关掉这一页之后本机只剩哈希，谁都看不回这串字——包括你自己。';
+      '此密钥串仅显示一次：请立即保存至仅有你可访问的位置，或当面交付对端设备。关闭本页后，本机仅保留哈希，任何人（包括你本人）都无法再次读取该密钥串。';
 
   @override
-  String get remoteCredKeyReset => '撤掉这把';
+  String get remoteCredKeyReset => '移除此密钥';
 
   @override
-  String get remoteCredKeyResetAsk => '撤掉之后，对面手里那把立刻作废——你得重新生成一把并当面交给对方。';
+  String get remoteCredKeyResetAsk => '移除后，对端持有的旧密钥将立即失效；须重新生成并当面交付。';
 
   @override
   String get remoteCredTotpSection => '二步验证码（TOTP）';
 
   @override
-  String get remoteCredTotpNone => '还没设';
+  String get remoteCredTotpNone => '尚未设置';
 
   @override
-  String get remoteCredTotpSet => '已设一枚';
+  String get remoteCredTotpSet => '已设置';
 
   @override
-  String get remoteCredTotpGenerate => '生成一枚';
+  String get remoteCredTotpGenerate => '生成种子';
 
   @override
-  String get remoteCredTotpLink => '录进验证器 App 的链接';
+  String get remoteCredTotpLink => '添加至验证器 App 的链接';
 
   @override
-  String get remoteCredTotpSecret => '密钥串（验证器 App 也可以手输这个）';
+  String get remoteCredTotpSecret => '密钥串（也可在验证器 App 中手动输入）';
 
   @override
   String get remoteCredTotpOnce =>
-      '这一枚只出现这一次，而且只存在接收端：请现在就录进对面那台的验证器 App（或当面交给对方录）。之后由验证器保管，不经过任何服务器；本机关掉这一页之后也只剩那一枚种子。';
+      '此验证码种子仅显示一次，且仅存在于接收端：请立即录入对端设备的验证器 App，或当面交付对方录入。此后由验证器保管，不经过任何服务器；本机关闭本页后仅保留该种子。';
 
   @override
-  String get remoteCredTotpClear => '撤掉这一枚';
+  String get remoteCredTotpClear => '移除此种子';
 
   @override
   String remoteCredProblem(String reason) {
@@ -5202,7 +5202,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get remoteCredResetAllAsk =>
-      '全部重置之后，对面手里那把高级密钥与那枚验证码种子都当场作废。要继续远程执行就得重新生成并当面交给对方。';
+      '全部重置后，对端持有的高级密钥与验证码种子将立即失效。如需继续远程执行，须重新生成并当面交付。';
 
   @override
   String get remotePeersReadFailed =>
@@ -5858,10 +5858,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remotePeersReadFailedShort => '无法读取名单，并不表示尚未配对';
 
   @override
-  String get remoteCredKeyOnceShort => '这一串只出现这一次，现在就得抄走';
+  String get remoteCredKeyOnceShort => '此密钥串仅显示一次，请立即保存';
 
   @override
-  String get remoteCredTotpOnceShort => '这一枚只出现一次，现在录进对面那台的验证器';
+  String get remoteCredTotpOnceShort => '此验证码种子仅显示一次，请立即录入对端验证器';
 
   @override
   String get fnthinkChannelDisclosureShort => '是否响铃、振动或显示横幅，由系统侧的通知渠道决定';

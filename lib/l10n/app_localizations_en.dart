@@ -5268,7 +5268,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteExecWhyTitle =>
-      'What actually decides how safe remote execution is';
+      'What decides the safety boundary of remote execution';
 
   @override
   String get remoteExecShort =>
@@ -5276,7 +5276,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteExecWhy =>
-      'Others can make this device act. Safety comes from two things: the channel it arrives on, and whether a credential comes with it. The switch is off by default — an upgrade never makes that decision for you.';
+      'Others can make this device act. Safety depends on two things: the channel the command arrives on, and whether a credential comes with it. The switch is off by default — an upgrade never makes that decision for you.';
 
   @override
   String get remoteExecEnabledOn => 'On';
@@ -5286,26 +5286,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteExecNeedsCredential =>
-      'On but no credential set ⇒ nothing at the high-risk level (L3) can get in.';
+      'On but no credential is set; no high-risk (L3) command can get in.';
 
   @override
   String get remoteExecLocalTriggerSection => 'Local notification trigger';
 
   @override
   String get remoteExecLocalTriggerShort =>
-      'Let a command line inside a selected app notification run on this device';
+      'Run commands contained in notifications from selected apps on this device';
 
   @override
   String get remoteExecLocalTriggerWhyTitle =>
-      'What the local notification trigger path is';
+      'How the local notification trigger works';
 
   @override
   String get remoteExecLocalTriggerWhy =>
-      'This path carries no credential: it reads the body of a notification, so any app that can write text into its own notification is a potential command source. While it is on, a notification from one of the apps below that matches a whitelist keyword and starts with the command envelope will be executed (L1 only). Off by default; turning it off does not affect commands from paired devices over Fnthink Push. Note this app list is separate from the forwarding list: one decides whose notification may act on this device, the other decides whose notifications get pushed out.';
+      'This path carries no credential: it reads the body of a notification, so any app that can write text into its own notification is a potential command source. While enabled, a notification from one of the selected apps below that matches a whitelist keyword and starts with the command envelope will run on this device (L1 only). Off by default; disabling it does not affect commands from paired devices over Fnthink Push. Note that the trigger app list and the forwarding list are separate: one decides whose notifications may act on this device, the other decides whose notifications are forwarded.';
 
   @override
   String get remoteExecLocalTriggerOn =>
-      'On: still only the selected apps, with a keyword hit, can trigger';
+      'On: only notifications from selected apps with a keyword hit can trigger';
 
   @override
   String get remoteExecLocalTriggerOff =>
@@ -5343,7 +5343,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteExecLocalTriggerAllowNone =>
-      '0 apps allowed ⇒ no notification can trigger anything';
+      '0 apps allowed; no notification can trigger anything';
 
   @override
   String remoteExecLocalTriggerAllowCount(int count) {
@@ -5369,12 +5369,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String remoteExecDelayUsingDefault(int seconds) {
-    return 'It runs automatically ${seconds}s later (the protocol default)';
+    return 'This runs automatically ${seconds}s later (the protocol default)';
   }
 
   @override
   String remoteExecDelayChosen(int seconds) {
-    return 'It runs automatically ${seconds}s later (your choice)';
+    return 'This runs automatically ${seconds}s later (custom value)';
   }
 
   @override
@@ -5383,11 +5383,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get remoteExecDelayReset => 'Use protocol default';
+  String get remoteExecDelayReset => 'Restore protocol default';
 
   @override
   String remoteExecDelayInvalid(String reason) {
-    return 'This cancel window is not in effect: $reason';
+    return 'The delay setting is not in effect: $reason';
   }
 
   @override
@@ -5411,11 +5411,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteCredShort =>
-      'This key authorizes others to make this device act — it is not the key that proves this device is who it says it is.';
+      'This key authorizes others to make this device act; it is not the key that proves this device\'s identity.';
 
   @override
   String get remoteCredWhy =>
-      'A credential authorizes one remote command, and it is a different key from your device identity: one proves which device this is, the other authorizes someone to make it act.';
+      'A credential authorizes a remote command and is different from the device identity key: one proves this device\'s identity, the other authorizes someone to make it act.';
 
   @override
   String get remoteCredKeySection => 'Advanced key';
@@ -5425,11 +5425,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteCredKeySetNoFingerprint =>
-      'One is set (this device has no fingerprint for it, so you cannot tell which one)';
+      'Set (this device has no fingerprint for it and cannot identify which key it is)';
 
   @override
   String remoteCredKeySet(String fingerprint) {
-    return 'One is set, fingerprint $fingerprint';
+    return 'Set, fingerprint $fingerprint';
   }
 
   @override
@@ -5438,21 +5438,21 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get remoteCredKeyGenerate => 'Generate one';
+  String get remoteCredKeyGenerate => 'Generate key';
 
   @override
-  String get remoteCredKeyCustom => 'Set my own';
+  String get remoteCredKeyCustom => 'Set your own key';
 
   @override
   String get remoteCredKeyOnce =>
-      'This string appears exactly once: copy it somewhere you keep yourself right now (or hand it to the other device in person). Once you close this page only the hash stays on this device, and nobody — including you — can read the string back.';
+      'This key string is shown only once: save it now somewhere only you can access, or hand it to the other device in person. After this page is closed, only the hash remains on this device; nobody, including you, can read the string again.';
 
   @override
   String get remoteCredKeyReset => 'Remove this key';
 
   @override
   String get remoteCredKeyResetAsk =>
-      'Once removed, the other side\'s copy stops working at once — you will have to generate another and hand it over in person.';
+      'Once removed, the other side\'s copy stops working immediately; generate a new one and hand it over in person.';
 
   @override
   String get remoteCredTotpSection => 'Two-step code (TOTP)';
@@ -5461,24 +5461,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteCredTotpNone => 'Not set yet';
 
   @override
-  String get remoteCredTotpSet => 'One is set';
+  String get remoteCredTotpSet => 'Set';
 
   @override
-  String get remoteCredTotpGenerate => 'Generate one';
+  String get remoteCredTotpGenerate => 'Generate seed';
 
   @override
-  String get remoteCredTotpLink => 'Link to add to your authenticator app';
+  String get remoteCredTotpLink => 'Link to add to the authenticator app';
 
   @override
   String get remoteCredTotpSecret =>
-      'Secret string (your authenticator app can also take it by hand)';
+      'Secret string (can also be entered manually in the authenticator app)';
 
   @override
   String get remoteCredTotpOnce =>
-      'This appears exactly once and exists only on the receiving device: enter it into the other device\'s authenticator app now (or hand it over in person to be entered there). After that the authenticator keeps it, no server ever sees it, and once you close this page only the seed remains here.';
+      'This code seed is shown only once and exists only on the receiving device: enter it into the other device\'s authenticator app now, or hand it over in person to be entered there. Afterwards the authenticator holds it and no server sees it; once this page is closed, only the seed remains on this device.';
 
   @override
-  String get remoteCredTotpClear => 'Remove this one';
+  String get remoteCredTotpClear => 'Remove this seed';
 
   @override
   String remoteCredProblem(String reason) {
@@ -5490,7 +5490,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteCredResetAllAsk =>
-      'After a full reset, both the advanced key and the code seed the other side holds stop working at once. To keep remote execution going you must generate new ones and hand them over in person.';
+      'After a full reset, both the advanced key and the code seed held by the other side stop working immediately. To continue remote execution, generate new ones and hand them over in person.';
 
   @override
   String get remotePeersReadFailed =>
@@ -6212,11 +6212,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'The peer list could not be read; this does not mean no devices are paired';
 
   @override
-  String get remoteCredKeyOnceShort => 'Shown once - copy it now';
+  String get remoteCredKeyOnceShort => 'Shown once only; save it now';
 
   @override
   String get remoteCredTotpOnceShort =>
-      'Shown once too - enroll it in the other device authenticator now';
+      'This code seed is shown only once; enroll it in the other device\'s authenticator now';
 
   @override
   String get fnthinkChannelDisclosureShort =>

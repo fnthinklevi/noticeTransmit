@@ -8984,19 +8984,19 @@ abstract class AppLocalizations {
   /// No description provided for @remoteExecWhyTitle.
   ///
   /// In zh, this message translates to:
-  /// **'远程执行的安全度由什么决定'**
+  /// **'远程执行的安全边界由什么决定'**
   String get remoteExecWhyTitle;
 
   /// No description provided for @remoteExecShort.
   ///
   /// In zh, this message translates to:
-  /// **'别人能让这台设备做事；默认关，升级不会替你打开。'**
+  /// **'他方可让本机执行操作；默认关闭，升级不会自动开启。'**
   String get remoteExecShort;
 
   /// No description provided for @remoteExecWhy.
   ///
   /// In zh, this message translates to:
-  /// **'别人可以让这台设备做事。安全度由两件事决定：走哪条渠道，以及有没有带凭据。开关默认关——升级不会替你做这个决定。'**
+  /// **'他方可让本机执行操作。安全边界由两项决定：指令来自哪条渠道，以及是否携带凭据。开关默认关闭，升级不会替用户作出该决定。'**
   String get remoteExecWhy;
 
   /// No description provided for @remoteExecEnabledOn.
@@ -9014,7 +9014,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteExecNeedsCredential.
   ///
   /// In zh, this message translates to:
-  /// **'开了但一把凭据都没有 ⇒ 高风险（L3）那条一条都进不来。'**
+  /// **'已开启但未设置任何凭据，高风险（L3）指令将无法进入。'**
   String get remoteExecNeedsCredential;
 
   /// No description provided for @remoteExecLocalTriggerSection.
@@ -9026,31 +9026,31 @@ abstract class AppLocalizations {
   /// No description provided for @remoteExecLocalTriggerShort.
   ///
   /// In zh, this message translates to:
-  /// **'让选中应用的通知正文里那条指令在本机执行'**
+  /// **'使选中应用通知正文中的指令在本机执行'**
   String get remoteExecLocalTriggerShort;
 
   /// No description provided for @remoteExecLocalTriggerWhyTitle.
   ///
   /// In zh, this message translates to:
-  /// **'本机通知触发这一路是什么'**
+  /// **'本机通知触发机制说明'**
   String get remoteExecLocalTriggerWhyTitle;
 
   /// No description provided for @remoteExecLocalTriggerWhy.
   ///
   /// In zh, this message translates to:
-  /// **'这一路不带凭据：它读的是通知栏里那条正文，所以任何能把文字写进自己通知的应用都是潜在的指令源。开着它，来自下面选中的应用、且命中白名单关键词的那些通知，正文若以指令信封开头就会被执行（只到 L1）。默认关；关掉它不影响配对设备从幻念推送那一路发来的指令。⚠ 这里的「可触发的应用」与「要转发的应用」是两份清单：一份管谁的通知能动这台设备，一份管谁的通知要推出去。'**
+  /// **'此路径不携带凭据：它读取通知栏正文，因此任何能向自身通知写入文本的应用都可能成为指令来源。开启后，来自下方所选应用且命中白名单关键词的通知，若正文以指令信封开头，将在本机执行（仅限 L1）。默认关闭；关闭不影响已配对设备经幻念推送发来的指令。⚠ 此处「可触发的应用」与「需转发的应用」是两份独立清单：前者决定哪些应用的通知可操作本机，后者决定哪些应用的通知需要转发。'**
   String get remoteExecLocalTriggerWhy;
 
   /// No description provided for @remoteExecLocalTriggerOn.
   ///
   /// In zh, this message translates to:
-  /// **'已开启：仍只有选中的应用、且命中关键词的通知才可能触发'**
+  /// **'已开启：仍仅限所选应用且命中关键词的通知才可能触发'**
   String get remoteExecLocalTriggerOn;
 
   /// No description provided for @remoteExecLocalTriggerOff.
   ///
   /// In zh, this message translates to:
-  /// **'已关闭：任何通知正文都不会被执行'**
+  /// **'已关闭：任何通知正文均不会被执行'**
   String get remoteExecLocalTriggerOff;
 
   /// No description provided for @remoteExecLocalTriggerApps.
@@ -9104,7 +9104,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteExecLocalTriggerAllowNone.
   ///
   /// In zh, this message translates to:
-  /// **'允许 0 个应用 ⇒ 哪一条通知都不会触发'**
+  /// **'允许 0 个应用，任何通知均不会触发'**
   String get remoteExecLocalTriggerAllowNone;
 
   /// No description provided for @remoteExecLocalTriggerAllowCount.
@@ -9116,7 +9116,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteExecLocalTriggerBlockCount.
   ///
   /// In zh, this message translates to:
-  /// **'除 {count} 个应用之外都可触发'**
+  /// **'除 {count} 个应用外均可触发'**
   String remoteExecLocalTriggerBlockCount(int count);
 
   /// No description provided for @remoteExecOpenSettings.
@@ -9146,31 +9146,31 @@ abstract class AppLocalizations {
   /// No description provided for @remoteExecDelayUsingDefault.
   ///
   /// In zh, this message translates to:
-  /// **'这一条会在 {seconds} 秒后自动执行（协议默认那一档）'**
+  /// **'本条将在 {seconds} 秒后自动执行（协议默认值）'**
   String remoteExecDelayUsingDefault(int seconds);
 
   /// No description provided for @remoteExecDelayChosen.
   ///
   /// In zh, this message translates to:
-  /// **'这一条会在 {seconds} 秒后自动执行（你选的）'**
+  /// **'本条将在 {seconds} 秒后自动执行（自定义值）'**
   String remoteExecDelayChosen(int seconds);
 
   /// No description provided for @remoteExecDelayRange.
   ///
   /// In zh, this message translates to:
-  /// **'可设范围 {min}–{max} 秒，由协议规定，不是本机偏好'**
+  /// **'可设范围 {min}–{max} 秒，由协议规定，并非本机偏好'**
   String remoteExecDelayRange(int min, int max);
 
   /// No description provided for @remoteExecDelayReset.
   ///
   /// In zh, this message translates to:
-  /// **'改用协议默认'**
+  /// **'恢复协议默认值'**
   String get remoteExecDelayReset;
 
   /// No description provided for @remoteExecDelayInvalid.
   ///
   /// In zh, this message translates to:
-  /// **'延时这一档没有生效：{reason}'**
+  /// **'延时设置未生效：{reason}'**
   String remoteExecDelayInvalid(String reason);
 
   /// No description provided for @remoteExecPendingBanner.
@@ -9200,19 +9200,19 @@ abstract class AppLocalizations {
   /// No description provided for @remoteCredWhyTitle.
   ///
   /// In zh, this message translates to:
-  /// **'凭据与设备身份为什么是两把钥匙'**
+  /// **'凭据与设备身份为何是两把不同的密钥'**
   String get remoteCredWhyTitle;
 
   /// No description provided for @remoteCredShort.
   ///
   /// In zh, this message translates to:
-  /// **'这是「授权别人让我做事」那把钥匙，与「证明我是这台设备」是两把。'**
+  /// **'此密钥用于授权他方让本机执行操作，与「证明本机身份」所用的密钥不同。'**
   String get remoteCredShort;
 
   /// No description provided for @remoteCredWhy.
   ///
   /// In zh, this message translates to:
-  /// **'凭据是「授权这一条远程指令」用的，与设备身份是两把不同的钥匙：一把证明我是这台设备，一把授权别人让我做事。'**
+  /// **'凭据用于授权某一条远程指令，与设备身份是两把不同的密钥：一把证明本机身份，另一把授权他方让本机执行操作。'**
   String get remoteCredWhy;
 
   /// No description provided for @remoteCredKeySection.
@@ -9224,19 +9224,19 @@ abstract class AppLocalizations {
   /// No description provided for @remoteCredKeyNone.
   ///
   /// In zh, this message translates to:
-  /// **'还没设'**
+  /// **'尚未设置'**
   String get remoteCredKeyNone;
 
   /// No description provided for @remoteCredKeySetNoFingerprint.
   ///
   /// In zh, this message translates to:
-  /// **'已设一把（本机没有它的指纹，看不出是哪一把）'**
+  /// **'已设置（本机无其指纹，无法辨别具体密钥）'**
   String get remoteCredKeySetNoFingerprint;
 
   /// No description provided for @remoteCredKeySet.
   ///
   /// In zh, this message translates to:
-  /// **'已设一把，指纹 {fingerprint}'**
+  /// **'已设置，指纹 {fingerprint}'**
   String remoteCredKeySet(String fingerprint);
 
   /// No description provided for @remoteCredKeyMin.
@@ -9248,31 +9248,31 @@ abstract class AppLocalizations {
   /// No description provided for @remoteCredKeyGenerate.
   ///
   /// In zh, this message translates to:
-  /// **'生成一把'**
+  /// **'生成密钥'**
   String get remoteCredKeyGenerate;
 
   /// No description provided for @remoteCredKeyCustom.
   ///
   /// In zh, this message translates to:
-  /// **'我自己设一把'**
+  /// **'自行设置密钥'**
   String get remoteCredKeyCustom;
 
   /// No description provided for @remoteCredKeyOnce.
   ///
   /// In zh, this message translates to:
-  /// **'这一串只出现这一次：请现在就抄到你自己单独保存的地方（或当面交给对面那台）。关掉这一页之后本机只剩哈希，谁都看不回这串字——包括你自己。'**
+  /// **'此密钥串仅显示一次：请立即保存至仅有你可访问的位置，或当面交付对端设备。关闭本页后，本机仅保留哈希，任何人（包括你本人）都无法再次读取该密钥串。'**
   String get remoteCredKeyOnce;
 
   /// No description provided for @remoteCredKeyReset.
   ///
   /// In zh, this message translates to:
-  /// **'撤掉这把'**
+  /// **'移除此密钥'**
   String get remoteCredKeyReset;
 
   /// No description provided for @remoteCredKeyResetAsk.
   ///
   /// In zh, this message translates to:
-  /// **'撤掉之后，对面手里那把立刻作废——你得重新生成一把并当面交给对方。'**
+  /// **'移除后，对端持有的旧密钥将立即失效；须重新生成并当面交付。'**
   String get remoteCredKeyResetAsk;
 
   /// No description provided for @remoteCredTotpSection.
@@ -9284,43 +9284,43 @@ abstract class AppLocalizations {
   /// No description provided for @remoteCredTotpNone.
   ///
   /// In zh, this message translates to:
-  /// **'还没设'**
+  /// **'尚未设置'**
   String get remoteCredTotpNone;
 
   /// No description provided for @remoteCredTotpSet.
   ///
   /// In zh, this message translates to:
-  /// **'已设一枚'**
+  /// **'已设置'**
   String get remoteCredTotpSet;
 
   /// No description provided for @remoteCredTotpGenerate.
   ///
   /// In zh, this message translates to:
-  /// **'生成一枚'**
+  /// **'生成种子'**
   String get remoteCredTotpGenerate;
 
   /// No description provided for @remoteCredTotpLink.
   ///
   /// In zh, this message translates to:
-  /// **'录进验证器 App 的链接'**
+  /// **'添加至验证器 App 的链接'**
   String get remoteCredTotpLink;
 
   /// No description provided for @remoteCredTotpSecret.
   ///
   /// In zh, this message translates to:
-  /// **'密钥串（验证器 App 也可以手输这个）'**
+  /// **'密钥串（也可在验证器 App 中手动输入）'**
   String get remoteCredTotpSecret;
 
   /// No description provided for @remoteCredTotpOnce.
   ///
   /// In zh, this message translates to:
-  /// **'这一枚只出现这一次，而且只存在接收端：请现在就录进对面那台的验证器 App（或当面交给对方录）。之后由验证器保管，不经过任何服务器；本机关掉这一页之后也只剩那一枚种子。'**
+  /// **'此验证码种子仅显示一次，且仅存在于接收端：请立即录入对端设备的验证器 App，或当面交付对方录入。此后由验证器保管，不经过任何服务器；本机关闭本页后仅保留该种子。'**
   String get remoteCredTotpOnce;
 
   /// No description provided for @remoteCredTotpClear.
   ///
   /// In zh, this message translates to:
-  /// **'撤掉这一枚'**
+  /// **'移除此种子'**
   String get remoteCredTotpClear;
 
   /// No description provided for @remoteCredProblem.
@@ -9338,7 +9338,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteCredResetAllAsk.
   ///
   /// In zh, this message translates to:
-  /// **'全部重置之后，对面手里那把高级密钥与那枚验证码种子都当场作废。要继续远程执行就得重新生成并当面交给对方。'**
+  /// **'全部重置后，对端持有的高级密钥与验证码种子将立即失效。如需继续远程执行，须重新生成并当面交付。'**
   String get remoteCredResetAllAsk;
 
   /// No description provided for @remotePeersReadFailed.
@@ -10466,13 +10466,13 @@ abstract class AppLocalizations {
   /// No description provided for @remoteCredKeyOnceShort.
   ///
   /// In zh, this message translates to:
-  /// **'这一串只出现这一次，现在就得抄走'**
+  /// **'此密钥串仅显示一次，请立即保存'**
   String get remoteCredKeyOnceShort;
 
   /// No description provided for @remoteCredTotpOnceShort.
   ///
   /// In zh, this message translates to:
-  /// **'这一枚只出现一次，现在录进对面那台的验证器'**
+  /// **'此验证码种子仅显示一次，请立即录入对端验证器'**
   String get remoteCredTotpOnceShort;
 
   /// No description provided for @fnthinkChannelDisclosureShort.

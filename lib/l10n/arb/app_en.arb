@@ -2964,17 +2964,17 @@
   },
   "updateServerAnswerEmpty": "Reached it, but it reported no version info",
   "remoteExecSection": "Remote execution",
-  "remoteExecWhyTitle": "What actually decides how safe remote execution is",
+  "remoteExecWhyTitle": "What decides the safety boundary of remote execution",
   "remoteExecShort": "Others can make this device act. Off by default — an upgrade will not turn it on for you.",
-  "remoteExecWhy": "Others can make this device act. Safety comes from two things: the channel it arrives on, and whether a credential comes with it. The switch is off by default — an upgrade never makes that decision for you.",
+  "remoteExecWhy": "Others can make this device act. Safety depends on two things: the channel the command arrives on, and whether a credential comes with it. The switch is off by default — an upgrade never makes that decision for you.",
   "remoteExecEnabledOn": "On",
   "remoteExecEnabledOff": "Off",
-  "remoteExecNeedsCredential": "On but no credential set ⇒ nothing at the high-risk level (L3) can get in.",
+  "remoteExecNeedsCredential": "On but no credential is set; no high-risk (L3) command can get in.",
   "remoteExecLocalTriggerSection": "Local notification trigger",
-  "remoteExecLocalTriggerShort": "Let a command line inside a selected app notification run on this device",
-  "remoteExecLocalTriggerWhyTitle": "What the local notification trigger path is",
-  "remoteExecLocalTriggerWhy": "This path carries no credential: it reads the body of a notification, so any app that can write text into its own notification is a potential command source. While it is on, a notification from one of the apps below that matches a whitelist keyword and starts with the command envelope will be executed (L1 only). Off by default; turning it off does not affect commands from paired devices over Fnthink Push. Note this app list is separate from the forwarding list: one decides whose notification may act on this device, the other decides whose notifications get pushed out.",
-  "remoteExecLocalTriggerOn": "On: still only the selected apps, with a keyword hit, can trigger",
+  "remoteExecLocalTriggerShort": "Run commands contained in notifications from selected apps on this device",
+  "remoteExecLocalTriggerWhyTitle": "How the local notification trigger works",
+  "remoteExecLocalTriggerWhy": "This path carries no credential: it reads the body of a notification, so any app that can write text into its own notification is a potential command source. While enabled, a notification from one of the selected apps below that matches a whitelist keyword and starts with the command envelope will run on this device (L1 only). Off by default; disabling it does not affect commands from paired devices over Fnthink Push. Note that the trigger app list and the forwarding list are separate: one decides whose notifications may act on this device, the other decides whose notifications are forwarded.",
+  "remoteExecLocalTriggerOn": "On: only notifications from selected apps with a keyword hit can trigger",
   "remoteExecLocalTriggerOff": "Off: no notification body will be executed",
   "remoteExecLocalTriggerApps": "Apps that may trigger",
   "remoteTriggerFilterTitle": "Triggerable Apps",
@@ -2984,7 +2984,7 @@
   "remoteTriggerAllowModeSelected": "{n} apps selected; only their notifications can trigger remote commands",
   "remoteTriggerBlockModeInfo": "Mode: Block — except selected apps, all other apps' notifications can trigger",
   "remoteTriggerBlockModeSelected": "{n} apps selected; their notifications will not trigger remote commands",
-  "remoteExecLocalTriggerAllowNone": "0 apps allowed ⇒ no notification can trigger anything",
+  "remoteExecLocalTriggerAllowNone": "0 apps allowed; no notification can trigger anything",
   "remoteExecLocalTriggerAllowCount": "{count} app(s) allowed",
   "@remoteExecLocalTriggerAllowCount": {
     "placeholders": {
@@ -3005,7 +3005,7 @@
   "remoteExecSendPage": "Send a remote command",
   "remoteExecHistory": "Remote execution history",
   "remoteExecDelayTitle": "Cancel window",
-  "remoteExecDelayUsingDefault": "It runs automatically {seconds}s later (the protocol default)",
+  "remoteExecDelayUsingDefault": "This runs automatically {seconds}s later (the protocol default)",
   "@remoteExecDelayUsingDefault": {
     "placeholders": {
       "seconds": {
@@ -3013,7 +3013,7 @@
       }
     }
   },
-  "remoteExecDelayChosen": "It runs automatically {seconds}s later (your choice)",
+  "remoteExecDelayChosen": "This runs automatically {seconds}s later (custom value)",
   "@remoteExecDelayChosen": {
     "placeholders": {
       "seconds": {
@@ -3046,8 +3046,8 @@
       }
     }
   },
-  "remoteExecDelayReset": "Use protocol default",
-  "remoteExecDelayInvalid": "This cancel window is not in effect: {reason}",
+  "remoteExecDelayReset": "Restore protocol default",
+  "remoteExecDelayInvalid": "The delay setting is not in effect: {reason}",
   "@remoteExecDelayInvalid": {
     "placeholders": {
       "reason": {
@@ -3056,8 +3056,8 @@
     }
   },
   "remoteCredWhyTitle": "Why the credential and the device identity are two different keys",
-  "remoteCredShort": "This key authorizes others to make this device act — it is not the key that proves this device is who it says it is.",
-  "remoteCredWhy": "A credential authorizes one remote command, and it is a different key from your device identity: one proves which device this is, the other authorizes someone to make it act.",
+  "remoteCredShort": "This key authorizes others to make this device act; it is not the key that proves this device's identity.",
+  "remoteCredWhy": "A credential authorizes a remote command and is different from the device identity key: one proves this device's identity, the other authorizes someone to make it act.",
   "fnthinkEndpointWhyShort": "Ingress endpoints: how third parties push notifications to this device",
   "fnthinkEndpointListPendingShort": "Endpoint count on this device has not been queried yet",
   "fnthinkEndpointListFailedShort": "This query failed ({reason})",
@@ -3071,15 +3071,15 @@
   "fnthinkShortcutsWhyShort": "The other side can only open entries you registered here",
   "fnthinkShortcutsEmptyShort": "No entries registered yet",
   "remotePeersReadFailedShort": "The peer list could not be read; this does not mean no devices are paired",
-  "remoteCredKeyOnceShort": "Shown once - copy it now",
-  "remoteCredTotpOnceShort": "Shown once too - enroll it in the other device authenticator now",
+  "remoteCredKeyOnceShort": "Shown once only; save it now",
+  "remoteCredTotpOnceShort": "This code seed is shown only once; enroll it in the other device's authenticator now",
   "remoteCredKeySection": "Advanced key",
   "remoteCredKeyNone": "Not set yet",
-  "remoteCredKeySetNoFingerprint": "One is set (this device has no fingerprint for it, so you cannot tell which one)",
+  "remoteCredKeySetNoFingerprint": "Set (this device has no fingerprint for it and cannot identify which key it is)",
   "@remoteCredKeySetNoFingerprint": {
     "placeholders": {}
   },
-  "remoteCredKeySet": "One is set, fingerprint {fingerprint}",
+  "remoteCredKeySet": "Set, fingerprint {fingerprint}",
   "@remoteCredKeySet": {
     "placeholders": {
       "fingerprint": {
@@ -3095,19 +3095,19 @@
       }
     }
   },
-  "remoteCredKeyGenerate": "Generate one",
-  "remoteCredKeyCustom": "Set my own",
-  "remoteCredKeyOnce": "This string appears exactly once: copy it somewhere you keep yourself right now (or hand it to the other device in person). Once you close this page only the hash stays on this device, and nobody — including you — can read the string back.",
+  "remoteCredKeyGenerate": "Generate key",
+  "remoteCredKeyCustom": "Set your own key",
+  "remoteCredKeyOnce": "This key string is shown only once: save it now somewhere only you can access, or hand it to the other device in person. After this page is closed, only the hash remains on this device; nobody, including you, can read the string again.",
   "remoteCredKeyReset": "Remove this key",
-  "remoteCredKeyResetAsk": "Once removed, the other side's copy stops working at once — you will have to generate another and hand it over in person.",
+  "remoteCredKeyResetAsk": "Once removed, the other side's copy stops working immediately; generate a new one and hand it over in person.",
   "remoteCredTotpSection": "Two-step code (TOTP)",
   "remoteCredTotpNone": "Not set yet",
-  "remoteCredTotpSet": "One is set",
-  "remoteCredTotpGenerate": "Generate one",
-  "remoteCredTotpLink": "Link to add to your authenticator app",
-  "remoteCredTotpSecret": "Secret string (your authenticator app can also take it by hand)",
-  "remoteCredTotpOnce": "This appears exactly once and exists only on the receiving device: enter it into the other device's authenticator app now (or hand it over in person to be entered there). After that the authenticator keeps it, no server ever sees it, and once you close this page only the seed remains here.",
-  "remoteCredTotpClear": "Remove this one",
+  "remoteCredTotpSet": "Set",
+  "remoteCredTotpGenerate": "Generate seed",
+  "remoteCredTotpLink": "Link to add to the authenticator app",
+  "remoteCredTotpSecret": "Secret string (can also be entered manually in the authenticator app)",
+  "remoteCredTotpOnce": "This code seed is shown only once and exists only on the receiving device: enter it into the other device's authenticator app now, or hand it over in person to be entered there. Afterwards the authenticator holds it and no server sees it; once this page is closed, only the seed remains on this device.",
+  "remoteCredTotpClear": "Remove this seed",
   "remoteCredProblem": "The credential stored on this device is unusable: {reason}",
   "@remoteCredProblem": {
     "placeholders": {
@@ -3117,7 +3117,7 @@
     }
   },
   "remoteCredResetAll": "Reset everything",
-  "remoteCredResetAllAsk": "After a full reset, both the advanced key and the code seed the other side holds stop working at once. To keep remote execution going you must generate new ones and hand them over in person.",
+  "remoteCredResetAllAsk": "After a full reset, both the advanced key and the code seed held by the other side stop working immediately. To continue remote execution, generate new ones and hand them over in person.",
   "remotePeersReadFailed": "The peer list could not be read (the table was not returned). This does not mean \"no paired devices\"; check the Device pairing page first.",
   "remoteActionListenerStart": "Make the other device start listening to notifications",
   "remoteActionListenerStop": "Make the other device stop listening to notifications",
