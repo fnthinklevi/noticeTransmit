@@ -912,6 +912,8 @@ describe('回执账（T35）', () => {
   /// 没有任何事件能把它推回去），正文留满保留期后按过期删掉，**从不补发**。
   describe('没等到 ack 的那条由 poll 扫回来（#178）', () => {
     const DEADLINE_MS = delivery.ackDeadlineSeconds(contract) * 1000;
+    // T217-B：首次投递（attempts=1）走短窗，退回后的重发（attempts≥2）走长窗。
+    const FIRST_DEADLINE_MS = delivery.firstDeliveryAckDeadlineSeconds(contract) * 1000;
 
     /// 造一条"被取走了、还没 ack"的消息：enqueue 之后走一次 dispatch。
     function inflight(messages, device, seq, now) {
@@ -946,10 +948,45 @@ describe('回执账（T35）', () => {
         contract,
         messages,
         'DEV-FRESH',
-        T0 + DEADLINE_MS - 1,
+        T0 + FIRST_DEADLINE_MS - 1,
       );
 
       expect(moved).toEqual([]);
+      expect(messages[message.messageId].state).toBe('delivering');
+    });
+
+    test('首次投递到短窗就扫回（不必等长窗）；退回后的重发改走长窗（T217-B）', () => {
+      const messages = fresh();
+      const message = inflight(messages, 'DEV-SHORT', 1, T0);
+
+      const moved = store.requeueUnackedStale(
+        contract,
+        messages,
+        'DEV-SHORT',
+        T0 + FIRST_DEADLINE_MS,
+      );
+      expect(moved).toHaveLength(1);
+      expect(messages[message.messageId].state).toBe('queued');
+      expect(messages[message.messageId].attempts).toBe(1);
+
+      // 同一轮 dispatch 出去 ⇒ attempts=2，从这一刻起改走 180s 长窗。
+      const dispatched = store.dispatchForDevice(
+        contract,
+        messages,
+        'DEV-SHORT',
+        T0 + FIRST_DEADLINE_MS,
+      );
+      expect(dispatched.taken.map((t) => t.messageId)).toEqual([message.messageId]);
+      expect(messages[message.messageId].attempts).toBe(2);
+      expect(messages[message.messageId].state).toBe('delivering');
+
+      const still = store.requeueUnackedStale(
+        contract,
+        messages,
+        'DEV-SHORT',
+        T0 + FIRST_DEADLINE_MS + FIRST_DEADLINE_MS,
+      );
+      expect(still).toEqual([]);
       expect(messages[message.messageId].state).toBe('delivering');
     });
 

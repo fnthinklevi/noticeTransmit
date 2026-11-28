@@ -65,6 +65,28 @@ describe('fnthink 协议契约（服务端侧）', () => {
     expect(() => assertSupported(bad)).toThrow(/heartbeatSeconds/);
   });
 
+  test('首次投递短窗必须存在、盖住最长 hold，且严格小于长窗（T217-B）', () => {
+    const delivery = c.delivery;
+    const first = delivery.firstDeliveryAckDeadlineSeconds;
+    expect(Number.isInteger(first)).toBe(true);
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThan(delivery.ackDeadlineSeconds);
+    expect(first).toBeGreaterThanOrEqual(c.presence.longPoll.maxWaitSeconds + 10);
+    expect(first).toBeGreaterThanOrEqual(c.presence.longPoll.waitSeconds * 2);
+
+    const missing = JSON.parse(JSON.stringify(c));
+    delete missing.delivery.firstDeliveryAckDeadlineSeconds;
+    expect(() => assertSupported(missing)).toThrow(/firstDeliveryAckDeadlineSeconds/);
+
+    const tooShort = JSON.parse(JSON.stringify(c));
+    tooShort.delivery.firstDeliveryAckDeadlineSeconds = c.presence.longPoll.maxWaitSeconds;
+    expect(() => assertSupported(tooShort)).toThrow(/firstDeliveryAckDeadlineSeconds/);
+
+    const tooLong = JSON.parse(JSON.stringify(c));
+    tooLong.delivery.firstDeliveryAckDeadlineSeconds = c.delivery.ackDeadlineSeconds;
+    expect(() => assertSupported(tooLong)).toThrow(/firstDeliveryAckDeadlineSeconds/);
+  });
+
   test('签名规范化顺序与 Dart 侧逐字段相同（换序就是换签名）', () => {
     expect(canonicalOrder(c)).toEqual(['version', 'type', 'target', 'ts', 'nonce', 'body']);
     expect(c.signature.timestampSource).toBe('serverTime');

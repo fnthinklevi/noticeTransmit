@@ -894,6 +894,8 @@
       "waiting_online"
     ],
     "ackDeadlineSeconds": 180,
+    "firstDeliveryAckDeadlineSeconds": 60,
+    "_firstDeliveryAckDeadlineSecondsWhy": "T217-B：只对 `attempts == 1` 的**首次投递**生效的短回收窗（秒）。正常一条 poll 取货之后，客户端在同一轮里落库并回 ack（`fnthink_receive_loop` 的顺序是取货 → 落库 → ack），不会跨到下一次 poll；所以首次取走 60s 还没 ack，基本只剩「响应没落地/连接被边缘掐掉」这一种解释，再用长窗 180s 就是用户看到的「稳定三分钟」。它必须 > `presence.longPoll.maxWaitSeconds` 并留 10s 余量（45+10=55），且 ≥ 2×`waitSeconds`（50）：短于一次最长 hold 就把正常长轮询误判成丢 ack；也必须严格小于 `ackDeadlineSeconds`（180），否则这一档没有意义。首次没 ack 退回后 `attempts` 变 2，改走长窗 —— 不让同一个客户端每 60s 被重发一次；重复投递由客户端按 messageId 去重并补 ack，代价有界。",
     "_ackDeadlineSecondsWhy": "一条消息在 poll 里被取走时从 queued 变 delivering；此后只有设备回一条 ack（ack_ok / ack_fail）才会离开 delivering。ack 可能在回来的路上被设备崩溃/网络断开吞掉，于是那条永远停在 delivering —— 而 pollableStates 不含 delivering，没有任何事件能把它推回去（delivery.js 的 no_ack 分支就是为这个准备的，却**没有任何调用方**：没有这一档 = 取走了却没 ack 的消息被静默卡住，正文留满保留期后按过期删掉，永不补发）。所以「发了没等到 ack 算超时、多久算超时」是服务端 poll 的扫描判据，必须写在契约里：**≥ 3 × presence.pollIntervalSeconds.max**（两侧校验都钉这一条；T88 把上界从 30s 抬到 60s ⇒ 这一档随之 120s→180s，不跟着抬就是契约自己不自洽）。钉的是最慢那一档而不是默认那一档：间隔现在由用户选，设在 60s 的设备取走一条之后，正常 ack 也要跨到下一次 poll 才发得出去—— 小于两三轮 poll 就会把一次正常往返误判成丢 ack（设备离线/提频时），太大则卡住窗口变长。两条实现（Dart delivery.dart / JS delivery.js）都从这里读，不许各写一份。",
     "receiptDelivery": "poll_response",
     "_receiptDeliveryWhy": "投递结果放在设备 poll 的响应里（receipts 数组），不另开状态接口，也不做成「一条签好名的消息」。做成消息就要问「谁签它」：服务端没有设备身份私钥，自造一把服务端签名钥匙等于在契约里悄悄新增一个信任根；放 poll 响应里则复用同一条拉取链路与同一个 TLS 通道，而 senderPollsStatusEndpoint=false 说的正是这件事。"

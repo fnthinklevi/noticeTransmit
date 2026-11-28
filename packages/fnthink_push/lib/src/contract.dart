@@ -3375,6 +3375,43 @@ class FnthinkContract {
         '太紧会把一次正常往返误判成丢 ack，太松则卡住窗口变长',
       );
     }
+    // T217-B：首次投递的短回收窗必须存在，且必须盖住一次最长 hold + 10s 网络余量、
+    // 又不越过长窗。少了它，首次响应被边缘掐掉的消息仍要等满 ackDeadlineSeconds。
+    final firstDeadline = intOf(const [
+      'delivery',
+      'firstDeliveryAckDeadlineSeconds',
+    ]);
+    final longPollWait = intOf(const ['presence', 'longPoll', 'waitSeconds']);
+    final longPollMax = intOf(const ['presence', 'longPoll', 'maxWaitSeconds']);
+    need(
+      firstDeadline != null && firstDeadline > 0,
+      'delivery.firstDeliveryAckDeadlineSeconds 必须是正整数（没有它首次丢响应仍要等长窗）：'
+      '$firstDeadline',
+    );
+    if (firstDeadline != null && firstDeadline > 0) {
+      if (ackDeadline != null && ackDeadline > 0) {
+        need(
+          firstDeadline < ackDeadline,
+          'delivery.firstDeliveryAckDeadlineSeconds（$firstDeadline）必须小于 '
+          'ackDeadlineSeconds（$ackDeadline）：短窗越过长窗就没有意义',
+        );
+      }
+      if (longPollMax != null) {
+        need(
+          firstDeadline >= longPollMax + 10,
+          'delivery.firstDeliveryAckDeadlineSeconds（$firstDeadline）必须至少是 '
+          'longPoll.maxWaitSeconds（$longPollMax）+ 10s：'
+          '否则一次正常的最长 hold 也会被误判成丢 ack',
+        );
+      }
+      if (longPollWait != null) {
+        need(
+          firstDeadline >= longPollWait * 2,
+          'delivery.firstDeliveryAckDeadlineSeconds（$firstDeadline）必须至少是 '
+          '2× longPoll.waitSeconds（$longPollWait）：短窗至少覆盖两个常态 hold',
+        );
+      }
+    }
     need(
       str(const ['privacy', 'dedupeRefreshWhile']) != null &&
           dStates.contains(str(const ['privacy', 'dedupeRefreshWhile'])),

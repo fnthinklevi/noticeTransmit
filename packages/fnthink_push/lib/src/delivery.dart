@@ -103,17 +103,43 @@ int deliveryAckDeadlineSeconds(FnthinkContract contract) {
   return seconds;
 }
 
-/// 一条消息是否已过 ack 超时（该被判成 `no_ack`）。只看两件事：现在在不在 `delivering`，
-/// 以及从进入 `delivering` 那一刻（`updatedAt`）到现在过了多久 —— 终态与还没发出去的不算。
+/// 首次投递（`attempts == 1`）的短回收窗，单位秒（T217-B）。
+///
+/// 与 [deliveryAckDeadlineSeconds] 刻意分开：正常 ack 在同一轮 poll 之后就落库并回发，
+/// 不会跨到下一次 poll；首次取走 [deliveryFirstAckDeadlineSeconds] 还没 ack，基本只剩
+/// 「响应没落地」这一种解释。退回后 `attempts` 变 2，改走长窗，避免连续短窗重发。
+///
+/// 契约没给这一格时回退到长窗（旧契约兼容），给了就必须是正整数、且严格小于长窗。
+int deliveryFirstAckDeadlineSeconds(FnthinkContract contract) {
+  final raw = contract.intOf(const [
+    'delivery',
+    'firstDeliveryAckDeadlineSeconds',
+  ]);
+  if (raw == null) return deliveryAckDeadlineSeconds(contract);
+  if (raw <= 0 || raw >= deliveryAckDeadlineSeconds(contract)) {
+    throw StateError(
+      'delivery.firstDeliveryAckDeadlineSeconds 必须是小于 ackDeadlineSeconds 的正整数：$raw',
+    );
+  }
+  return raw;
+}
+
+/// 一条消息是否已过 ack 超时（该被判成 `no_ack`）。只看三件事：现在在不在 `delivering`、
+/// 从进入 `delivering` 那一刻（`updatedAt`）到现在过了多久、以及这是不是**首次投递**
+/// （`attempts == 1` 走短窗，其余走长窗）。终态与还没发出去的不算。
 bool isDeliveryAckOverdue(
   FnthinkContract contract, {
   required String state,
   required int? updatedAtMs,
   required int nowMs,
+  int attempts = 0,
 }) {
   if (state != 'delivering') return false;
   if (updatedAtMs == null) return false;
-  return nowMs - updatedAtMs >= deliveryAckDeadlineSeconds(contract) * 1000;
+  final deadline = attempts == 1
+      ? deliveryFirstAckDeadlineSeconds(contract)
+      : deliveryAckDeadlineSeconds(contract);
+  return nowMs - updatedAtMs >= deadline * 1000;
 }
 
 /// 状态机走一步。

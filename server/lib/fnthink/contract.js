@@ -148,6 +148,51 @@ function assertSupported(contract) {
       );
     }
   }
+  // T217-B：首次投递的短回收窗必须存在，且必须盖住一次最长 hold + 10s 网络余量、
+  // 又不越过长窗。少了它，首次响应被边缘掐掉的消息仍要等满 ackDeadlineSeconds。
+  const delivery = contract.delivery || {};
+  const ackDeadline = delivery.ackDeadlineSeconds;
+  const firstDeadline = delivery.firstDeliveryAckDeadlineSeconds;
+  if (!(Number.isInteger(ackDeadline) && ackDeadline > 0)) {
+    throw tagged(
+      CONTRACT_SHAPE,
+      new Error(`delivery.ackDeadlineSeconds 必须是正整数：${ackDeadline}`),
+    );
+  }
+  if (!(Number.isInteger(firstDeadline) && firstDeadline > 0)) {
+    throw tagged(
+      CONTRACT_SHAPE,
+      new Error(`delivery.firstDeliveryAckDeadlineSeconds 必须是正整数：${firstDeadline}`),
+    );
+  }
+  if (firstDeadline >= ackDeadline) {
+    throw tagged(
+      CONTRACT_SHAPE,
+      new Error(
+        `delivery.firstDeliveryAckDeadlineSeconds（${firstDeadline}）必须小于 ` +
+          `ackDeadlineSeconds（${ackDeadline}）：短窗越过长窗就没有意义`,
+      ),
+    );
+  }
+  if (typeof longPoll.maxWaitSeconds === 'number' && firstDeadline < longPoll.maxWaitSeconds + 10) {
+    throw tagged(
+      CONTRACT_SHAPE,
+      new Error(
+        `delivery.firstDeliveryAckDeadlineSeconds（${firstDeadline}）必须至少是 ` +
+          `longPoll.maxWaitSeconds（${longPoll.maxWaitSeconds}）+ 10s：` +
+          '否则一次正常的最长 hold 也会被误判成丢 ack',
+      ),
+    );
+  }
+  if (typeof longPoll.waitSeconds === 'number' && firstDeadline < longPoll.waitSeconds * 2) {
+    throw tagged(
+      CONTRACT_SHAPE,
+      new Error(
+        `delivery.firstDeliveryAckDeadlineSeconds（${firstDeadline}）必须至少是 ` +
+          `2× longPoll.waitSeconds（${longPoll.waitSeconds}）：短窗至少覆盖两个常态 hold`,
+      ),
+    );
+  }
   return contract;
 }
 

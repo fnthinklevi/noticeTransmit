@@ -81,12 +81,33 @@ function ackDeadlineSeconds(contract) {
   return seconds;
 }
 
+/// 首次投递（`attempts === 1`）的短回收窗，单位秒（T217-B）。
+///
+/// 正常 ack 与落库在同一轮 poll 之后完成，不跨 poll；首次取走短窗还没 ack，基本只剩
+/// 「响应没落地」这一种解释。退回后 attempts 变 2，改走长窗，避免连续短窗重发。
+/// 契约没给这一格时回退到长窗（旧契约兼容），给了就必须是小于长窗的正整数。
+function firstDeliveryAckDeadlineSeconds(contract) {
+  const raw = ((contract || {}).delivery || {}).firstDeliveryAckDeadlineSeconds;
+  if (raw === undefined) return ackDeadlineSeconds(contract);
+  const seconds = Number(raw);
+  if (!Number.isInteger(seconds) || seconds <= 0 || seconds >= ackDeadlineSeconds(contract)) {
+    throw new Error(
+      `delivery.firstDeliveryAckDeadlineSeconds 必须是小于 ackDeadlineSeconds 的正整数（实际 ${raw}）：` +
+        '短窗不能越过长窗，否则首次投递会一直被长窗兜住',
+    );
+  }
+  return seconds;
+}
+
 /// 一条消息是否**已过 ack 超时**（该被 poll 的扫描判成 no_ack）。
-/// 只看两件事：它现在在不在 delivering，以及从**进入 delivering 那一刻**
-/// （`applyStep` 写的 `updatedAt`）到现在过了多久。终态与还没发出去的都不算超时。
+/// 只看三件事：它现在在不在 delivering、从**进入 delivering 那一刻**
+/// （`applyStep` 写的 `updatedAt`）到现在过了多久、以及这是不是**首次投递**
+/// （`attempts === 1` 走短窗，其余走长窗）。终态与还没发出去的都不算超时。
 function isAckOverdue(contract, message, nowMs) {
   if (!message || message.state !== 'delivering') return false;
-  const deadlineMs = ackDeadlineSeconds(contract) * 1000;
+  const first = Number(message.attempts) === 1;
+  const deadlineMs =
+    (first ? firstDeliveryAckDeadlineSeconds(contract) : ackDeadlineSeconds(contract)) * 1000;
   // ⚠ 先判"有没有那一刻"再看它是不是数：`Number(null) === 0` 而 0 是有限数，
   // 于是写成 `!Number.isFinite(since)` 会把 null 当成"1970 年" ⇒ 立刻判超时（这条是
   // 反证 D2 当场抓出来的）。缺 updatedAt 一律**不猜**，当作还没超时。
@@ -209,6 +230,7 @@ module.exports = {
   canTransition,
   evictionReceipts,
   evictCount,
+  firstDeliveryAckDeadlineSeconds,
   initialState,
   isAckOverdue,
   isExpired,

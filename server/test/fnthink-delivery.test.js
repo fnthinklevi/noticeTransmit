@@ -168,6 +168,38 @@ describe('ack 超时判据（Node 侧，#178）', () => {
     );
   });
 
+  test('首次投递走短窗、退回后的重发仍走长窗（T217-B）', () => {
+    const first = delivery.firstDeliveryAckDeadlineSeconds(contract);
+    expect(first).toBe(contract.delivery.firstDeliveryAckDeadlineSeconds);
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThan(deadline);
+    expect(first).toBeGreaterThanOrEqual(contract.presence.longPoll.waitSeconds * 2);
+    expect(first).toBeGreaterThanOrEqual(contract.presence.longPoll.maxWaitSeconds + 10);
+
+    const since = 1000 * 1000;
+    const inflight = (attempts) => ({ state: 'delivering', updatedAt: since, attempts });
+    expect(delivery.isAckOverdue(contract, inflight(1), since + first * 1000 - 1)).toBe(false);
+    expect(delivery.isAckOverdue(contract, inflight(1), since + first * 1000)).toBe(true);
+    // attempts=2 是第一次 no_ack 退回后又发出去的那一次：不能再用 60s 连续催。
+    expect(delivery.isAckOverdue(contract, inflight(2), since + first * 1000)).toBe(false);
+    expect(delivery.isAckOverdue(contract, inflight(2), since + deadline * 1000 - 1)).toBe(false);
+    expect(delivery.isAckOverdue(contract, inflight(2), since + deadline * 1000)).toBe(true);
+  });
+
+  test('缺了短窗就回退到长窗；短窗越过长窗就抛（旧契约兼容但不自洽要红）', () => {
+    const noFirst = { ...contract, delivery: { ...contract.delivery } };
+    delete noFirst.delivery.firstDeliveryAckDeadlineSeconds;
+    expect(delivery.firstDeliveryAckDeadlineSeconds(noFirst)).toBe(deadline);
+
+    const tooLong = {
+      ...contract,
+      delivery: { ...contract.delivery, firstDeliveryAckDeadlineSeconds: deadline },
+    };
+    expect(() => delivery.firstDeliveryAckDeadlineSeconds(tooLong)).toThrow(
+      /firstDeliveryAckDeadlineSeconds/,
+    );
+  });
+
   test('只有 delivering 才算超时：没发出去的（queued）与终态都不该被判成 no_ack', () => {
     const since = 1000 * 1000;
     const far = since + deadline * 1000 * 10;

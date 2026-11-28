@@ -274,6 +274,57 @@ void main() {
       expect(overdue('delivering', since + deadline * 1000), isTrue);
     });
 
+    test('首次投递走短窗、退回后的重发仍走长窗（T217-B）', () {
+      final first = deliveryFirstAckDeadlineSeconds(contract);
+      expect(
+        first,
+        contract.intOf(const ['delivery', 'firstDeliveryAckDeadlineSeconds']),
+      );
+      expect(first, greaterThan(0));
+      expect(first, lessThan(deadline));
+      final wait =
+          contract.intOf(const ['presence', 'longPoll', 'waitSeconds']) ?? 0;
+      final maxWait =
+          contract.intOf(const ['presence', 'longPoll', 'maxWaitSeconds']) ?? 0;
+      expect(first, greaterThanOrEqualTo(wait * 2));
+      expect(first, greaterThanOrEqualTo(maxWait + 10));
+
+      bool firstOverdue(int attempts, int nowMs) => isDeliveryAckOverdue(
+        contract,
+        state: 'delivering',
+        updatedAtMs: since,
+        nowMs: nowMs,
+        attempts: attempts,
+      );
+
+      expect(firstOverdue(1, since + first * 1000 - 1), isFalse);
+      expect(firstOverdue(1, since + first * 1000), isTrue);
+      // attempts=2 是第一次 no_ack 退回后又发出去的那一次：不能再用 60s 连续催，
+      // 否则一个短暂离线的客户端会被每 60s 重发一次。
+      expect(firstOverdue(2, since + first * 1000), isFalse);
+      expect(firstOverdue(2, since + deadline * 1000 - 1), isFalse);
+      expect(firstOverdue(2, since + deadline * 1000), isTrue);
+    });
+
+    test('缺了短窗就回退到长窗；短窗越过长窗就抛（旧契约兼容但不自洽要红）', () {
+      final noFirst = FnthinkContract({
+        ...contract.raw,
+        'delivery': Map<String, Object?>.from(
+          (contract.raw['delivery']! as Map).cast<String, Object?>(),
+        )..remove('firstDeliveryAckDeadlineSeconds'),
+      });
+      expect(deliveryFirstAckDeadlineSeconds(noFirst), deadline);
+
+      final tooLong = FnthinkContract({
+        ...contract.raw,
+        'delivery': {
+          ...(contract.raw['delivery']! as Map),
+          'firstDeliveryAckDeadlineSeconds': deadline,
+        },
+      });
+      expect(() => deliveryFirstAckDeadlineSeconds(tooLong), throwsStateError);
+    });
+
     test('只有 delivering 才算超时：没发出去的与终态都不该被判成 no_ack', () {
       final far = since + deadline * 1000 * 10;
       for (final state in [

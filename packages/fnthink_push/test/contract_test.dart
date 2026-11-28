@@ -333,6 +333,50 @@ void main() {
     expect(c.validate(), isEmpty);
   });
 
+  test('首次投递短窗：存在、盖住最长 hold、严格小于长窗（T217-B）', () {
+    final first = c.intOf(const [
+      'delivery',
+      'firstDeliveryAckDeadlineSeconds',
+    ]);
+    final ack = c.intOf(const ['delivery', 'ackDeadlineSeconds'])!;
+    final wait = c.intOf(const ['presence', 'longPoll', 'waitSeconds']) ?? 0;
+    final maxWait =
+        c.intOf(const ['presence', 'longPoll', 'maxWaitSeconds']) ?? 0;
+    expect(first, isNotNull);
+    expect(first, greaterThan(0));
+    expect(first, lessThan(ack));
+    expect(first, greaterThanOrEqualTo(maxWait + 10));
+    expect(first, greaterThanOrEqualTo(wait * 2));
+
+    bool reports(FnthinkContract broken, String needle) =>
+        broken.validate().any((p) => p.contains(needle));
+
+    expect(
+      reports(
+        edited(['delivery', 'firstDeliveryAckDeadlineSeconds'], null),
+        'firstDeliveryAckDeadlineSeconds',
+      ),
+      isTrue,
+      reason: '删掉短窗 ⇒ 首次丢响应仍等长窗，必须判红',
+    );
+    expect(
+      reports(
+        edited(['delivery', 'firstDeliveryAckDeadlineSeconds'], maxWait),
+        'firstDeliveryAckDeadlineSeconds',
+      ),
+      isTrue,
+      reason: '短窗短于最长 hold ⇒ 正常长轮询被误判成丢 ack',
+    );
+    expect(
+      reports(
+        edited(['delivery', 'firstDeliveryAckDeadlineSeconds'], ack),
+        'firstDeliveryAckDeadlineSeconds',
+      ),
+      isTrue,
+      reason: '短窗等于/越过长窗 ⇒ 这一档没有意义',
+    );
+  });
+
   test('心跳与 longPoll hold 严格小于边缘回源超时（EdgeOne 60s / Cloudflare 100s）', () {
     final edgeone = c.intOf(const [
       'presence',
