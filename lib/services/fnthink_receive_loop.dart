@@ -291,7 +291,9 @@ class FnthinkReceiveLoop {
             // `_timer = schedule(...)`（代际没变，不存在第二个 `_tick`）。
             if (_wakePending) {
               _wakePending = false;
-              if (report.status == FnthinkPollStatus.ok && !report.skipped && !serverBackoff) {
+              if (report.status == FnthinkPollStatus.ok &&
+                  !report.skipped &&
+                  !serverBackoff) {
                 next = Duration.zero;
               }
             }

@@ -540,11 +540,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
       expect(cancelCalls, 0);
-      expect(
-        scheduled,
-        [Duration.zero],
-        reason: '门铃那一笔在收尾时兑现：立刻补一轮，而不是等常态间隔',
-      );
+      expect(scheduled, [Duration.zero], reason: '门铃那一笔在收尾时兑现：立刻补一轮，而不是等常态间隔');
       loop.stop();
     });
 
